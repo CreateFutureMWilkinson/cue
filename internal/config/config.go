@@ -119,47 +119,16 @@ func defaultConfig() *Config {
 	}
 }
 
-const defaultTOML = `[database]
-path = "~/.cue/messages.db"
-
-[slack]
-enabled = true
-bot_token = ""
-workspace_id = ""
-poll_interval_seconds = 600
-
-[email]
-enabled = true
-imap_host = "imap.gmail.com"
-imap_port = 993
-username = ""
-password_env = "CUE_EMAIL_PASSWORD"
-poll_interval_seconds = 600
-
-[orchestrator.router]
-importance_threshold = 7
-confidence_threshold = 0.8
-buffer_size_per_source = 100
-
-[ollama]
-host = "localhost"
-port = 11434
-inference_model = "neural-chat"
-embedding_model = "nomic-embed-text"
-timeout_seconds = 10
-
-[notification]
-audio_enabled = true
-batch_process = true
-
-[gui]
-host = "localhost"
-port = 8080
-
-[logging]
-log_level = "info"
-log_dir = ""
-`
+// generateDefaultTOML creates the default TOML content from the default config.
+func generateDefaultTOML() (string, error) {
+	cfg := defaultConfig()
+	var buf strings.Builder
+	encoder := toml.NewEncoder(&buf)
+	if err := encoder.Encode(cfg); err != nil {
+		return "", fmt.Errorf("generating default TOML: %w", err)
+	}
+	return buf.String(), nil
+}
 
 // Load reads the TOML config at the given path. If the file does not exist,
 // it creates the parent directories, writes a default config, and returns it.
@@ -168,6 +137,12 @@ func Load(path string) (*Config, error) {
 		if mkErr := os.MkdirAll(filepath.Dir(path), 0755); mkErr != nil {
 			return nil, fmt.Errorf("creating config directory: %w", mkErr)
 		}
+
+		defaultTOML, genErr := generateDefaultTOML()
+		if genErr != nil {
+			return nil, fmt.Errorf("generating default config: %w", genErr)
+		}
+
 		if wErr := os.WriteFile(path, []byte(defaultTOML), 0644); wErr != nil {
 			return nil, fmt.Errorf("writing default config: %w", wErr)
 		}
@@ -201,31 +176,30 @@ func expandTilde(path, home string) string {
 	return path
 }
 
+// validationRule represents a single validation rule.
+type validationRule struct {
+	fieldName string
+	check     func(*Config) bool
+	errorMsg  string
+}
+
 // Validate checks that required configuration fields are set correctly.
 func (c *Config) Validate() error {
-	if c.Database.Path == "" {
-		return fmt.Errorf("database.path must not be empty")
+	rules := []validationRule{
+		{"database.path", func(cfg *Config) bool { return cfg.Database.Path != "" }, "database.path must not be empty"},
+		{"ollama.host", func(cfg *Config) bool { return cfg.Ollama.Host != "" }, "ollama.host must not be empty"},
+		{"ollama.port", func(cfg *Config) bool { return cfg.Ollama.Port > 0 }, "ollama.port must be greater than 0"},
+		{"ollama.inference_model", func(cfg *Config) bool { return cfg.Ollama.InferenceModel != "" }, "ollama.inference_model must not be empty"},
+		{"ollama.embedding_model", func(cfg *Config) bool { return cfg.Ollama.EmbeddingModel != "" }, "ollama.embedding_model must not be empty"},
+		{"slack.poll_interval_seconds", func(cfg *Config) bool { return cfg.Slack.PollIntervalSeconds >= 0 }, "slack.poll_interval_seconds must not be negative"},
+		{"email.poll_interval_seconds", func(cfg *Config) bool { return cfg.Email.PollIntervalSeconds >= 0 }, "email.poll_interval_seconds must not be negative"},
+		{"gui.port", func(cfg *Config) bool { return cfg.GUI.Port > 0 }, "gui.port must be greater than 0"},
 	}
-	if c.Ollama.Host == "" {
-		return fmt.Errorf("ollama.host must not be empty")
-	}
-	if c.Ollama.Port <= 0 {
-		return fmt.Errorf("ollama.port must be greater than 0")
-	}
-	if c.Ollama.InferenceModel == "" {
-		return fmt.Errorf("ollama.inference_model must not be empty")
-	}
-	if c.Ollama.EmbeddingModel == "" {
-		return fmt.Errorf("ollama.embedding_model must not be empty")
-	}
-	if c.Slack.PollIntervalSeconds < 0 {
-		return fmt.Errorf("slack.poll_interval_seconds must not be negative")
-	}
-	if c.Email.PollIntervalSeconds < 0 {
-		return fmt.Errorf("email.poll_interval_seconds must not be negative")
-	}
-	if c.GUI.Port <= 0 {
-		return fmt.Errorf("gui.port must be greater than 0")
+
+	for _, rule := range rules {
+		if !rule.check(c) {
+			return fmt.Errorf("%s", rule.errorMsg)
+		}
 	}
 	return nil
 }

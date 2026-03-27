@@ -316,9 +316,9 @@ func (s *RouterSuite) TestRouteBatch_MixedMessages() {
 	results, err := r.RouteBatch(context.Background(), msgs)
 	s.NoError(err)
 	s.Len(results, 3)
-	s.Equal(9.0, results[0].ImportanceScore)  // channel_join
-	s.Equal(8.0, results[1].ImportanceScore)  // @mention
-	s.Equal("Notified", results[2].Status)    // scorer
+	s.Equal(9.0, results[0].ImportanceScore) // channel_join
+	s.Equal(8.0, results[1].ImportanceScore) // @mention
+	s.Equal("Notified", results[2].Status)   // scorer
 }
 
 func (s *RouterSuite) TestRouteBatch_EmptySlice() {
@@ -343,8 +343,8 @@ func (s *RouterSuite) TestRouteBatch_ScorerFailureDoesNotAbortBatch() {
 	results, err := r.RouteBatch(context.Background(), msgs)
 	s.NoError(err)
 	s.Len(results, 2)
-	s.Equal("Buffered", results[0].Status)   // fallback
-	s.Equal("Notified", results[1].Status)   // deterministic
+	s.Equal("Buffered", results[0].Status) // fallback
+	s.Equal("Notified", results[1].Status) // deterministic
 }
 
 // --- No sender-based rules ---

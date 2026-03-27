@@ -10,19 +10,19 @@ import (
 // Message represents a message event stored in the database.
 type Message struct {
 	ID              uuid.UUID
-	Source          string    // "email" | "slack"
+	Source          string // "email" | "slack"
 	SourceAccount   string
 	Channel         string
 	Sender          string
-	MessageID       string    // Source-native message ID
-	MessageType     string    // "message", "channel_join", etc.
+	MessageID       string // Source-native message ID
+	MessageType     string // "message", "channel_join", etc.
 	RawContent      string
-	ImportanceScore float64   // 0–10
-	ConfidenceScore float64   // 0.0–1.0
-	Status          string    // "Pending", "Notified", "Buffered", "Ignored", "Resolved"
+	ImportanceScore float64 // 0–10
+	ConfidenceScore float64 // 0.0–1.0
+	Status          string  // "Pending", "Notified", "Buffered", "Ignored", "Resolved"
 	Reasoning       string
-	UserRating      *int      // nullable
-	UserFeedback    *string   // nullable
+	UserRating      *int       // nullable
+	UserFeedback    *string    // nullable
 	VectorID        *uuid.UUID // nullable
 	CreatedAt       time.Time
 	UpdatedAt       time.Time

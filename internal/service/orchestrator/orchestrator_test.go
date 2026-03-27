@@ -129,15 +129,15 @@ func makeMessages(source string, n int) []*repository.Message {
 	msgs := make([]*repository.Message, n)
 	for i := range n {
 		msgs[i] = &repository.Message{
-			ID:        uuid.New(),
-			Source:    source,
-			Channel:  fmt.Sprintf("channel-%d", i),
-			Sender:   fmt.Sprintf("user-%d", i),
-			MessageID: fmt.Sprintf("%s-msg-%d", source, i),
+			ID:         uuid.New(),
+			Source:     source,
+			Channel:    fmt.Sprintf("channel-%d", i),
+			Sender:     fmt.Sprintf("user-%d", i),
+			MessageID:  fmt.Sprintf("%s-msg-%d", source, i),
 			RawContent: fmt.Sprintf("message content %d", i),
-			Status:    "Pending",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			Status:     "Pending",
+			CreatedAt:  time.Now(),
+			UpdatedAt:  time.Now(),
 		}
 	}
 	return msgs

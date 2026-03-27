@@ -88,7 +88,7 @@ func defaultConfig() *Config {
 			Enabled:             true,
 			IMAPHost:            "imap.gmail.com",
 			IMAPPort:            993,
-			PasswordEnv:         "CUE_EMAIL_PASSWORD",
+			PasswordEnv:         "CUE_EMAIL_PASSWORD", // #nosec G101 -- env var name, not a credential
 			PollIntervalSeconds: 600,
 		},
 		Orchestrator: OrchestratorConfig{
@@ -134,7 +134,7 @@ func generateDefaultTOML() (string, error) {
 // it creates the parent directories, writes a default config, and returns it.
 func Load(path string) (*Config, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if mkErr := os.MkdirAll(filepath.Dir(path), 0755); mkErr != nil {
+		if mkErr := os.MkdirAll(filepath.Dir(path), 0750); mkErr != nil {
 			return nil, fmt.Errorf("creating config directory: %w", mkErr)
 		}
 
@@ -143,7 +143,7 @@ func Load(path string) (*Config, error) {
 			return nil, fmt.Errorf("generating default config: %w", genErr)
 		}
 
-		if wErr := os.WriteFile(path, []byte(defaultTOML), 0644); wErr != nil {
+		if wErr := os.WriteFile(path, []byte(defaultTOML), 0600); wErr != nil {
 			return nil, fmt.Errorf("writing default config: %w", wErr)
 		}
 		cfg := defaultConfig()

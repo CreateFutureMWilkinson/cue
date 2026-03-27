@@ -67,12 +67,12 @@ func NewSQLiteMessageRepository(dbPath string) (*SQLiteMessageRepository, error)
 	}
 
 	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("enable WAL mode: %w", err)
 	}
 
 	if _, err := db.Exec(createMessagesTable); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("create messages table: %w", err)
 	}
 

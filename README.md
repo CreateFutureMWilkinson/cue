@@ -11,7 +11,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 1 | Config loading + validation | Done |
 | 2 | Message data model (SQLite) | Done |
 | 3 | Deterministic routing rules | Done |
-| 4 | Ollama client + scoring | Planned |
+| 4 | Ollama client + scoring | Done |
 | 5 | Slack watcher | Planned |
 | 6 | Email watcher | Planned |
 | 7 | Router orchestration | Planned |

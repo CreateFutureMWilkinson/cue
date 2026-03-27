@@ -11,6 +11,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Breaking
+
 ### Added
 
 - **Config loading and validation** — TOML-based configuration at `~/.cue/config.toml` with safe defaults, auto-creation on first run, tilde expansion, and table-driven validation (Phase-1-Feature-1)
@@ -22,3 +24,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `MessageType` field on `Message` struct for distinguishing message event types
 - Agent team TDD workflow with test-designer, implementer, and refactorer agents
 - Agent log tracking duration and token usage per TDD phase
+- Validation pipelines
+
+### Changed
+
+### Removed
+
+### Fixed

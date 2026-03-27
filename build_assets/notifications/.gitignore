@@ -1,0 +1,4 @@
+# This directory is used to store assets used duing the build process that are not committed to git.
+
+*.mp3
+*.wav

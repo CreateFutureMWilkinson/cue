@@ -21,6 +21,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Ollama client scoring** — HTTP client implementing the Scorer interface for local Ollama LLM inference, with JSON prompt construction, markdown code block extraction, configurable timeout, and graceful error handling (Phase-1-Feature-4)
 - **Slack watcher polling** — Polls Slack channels for new messages, detects channel joins (IS=9), includes thread context for replies, tracks per-channel timestamps to avoid reprocessing (Phase-1-Feature-5)
 - **Email watcher polling** — Polls IMAP inbox for new messages, extracts sender/subject/folder/body, detects @mentions in To/CC/BCC (case-insensitive), tracks last-seen UID to avoid reprocessing (Phase-1-Feature-6)
+- **Router orchestration** — Coordinates watchers, router, and repository in batch polling loops with per-source goroutines, immediate first poll, configurable intervals, activity event emission, graceful error handling (individual store errors don't abort batch), and idempotent shutdown (Phase-1-Feature-7)
 - `MessageType` field on `Message` struct for distinguishing message event types
 - Agent team TDD workflow with test-designer, implementer, and refactorer agents
 - Agent log tracking duration and token usage per TDD phase

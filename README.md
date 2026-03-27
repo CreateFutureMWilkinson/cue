@@ -17,7 +17,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 4 | Ollama client + scoring | Done |
 | 5 | Slack watcher | Done |
 | 6 | Email watcher | Done |
-| 7 | Router orchestration | Planned |
+| 7 | Router orchestration | Done |
 | 8 | Vector integration (chromem-go) | Planned |
 | 9 | Feedback buffer | Planned |
 | 10 | Audio alerts | Planned |
@@ -49,7 +49,11 @@ Cue uses TOML configuration at `~/.cue/config.toml`. A default config is created
 
 - **Config** (`internal/config/`) — TOML loading, validation, defaults
 - **Repository** (`internal/repository/`) — Message persistence with SQLite (pure Go, no CGO)
-- **Decision Engine** (`internal/service/decisionengine/`) — Deterministic rules + scorer-based routing
+- **Decision Engine** (`internal/service/decisionengine/`) — Deterministic rules + scorer-based routing into three destinations:
+  - **Notified** (importance >= 7, confidence >= 0.8) — audio alert + GUI notification queue
+  - **Buffered** (importance >= 7, confidence < 0.8) — silent queue for manual review in feedback buffer
+  - **Ignored** (importance < 7) — logged to database, available for manual review
+- **Orchestrator** (`internal/service/orchestrator/`) — Coordinates watchers, router, and repository in batch polling loops (poll → route → store) with per-source goroutines and activity event emission
 - **Watchers** (`internal/service/watcher/`) — Slack and Email polling
 - **UI** (`internal/ui/`) — Fyne-based GUI (planned)
 

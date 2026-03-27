@@ -74,36 +74,20 @@ func (vs *VectorStore) QuerySimilar(ctx context.Context, queryText string, topN 
 		return nil, nil
 	}
 
-	type scored struct {
-		messageID uuid.UUID
-		score     float32
-	}
-
-	results := make([]scored, len(vs.vectors))
+	results := make([]SimilarResult, len(vs.vectors))
 	for i, v := range vs.vectors {
-		results[i] = scored{
-			messageID: v.messageID,
-			score:     cosineSimilarity(queryEmb, v.embedding),
+		results[i] = SimilarResult{
+			MessageID: v.messageID,
+			Score:     cosineSimilarity(queryEmb, v.embedding),
 		}
 	}
 
 	sort.Slice(results, func(i, j int) bool {
-		return results[i].score > results[j].score
+		return results[i].Score > results[j].Score
 	})
 
-	n := topN
-	if n > len(results) {
-		n = len(results)
-	}
-
-	out := make([]SimilarResult, n)
-	for i := 0; i < n; i++ {
-		out[i] = SimilarResult{
-			MessageID: results[i].messageID,
-			Score:     results[i].score,
-		}
-	}
-	return out, nil
+	n := min(topN, len(results))
+	return results[:n], nil
 }
 
 func cosineSimilarity(a, b []float32) float32 {

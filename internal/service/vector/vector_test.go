@@ -125,7 +125,7 @@ func (s *VectorStoreSuite) TestQuerySimilarReturnsTopN() {
 	ctx := context.Background()
 
 	// Store 5 messages with varying content.
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		_, err := vs.StoreEmbedding(ctx, uuid.New(), "message content "+string(rune('A'+i)))
 		s.Require().NoError(err)
 	}

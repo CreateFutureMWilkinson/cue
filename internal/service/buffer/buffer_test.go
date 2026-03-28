@@ -127,7 +127,7 @@ func (s *BufferServiceSuite) TestNewBufferService_ValidInputs() {
 func (s *BufferServiceSuite) TestGetBufferedMessages_SortsOldestFirst() {
 	now := time.Now()
 	msg1 := newTestMessage(uuid.New(), now.Add(-1*time.Hour)) // oldest
-	msg2 := newTestMessage(uuid.New(), now)                    // newest
+	msg2 := newTestMessage(uuid.New(), now)                   // newest
 	msg3 := newTestMessage(uuid.New(), now.Add(-30*time.Minute))
 
 	repo := &mockMessageRepo{

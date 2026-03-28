@@ -7,6 +7,11 @@ import (
 	"fyne.io/fyne/v2"
 )
 
+const (
+	// NoneCharacterName is the registry name for the no-op character.
+	NoneCharacterName = "none"
+)
+
 // Character defines the interface for an animated character in the UI.
 type Character interface {
 	Name() string
@@ -24,7 +29,7 @@ var (
 )
 
 func init() {
-	registry["none"] = func() Character { return NewNoOpCharacter() }
+	registry[NoneCharacterName] = func() Character { return NewNoOpCharacter() }
 }
 
 // Register adds a named character factory to the registry.
@@ -61,6 +66,6 @@ func ResetRegistry() {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	registry = map[string]CharacterFactory{
-		"none": func() Character { return NewNoOpCharacter() },
+		NoneCharacterName: func() Character { return NewNoOpCharacter() },
 	}
 }

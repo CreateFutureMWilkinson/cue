@@ -20,7 +20,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 7 | Router orchestration | Done |
 | 8 | Vector integration (chromem-go) | Done |
 | 9 | Feedback buffer | Done |
-| 10 | Audio alerts | Planned |
+| 10 | Audio alerts | Done |
 | 11 | Fyne GUI | Planned |
 
 ## Requirements
@@ -55,6 +55,7 @@ Cue uses TOML configuration at `~/.cue/config.toml`. A default config is created
   - **Ignored** (importance < 7) — logged to database, available for manual review
 - **Orchestrator** (`internal/service/orchestrator/`) — Coordinates watchers, router, and repository in batch polling loops (poll → route → store) with per-source goroutines and activity event emission
 - **Watchers** (`internal/service/watcher/`) — Slack and Email polling
+- **Alert** (`internal/alert/`) — Cross-platform audio alerts via `beeep` with cooldown
 - **UI** (`internal/ui/`) — Fyne-based GUI (planned)
 
 ## Development

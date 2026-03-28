@@ -7,6 +7,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/gen2brain/beeep v0.11.2
 	github.com/google/uuid v1.6.0
+	github.com/gopxl/beep/v2 v2.1.1
 	github.com/stretchr/testify v1.11.1
 	modernc.org/sqlite v1.47.0
 )
@@ -31,7 +32,6 @@ require (
 	github.com/go-text/render v0.2.0 // indirect
 	github.com/go-text/typesetting v0.3.3 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
-	github.com/gopxl/beep/v2 v2.1.1 // indirect
 	github.com/hack-pad/go-indexeddb v0.3.2 // indirect
 	github.com/hack-pad/safejs v0.1.0 // indirect
 	github.com/hajimehoshi/go-mp3 v0.3.4 // indirect

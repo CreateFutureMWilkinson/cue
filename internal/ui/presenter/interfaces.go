@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 )
 
@@ -30,4 +32,11 @@ type ActivityEntry struct {
 
 type ActivitySource interface {
 	Events() <-chan ActivityEvent
+}
+
+type BufferReviewer interface {
+	GetBufferedMessages(ctx context.Context) ([]*repository.Message, error)
+	CountBuffered(ctx context.Context) (int, error)
+	SaveRating(ctx context.Context, messageID uuid.UUID, rating int, feedback *string) error
+	DeleteMessage(ctx context.Context, messageID uuid.UUID) error
 }

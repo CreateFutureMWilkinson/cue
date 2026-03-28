@@ -12,7 +12,12 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
 
-const refreshInterval = 30 * time.Second
+const (
+	// refreshInterval is how often the UI refreshes notification content.
+	refreshInterval = 30 * time.Second
+	// splitOffset is the default position of the horizontal split pane.
+	splitOffset = 0.5
+)
 
 // MainWindow holds the Fyne application and its primary window.
 type MainWindow struct {
@@ -48,7 +53,7 @@ func NewMainWindow(
 	}
 
 	topSplit := container.NewHSplit(notifList, rightPane)
-	topSplit.SetOffset(0.5)
+	topSplit.SetOffset(splitOffset)
 
 	reviewBtn := widget.NewButton("Review Buffered", func() {
 		showFeedbackReview(fp, fyneApp)

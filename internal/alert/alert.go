@@ -14,6 +14,12 @@ import (
 	"github.com/gen2brain/beeep"
 )
 
+const (
+	// Volume limits for audio playback
+	minVolume = 0
+	maxVolume = 100
+)
+
 // supportedExtensions lists audio file extensions that can be played.
 var supportedExtensions = map[string]bool{
 	".mp3": true,
@@ -99,13 +105,18 @@ func (a *AlertService) SetNowFunc(fn func() time.Time) {
 func (a *AlertService) SetVolume(volume int) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if volume < 0 {
-		volume = 0
+	a.volume = clampVolume(volume)
+}
+
+// clampVolume ensures volume is within the valid range.
+func clampVolume(volume int) int {
+	if volume < minVolume {
+		return minVolume
 	}
-	if volume > 100 {
-		volume = 100
+	if volume > maxVolume {
+		return maxVolume
 	}
-	a.volume = volume
+	return volume
 }
 
 // PlayNotification plays a notification alert with configurable cooldown.
@@ -171,12 +182,12 @@ func (a *AlertService) selectAudioFile() (string, int, error) {
 		return "", 0, fmt.Errorf("no supported audio files found")
 	}
 
-	n, err := rand.Int(rand.Reader, big.NewInt(int64(len(supportedFiles))))
+	randomIndex, err := rand.Int(rand.Reader, big.NewInt(int64(len(supportedFiles))))
 	if err != nil {
-		return "", 0, fmt.Errorf("generating random index: %w", err)
+		return "", 0, fmt.Errorf("generating secure random index for audio file selection: %w", err)
 	}
-	chosen := supportedFiles[n.Int64()]
-	path := filepath.Join(a.cfg.AudioDir, chosen)
+	selectedFile := supportedFiles[randomIndex.Int64()]
+	path := filepath.Join(a.cfg.AudioDir, selectedFile)
 
 	a.mu.Lock()
 	volume := a.volume
@@ -186,24 +197,34 @@ func (a *AlertService) selectAudioFile() (string, int, error) {
 }
 
 // filterSupportedAudioFiles returns filenames with supported audio extensions.
+// Rejects path traversal attempts and directories for security.
 func (a *AlertService) filterSupportedAudioFiles(entries []fs.DirEntry) []string {
 	cleanDir := filepath.Clean(a.cfg.AudioDir)
 	var supported []string
+
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
-		name := entry.Name()
-		joined := filepath.Clean(filepath.Join(cleanDir, name))
-		if !strings.HasPrefix(joined, cleanDir+string(filepath.Separator)) {
+
+		filename := entry.Name()
+		if !isSafeAudioFile(cleanDir, filename) {
 			continue
 		}
-		ext := strings.ToLower(filepath.Ext(name))
+
+		ext := strings.ToLower(filepath.Ext(filename))
 		if supportedExtensions[ext] {
-			supported = append(supported, name)
+			supported = append(supported, filename)
 		}
 	}
 	return supported
+}
+
+// isSafeAudioFile validates that a filename is safe from path traversal attacks.
+func isSafeAudioFile(audioDir, filename string) bool {
+	resolvedPath := filepath.Clean(filepath.Join(audioDir, filename))
+	expectedPrefix := audioDir + string(filepath.Separator)
+	return strings.HasPrefix(resolvedPath, expectedPrefix)
 }
 
 // fallbackBeep plays the configured fallback tone via the beeper.

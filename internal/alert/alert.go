@@ -108,54 +108,91 @@ func (a *AlertService) SetVolume(volume int) {
 }
 
 // PlayNotification plays a notification alert with configurable cooldown.
+// File playback runs asynchronously to avoid blocking; if playback fails,
+// it falls back to a beep tone.
 func (a *AlertService) PlayNotification(ctx context.Context) error {
 	if !a.cfg.AudioEnabled {
 		return nil
 	}
 
-	a.mu.Lock()
-	now := a.now()
-	cooldown := time.Duration(a.cfg.AudioCooldownSeconds) * time.Second
-	if !a.lastAlert.IsZero() && now.Sub(a.lastAlert) < cooldown {
-		a.mu.Unlock()
+	// Check cooldown and update last alert time under lock
+	if !a.shouldPlayAlert() {
 		return nil
 	}
-	a.lastAlert = now
-	volume := a.volume
-	a.mu.Unlock()
 
-	// Try file playback.
-	if a.cfg.AudioDir == "" || a.player == nil {
-		return a.fallbackBeep()
-	}
-
-	entries, err := a.fs.ReadDir(a.cfg.AudioDir)
+	// Try file playback first, fall back to beep if unavailable
+	audioFile, volume, err := a.selectAudioFile()
 	if err != nil {
 		return a.fallbackBeep()
 	}
 
-	var supported []string
-	for _, entry := range entries {
-		ext := strings.ToLower(filepath.Ext(entry.Name()))
-		if supportedExtensions[ext] {
-			supported = append(supported, entry.Name())
-		}
-	}
-
-	if len(supported) == 0 {
-		return a.fallbackBeep()
-	}
-
-	chosen := supported[rand.IntN(len(supported))]
-	path := filepath.Join(a.cfg.AudioDir, chosen)
-
+	// Play audio file asynchronously to avoid blocking
+	// If file playback fails, fallback beep runs synchronously
 	go func() {
-		if playErr := a.player.PlayFile(path, volume); playErr != nil {
+		if playErr := a.player.PlayFile(audioFile, volume); playErr != nil {
 			_ = a.fallbackBeep()
 		}
 	}()
 
 	return nil
+}
+
+// shouldPlayAlert checks cooldown and updates last alert time if allowed.
+// Returns true if alert should play, false if still in cooldown.
+func (a *AlertService) shouldPlayAlert() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	now := a.now()
+	cooldown := time.Duration(a.cfg.AudioCooldownSeconds) * time.Second
+	if !a.lastAlert.IsZero() && now.Sub(a.lastAlert) < cooldown {
+		return false
+	}
+
+	a.lastAlert = now
+	return true
+}
+
+// selectAudioFile chooses a random supported audio file from the configured directory.
+// Returns the full file path, current volume setting, and any error encountered.
+func (a *AlertService) selectAudioFile() (string, int, error) {
+	if a.cfg.AudioDir == "" || a.player == nil {
+		return "", 0, fmt.Errorf("audio directory or player not configured")
+	}
+
+	entries, err := a.fs.ReadDir(a.cfg.AudioDir)
+	if err != nil {
+		return "", 0, fmt.Errorf("reading audio directory: %w", err)
+	}
+
+	supportedFiles := a.filterSupportedAudioFiles(entries)
+	if len(supportedFiles) == 0 {
+		return "", 0, fmt.Errorf("no supported audio files found")
+	}
+
+	chosen := supportedFiles[rand.IntN(len(supportedFiles))]
+	path := filepath.Join(a.cfg.AudioDir, chosen)
+
+	a.mu.Lock()
+	volume := a.volume
+	a.mu.Unlock()
+
+	return path, volume, nil
+}
+
+// filterSupportedAudioFiles returns filenames with supported audio extensions.
+func (a *AlertService) filterSupportedAudioFiles(entries []fs.DirEntry) []string {
+	var supported []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if supportedExtensions[ext] {
+			supported = append(supported, entry.Name())
+		}
+	}
+	return supported
 }
 
 // fallbackBeep plays the configured fallback tone via the beeper.

@@ -43,7 +43,7 @@ func NewBufferService(repo MessageRepository, embedder VectorEmbedder) (*BufferS
 func (bs *BufferService) GetBufferedMessages(ctx context.Context) ([]*repository.Message, error) {
 	msgs, err := bs.repo.QueryByStatus(ctx, "Buffered")
 	if err != nil {
-		return nil, fmt.Errorf("querying buffered messages: %w", err)
+		return nil, fmt.Errorf("buffer: querying buffered messages: %w", err)
 	}
 	slices.SortFunc(msgs, func(a, b *repository.Message) int {
 		return a.CreatedAt.Compare(b.CreatedAt)
@@ -55,7 +55,7 @@ func (bs *BufferService) GetBufferedMessages(ctx context.Context) ([]*repository
 func (bs *BufferService) CountBuffered(ctx context.Context) (int, error) {
 	msgs, err := bs.repo.QueryByStatus(ctx, "Buffered")
 	if err != nil {
-		return 0, fmt.Errorf("counting buffered messages: %w", err)
+		return 0, fmt.Errorf("buffer: counting buffered messages: %w", err)
 	}
 	return len(msgs), nil
 }
@@ -63,34 +63,20 @@ func (bs *BufferService) CountBuffered(ctx context.Context) (int, error) {
 // SaveRating applies a user rating (0-10) and optional feedback to a buffered message.
 func (bs *BufferService) SaveRating(ctx context.Context, messageID uuid.UUID, rating int, feedback *string) error {
 	if rating < 0 || rating > 10 {
-		return fmt.Errorf("rating must be 0-10, got %d", rating)
+		return fmt.Errorf("buffer: rating must be 0-10, got %d", rating)
 	}
 
-	msgs, err := bs.repo.QueryByStatus(ctx, "Buffered")
+	msg, err := bs.findBufferedByID(ctx, messageID)
 	if err != nil {
-		return fmt.Errorf("querying buffered messages: %w", err)
+		return fmt.Errorf("buffer: %w", err)
 	}
 
-	var msg *repository.Message
-	for _, m := range msgs {
-		if m.ID == messageID {
-			msg = m
-			break
-		}
-	}
-	if msg == nil {
-		return fmt.Errorf("message %s not found in buffer", messageID)
-	}
-
-	now := time.Now()
-	msg.Status = "Resolved"
+	bs.markResolved(msg)
 	msg.UserRating = &rating
 	msg.UserFeedback = feedback
-	msg.ResolvedAt = &now
-	msg.UpdatedAt = now
 
 	if err := bs.repo.Update(ctx, msg); err != nil {
-		return fmt.Errorf("updating message rating: %w", err)
+		return fmt.Errorf("buffer: updating message rating: %w", err)
 	}
 
 	if bs.embedder != nil {
@@ -106,30 +92,41 @@ func (bs *BufferService) SaveRating(ctx context.Context, messageID uuid.UUID, ra
 
 // DeleteMessage marks a buffered message as resolved without rating.
 func (bs *BufferService) DeleteMessage(ctx context.Context, messageID uuid.UUID) error {
+	msg, err := bs.findBufferedByID(ctx, messageID)
+	if err != nil {
+		return fmt.Errorf("buffer: %w", err)
+	}
+
+	bs.markResolved(msg)
+
+	if err := bs.repo.Update(ctx, msg); err != nil {
+		return fmt.Errorf("buffer: deleting message: %w", err)
+	}
+
+	return nil
+}
+
+// findBufferedByID searches for a buffered message by ID and returns it.
+// Returns an error if the message is not found or the repository query fails.
+func (bs *BufferService) findBufferedByID(ctx context.Context, messageID uuid.UUID) (*repository.Message, error) {
 	msgs, err := bs.repo.QueryByStatus(ctx, "Buffered")
 	if err != nil {
-		return fmt.Errorf("querying buffered messages: %w", err)
+		return nil, fmt.Errorf("querying buffered messages: %w", err)
 	}
 
-	var msg *repository.Message
 	for _, m := range msgs {
 		if m.ID == messageID {
-			msg = m
-			break
+			return m, nil
 		}
 	}
-	if msg == nil {
-		return fmt.Errorf("message %s not found in buffer", messageID)
-	}
 
+	return nil, fmt.Errorf("message %s not found in buffer", messageID)
+}
+
+// markResolved sets the message status to "Resolved" and updates timestamps.
+func (bs *BufferService) markResolved(msg *repository.Message) {
 	now := time.Now()
 	msg.Status = "Resolved"
 	msg.ResolvedAt = &now
 	msg.UpdatedAt = now
-
-	if err := bs.repo.Update(ctx, msg); err != nil {
-		return fmt.Errorf("deleting message: %w", err)
-	}
-
-	return nil
 }

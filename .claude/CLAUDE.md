@@ -224,8 +224,8 @@ audio_enabled = true
 batch_process = true
 
 [gui]
-host = "localhost"
-port = 8080
+window_width = 1200
+window_height = 800
 
 [logging]
 log_level = "info"

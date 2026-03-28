@@ -2,9 +2,10 @@ package alert
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io/fs"
-	"math/rand/v2"
+	"math/big"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -170,7 +171,11 @@ func (a *AlertService) selectAudioFile() (string, int, error) {
 		return "", 0, fmt.Errorf("no supported audio files found")
 	}
 
-	chosen := supportedFiles[rand.IntN(len(supportedFiles))]
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(len(supportedFiles))))
+	if err != nil {
+		return "", 0, fmt.Errorf("generating random index: %w", err)
+	}
+	chosen := supportedFiles[n.Int64()]
 	path := filepath.Join(a.cfg.AudioDir, chosen)
 
 	a.mu.Lock()
@@ -182,14 +187,20 @@ func (a *AlertService) selectAudioFile() (string, int, error) {
 
 // filterSupportedAudioFiles returns filenames with supported audio extensions.
 func (a *AlertService) filterSupportedAudioFiles(entries []fs.DirEntry) []string {
+	cleanDir := filepath.Clean(a.cfg.AudioDir)
 	var supported []string
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
-		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		name := entry.Name()
+		joined := filepath.Clean(filepath.Join(cleanDir, name))
+		if !strings.HasPrefix(joined, cleanDir+string(filepath.Separator)) {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(name))
 		if supportedExtensions[ext] {
-			supported = append(supported, entry.Name())
+			supported = append(supported, name)
 		}
 	}
 	return supported

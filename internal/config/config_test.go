@@ -61,8 +61,8 @@ audio_enabled = false
 batch_process = false
 
 [gui]
-host = "0.0.0.0"
-port = 9090
+window_width = 1920
+window_height = 1080
 
 [logging]
 log_level = "debug"
@@ -109,8 +109,8 @@ log_dir = "/var/log/cue"
 	s.False(cfg.Notification.BatchProcess)
 
 	// GUI
-	s.Equal("0.0.0.0", cfg.GUI.Host)
-	s.Equal(9090, cfg.GUI.Port)
+	s.Equal(1920, cfg.GUI.WindowWidth)
+	s.Equal(1080, cfg.GUI.WindowHeight)
 
 	// Logging
 	s.Equal("debug", cfg.Logging.LogLevel)
@@ -165,8 +165,8 @@ func (s *ConfigSuite) TestCreateDefaultConfigIfMissing() {
 	s.True(cfg.Notification.AudioEnabled)
 	s.True(cfg.Notification.BatchProcess)
 
-	s.Equal("localhost", cfg.GUI.Host)
-	s.Equal(8080, cfg.GUI.Port)
+	s.Equal(1200, cfg.GUI.WindowWidth)
+	s.Equal(800, cfg.GUI.WindowHeight)
 
 	s.Equal("info", cfg.Logging.LogLevel)
 	s.Empty(cfg.Logging.LogDir)
@@ -258,7 +258,7 @@ timeout_seconds = 10
 			errMsg: "ollama.embedding_model",
 		},
 		{
-			name: "zero gui port",
+			name: "zero gui window_width",
 			toml: `
 [database]
 path = "/tmp/db.sqlite"
@@ -271,10 +271,29 @@ embedding_model = "nomic-embed-text"
 timeout_seconds = 10
 
 [gui]
-host = "localhost"
-port = 0
+window_width = 0
+window_height = 800
 `,
-			errMsg: "gui.port",
+			errMsg: "gui.window_width",
+		},
+		{
+			name: "zero gui window_height",
+			toml: `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[gui]
+window_width = 1200
+window_height = 0
+`,
+			errMsg: "gui.window_height",
 		},
 		{
 			name: "negative poll interval slack",

@@ -162,8 +162,10 @@ func (p *BeepPlayer) openWithRootDir(path string) (*os.File, error) {
 }
 
 // openDirect opens a file directly using os.Open.
+// Only used when no audioDir is configured (e.g., unit tests).
+// Production code always uses openWithRootDir via os.OpenRoot.
 func (p *BeepPlayer) openDirect(path string) (*os.File, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- fallback for tests; production uses os.Root
 	if err != nil {
 		return nil, fmt.Errorf("opening file: %w", err)
 	}

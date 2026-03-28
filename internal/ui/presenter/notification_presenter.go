@@ -11,8 +11,12 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 )
 
-const truncateLen = 15
-const previewLen = 80
+const (
+	truncateLen    = 15
+	previewLen     = 80
+	statusNotified = "Notified"
+	statusResolved = "Resolved"
+)
 
 type NotificationRow struct {
 	Source  string
@@ -49,7 +53,7 @@ func NewNotificationPresenter(querier MessageQuerier, updater MessageUpdater) (*
 }
 
 func (p *NotificationPresenter) Refresh(ctx context.Context) error {
-	msgs, err := p.querier.QueryByStatus(ctx, "Notified")
+	msgs, err := p.querier.QueryByStatus(ctx, statusNotified)
 	if err != nil {
 		return fmt.Errorf("refresh: %w", err)
 	}
@@ -88,28 +92,30 @@ func (p *NotificationPresenter) Select(index int) (*NotificationDetail, error) {
 }
 
 func (p *NotificationPresenter) Resolve(ctx context.Context, id uuid.UUID) error {
-	var target *repository.Message
-	var targetIdx int
+	idx := -1
 	for i, m := range p.messages {
 		if m.ID == id {
-			target = m
-			targetIdx = i
+			idx = i
 			break
 		}
 	}
-	if target == nil {
+	if idx == -1 {
 		return fmt.Errorf("resolve: message %s not found", id)
 	}
 
+	msg := p.messages[idx]
 	now := time.Now()
-	target.Status = "Resolved"
-	target.ResolvedAt = &now
+	msg.Status = statusResolved
+	msg.ResolvedAt = &now
 
-	if err := p.updater.Update(ctx, target); err != nil {
+	if err := p.updater.Update(ctx, msg); err != nil {
+		// Undo in-memory mutation so the presenter stays consistent on failure.
+		msg.Status = statusNotified
+		msg.ResolvedAt = nil
 		return fmt.Errorf("resolve: %w", err)
 	}
 
-	p.messages = append(p.messages[:targetIdx], p.messages[targetIdx+1:]...)
+	p.messages = append(p.messages[:idx], p.messages[idx+1:]...)
 	return nil
 }
 

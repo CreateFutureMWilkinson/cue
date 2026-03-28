@@ -48,7 +48,7 @@ internal/
     watcher/           SlackWatcher + EmailWatcher (poll interfaces, not real API clients yet)
     buffer/            Feedback buffer — review, rate 0–10, optional vector embedding
     vector/            In-memory vector store with cosine similarity
-  alert/               Audio alerts (test file only, no implementation yet)
+  alert/               Configurable audio alerts (file playback + beeep fallback)
   ui/                  GUI placeholder (not implemented)
 ```
 

@@ -100,7 +100,7 @@ func run() error {
 		},
 		alert.NewBeeepBeeper(),
 		&osFileSystem{},
-		nil, // no AudioPlayer yet — will use beeep fallback
+		alert.NewBeepPlayer(),
 	)
 	if err != nil {
 		return fmt.Errorf("creating alert service: %w", err)

@@ -71,6 +71,7 @@ Importance is NEVER determined by sender identity.
 ## Hard Constraints
 
 - **SQLite driver:** `modernc.org/sqlite` only. Never `mattn/go-sqlite3` (CGO).
+- **Audio playback:** `gopxl/beep/v2` (requires CGO via `ebitengine/oto/v3`). This is the sole CGO exception — all other dependencies must be pure Go.
 - **LLM:** Local Ollama only. No hosted/cloud LLM providers ever.
 - **Config:** TOML only (`~/.cue/config.toml`). No hardcoded values or CLI feature flags.
 - **Testing:** All tests use testify `suite.Suite` in `_test` package suffix. TDD (red-green-refactor) required.

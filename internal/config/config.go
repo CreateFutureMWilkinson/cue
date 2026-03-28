@@ -178,23 +178,22 @@ func expandTilde(path, home string) string {
 
 // validationRule represents a single validation rule.
 type validationRule struct {
-	fieldName string
-	check     func(*Config) bool
-	errorMsg  string
+	check    func(*Config) bool
+	errorMsg string
 }
 
 // Validate checks that required configuration fields are set correctly.
 func (c *Config) Validate() error {
 	rules := []validationRule{
-		{"database.path", func(cfg *Config) bool { return cfg.Database.Path != "" }, "database.path must not be empty"},
-		{"ollama.host", func(cfg *Config) bool { return cfg.Ollama.Host != "" }, "ollama.host must not be empty"},
-		{"ollama.port", func(cfg *Config) bool { return cfg.Ollama.Port > 0 }, "ollama.port must be greater than 0"},
-		{"ollama.inference_model", func(cfg *Config) bool { return cfg.Ollama.InferenceModel != "" }, "ollama.inference_model must not be empty"},
-		{"ollama.embedding_model", func(cfg *Config) bool { return cfg.Ollama.EmbeddingModel != "" }, "ollama.embedding_model must not be empty"},
-		{"slack.poll_interval_seconds", func(cfg *Config) bool { return cfg.Slack.PollIntervalSeconds >= 0 }, "slack.poll_interval_seconds must not be negative"},
-		{"email.poll_interval_seconds", func(cfg *Config) bool { return cfg.Email.PollIntervalSeconds >= 0 }, "email.poll_interval_seconds must not be negative"},
-		{"gui.window_width", func(cfg *Config) bool { return cfg.GUI.WindowWidth > 0 }, "gui.window_width must be greater than 0"},
-		{"gui.window_height", func(cfg *Config) bool { return cfg.GUI.WindowHeight > 0 }, "gui.window_height must be greater than 0"},
+		{func(cfg *Config) bool { return cfg.Database.Path != "" }, "database.path must not be empty"},
+		{func(cfg *Config) bool { return cfg.Ollama.Host != "" }, "ollama.host must not be empty"},
+		{func(cfg *Config) bool { return cfg.Ollama.Port > 0 }, "ollama.port must be greater than 0"},
+		{func(cfg *Config) bool { return cfg.Ollama.InferenceModel != "" }, "ollama.inference_model must not be empty"},
+		{func(cfg *Config) bool { return cfg.Ollama.EmbeddingModel != "" }, "ollama.embedding_model must not be empty"},
+		{func(cfg *Config) bool { return cfg.Slack.PollIntervalSeconds >= 0 }, "slack.poll_interval_seconds must not be negative"},
+		{func(cfg *Config) bool { return cfg.Email.PollIntervalSeconds >= 0 }, "email.poll_interval_seconds must not be negative"},
+		{func(cfg *Config) bool { return cfg.GUI.WindowWidth > 0 }, "gui.window_width must be greater than 0"},
+		{func(cfg *Config) bool { return cfg.GUI.WindowHeight > 0 }, "gui.window_height must be greater than 0"},
 	}
 
 	for _, rule := range rules {

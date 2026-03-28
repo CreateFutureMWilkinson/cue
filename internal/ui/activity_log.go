@@ -11,6 +11,9 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
 
+// errorTextColor is the color used for error entries in the activity log.
+var errorTextColor = color.RGBA{R: 255, G: 80, B: 80, A: 255}
+
 // newActivityLog creates a List widget for the activity log and hooks the
 // presenter's OnUpdate callback to refresh it.
 func newActivityLog(ap *presenter.ActivityPresenter) *widget.List {
@@ -31,7 +34,7 @@ func newActivityLog(ap *presenter.ActivityPresenter) *widget.List {
 			text.Text = fmt.Sprintf("[%s] %s: %s",
 				entry.Timestamp.Format("15:04:05"), entry.Source, entry.Message)
 			if entry.IsError {
-				text.Color = color.RGBA{R: 255, G: 80, B: 80, A: 255}
+				text.Color = errorTextColor
 			} else {
 				text.Color = color.White
 			}

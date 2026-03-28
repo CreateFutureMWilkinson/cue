@@ -19,6 +19,14 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
 
+const (
+	// configRelPath is the path to the config file relative to the user's home directory.
+	configRelPath = ".cue/config.toml"
+
+	// eventChannelBuffer is the capacity of the activity event channels.
+	eventChannelBuffer = 100
+)
+
 func main() {
 	if err := run(); err != nil {
 		log.Fatalf("cue: %v", err)
@@ -31,7 +39,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("finding home directory: %w", err)
 	}
-	cfgPath := filepath.Join(home, ".cue", "config.toml")
+	cfgPath := filepath.Join(home, configRelPath)
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
@@ -89,7 +97,7 @@ func run() error {
 	}
 
 	// Activity event channel bridges orchestrator -> presenter.
-	orchEventCh := make(chan orchestrator.ActivityEvent, 100)
+	orchEventCh := make(chan orchestrator.ActivityEvent, eventChannelBuffer)
 
 	// Create orchestrator.
 	orch, err := orchestrator.NewOrchestrator(
@@ -107,7 +115,7 @@ func run() error {
 	}
 
 	// Bridge channel: convert orchestrator events to presenter events.
-	presenterEventCh := make(chan presenter.ActivityEvent, 100)
+	presenterEventCh := make(chan presenter.ActivityEvent, eventChannelBuffer)
 	go bridgeEvents(orchEventCh, presenterEventCh)
 
 	// Create presenters.

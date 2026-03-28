@@ -31,6 +31,12 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 |---|---|---|
 | 14 | Character animation system | Done |
 
+**Hotfixes**
+
+| ID | Scope | Status |
+|---|---|---|
+| 14-A | Security hardening (gosec G304/G404, x/image, x/net CVEs) | Done |
+
 ## Requirements
 
 - Go 1.26+

@@ -34,8 +34,13 @@ type ActivitySource interface {
 	Events() <-chan ActivityEvent
 }
 
-// VolumeController abstracts audio volume control.
+// VolumeController abstracts audio volume control for the application.
+// Implementations should handle the actual audio system integration.
 type VolumeController interface {
+	// SetVolume sets the audio volume level.
+	// The volume parameter should be in the range 0-100, where 0 is mute
+	// and 100 is maximum volume. Implementations should handle values
+	// outside this range gracefully.
 	SetVolume(volume int)
 }
 

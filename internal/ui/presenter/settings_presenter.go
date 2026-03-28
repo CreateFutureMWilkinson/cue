@@ -28,12 +28,17 @@ func (p *SettingsPresenter) Volume() int {
 // SetVolume updates the volume, clamping to 0-100, and delegates to the
 // volume controller.
 func (p *SettingsPresenter) SetVolume(volume int) {
+	p.volume = clampVolume(volume)
+	p.vc.SetVolume(p.volume)
+}
+
+// clampVolume ensures the volume is within the valid range of 0-100.
+func clampVolume(volume int) int {
 	if volume < 0 {
-		volume = 0
+		return 0
 	}
 	if volume > 100 {
-		volume = 100
+		return 100
 	}
-	p.volume = volume
-	p.vc.SetVolume(volume)
+	return volume
 }

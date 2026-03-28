@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -617,6 +619,39 @@ func (s *AlertSuite) TestSelectAudioFilRejectsMixedTraversalAndValid() {
 			"only safe files should be played, got: %s", call.Path)
 	}
 	s.Greater(len(calls), 0, "safe file should have been played at least once")
+}
+
+func (s *AlertSuite) TestBeepPlayerRejectsPathOutsideRoot() {
+	// Create a temp directory to act as the audio root.
+	audioDir := s.T().TempDir()
+
+	// Place a valid .wav file inside the audio directory.
+	// (Content doesn't matter — we're testing path validation, not decoding.)
+	wavPath := filepath.Join(audioDir, "valid.wav")
+	err := os.WriteFile(wavPath, []byte("RIFF fake wav content"), 0644)
+	s.Require().NoError(err)
+
+	// Create a BeepPlayer scoped to audioDir via the new constructor signature.
+	player := alert.NewBeepPlayer(audioDir)
+
+	// A file inside the audio directory should NOT fail with a path error.
+	// (It will likely fail on decoding since it's not a real wav, but the error
+	// should NOT mention path escaping or root violation.)
+	errInside := player.PlayFile("valid.wav", 80)
+	if errInside != nil {
+		s.NotContains(errInside.Error(), "root",
+			"file inside audio dir should not be rejected for path reasons")
+	}
+
+	// A path that escapes the audio directory MUST be rejected.
+	errOutside := player.PlayFile("/etc/passwd", 80)
+	s.Require().Error(errOutside, "absolute path outside audio dir must be rejected")
+	s.Contains(errOutside.Error(), "root",
+		"error should indicate path is outside the root directory")
+
+	// A relative traversal path MUST also be rejected.
+	errTraversal := player.PlayFile("../../../etc/passwd", 80)
+	s.Require().Error(errTraversal, "traversal path must be rejected")
 }
 
 func (s *AlertSuite) TestSelectAudioFileAcceptsNormalPaths() {

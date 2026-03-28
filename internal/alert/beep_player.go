@@ -50,14 +50,20 @@ var SpeakerPlayFn = func(s ...beep.Streamer) { speaker.Play(s...) }
 
 // BeepPlayer implements AudioPlayer using the gopxl/beep library.
 type BeepPlayer struct {
+	audioDir   string
 	initOnce   sync.Once
 	sampleRate beep.SampleRate
 	initErr    error
 }
 
-// NewBeepPlayer creates a new BeepPlayer.
-func NewBeepPlayer() *BeepPlayer {
-	return &BeepPlayer{}
+// NewBeepPlayer creates a new BeepPlayer. An optional audioDir argument scopes
+// file access to that directory using os.OpenRoot (Go 1.24+).
+func NewBeepPlayer(audioDir ...string) *BeepPlayer {
+	p := &BeepPlayer{}
+	if len(audioDir) > 0 {
+		p.audioDir = audioDir[0]
+	}
+	return p
 }
 
 // MapVolume converts a 0-100 integer volume to a beep volume value and silent flag.
@@ -102,7 +108,22 @@ func (p *BeepPlayer) PlayFile(path string, volume int) error {
 
 // decodeAudioFile opens and decodes an audio file, returning the streamer and format.
 func (p *BeepPlayer) decodeAudioFile(path string) (beep.StreamSeekCloser, beep.Format, error) {
-	f, err := os.Open(path)
+	var f *os.File
+	var err error
+
+	if p.audioDir != "" {
+		root, rootErr := os.OpenRoot(p.audioDir)
+		if rootErr != nil {
+			return nil, beep.Format{}, fmt.Errorf("opening root directory: %w", rootErr)
+		}
+		defer root.Close()
+		f, err = root.Open(path)
+		if err != nil {
+			return nil, beep.Format{}, fmt.Errorf("path outside root directory: %w", err)
+		}
+	} else {
+		f, err = os.Open(path)
+	}
 	if err != nil {
 		return nil, beep.Format{}, fmt.Errorf("opening file: %w", err)
 	}

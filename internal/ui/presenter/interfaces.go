@@ -34,6 +34,12 @@ type ActivitySource interface {
 	Events() <-chan ActivityEvent
 }
 
+// Alerter abstracts audio alert playback for application lifecycle events.
+type Alerter interface {
+	PlayStartup(ctx context.Context) error
+	PlayShutdown(ctx context.Context) error
+}
+
 type BufferReviewer interface {
 	GetBufferedMessages(ctx context.Context) ([]*repository.Message, error)
 	CountBuffered(ctx context.Context) (int, error)

@@ -25,6 +25,12 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 12 | Configurable audio alerts (amendment) | Done |
 | 13 | gopxl/beep audio player (amendment) | Done |
 
+**Phase 3** — Animations
+
+| # | Component | Status |
+|---|---|---|
+| 14 | Character animation system | Done |
+
 ## Requirements
 
 - Go 1.26+
@@ -58,7 +64,7 @@ Cue uses TOML configuration at `~/.cue/config.toml`. A default config is created
 - **Orchestrator** (`internal/service/orchestrator/`) — Coordinates watchers, router, and repository in batch polling loops (poll → route → store) with per-source goroutines and activity event emission
 - **Watchers** (`internal/service/watcher/`) — Slack and Email polling
 - **Alert** (`internal/alert/`) — Configurable audio alerts with real file playback via gopxl/beep (MP3/WAV/OGG), beeep fallback, configurable cooldown and volume
-- **UI** (`internal/ui/`) — Fyne desktop GUI with presenter/view architecture (notification queue, activity log, feedback review)
+- **UI** (`internal/ui/`) — Fyne desktop GUI with presenter/view architecture (notification queue, activity log, feedback review, character animation)
 - **Entry Point** (`cmd/cue/`) — Composition root wiring all components
 
 ## Development

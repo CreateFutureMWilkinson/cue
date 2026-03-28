@@ -70,7 +70,7 @@ type NotificationConfig struct {
 }
 
 // notificationAudioConfigured returns true if any audio-specific notification
-// field has been set to a non-zero value, indicating the section was configured.
+// field has been explicitly set, indicating the section was configured.
 func (n NotificationConfig) notificationAudioConfigured() bool {
 	return n.AudioDir != "" ||
 		n.AudioCooldownSeconds != 0 ||
@@ -237,12 +237,14 @@ func (c *Config) Validate() error {
 			return cfg.Notification.FallbackDurationMs > 0
 		}, "notification.fallback_duration_ms must be greater than 0"},
 		{func(cfg *Config) bool {
+			// Skip validation only if both are zero (unconfigured GUI)
 			if cfg.GUI.WindowWidth == 0 && cfg.GUI.WindowHeight == 0 {
 				return true
 			}
 			return cfg.GUI.WindowWidth > 0
 		}, "gui.window_width must be greater than 0"},
 		{func(cfg *Config) bool {
+			// Skip validation only if both are zero (unconfigured GUI)
 			if cfg.GUI.WindowWidth == 0 && cfg.GUI.WindowHeight == 0 {
 				return true
 			}

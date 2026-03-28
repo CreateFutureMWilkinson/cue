@@ -9,6 +9,17 @@ import (
 	"github.com/gen2brain/beeep"
 )
 
+// Audio constants for notification sounds.
+const (
+	notificationFreqHz     = 1000.0
+	notificationDurationMs = 200
+	startupFreqHz          = 600.0
+	startupDurationMs      = 150
+	shutdownFreqHz         = 400.0
+	shutdownDurationMs     = 300
+	notificationCooldown   = 2 * time.Second
+)
+
 // AlertConfig holds configuration for the alert service.
 type AlertConfig struct {
 	AudioEnabled bool
@@ -24,6 +35,11 @@ type beeepBeeper struct{}
 
 func (b *beeepBeeper) Beep(frequencyHz float64, durationMs int) error {
 	return beeep.Beep(frequencyHz, durationMs)
+}
+
+// NewBeeepBeeper creates a new production beeper using the beeep package.
+func NewBeeepBeeper() Beeper {
+	return &beeepBeeper{}
 }
 
 // AlertService manages audio alerts with cooldown support.
@@ -63,12 +79,12 @@ func (a *AlertService) PlayNotification(ctx context.Context) error {
 	defer a.mu.Unlock()
 
 	now := a.now()
-	if !a.lastAlert.IsZero() && now.Sub(a.lastAlert) < 2*time.Second {
+	if !a.lastAlert.IsZero() && now.Sub(a.lastAlert) < notificationCooldown {
 		return nil
 	}
 	a.lastAlert = now
 
-	return a.beeper.Beep(1000, 200)
+	return a.beeper.Beep(notificationFreqHz, notificationDurationMs)
 }
 
 // PlayStartup plays a startup chime.
@@ -76,7 +92,7 @@ func (a *AlertService) PlayStartup(ctx context.Context) error {
 	if !a.cfg.AudioEnabled {
 		return nil
 	}
-	return a.beeper.Beep(600, 150)
+	return a.beeper.Beep(startupFreqHz, startupDurationMs)
 }
 
 // PlayShutdown plays a shutdown tone.
@@ -84,5 +100,5 @@ func (a *AlertService) PlayShutdown(ctx context.Context) error {
 	if !a.cfg.AudioEnabled {
 		return nil
 	}
-	return a.beeper.Beep(400, 300)
+	return a.beeper.Beep(shutdownFreqHz, shutdownDurationMs)
 }

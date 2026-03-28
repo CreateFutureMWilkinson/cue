@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -89,8 +90,17 @@ func run() error {
 
 	// Create alert service.
 	alertSvc, err := alert.NewAlertService(
-		alert.AlertConfig{AudioEnabled: cfg.Notification.AudioEnabled},
+		alert.AlertConfig{
+			AudioEnabled:         cfg.Notification.AudioEnabled,
+			AudioDir:             cfg.Notification.AudioDir,
+			AudioCooldownSeconds: cfg.Notification.AudioCooldownSeconds,
+			AudioVolume:          cfg.Notification.AudioVolume,
+			FallbackFrequency:    cfg.Notification.FallbackFrequency,
+			FallbackDurationMs:   cfg.Notification.FallbackDurationMs,
+		},
 		alert.NewBeeepBeeper(),
+		&osFileSystem{},
+		nil, // no AudioPlayer yet — will use beeep fallback
 	)
 	if err != nil {
 		return fmt.Errorf("creating alert service: %w", err)
@@ -137,10 +147,16 @@ func run() error {
 	}
 
 	appPresenter, err := presenter.NewAppPresenter(
-		notifPresenter, activityPresenter, feedbackPresenter, alertSvc,
+		notifPresenter, activityPresenter, feedbackPresenter,
 	)
 	if err != nil {
 		return fmt.Errorf("creating app presenter: %w", err)
+	}
+
+	// Create settings presenter for runtime volume control.
+	settingsPresenter, err := presenter.NewSettingsPresenter(alertSvc, cfg.Notification.AudioVolume)
+	if err != nil {
+		return fmt.Errorf("creating settings presenter: %w", err)
 	}
 
 	// Start orchestrator.
@@ -155,7 +171,7 @@ func run() error {
 	}
 
 	// Create and run the Fyne window (blocks until quit).
-	mainWindow := ui.NewMainWindow(cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter)
+	mainWindow := ui.NewMainWindow(cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter)
 	mainWindow.Run()
 
 	// Graceful shutdown.
@@ -210,6 +226,13 @@ func (p *placeholderSlackAPI) GetChannelMessages(_ context.Context, _ string, _ 
 
 func (p *placeholderSlackAPI) GetThreadReplies(_ context.Context, _ string, _ string) ([]watcher.SlackMessage, error) {
 	return nil, nil
+}
+
+// osFileSystem implements alert.FileSystem using the real OS.
+type osFileSystem struct{}
+
+func (o *osFileSystem) ReadDir(path string) ([]fs.DirEntry, error) {
+	return os.ReadDir(path)
 }
 
 type placeholderEmailAPI struct{}

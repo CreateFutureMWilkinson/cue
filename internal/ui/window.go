@@ -29,6 +29,7 @@ func NewMainWindow(
 	ap *presenter.ActivityPresenter,
 	fp *presenter.FeedbackPresenter,
 	appP *presenter.AppPresenter,
+	sp *presenter.SettingsPresenter,
 ) *MainWindow {
 	fyneApp := app.New()
 	win := fyneApp.NewWindow("Cue")
@@ -48,6 +49,9 @@ func NewMainWindow(
 	win.SetContent(mainLayout)
 
 	// Menu
+	settingsItem := fyne.NewMenuItem("Settings", func() {
+		showSettings(sp, fyneApp)
+	})
 	aboutItem := fyne.NewMenuItem("About", func() {
 		fyne.CurrentApp().SendNotification(&fyne.Notification{
 			Title:   "Cue",
@@ -58,7 +62,7 @@ func NewMainWindow(
 		fyneApp.Quit()
 	})
 	win.SetMainMenu(fyne.NewMainMenu(
-		fyne.NewMenu("Cue", aboutItem, quitItem),
+		fyne.NewMenu("Cue", settingsItem, aboutItem, quitItem),
 	))
 
 	return &MainWindow{

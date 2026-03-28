@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -459,6 +460,391 @@ log_dir = "~/logs/cue"
 // ---------------------------------------------------------------------------
 // 5b. TestExpandHomePath_NoTilde — paths without ~ are unchanged
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// 6. TestLoadValidConfigWithAudioFields — round-trip parse of new audio fields
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestLoadValidConfigWithAudioFields() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	// Create a real directory to use as audio_dir.
+	audioDir := filepath.Join(dir, "sounds")
+	err := os.MkdirAll(audioDir, 0750)
+	s.Require().NoError(err)
+
+	tomlContent := `
+[database]
+path = "/data/messages.db"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[notification]
+audio_enabled = true
+batch_process = true
+audio_dir = "` + audioDir + `"
+audio_cooldown_seconds = 5
+audio_volume = 75
+fallback_frequency = 440
+fallback_duration_ms = 500
+`
+	err = os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	s.Equal(audioDir, cfg.Notification.AudioDir)
+	s.Equal(5, cfg.Notification.AudioCooldownSeconds)
+	s.Equal(75, cfg.Notification.AudioVolume)
+	s.Equal(440, cfg.Notification.FallbackFrequency)
+	s.Equal(500, cfg.Notification.FallbackDurationMs)
+}
+
+// ---------------------------------------------------------------------------
+// 7. TestCreateDefaultConfigAudioDefaults — default values for new audio fields
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestCreateDefaultConfigAudioDefaults() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "nonexistent", "config.toml")
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	s.Empty(cfg.Notification.AudioDir)
+	s.Equal(2, cfg.Notification.AudioCooldownSeconds)
+	s.Equal(100, cfg.Notification.AudioVolume)
+	s.Equal(1000, cfg.Notification.FallbackFrequency)
+	s.Equal(200, cfg.Notification.FallbackDurationMs)
+}
+
+// ---------------------------------------------------------------------------
+// 8. TestValidateAudioDirNotExist — non-existent audio_dir must fail
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestValidateAudioDirNotExist() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[notification]
+audio_dir = "/nonexistent/path/to/sounds"
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		s.Contains(err.Error(), "notification.audio_dir")
+		return
+	}
+
+	err = cfg.Validate()
+	s.Require().Error(err)
+	s.Contains(err.Error(), "notification.audio_dir")
+}
+
+// ---------------------------------------------------------------------------
+// 9. TestValidateAudioDirExists — real directory passes validation
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestValidateAudioDirExists() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	audioDir := filepath.Join(dir, "sounds")
+	err := os.MkdirAll(audioDir, 0750)
+	s.Require().NoError(err)
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[notification]
+audio_dir = "` + audioDir + `"
+audio_cooldown_seconds = 2
+audio_volume = 100
+fallback_frequency = 1000
+fallback_duration_ms = 200
+`
+	err = os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+
+	err = cfg.Validate()
+	s.NoError(err)
+}
+
+// ---------------------------------------------------------------------------
+// 10. TestValidateAudioDirEmpty — empty audio_dir is allowed (fallback mode)
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestValidateAudioDirEmpty() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[notification]
+audio_dir = ""
+audio_cooldown_seconds = 2
+audio_volume = 100
+fallback_frequency = 1000
+fallback_duration_ms = 200
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+
+	err = cfg.Validate()
+	s.NoError(err)
+}
+
+// ---------------------------------------------------------------------------
+// 11. TestValidateAudioCooldownNegative — negative cooldown must fail
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestValidateAudioCooldownNegative() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[notification]
+audio_cooldown_seconds = -1
+audio_volume = 100
+fallback_frequency = 1000
+fallback_duration_ms = 200
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		s.Contains(err.Error(), "notification.audio_cooldown_seconds")
+		return
+	}
+
+	err = cfg.Validate()
+	s.Require().Error(err)
+	s.Contains(err.Error(), "notification.audio_cooldown_seconds")
+}
+
+// ---------------------------------------------------------------------------
+// 12. TestValidateAudioVolumeOutOfRange — volume < 0 and > 100 must fail
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestValidateAudioVolumeOutOfRange() {
+	tests := []struct {
+		name   string
+		volume int
+	}{
+		{"volume below zero", -1},
+		{"volume above 100", 101},
+	}
+
+	for _, tc := range tests {
+		s.Run(tc.name, func() {
+			dir := s.T().TempDir()
+			cfgPath := filepath.Join(dir, "config.toml")
+
+			tomlContent := fmt.Sprintf(`
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[notification]
+audio_cooldown_seconds = 2
+audio_volume = %d
+fallback_frequency = 1000
+fallback_duration_ms = 200
+`, tc.volume)
+			err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+			s.Require().NoError(err)
+
+			cfg, err := config.Load(cfgPath)
+			if err != nil {
+				s.Contains(err.Error(), "notification.audio_volume")
+				return
+			}
+
+			err = cfg.Validate()
+			s.Require().Error(err, "expected validation error for %s", tc.name)
+			s.Contains(err.Error(), "notification.audio_volume")
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 13. TestValidateFallbackFrequencyZero — zero frequency must fail
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestValidateFallbackFrequencyZero() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[notification]
+audio_cooldown_seconds = 2
+audio_volume = 100
+fallback_frequency = 0
+fallback_duration_ms = 200
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		s.Contains(err.Error(), "notification.fallback_frequency")
+		return
+	}
+
+	err = cfg.Validate()
+	s.Require().Error(err)
+	s.Contains(err.Error(), "notification.fallback_frequency")
+}
+
+// ---------------------------------------------------------------------------
+// 14. TestValidateFallbackDurationZero — zero duration must fail
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestValidateFallbackDurationZero() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[notification]
+audio_cooldown_seconds = 2
+audio_volume = 100
+fallback_frequency = 1000
+fallback_duration_ms = 0
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		s.Contains(err.Error(), "notification.fallback_duration_ms")
+		return
+	}
+
+	err = cfg.Validate()
+	s.Require().Error(err)
+	s.Contains(err.Error(), "notification.fallback_duration_ms")
+}
+
+// ---------------------------------------------------------------------------
+// 15. TestExpandHomePathAudioDir — tilde expansion for audio_dir
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestExpandHomePathAudioDir() {
+	if runtime.GOOS == "windows" {
+		s.T().Skip("tilde expansion test targets Unix-like systems")
+	}
+
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[notification]
+audio_dir = "~/sounds"
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+
+	home, err := os.UserHomeDir()
+	s.Require().NoError(err)
+
+	s.Equal(filepath.Join(home, "sounds"), cfg.Notification.AudioDir)
+	s.NotContains(cfg.Notification.AudioDir, "~")
+}
 
 func (s *ConfigSuite) TestExpandHomePath_NoTilde() {
 	dir := s.T().TempDir()

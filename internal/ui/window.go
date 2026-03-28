@@ -23,6 +23,7 @@ type MainWindow struct {
 }
 
 // NewMainWindow creates the main application window with three-pane layout.
+// The optional characterWidget, if non-nil, is displayed below the activity log.
 func NewMainWindow(
 	cfg config.GUIConfig,
 	np *presenter.NotificationPresenter,
@@ -30,6 +31,7 @@ func NewMainWindow(
 	fp *presenter.FeedbackPresenter,
 	appP *presenter.AppPresenter,
 	sp *presenter.SettingsPresenter,
+	characterWidget fyne.CanvasObject,
 ) *MainWindow {
 	fyneApp := app.New()
 	win := fyneApp.NewWindow("Cue")
@@ -38,7 +40,14 @@ func NewMainWindow(
 	notifList := newNotificationPane(np, win)
 	activityList := newActivityLog(ap)
 
-	topSplit := container.NewHSplit(notifList, activityList)
+	var rightPane fyne.CanvasObject
+	if characterWidget != nil {
+		rightPane = container.NewBorder(nil, characterWidget, nil, nil, activityList)
+	} else {
+		rightPane = activityList
+	}
+
+	topSplit := container.NewHSplit(notifList, rightPane)
 	topSplit.SetOffset(0.5)
 
 	reviewBtn := widget.NewButton("Review Buffered", func() {

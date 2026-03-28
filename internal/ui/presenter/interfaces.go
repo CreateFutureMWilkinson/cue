@@ -34,10 +34,9 @@ type ActivitySource interface {
 	Events() <-chan ActivityEvent
 }
 
-// Alerter abstracts audio alert playback for application lifecycle events.
-type Alerter interface {
-	PlayStartup(ctx context.Context) error
-	PlayShutdown(ctx context.Context) error
+// VolumeController abstracts audio volume control.
+type VolumeController interface {
+	SetVolume(volume int)
 }
 
 type BufferReviewer interface {

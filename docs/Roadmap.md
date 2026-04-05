@@ -78,3 +78,16 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 039 | Ollama model validation on startup | Planned | — | [Feature-039](features/phase-4/Feature-039-Ollama-Model-Validation.md) |
 | 040 | Example config generation CLI | Planned | 035 | [Feature-040](features/phase-4/Feature-040-Example-Config-Generation.md) |
 | 041 | Character package restructure | Planned | — | [Feature-041](features/phase-4/Feature-041-Character-Package-Restructure.md) |
+
+## Phase 5 — Wiring (Scaffold Completion + Real API Clients)
+
+| # | Component | Status | Depends on | Doc |
+|---|---|---|---|---|
+| 042 | Vector-assisted routing | Planned | 043, 044 | [Feature-042](features/phase-5/Feature-042-Vector-Assisted-Routing.md) |
+| 043 | chromem-go vector database | Planned | 044 | [Feature-043](features/phase-5/Feature-043-Chromem-Go-Vector-Database.md) |
+| 044 | Ollama scorer wiring | Planned | 039 | [Feature-044](features/phase-5/Feature-044-Ollama-Scorer-Wiring.md) |
+| 045 | Slack API client | Planned | 038 | [Feature-045](features/phase-5/Feature-045-Slack-API-Client.md) |
+| 046 | IMAP email client | Planned | 038 | [Feature-046](features/phase-5/Feature-046-IMAP-Email-Client.md) |
+| 047 | MessageType SQLite persistence | Planned | — | [Feature-047](features/phase-5/Feature-047-MessageType-Persistence.md) |
+| 048 | Unused config field wiring | Planned | — | [Feature-048](features/phase-5/Feature-048-Config-Field-Wiring.md) |
+| 049 | MessageRepository QueryByID | Planned | — | [Feature-049](features/phase-5/Feature-049-MessageRepository-QueryByID.md) |

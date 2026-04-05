@@ -68,7 +68,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | # | Component | Status | Depends on | Doc |
 |---|---|---|---|---|
 | 031 | ServiceConfig repository interface | Done | — | [Feature-031](features/phase-4/Feature-031-ServiceConfig-Repository.md) |
-| 032 | SQLite ServiceConfig implementation | Planned | 031 | [Feature-032](features/phase-4/Feature-032-SQLite-ServiceConfig.md) |
+| 032 | SQLite ServiceConfig implementation | Done | 031 | [Feature-032](features/phase-4/Feature-032-SQLite-ServiceConfig.md) |
 | 033 | Watcher config decoupling | Planned | — | [Feature-033](features/phase-4/Feature-033-Watcher-Config-Decoupling.md) |
 | 034 | Dynamic watcher management | Planned | — | [Feature-034](features/phase-4/Feature-034-Dynamic-Watcher-Management.md) |
 | 035 | TOML config slimming | Planned | 033 | [Feature-035](features/phase-4/Feature-035-TOML-Config-Slimming.md) |

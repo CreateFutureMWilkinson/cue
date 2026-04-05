@@ -1,7 +1,7 @@
 # Feature 032: SQLite ServiceConfig Implementation
 
 **Phase:** Phase-4-Feature-032
-**Status:** Planned
+**Status:** Done
 **Package:** `internal/repository/implementation/sqlite/`
 **Depends on:** Feature 031
 

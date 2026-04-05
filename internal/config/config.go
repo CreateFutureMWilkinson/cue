@@ -34,6 +34,8 @@ type PlannerConfig struct {
 	MeetingMergeGapMinutes int    `toml:"meeting_merge_gap_minutes"`
 	LunchWindowStart       string `toml:"lunch_window_start"`
 	LunchWindowEnd         string `toml:"lunch_window_end"`
+	TimerSound             string `toml:"timer_sound"`
+	TimerVolume            int    `toml:"timer_volume"`
 }
 
 // isConfigured returns true if any planner field has been explicitly set.
@@ -170,6 +172,8 @@ func defaultConfig() *Config {
 			MeetingMergeGapMinutes: 5,
 			LunchWindowStart:       "12:00",
 			LunchWindowEnd:         "14:00",
+			TimerSound:             "",
+			TimerVolume:            75,
 		},
 	}
 }
@@ -223,6 +227,7 @@ func expandPaths(cfg *Config) {
 	cfg.Database.Path = expandTilde(cfg.Database.Path, home)
 	cfg.Logging.LogDir = expandTilde(cfg.Logging.LogDir, home)
 	cfg.Notification.AudioDir = expandTilde(cfg.Notification.AudioDir, home)
+	cfg.Planner.TimerSound = expandTilde(cfg.Planner.TimerSound, home)
 }
 
 func expandTilde(path, home string) string {
@@ -347,6 +352,12 @@ func (c *Config) Validate() error {
 				return e.After(s)
 			},
 			"planner.lunch_window_end must be after planner.lunch_window_start"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Planner.isConfigured() },
+			func(cfg *Config) bool {
+				return cfg.Planner.TimerVolume >= 0 && cfg.Planner.TimerVolume <= 100
+			},
+			"planner.timer_volume must be between 0 and 100"),
 	}
 
 	for _, rule := range rules {

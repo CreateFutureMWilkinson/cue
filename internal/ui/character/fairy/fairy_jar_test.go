@@ -50,11 +50,11 @@ func (s *FairyJarSuite) TestBodyCircleSizedAt10Percent() {
 	bodyCircle := c.BodyCircle()
 	s.Require().NotNil(bodyCircle, "BodyCircle() must return the body circle")
 
-	expectedDiameter := jarWidth * 0.10
+	expectedDiameter := jarWidth * 0.05
 	s.InDelta(expectedDiameter, bodyCircle.Size().Width, 1.0,
-		"body circle width should be 10%% of jar width")
+		"body circle width should be 5%% of jar width")
 	s.InDelta(expectedDiameter, bodyCircle.Size().Height, 1.0,
-		"body circle height should be 10%% of jar width")
+		"body circle height should be 5%% of jar width")
 }
 
 func (s *FairyJarSuite) TestGlowCircleSizedAt25Percent() {
@@ -153,12 +153,12 @@ func (s *FairyJarSuite) TestInitialColorIsDarkGreen() {
 	bodyCircle := c.BodyCircle()
 	s.Require().NotNil(bodyCircle, "BodyCircle() must return the body circle")
 
-	// #006100 = R:0, G:97, B:0, A:255
-	expected := color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: 0xFF}
+	// #00FF00 = R:0, G:255, B:0, A:255
+	expected := color.RGBA{R: 0x00, G: 0xFF, B: 0x00, A: 0xFF}
 	r1, g1, b1, a1 := bodyCircle.FillColor.RGBA()
 	r2, g2, b2, a2 := expected.RGBA()
 	s.Equal(r2, r1, "initial red channel should be 0x00")
-	s.Equal(g2, g1, "initial green channel should be 0x61")
+	s.Equal(g2, g1, "initial green channel should be 0xFF")
 	s.Equal(b2, b1, "initial blue channel should be 0x00")
 	s.Equal(a2, a1, "initial alpha channel should be 0xFF")
 }

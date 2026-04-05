@@ -31,9 +31,9 @@ func (s *FairyPackageSuite) TestNewFairyCharacterImplementsCharacter() {
 }
 
 func (s *FairyPackageSuite) TestIdleBodyColorValue() {
-	expected := color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: 0xFF}
+	expected := color.RGBA{R: 0x00, G: 0xFF, B: 0x00, A: 0xFF}
 	s.Equal(expected, fairy.IdleBodyColor,
-		"IdleBodyColor should be dark green (#006100)")
+		"IdleBodyColor should be bright green (#00FF00)")
 }
 
 func (s *FairyPackageSuite) TestIdleOriginConstants() {

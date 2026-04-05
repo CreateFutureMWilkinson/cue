@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–5 complete. Phase 6 (The Big Clean — bugfixes + test infrastructure) in progress. Recent: Feature 054 audio alert wiring fix (critical bugfix — NOTIFIED messages now trigger audio alerts via Alerter interface injection into orchestrator). See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–5 complete. Phase 6 (The Big Clean — bugfixes + test infrastructure) in progress. Recent: Feature 055 focus rail wiring fix (FocusRail widget now wired into MainWindow left column, replacing placeholder label). See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 

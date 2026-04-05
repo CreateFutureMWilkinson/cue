@@ -27,7 +27,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 16 | Three-column layout + center view router | Done |
 | 17 | Focus rail (timer ring shell, navigation) | Done |
 | 18 | Notification panel redesign (color-coded cards) | Done |
-| 19 | Activity log drawer | Planned |
+| 19 | Activity log drawer | Done |
 
 **Phase 2** — Day Planner + Timer
 

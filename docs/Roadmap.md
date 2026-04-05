@@ -75,7 +75,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 036 | Settings presenter expansion | Done | 031, 032, 034 | [Feature-036](features/phase-4/Feature-036-Settings-Presenter.md) |
 | 037 | Settings UI expansion | Done | 036 | [Feature-037](features/phase-4/Feature-037-Settings-UI.md) |
 | 038 | Main wiring update | Done | 031–037 | [Feature-038](features/phase-4/Feature-038-Main-Wiring.md) |
-| 039 | Ollama model validation on startup | Planned | — | [Feature-039](features/phase-4/Feature-039-Ollama-Model-Validation.md) |
+| 039 | Ollama model validation on startup | Done | — | [Feature-039](features/phase-4/Feature-039-Ollama-Model-Validation.md) |
 | 040 | Example config generation CLI | Planned | 035 | [Feature-040](features/phase-4/Feature-040-Example-Config-Generation.md) |
 | 041 | Character package restructure | Planned | — | [Feature-041](features/phase-4/Feature-041-Character-Package-Restructure.md) |
 

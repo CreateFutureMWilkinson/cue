@@ -1114,6 +1114,132 @@ timer_volume = 80
 }
 
 // ---------------------------------------------------------------------------
+// 24. TestOrchestratorPollIntervalDefault — default poll_interval_seconds is 600
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestOrchestratorPollIntervalDefault() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "nonexistent", "config.toml")
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	s.Equal(600, cfg.Orchestrator.PollIntervalSeconds,
+		"default poll_interval_seconds should be 600")
+}
+
+// ---------------------------------------------------------------------------
+// 25. TestOrchestratorPollIntervalParsesFromTOML — custom value parsed correctly
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestOrchestratorPollIntervalParsesFromTOML() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[orchestrator]
+poll_interval_seconds = 300
+
+[orchestrator.router]
+importance_threshold = 7
+confidence_threshold = 0.8
+buffer_size_per_source = 100
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	s.Equal(300, cfg.Orchestrator.PollIntervalSeconds,
+		"poll_interval_seconds should be parsed from TOML")
+}
+
+// ---------------------------------------------------------------------------
+// 26. TestValidateOrchestratorPollIntervalZero — zero poll interval must fail
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestValidateOrchestratorPollIntervalZero() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[orchestrator]
+poll_interval_seconds = 0
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		s.Contains(err.Error(), "orchestrator.poll_interval_seconds")
+		return
+	}
+
+	err = cfg.Validate()
+	s.Require().Error(err, "expected validation error for zero poll_interval_seconds")
+	s.Contains(err.Error(), "orchestrator.poll_interval_seconds")
+}
+
+// ---------------------------------------------------------------------------
+// 27. TestValidateOrchestratorPollIntervalNegative — negative poll interval must fail
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestValidateOrchestratorPollIntervalNegative() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[orchestrator]
+poll_interval_seconds = -10
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		s.Contains(err.Error(), "orchestrator.poll_interval_seconds")
+		return
+	}
+
+	err = cfg.Validate()
+	s.Require().Error(err, "expected validation error for negative poll_interval_seconds")
+	s.Contains(err.Error(), "orchestrator.poll_interval_seconds")
+}
+
+// ---------------------------------------------------------------------------
 // TestIgnoresUnknownSections — old TOML files with [slack]/[email] parse OK
 // ---------------------------------------------------------------------------
 

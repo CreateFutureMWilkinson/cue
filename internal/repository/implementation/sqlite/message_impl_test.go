@@ -456,6 +456,22 @@ func (s *MessageRepoSuite) TestNullableFields() {
 	s.Nil(got.ResolvedAt, "ResolvedAt should still be nil")
 }
 
+func (s *MessageRepoSuite) TestDBAccessorReturnsNonNilDB() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(repo)
+
+	db := repo.DB()
+	s.Require().NotNil(db, "DB() should return a non-nil *sql.DB")
+
+	// Verify the returned DB is functional by pinging it.
+	err = db.Ping()
+	s.Require().NoError(err, "DB() handle should be pingable")
+}
+
 func (s *MessageRepoSuite) TestUpsertByMessageID() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")

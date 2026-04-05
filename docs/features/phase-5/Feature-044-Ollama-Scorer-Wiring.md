@@ -1,7 +1,7 @@
 # Feature 044: Ollama Scorer Wiring
 
 **Phase:** Phase-5-Feature-044
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/service/decisionengine/`, `cmd/cue/`
 **Depends on:** Feature 039 (Ollama Model Validation)
 
@@ -86,3 +86,11 @@ This is a wiring change in the composition root. Verified through:
 | File | Action |
 |---|---|
 | `cmd/cue/main.go` | **Modify** — replace `placeholderScorer` with `OllamaClient`, remove placeholder struct |
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| Red | test-designer | ~20s | ~21k | (baseline — no new tests) |
+| Green | implementer | ~53s | ~25k | e019148 |
+| Refactor | refactorer | ~52s | ~25k | e019148 |

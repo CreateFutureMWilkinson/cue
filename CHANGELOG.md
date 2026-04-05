@@ -11,6 +11,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- **Ollama scorer wiring** — Wire real `OllamaClient` scorer replacing placeholder in composition root; `placeholderScorer` struct removed from `cmd/cue/main.go` (Phase-5-Feature-044)
+- **chromem-go vector database** — Replace in-memory `VectorStore` with chromem-go persistent vector database; flat-file storage at `~/.cue/vectors/`, Ollama embedding endpoint integration, `ChromemVectorStore` adapter implementing `VectorEmbedder` and `VectorQuerier` interfaces (Phase-5-Feature-043)
+
 ### Security
 
 - **Path traversal protection** — `filterSupportedAudioFiles` rejects filenames resolving outside `AudioDir`; `BeepPlayer` uses `os.OpenRoot` (Go 1.24+) for kernel-level path scoping (gosec G304, Phase-3-Feature-014-Hotfix-A)

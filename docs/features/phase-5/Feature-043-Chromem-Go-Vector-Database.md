@@ -1,7 +1,7 @@
 # Feature 043: chromem-go Vector Database
 
 **Phase:** Phase-5-Feature-043
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/service/vector/`, `cmd/cue/`
 **Depends on:** Feature 044 (Ollama Scorer Wiring — shares Ollama HTTP client patterns)
 
@@ -116,3 +116,11 @@ func (s *ChromemVectorStore) Close() error
 | `internal/service/vector/vector_test.go` | **Delete** — replaced by chromem adapter tests |
 | `internal/service/vector/interfaces.go` | **New** — `VectorQuerier` interface, shared types (`SimilarResult`, `EmbeddingFunc`) |
 | `cmd/cue/main.go` | **Modify** — instantiate `ChromemVectorStore`, pass to buffer service |
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| Red | test-designer | ~97s | ~31k | 04bb8d4 |
+| Green | implementer | ~77s | ~28k | 4632748 |
+| Refactor | refactorer | ~75s | ~31k | 3f13fab |

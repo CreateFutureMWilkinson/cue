@@ -257,3 +257,6 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-5-Feature-049 | RED | test-designer | ~48s | ~23,000 | 60181fa |
 | Phase-5-Feature-049 | GREEN | implementer | ~38s | ~21,000 | 8f4188f |
 | Phase-5-Feature-049 | REFACTOR | orchestrator | ~manual | ~0 | 6ad0151 |
+| Phase-4-Feature-031A | RED | Test Designer | ~253s | ~72,000 | cdf761f |
+| Phase-4-Feature-031A | GREEN | Implementer | ~230s | ~78,000 | 5296464 |
+| Phase-4-Feature-031A | REFACTOR | Refactorer | ~227s | ~56,000 | d8d860c |

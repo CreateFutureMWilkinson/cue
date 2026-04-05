@@ -13,6 +13,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Encrypted credential storage** — AES-256-GCM encryption at rest for Slack tokens, email passwords, and calendar ICS URLs via new `internal/secret` package. Key auto-generated at `~/.cue/secret.key` (mode 0600). New `CalendarAccount` model with encrypted ICS URL persistence. `EmailAccount.PasswordEnv` renamed to `Password` (actual password, not env var name). `NewIMAPClient` accepts password directly. (Phase-4-Feature-031A)
 - **QueryByID returns ErrNotFound sentinel** — `MessageRepository.QueryByID` now returns `repository.ErrNotFound` instead of `nil, nil` when no message matches the given ID. Adds cancelled-context test coverage. (Phase-5-Feature-049)
 - **MessageType SQLite persistence** — The `message_type` field is now persisted in SQLite via an idempotent ALTER TABLE migration. Insert, Update, and scanMessage all include the column. Existing databases are migrated automatically with an empty-string default. (Phase-5-Feature-047)
 - **IMAP email client** — Real `IMAPClient` implementing `EmailAPI` interface using `go-imap/v2` (pure Go). Connects to IMAP server, authenticates, fetches messages with UID-based filtering, extracts envelope and body text into `EmailMessage` structs. Replaces inert `placeholderEmailAPI` in `cmd/cue/main.go`. Password read from environment variable at construction time. (Phase-5-Feature-046)
@@ -30,6 +31,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Breaking
 
+- **EmailAccount.PasswordEnv renamed to Password** — `EmailAccount.PasswordEnv` (env var name) replaced with `Password` (actual password, encrypted at rest). `NewIMAPClient` accepts password directly instead of env var name. `NewSQLiteServiceConfigRepository` now requires `secret.Encryptor` parameter. Existing credentials must be re-entered. (Phase-4-Feature-031A)
 - **SlackAccount.BotToken renamed to Token** — The `SlackAccount` struct field `BotToken` is now `Token`, and the SQLite column `bot_token` is now `token`. Existing databases are migrated automatically. Config example updated from `xoxb-` to `xoxp-` prefix. (Phase-5-Feature-045)
 - **chromem-go vector database** — Replace in-memory `VectorStore` with chromem-go persistent vector database; flat-file storage at `~/.cue/vectors/`, Ollama embedding endpoint integration, `ChromemVectorStore` adapter implementing `VectorEmbedder` and `VectorQuerier` interfaces (Phase-5-Feature-043)
 

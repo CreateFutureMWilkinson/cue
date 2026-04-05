@@ -1,7 +1,7 @@
 # Feature 031 Hotfix A: Encrypted Credential Storage
 
 **Phase:** Phase-4-Feature-031-Hotfix-A (security)
-**Status:** In Progress
+**Status:** Done
 **Packages:** `internal/secret/`, `internal/repository/`, `internal/repository/implementation/sqlite/`, `internal/service/watcher/`, `internal/ui/presenter/`, `cmd/cue/`
 
 ---

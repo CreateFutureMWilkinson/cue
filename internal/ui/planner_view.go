@@ -165,8 +165,7 @@ func (v *PlannerView) buildContent() {
 
 // buildNoActivePlanContent sets up content when there's no active plan.
 func (v *PlannerView) buildNoActivePlanContent() {
-	//nolint:gosec // math/rand is fine for placeholder text selection
-	v.placeholderText = placeholderMessages[rand.Intn(len(placeholderMessages))]
+	v.placeholderText = placeholderMessages[rand.Intn(len(placeholderMessages))] // #nosec G404 -- math/rand is fine for placeholder text selection
 	v.scheduleTree = nil
 }
 

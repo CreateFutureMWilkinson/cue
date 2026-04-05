@@ -90,7 +90,8 @@ func (b *AppBinder) Bind() {
 	})
 
 	b.focusRail.SetOnDone(func() {
-		b.plannerP.CompleteCurrentTask(context.Background())
+		// Intentionally discard error - UI callback should not panic on task completion failure
+		_ = b.plannerP.CompleteCurrentTask(context.Background())
 	})
 }
 

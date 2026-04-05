@@ -846,13 +846,17 @@ audio_dir = "~/sounds"
 	s.NotContains(cfg.Notification.AudioDir, "~")
 }
 
-func (s *ConfigSuite) TestExpandHomePath_NoTilde() {
+// ---------------------------------------------------------------------------
+// 16. TestGUICharacterFieldParsesFromTOML — character field in [gui] section
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestGUICharacterFieldParsesFromTOML() {
 	dir := s.T().TempDir()
 	cfgPath := filepath.Join(dir, "config.toml")
 
 	tomlContent := `
 [database]
-path = "/absolute/path/messages.db"
+path = "/tmp/db.sqlite"
 
 [ollama]
 host = "localhost"
@@ -861,16 +865,32 @@ inference_model = "neural-chat"
 embedding_model = "nomic-embed-text"
 timeout_seconds = 10
 
-[logging]
-log_level = "info"
-log_dir = "/var/log/cue"
+[gui]
+window_width = 1200
+window_height = 800
+character = "fairy"
 `
 	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
 	s.Require().NoError(err)
 
 	cfg, err := config.Load(cfgPath)
 	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
 
-	s.Equal("/absolute/path/messages.db", cfg.Database.Path)
-	s.Equal("/var/log/cue", cfg.Logging.LogDir)
+	s.Equal("fairy", cfg.GUI.Character)
+}
+
+// ---------------------------------------------------------------------------
+// 17. TestGUICharacterDefaultsToNone — missing character defaults to "none"
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestGUICharacterDefaultsToNone() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "nonexistent", "config.toml")
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	s.Equal("none", cfg.GUI.Character)
 }

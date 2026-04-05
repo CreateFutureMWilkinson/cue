@@ -149,7 +149,7 @@ func (s *ErrorAnimatorSuite) TestErrorPositionVerticalStaysAtHalf() {
 	}
 }
 
-// --- Start sets body color to #00B800 ---
+// --- Start sets body color to #88FF00 ---
 
 func (s *ErrorAnimatorSuite) TestStartSetsBodyColorToErrorGreen() {
 	f := fairy.NewFairyCharacter()

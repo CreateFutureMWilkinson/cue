@@ -113,7 +113,7 @@ func (s *NotifyAnimatorSuite) TestNotifyGlowIntensityIsSinusoidal() {
 		"glow intensity should follow the sinusoidal formula")
 }
 
-// --- Body color is #00C300 ---
+// --- Body color is #00FF88 ---
 
 func (s *NotifyAnimatorSuite) TestStartSetsBodyColorToBrightGreen() {
 	f := fairy.NewFairyCharacter()

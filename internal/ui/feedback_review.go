@@ -11,6 +11,16 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
 
+const (
+	// feedbackWindowWidth and feedbackWindowHeight define the size of the
+	// feedback review modal window.
+	feedbackWindowWidth  = 600
+	feedbackWindowHeight = 400
+
+	// maxRating is the maximum user rating value (0–maxRating inclusive).
+	maxRating = 10
+)
+
 // showFeedbackReview opens a modal window for reviewing buffered messages.
 func showFeedbackReview(fp *presenter.FeedbackPresenter, app fyne.App) {
 	ctx := context.Background()
@@ -19,7 +29,7 @@ func showFeedbackReview(fp *presenter.FeedbackPresenter, app fyne.App) {
 	}
 
 	win := app.NewWindow("Feedback Review")
-	win.Resize(fyne.NewSize(600, 400))
+	win.Resize(fyne.NewSize(feedbackWindowWidth, feedbackWindowHeight))
 
 	counterLabel := widget.NewLabel("")
 	contentLabel := widget.NewLabel("")
@@ -44,9 +54,9 @@ func showFeedbackReview(fp *presenter.FeedbackPresenter, app fyne.App) {
 		notesEntry.SetText("")
 	}
 
-	// Rating buttons 0-10.
-	ratingButtons := make([]fyne.CanvasObject, 11)
-	for i := range 11 {
+	// Rating buttons 0–maxRating.
+	ratingButtons := make([]fyne.CanvasObject, maxRating+1)
+	for i := range maxRating + 1 {
 		rating := i
 		ratingButtons[i] = widget.NewButton(fmt.Sprintf("%d", rating), func() {
 			var feedback *string

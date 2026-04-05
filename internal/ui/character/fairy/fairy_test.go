@@ -491,6 +491,27 @@ func (s *FairyCharacterSuite) TestTransitionToDoesNotDirectlyRefreshCanvasObject
 			"got log output: %s", buf.String())
 }
 
+func (s *FairyCharacterSuite) TestConstructorDefaultRefreshIsNoOp() {
+	// A freshly constructed FairyCharacter should default its refreshFunc to a
+	// no-op, so that no Fyne app is required at construction time. Previously,
+	// the constructor wired refreshFunc to fyne.CurrentApp()/fyne.Do(), which
+	// logged errors when no Fyne app was running and coupled construction to
+	// the GUI runtime. After this change, callers must explicitly set a refresh
+	// hook via SetRefreshHook if they want container refreshes.
+	f := fairy.NewFairyCharacter()
+	defer f.Close()
+
+	// The default refresh should be a plain no-op, not a fyne-guarded closure.
+	s.True(f.IsNoopRefresh(),
+		"newly constructed fairy should have a no-op refreshFunc by default")
+
+	// Verify the fairy is fully functional without DisableRefresh or SetRefreshHook:
+	// a state transition should succeed without errors or panics.
+	f.TransitionTo(character.StateIdle)
+	s.Equal(character.StateIdle, f.CurrentState(),
+		"state transition should work with default no-op refresh")
+}
+
 func (s *FairyCharacterSuite) TestConcurrentTransitions() {
 	f, _ := s.newTestFairy()
 	defer f.Close()

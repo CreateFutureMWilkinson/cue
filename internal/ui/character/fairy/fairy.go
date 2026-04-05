@@ -209,6 +209,11 @@ func (f *FairyCharacter) DisableRefresh() { f.refreshFunc = func() {} }
 // SetRefreshHook replaces the refresh function with a caller-provided function for test observability.
 func (f *FairyCharacter) SetRefreshHook(fn func()) { f.refreshFunc = fn }
 
+// IsNoopRefresh reports whether the current refreshFunc is the default no-op.
+func (f *FairyCharacter) IsNoopRefresh() bool {
+	return false // stub: not implemented
+}
+
 // Close stops the current animator without changing the character state.
 func (f *FairyCharacter) Close() {
 	f.mu.Lock()

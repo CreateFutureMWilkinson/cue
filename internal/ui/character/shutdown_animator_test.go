@@ -332,3 +332,58 @@ func (s *ShutdownAnimatorSuite) TestImplementsStateAnimator() {
 	// Compile-time check that *ShutdownAnimator satisfies StateAnimator.
 	var _ character.StateAnimator = animator
 }
+
+// --- Color capture preserves arbitrary channel values ---
+
+func (s *ShutdownAnimatorSuite) TestColorCapturePreservesChannelValues() {
+	fairy := character.NewFairyCharacter()
+	// Set fairy to a color with distinct channel values.
+	fairy.SetBodyColor(color.RGBA{R: 0xAA, G: 0xBB, B: 0xCC, A: 0xFF})
+
+	animator := character.NewShutdownAnimator(s.clock)
+	animator.Start(fairy)
+	defer animator.Stop()
+
+	// Advance past the full 1.5s shutdown duration.
+	s.clock.Advance(1600 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+
+	// Final body color should be exactly DormantColor (#004900).
+	bodyCircle := fairy.BodyCircle()
+	s.Require().NotNil(bodyCircle)
+
+	expected := color.RGBA{R: 0x00, G: 0x49, B: 0x00, A: 0xFF}
+	r1, g1, b1, a1 := bodyCircle.FillColor.RGBA()
+	r2, g2, b2, a2 := expected.RGBA()
+	s.Equal(r2, r1, "final body red channel should be 0x00")
+	s.Equal(g2, g1, "final body green channel should be 0x49")
+	s.Equal(b2, b1, "final body blue channel should be 0x00")
+	s.Equal(a2, a1, "final body alpha channel should be 0xFF")
+}
+
+// --- Color capture from bright color at midpoint ---
+
+func (s *ShutdownAnimatorSuite) TestColorCaptureFromBrightColor() {
+	fairy := character.NewFairyCharacter()
+	// Set fairy to brightest green (#00FF00).
+	fairy.SetBodyColor(color.RGBA{R: 0x00, G: 0xFF, B: 0x00, A: 0xFF})
+
+	animator := character.NewShutdownAnimator(s.clock)
+	animator.Start(fairy)
+	defer animator.Stop()
+
+	// Advance to midpoint (750ms of 1.5s animation).
+	s.clock.Advance(750 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+
+	// At midpoint, green channel should be between 0xFF and 0x49 (dormant).
+	bodyCircle := fairy.BodyCircle()
+	s.Require().NotNil(bodyCircle)
+	_, g, _, _ := bodyCircle.FillColor.RGBA()
+
+	// Green channel in pre-multiplied 16-bit: dormant=0x4949, bright=0xFFFF.
+	dormantG := uint32(0x49) * 0x101
+	brightG := uint32(0xFF) * 0x101
+	s.Greater(g, dormantG, "green channel at midpoint should be above dormant (0x49)")
+	s.Less(g, brightG, "green channel at midpoint should be below bright (0xFF)")
+}

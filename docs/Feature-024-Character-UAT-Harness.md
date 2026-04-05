@@ -1,6 +1,6 @@
-# Feature 020: Character UAT Harness
+# Feature 024: Character UAT Harness
 
-**Phase:** Phase-3-Feature-020
+**Phase:** Phase-3-Feature-024
 **Status:** Planned
 **Packages:** `cmd/character-uat/`, `internal/ui/character/`
 

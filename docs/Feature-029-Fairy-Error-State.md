@@ -1,6 +1,6 @@
-# Feature 025: Fairy Error State
+# Feature 029: Fairy Error State
 
-**Phase:** Phase-3-Feature-025
+**Phase:** Phase-3-Feature-029
 **Status:** Planned
 **Packages:** `internal/ui/character/`
 
@@ -98,10 +98,10 @@ func (a *ErrorAnimator) State() CharacterState  // returns StateError
 
 ## Integration Points
 
-- **Jar Rendering (Feature 021):** Uses `SetPosition()`, `SetGlowIntensity()`, `SetBodyColor()` for vibration and pulse updates.
+- **Jar Rendering (Feature 025):** Uses `SetPosition()`, `SetGlowIntensity()`, `SetBodyColor()` for vibration and pulse updates.
 - **CharacterPresenter (Feature 014):** Maps `IsError == true` events to `StateError`. Decay timer returns to idle after 5 seconds with no new error events.
-- **UAT Harness (Feature 020):** Error state triggered via "Error" button for visual validation of vibration and pulse speed.
-- **Notification State (Feature 024):** Color is deliberately close but distinct (#00B800 vs #00C300).
+- **UAT Harness (Feature 024):** Error state triggered via "Error" button for visual validation of vibration and pulse speed.
+- **Notification State (Feature 028):** Color is deliberately close but distinct (#00B800 vs #00C300).
 
 ## Test Coverage Plan
 

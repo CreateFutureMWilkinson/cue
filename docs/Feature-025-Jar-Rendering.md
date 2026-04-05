@@ -1,6 +1,6 @@
-# Feature 021: Jar Rendering
+# Feature 025: Jar Rendering
 
-**Phase:** Phase-3-Feature-021
+**Phase:** Phase-3-Feature-025
 **Status:** Planned
 **Packages:** `internal/ui/character/`
 
@@ -119,10 +119,10 @@ const glowLayers = 8  // concentric circles for gradient simulation
 | State | Body Color | Usage |
 |---|---|---|
 | Idle / Rest | `#006100` | Darkest green (this feature's default) |
-| Working | Intermediate (Feature 023) | Brighter green |
-| Notifying | `#00C300` | Brightest green (Feature 024) |
-| Error | Near `#00C300` (Feature 025) | Close to notification |
-| ShuttingDown | `#004900` | Darkest (Feature 026) |
+| Working | Intermediate (Feature 027) | Brighter green |
+| Notifying | `#00C300` | Brightest green (Feature 028) |
+| Error | Near `#00C300` (Feature 029) | Close to notification |
+| ShuttingDown | `#004900` | Darkest (Feature 030) |
 
 This feature initializes the fairy at `#006100`. Color transitions are handled by subsequent features.
 
@@ -139,7 +139,7 @@ This feature initializes the fairy at `#006100`. Color transitions are handled b
 
 - **Character Interface (Feature 014):** `FairyCharacter` continues to implement `Character` interface. `Widget()` now returns the jar composition instead of a plain circle.
 - **Main Window (Feature 011):** No changes needed — the character widget is placed via the existing `container.NewBorder` layout.
-- **UAT Harness (Feature 020):** Fairy is testable via the existing registry. Jar rendering is immediately visible in the UAT window.
+- **UAT Harness (Feature 024):** Fairy is testable via the existing registry. Jar rendering is immediately visible in the UAT window.
 - **Subsequent Fairy Features (021–026):** All animation features call `SetPosition()`, `SetBodyColor()`, and `SetGlowIntensity()` to animate the fairy within the jar.
 
 ## Test Coverage Plan

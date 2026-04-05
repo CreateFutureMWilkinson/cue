@@ -34,6 +34,10 @@ go test -count=1 -v -run TestRouter/TestDeterministicChannelJoin ./internal/serv
 
 Validation sequence before marking work complete: `just fmt && just lint && just tidy && just test`
 
+## UI Specification
+
+The authoritative UI specification is `docs/UI-SPEC.md`. It defines layout wireframes, design tokens, component specs, interaction behavior, and acceptance criteria. All UI implementation work defers to UI-SPEC.md.
+
 ## Architecture
 
 ```

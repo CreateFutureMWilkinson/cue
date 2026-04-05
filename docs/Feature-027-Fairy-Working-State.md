@@ -1,6 +1,6 @@
-# Feature 023: Fairy Working State
+# Feature 027: Fairy Working State
 
-**Phase:** Phase-3-Feature-023
+**Phase:** Phase-3-Feature-027
 **Status:** Planned
 **Packages:** `internal/ui/character/`
 
@@ -14,7 +14,7 @@ Implements the fairy's working state behavior: gentle pseudo-random drift around
 
 - **Pseudo-random smooth movement** — uses Perlin noise or layered sinusoidal functions (multiple sine waves at different frequencies and phases) to produce organic-looking drift. Pure `math/rand` would produce jittery movement; layered sine produces smooth, natural paths.
 - **4-second circuit** — the fairy completes one approximate loop around the jar interior every ~4 seconds. The path is never perfectly circular — noise offsets create variation so no two circuits look identical.
-- **Constrained to jar interior** — position is clamped to the jar interior bounds (Feature 021). The fairy body never clips through the glass.
+- **Constrained to jar interior** — position is clamped to the jar interior bounds (Feature 025). The fairy body never clips through the glass.
 - **Breathing maintained** — the same 3-second glow breathing cycle from idle state continues during working. This provides visual continuity across states.
 - **Intermediate body color** — working state uses a green between idle (#006100) and notifying (#00C300). Calculated as midpoint: `#009200`.
 - **Smooth transition from idle** — when entering working state from idle, the fairy rises from the jar floor and begins drifting. The rise is animated over ~0.5 seconds, not instantaneous.
@@ -110,10 +110,10 @@ func (a *WorkingAnimator) State() CharacterState  // returns StateWorking
 
 ## Integration Points
 
-- **Jar Rendering (Feature 021):** Uses `SetPosition()`, `SetGlowIntensity()`, `SetBodyColor()` for visual updates.
-- **Idle State (Feature 022):** Shares the `StateAnimator` interface and breathing constants. Transition from idle triggers the rise animation.
+- **Jar Rendering (Feature 025):** Uses `SetPosition()`, `SetGlowIntensity()`, `SetBodyColor()` for visual updates.
+- **Idle State (Feature 026):** Shares the `StateAnimator` interface and breathing constants. Transition from idle triggers the rise animation.
 - **CharacterPresenter (Feature 014):** Calls `TransitionTo(StateWorking)` on non-error, non-notification events.
-- **UAT Harness (Feature 020):** Working state triggered via "Working" button for visual validation of drift patterns.
+- **UAT Harness (Feature 024):** Working state triggered via "Working" button for visual validation of drift patterns.
 
 ## Test Coverage Plan
 

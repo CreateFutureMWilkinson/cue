@@ -1,6 +1,6 @@
-# Feature 024: Fairy Notification State
+# Feature 028: Fairy Notification State
 
-**Phase:** Phase-3-Feature-024
+**Phase:** Phase-3-Feature-028
 **Status:** Planned
 **Packages:** `internal/ui/character/`
 
@@ -97,10 +97,10 @@ func (a *NotifyAnimator) State() CharacterState  // returns StateNotifying
 
 ## Integration Points
 
-- **Jar Rendering (Feature 021):** Uses `SetPosition()`, `SetGlowIntensity()`, `SetBodyColor()` for dart and glow updates.
-- **Working State (Feature 023):** Shares `StateAnimator` interface. Transition from working to notifying is immediate (no interpolation).
+- **Jar Rendering (Feature 025):** Uses `SetPosition()`, `SetGlowIntensity()`, `SetBodyColor()` for dart and glow updates.
+- **Working State (Feature 027):** Shares `StateAnimator` interface. Transition from working to notifying is immediate (no interpolation).
 - **CharacterPresenter (Feature 014):** Calls `TransitionTo(StateNotifying)` when activity event contains "NOTIFIED".
-- **UAT Harness (Feature 020):** Notification state triggered via "Notifying" button for visual validation of dart pattern and glow speed.
+- **UAT Harness (Feature 024):** Notification state triggered via "Notifying" button for visual validation of dart pattern and glow speed.
 
 ## Test Coverage Plan
 

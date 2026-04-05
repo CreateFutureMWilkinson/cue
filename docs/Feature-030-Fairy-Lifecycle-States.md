@@ -1,6 +1,6 @@
-# Feature 026: Fairy Lifecycle States
+# Feature 030: Fairy Lifecycle States
 
-**Phase:** Phase-3-Feature-026
+**Phase:** Phase-3-Feature-030
 **Status:** Planned
 **Packages:** `internal/ui/character/`
 
@@ -161,10 +161,10 @@ func (f *FairyCharacter) Shutdown() <-chan struct{}
 
 ## Integration Points
 
-- **Idle State (Feature 022):** Startup animation completes and triggers `TransitionTo(StateIdle)` via the `onComplete` callback.
+- **Idle State (Feature 026):** Startup animation completes and triggers `TransitionTo(StateIdle)` via the `onComplete` callback.
 - **CharacterPresenter (Feature 014):** May call `TransitionTo(StateStarting)` on app start and `TransitionTo(StateShuttingDown)` on app close. Alternatively, the composition root manages lifecycle directly.
 - **Main.go (cmd/cue/):** Shutdown sequence waits on `fairy.Shutdown()` channel before proceeding with graceful cleanup.
-- **UAT Harness (Feature 020):** Starting and Shutdown states triggered via buttons for visual validation.
+- **UAT Harness (Feature 024):** Starting and Shutdown states triggered via buttons for visual validation.
 
 ## Test Coverage Plan
 

@@ -1,6 +1,6 @@
-# Feature 018: Planner UI
+# Feature 022: Planner UI
 
-**Phase:** Phase-2-Feature-018
+**Phase:** Phase-2-Feature-022
 **Status:** Planned
 **Packages:** `internal/ui/presenter/`, `internal/ui/`
 
@@ -92,7 +92,7 @@ New Fyne pane with a wizard-style workflow for day planning and an active schedu
 ### Behavior
 
 - Timer resets at the start of each new block (focus, break, or meeting).
-- During meetings: timer runs but no end-of-block sound (Feature 019).
+- During meetings: timer runs but no end-of-block sound (Feature 023).
 - On block completion: timer stops, alert fires (unless meeting), next block begins.
 
 ## API
@@ -232,10 +232,10 @@ The planner pane replaces or sits alongside the existing layout. Suggested place
 ## Integration Points
 
 - **Todo List (Feature 015):** TodoQuerier and CategoryQuerier for task selection; todo repo writes for new tasks and priority updates.
-- **Calendar Adapter (Feature 016):** CalendarProvider for fetching meeting blocks.
-- **Day Planner (Feature 017):** ScheduleGenerator for producing schedule candidates; ScheduleRepository for persistence.
-- **Planner Audio (Feature 019):** TimerAlerter for block-end sounds; meeting suppression communicated via BlockType.
-- **Existing UI (Feature 011):** Integrates as new tab/pane in MainWindow alongside existing notification and activity panes.
+- **Calendar Adapter (Feature 020):** CalendarProvider for fetching meeting blocks.
+- **Day Planner (Feature 021):** ScheduleGenerator for producing schedule candidates; ScheduleRepository for persistence.
+- **Planner Audio (Feature 023):** TimerAlerter for block-end sounds; meeting suppression communicated via BlockType.
+- **Three-Column Layout (Feature 016):** Integrates into the center area column via the center view router.
 - **Character (Feature 014):** Character state could reflect planner activity (working during focus, idle during breaks) — optional enhancement.
 
 ## Test Coverage Plan

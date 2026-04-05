@@ -1,6 +1,6 @@
-# Feature 017: Day Planner (Scheduling Engine)
+# Feature 021: Day Planner (Scheduling Engine)
 
-**Phase:** Phase-2-Feature-017
+**Phase:** Phase-2-Feature-021
 **Status:** Planned
 **Packages:** `internal/service/planner/`
 
@@ -181,9 +181,9 @@ Both strategies assign tasks to focus blocks in priority order:
 ## Integration Points
 
 - **Todo List (Feature 015):** Reads incomplete todos as task candidates. New tasks entered during planning are written back to the todo repository.
-- **Calendar Adapter (Feature 016):** Fetches `[]CalendarEvent` for the target date to place as fixed blocks.
-- **Planner UI (Feature 018):** Presents the two schedule candidates, handles user selection, displays active schedule.
-- **Planner Audio (Feature 019):** Timer-end alerts triggered at block boundaries.
+- **Calendar Adapter (Feature 020):** Fetches `[]CalendarEvent` for the target date to place as fixed blocks.
+- **Planner UI (Feature 022):** Presents the two schedule candidates, handles user selection, displays active schedule.
+- **Planner Audio (Feature 023):** Timer-end alerts triggered at block boundaries.
 - **Config (Feature 001):** New `[planner]` section with validation rules for all timing parameters.
 - **Ollama Client (Feature 004):** `TaskEstimator` implementation wraps the existing Ollama client for duration inference.
 

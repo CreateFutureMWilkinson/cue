@@ -236,44 +236,29 @@ log_dir = ""
 
 ---
 
-## 7. Notification Queue UI (Phase 1)
+## 7. UI Specification
 
-### Main Window (Fyne)
+**The authoritative UI specification is `docs/UI-SPEC.md`.** It defines layout wireframes, design tokens, component specs, interaction behavior, and acceptance criteria. All UI implementation work defers to UI-SPEC.md.
 
-**Layout: Three panes**
+### Summary
 
-1. **Notification Queue** (left, scrollable)
-   - Columns: [Source (15ch)] | [Sender (15ch)] | [Channel (15ch)] | [Message preview]
-   - Rows: one per NOTIFIED message (newest first)
-   - Each row: sender, channel, source are truncated independently to 15 chars
-   - Click row to expand: show full message, IS, CS, timestamp
-   - Action: "Resolve" button (marks as Resolved, optionally rate)
+The main window uses a **three-column layout** with no tab bar:
 
-2. **Activity Log** (right, real-time)
-   - Live feed of system events
-   - "Slack: fetched 12 messages"
-   - "Routed 8 NOTIFIED, 3 BUFFERED, 1 IGNORED"
-   - "Ollama: inference took 250ms"
-   - "Email: connection error, retrying..."
-   - Errors in red; info in neutral color
+| Column | Width | Contents |
+|---|---|---|
+| Focus rail | 10% | Timer ring, current task, Done/Back/Plan/Review buttons |
+| Character area | 60% | Fairy (Phase 3), activity log drawer, or Plan/Wizard views |
+| Notifications | 30% (collapsed) / 90% (expanded) | Color-coded notification cards |
 
-3. **Feedback Buffer Review** (bottom, button-triggered)
-   - Modal/tab to review buffered messages (oldest → newest)
-   - Display: sender, channel, source, message content, current IS, CS
-   - User rating: **0–10 buttons** (not slider)
-   - Optional notes textarea
-   - Actions: "Save Rating", "Skip", "Delete"
-   - Counter: "3 of 47 buffered messages reviewed"
-
-### Menu
-
-- **Settings:** Edit config.toml, reconnect sources, change thresholds
-- **About:** Version, links
-- **Quit:** Graceful shutdown
-
-### No Visual Decorations
-
-Phase 1: Functional, plain, no animations or character. Focus on feedback loop accuracy.
+Key UI components defined in UI-SPEC.md:
+- **Notification panel** — collapsed/expanded states, color-coded cards by IS, detail dialog modal
+- **Activity log** — pull-up drawer in character area, hidden by default
+- **Focus rail** — countdown timer ring, task tracking, navigation
+- **Plan view** — schedule tree + todo list in center area
+- **Day planner wizard** — 4-step wizard in center area
+- **Feedback review** — modal for rating buffered messages 0–10
+- **Settings** — audio volume controls
+- **Countdown timer** — custom 45-line ring widget with 1Hz flash
 
 ---
 
@@ -508,7 +493,7 @@ Before marking work complete, run in order:
 
 ## 18. Implementation Phases
 
-### Phase 1: Smart Routing + Feedback Buffer + Bare-Bones UI
+### Phase 1: Smart Routing + Feedback Buffer + UI
 
 **Components:**
 1. Config loading + validation
@@ -522,6 +507,12 @@ Before marking work complete, run in order:
 9. Feedback buffer (storage + review)
 10. Audio alerts
 11. Fyne GUI (notification queue, activity log, feedback review)
+12. Configurable audio alerts (amendment)
+13. gopxl/beep audio player (amendment)
+16. Three-column layout + center view router
+17. Focus rail (timer ring shell, navigation buttons)
+18. Notification panel redesign (color-coded cards, collapsed/expanded)
+19. Activity log drawer (pull-up in character area)
 
 **Success Criteria:**
 - ✅ Slack/Email messages fetched and routed <500ms p95
@@ -531,7 +522,7 @@ Before marking work complete, run in order:
 - ✅ Feedback buffer captures 100 messages per source
 - ✅ User can rate messages 0–10 with optional notes
 - ✅ Audio alerts cross-platform
-- ✅ GUI functional (bare-bones, no animations)
+- GUI matches `docs/UI-SPEC.md` three-column layout
 - ✅ Graceful error handling
 - ✅ All code documented, tested, passing coverage gates
 

@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-**Phase 1** — Smart Routing + Feedback Buffer + Bare-Bones UI
+**Phase 1** — Smart Routing + Feedback Buffer + UI
 
 | # | Component | Status |
 |---|---|---|
@@ -24,29 +24,33 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 11 | Fyne GUI | Done |
 | 12 | Configurable audio alerts (amendment) | Done |
 | 13 | gopxl/beep audio player (amendment) | Done |
+| 16 | Three-column layout + center view router | Planned |
+| 17 | Focus rail (timer ring shell, navigation) | Planned |
+| 18 | Notification panel redesign (color-coded cards) | Planned |
+| 19 | Activity log drawer | Planned |
 
 **Phase 2** — Day Planner + Timer
 
 | # | Component | Status |
 |---|---|---|
-| 15 | Todo list (CRUD, categories, SQLite) | Planned |
-| 16 | Calendar adapter (ICS-over-HTTP) | Planned |
-| 17 | Day planner (scheduling engine, Pomodoro model) | Planned |
-| 18 | Planner UI (wizard pane, Countdown timer) | Planned |
-| 19 | Planner audio alerts (timer sounds, volume control) | Planned |
+| 15 | Todo list (CRUD, categories, SQLite) | In Progress |
+| 20 | Calendar adapter (ICS-over-HTTP) | Planned |
+| 21 | Day planner (scheduling engine, Pomodoro model) | Planned |
+| 22 | Planner UI (wizard pane, Countdown timer) | Planned |
+| 23 | Planner audio alerts (timer sounds, volume control) | Planned |
 
 **Phase 3** — Animations
 
 | # | Component | Status |
 |---|---|---|
 | 14 | Character animation system | Done |
-| 20 | Character UAT harness | Planned |
-| 21 | Jar rendering (SVG layers, fairy body/glow) | Planned |
-| 22 | Fairy idle state (breathing glow) | Planned |
-| 23 | Fairy working state (pseudo-random drift) | Planned |
-| 24 | Fairy notification state (erratic dart) | Planned |
-| 25 | Fairy error state (centered vibrate) | Planned |
-| 26 | Fairy lifecycle states (startup/shutdown) | Planned |
+| 24 | Character UAT harness | Planned |
+| 25 | Jar rendering (SVG layers, fairy body/glow) | Planned |
+| 26 | Fairy idle state (breathing glow) | Planned |
+| 27 | Fairy working state (pseudo-random drift) | Planned |
+| 28 | Fairy notification state (erratic dart) | Planned |
+| 29 | Fairy error state (centered vibrate) | Planned |
+| 30 | Fairy lifecycle states (startup/shutdown) | Planned |
 
 **Hotfixes**
 

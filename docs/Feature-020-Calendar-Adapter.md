@@ -1,6 +1,6 @@
-# Feature 016: Calendar Adapter
+# Feature 020: Calendar Adapter
 
-**Phase:** Phase-2-Feature-016
+**Phase:** Phase-2-Feature-020
 **Status:** Planned
 **Packages:** `internal/service/calendar/`
 
@@ -8,7 +8,7 @@
 
 ## Overview
 
-Provider-agnostic calendar integration for reading external calendar events. The MVP fetches events from Google Calendar secret (share) links via ICS-over-HTTP. The adapter interface is designed for extensibility — future implementations can support CalDAV, Microsoft Graph, or direct Google Calendar API. Read-only; Cue never writes back to the calendar. Events feed into the day planner (Feature 017) as fixed time blocks that the Pomodoro schedule wraps around.
+Provider-agnostic calendar integration for reading external calendar events. The MVP fetches events from Google Calendar secret (share) links via ICS-over-HTTP. The adapter interface is designed for extensibility — future implementations can support CalDAV, Microsoft Graph, or direct Google Calendar API. Read-only; Cue never writes back to the calendar. Events feed into the day planner (Feature 021) as fixed time blocks that the Pomodoro schedule wraps around.
 
 ## Design Decisions
 
@@ -81,9 +81,9 @@ timeout_seconds = 30
 
 ## Integration Points
 
-- **Day Planner (Feature 017):** Consumes `[]CalendarEvent` as fixed time blocks. Meetings are non-negotiable in the schedule; Pomodoros fill remaining gaps.
+- **Day Planner (Feature 021):** Consumes `[]CalendarEvent` as fixed time blocks. Meetings are non-negotiable in the schedule; Pomodoros fill remaining gaps.
 - **Config (Feature 001):** New `[calendar]` section with validation rules.
-- **Planner UI (Feature 018):** Calendar events displayed in schedule view as meeting blocks.
+- **Planner UI (Feature 022):** Calendar events displayed in schedule view as meeting blocks.
 
 ## Test Coverage Plan
 

@@ -1,6 +1,6 @@
-# Feature 022: Fairy Idle State
+# Feature 026: Fairy Idle State
 
-**Phase:** Phase-3-Feature-022
+**Phase:** Phase-3-Feature-026
 **Status:** Planned
 **Packages:** `internal/ui/character/`
 
@@ -121,9 +121,9 @@ func (f *FairyCharacter) TransitionTo(state CharacterState)
 
 ## Integration Points
 
-- **Jar Rendering (Feature 021):** Uses `SetPosition()`, `SetGlowIntensity()`, and `SetBodyColor()` to drive the visual state.
+- **Jar Rendering (Feature 025):** Uses `SetPosition()`, `SetGlowIntensity()`, and `SetBodyColor()` to drive the visual state.
 - **CharacterPresenter (Feature 014):** Calls `TransitionTo(StateIdle)` after 5-second decay. No changes to presenter needed.
-- **UAT Harness (Feature 020):** Idle state triggered via "Idle" button for visual validation of breathing cycle.
+- **UAT Harness (Feature 024):** Idle state triggered via "Idle" button for visual validation of breathing cycle.
 - **Subsequent States (Features 023–026):** Each implements `StateAnimator` and follows the same Start/Stop pattern.
 
 ## Test Coverage Plan

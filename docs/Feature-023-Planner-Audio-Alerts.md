@@ -1,6 +1,6 @@
-# Feature 019: Planner Audio Alerts
+# Feature 023: Planner Audio Alerts
 
-**Phase:** Phase-2-Feature-019
+**Phase:** Phase-2-Feature-023
 **Status:** Planned
 **Packages:** `internal/alert/`, `internal/service/planner/`
 
@@ -28,7 +28,7 @@ timer_sound = ""        # path to audio file; empty = use fallback beep
 timer_volume = 75       # 0–100, independent of notification volume
 ```
 
-The `timer_sound` and `timer_volume` fields are added to the existing `[planner]` config section (Feature 017). When `timer_sound` is empty or unset, the fallback beep is used. `timer_volume` defaults to 75 and is adjustable at runtime via the settings UI.
+The `timer_sound` and `timer_volume` fields are added to the existing `[planner]` config section (Feature 021). When `timer_sound` is empty or unset, the fallback beep is used. `timer_volume` defaults to 75 and is adjustable at runtime via the settings UI.
 
 ## API
 
@@ -128,7 +128,7 @@ Meeting starts (BlockMeeting active)
 
 ## Integration Points
 
-- **Planner UI (Feature 018):** `TimerPresenter` calls `TimerAlerter.PlayTimerEnd` on block completion, passing suppression flag based on current block type.
+- **Planner UI (Feature 022):** `TimerPresenter` calls `TimerAlerter.PlayTimerEnd` on block completion, passing suppression flag based on current block type.
 - **Notification Queue (Feature 011):** Missed alerts during meetings are converted to notification-queue-compatible events and displayed in the existing notification pane.
 - **Alert Service (Feature 010):** Reuses `Beeper`, `FileSystem`, `AudioPlayer` interfaces from the existing alert package. Does not modify the `Alerter` interface.
 - **Config (Feature 001):** `timer_sound` field in `[planner]` section, validated as optional file path.

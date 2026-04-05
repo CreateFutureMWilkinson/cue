@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"image/color"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -25,20 +26,51 @@ func NewNotificationPanel(np *presenter.NotificationPresenter, win fyne.Window) 
 	// Create the notification list widget
 	list := widget.NewList(
 		func() int {
-			return len(np.Messages())
+			return len(np.Cards())
 		},
 		func() fyne.CanvasObject {
-			return widget.NewLabel("template")
+			bg := canvas.NewRectangle(color.Transparent)
+			badge := canvas.NewRectangle(color.Transparent)
+			badge.SetMinSize(fyne.NewSize(8, 8))
+			badgeLabel := widget.NewLabel("")
+			channelLabel := widget.NewLabel("")
+			previewLabel := widget.NewLabel("")
+			senderLabel := widget.NewLabel("")
+			timeLabel := widget.NewLabel("")
+			content := container.NewVBox(
+				container.NewHBox(badge, badgeLabel, channelLabel),
+				previewLabel,
+				container.NewHBox(senderLabel, timeLabel),
+			)
+			return container.NewStack(bg, content)
 		},
 		func(id widget.ListItemID, obj fyne.CanvasObject) {
-			rows := np.Messages()
-			if id >= len(rows) {
+			cards := np.Cards()
+			if id >= len(cards) {
 				return
 			}
-			row := rows[id]
-			obj.(*widget.Label).SetText(
-				fmt.Sprintf("[%s] %s | %s | %s", row.Source, row.Sender, row.Channel, row.Preview),
-			)
+			card := cards[id]
+			stack := obj.(*fyne.Container)
+			bg := stack.Objects[0].(*canvas.Rectangle)
+			content := stack.Objects[1].(*fyne.Container)
+			row1 := content.Objects[0].(*fyne.Container)
+			badge := row1.Objects[0].(*canvas.Rectangle)
+			badgeLabel := row1.Objects[1].(*widget.Label)
+			channelLabel := row1.Objects[2].(*widget.Label)
+			previewLabel := content.Objects[1].(*widget.Label)
+			row3 := content.Objects[2].(*fyne.Container)
+			senderLabel := row3.Objects[0].(*widget.Label)
+			timeLabel := row3.Objects[1].(*widget.Label)
+
+			bg.FillColor = card.CardColor
+			bg.Refresh()
+			badge.FillColor = card.BadgeColor
+			badge.Refresh()
+			badgeLabel.SetText(fmt.Sprintf("[%.0f]", card.ImportanceScore))
+			channelLabel.SetText(card.Channel)
+			previewLabel.SetText(card.MessagePreview)
+			senderLabel.SetText(card.Sender)
+			timeLabel.SetText(card.RelativeTime)
 		},
 	)
 

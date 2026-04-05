@@ -341,3 +341,14 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-059 (behavior 1) | GREEN | Implementer | manual | — | 1518d5f |
 | Phase-6-Feature-059 (behavior 2) | RED | Test Designer | manual | — | 880c1f9 |
 | Phase-6-Feature-059 (behavior 2) | GREEN | Implementer | manual | — | 2fe1d13 |
+| Phase-6-Feature-060 (behavior 1) | RED | Test Designer | ~38s | ~24,000 | 1df1fd4 |
+| Phase-6-Feature-060 (behavior 1) | GREEN | Implementer | ~24s | ~22,000 | c592e47 |
+| Phase-6-Feature-060 (behavior 2) | RED | Test Designer | ~63s | ~29,000 | 3acabd1 |
+| Phase-6-Feature-060 (behavior 2) | GREEN | orchestrator | manual | — | 6b318c6 |
+| Phase-6-Feature-060 (behavior 3) | RED | Test Designer | ~46s | ~24,000 | 87c33e3 |
+| Phase-6-Feature-060 (behavior 3) | GREEN | orchestrator | manual | — | d46732d |
+| Phase-6-Feature-060 (behavior 4) | RED | Test Designer | ~26s | ~23,000 | 5d672ed |
+| Phase-6-Feature-060 (behavior 4) | GREEN | orchestrator | manual | — | 5575038 |
+| Phase-6-Feature-060 (behavior 5) | RED | Test Designer | ~23s | ~23,000 | 2057d93 |
+| Phase-6-Feature-060 (behavior 5) | GREEN | orchestrator | manual | — | 9c8abe6 |
+| Phase-6-Feature-060 | REFACTOR | Refactorer | ~41s | ~22,000 | 779e6bf |

@@ -6,6 +6,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
@@ -99,4 +100,27 @@ func (s *CompositionSuite) TestMainWindowContainsNotificationArea() {
 	// The notification area is the inner split's trailing element.
 	s.NotNil(innerSplit.Trailing,
 		"inner split's trailing (notification area) should not be nil")
+}
+
+// TestMainWindowLeftColumnIsFocusRailContainer verifies that the left column
+// of the three-column layout contains a *fyne.Container (from FocusRail.Container())
+// rather than a placeholder *widget.Label.
+func (s *CompositionSuite) TestMainWindowLeftColumnIsFocusRailContainer() {
+	fyneApp := test.NewApp()
+	router := ui.NewCenterViewRouter()
+	mw := newTestMainWindow(fyneApp, router)
+
+	content := mw.Content()
+	s.Require().NotNil(content)
+
+	outerSplit, ok := content.(*container.Split)
+	s.Require().True(ok, "root content should be a *container.Split, got %T", content)
+
+	// The left column (Leading) should be a *fyne.Container (VBox from FocusRail),
+	// not a *widget.Label placeholder.
+	_, isLabel := outerSplit.Leading.(*widget.Label)
+	s.False(isLabel, "left column should not be a *widget.Label placeholder")
+
+	_, isContainer := outerSplit.Leading.(*fyne.Container)
+	s.True(isContainer, "left column should be a *fyne.Container (from FocusRail), got %T", outerSplit.Leading)
 }

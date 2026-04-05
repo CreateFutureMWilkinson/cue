@@ -38,7 +38,7 @@ func (s *OllamaClientSuite) TestNewOllamaClient_ValidInputs() {
 func (s *OllamaClientSuite) TestNewOllamaClient_EmptyBaseURL() {
 	_, err := decisionengine.NewOllamaClient("", "neural-chat", 10*time.Second)
 	s.Error(err)
-	s.Contains(err.Error(), "base URL")
+	s.Contains(err.Error(), "baseURL")
 }
 
 func (s *OllamaClientSuite) TestNewOllamaClient_EmptyModel() {
@@ -66,7 +66,7 @@ func (s *OllamaClientSuite) TestOllamaClient_ImplementsScorer() {
 // --- Successful scoring ---
 
 func (s *OllamaClientSuite) TestScore_ValidResponse_ReturnsScores() {
-	ollamaResponse := map[string]interface{}{
+	ollamaResponse := map[string]any{
 		"response": `{"importance_score": 8.5, "confidence_score": 0.9, "reasoning": "server outage detected"}`,
 		"done":     true,
 	}
@@ -98,7 +98,7 @@ func (s *OllamaClientSuite) TestScore_ValidResponse_ReturnsScores() {
 // --- Request format ---
 
 func (s *OllamaClientSuite) TestScore_SendsCorrectRequestToOllama() {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify HTTP method and path
@@ -108,7 +108,7 @@ func (s *OllamaClientSuite) TestScore_SendsCorrectRequestToOllama() {
 		body, _ := io.ReadAll(r.Body)
 		json.Unmarshal(body, &receivedBody)
 
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"response": `{"importance_score": 5.0, "confidence_score": 0.7, "reasoning": "normal message"}`,
 			"done":     true,
 		}
@@ -147,13 +147,13 @@ func (s *OllamaClientSuite) TestScore_SendsCorrectRequestToOllama() {
 // --- Prompt includes source context ---
 
 func (s *OllamaClientSuite) TestScore_PromptIncludesSource() {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		json.Unmarshal(body, &receivedBody)
 
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"response": `{"importance_score": 5.0, "confidence_score": 0.7, "reasoning": "normal"}`,
 			"done":     true,
 		}
@@ -185,7 +185,7 @@ func (s *OllamaClientSuite) TestScore_ContextTimeout_ReturnsError() {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Simulate slow response
 		time.Sleep(500 * time.Millisecond)
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"response": `{"importance_score": 5.0, "confidence_score": 0.7, "reasoning": "normal"}`,
 			"done":     true,
 		}
@@ -212,7 +212,7 @@ func (s *OllamaClientSuite) TestScore_ContextTimeout_ReturnsError() {
 
 func (s *OllamaClientSuite) TestScore_InvalidJSONInResponse_ReturnsError() {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"response": "this is not valid json at all",
 			"done":     true,
 		}
@@ -296,7 +296,7 @@ func (s *OllamaClientSuite) TestScore_ConnectionRefused_ReturnsError() {
 func (s *OllamaClientSuite) TestScore_ResponseWithMarkdownWrapping_ExtractsJSON() {
 	// Some LLMs wrap JSON in markdown code blocks
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"response": "```json\n{\"importance_score\": 6.0, \"confidence_score\": 0.85, \"reasoning\": \"meeting reminder\"}\n```",
 			"done":     true,
 		}
@@ -323,13 +323,13 @@ func (s *OllamaClientSuite) TestScore_ResponseWithMarkdownWrapping_ExtractsJSON(
 // --- Prompt requests JSON format ---
 
 func (s *OllamaClientSuite) TestScore_PromptRequestsJSONFormat() {
-	var receivedBody map[string]interface{}
+	var receivedBody map[string]any
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		json.Unmarshal(body, &receivedBody)
 
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"response": `{"importance_score": 5.0, "confidence_score": 0.7, "reasoning": "normal"}`,
 			"done":     true,
 		}

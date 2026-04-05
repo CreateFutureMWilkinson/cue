@@ -13,6 +13,27 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 )
 
+// Ollama API constants
+const (
+	ollamaGenerateEndpoint = "/api/generate"
+	jsonContentType        = "application/json"
+	markdownFence          = "```"
+)
+
+// LLM prompt template for message scoring
+const promptTemplate = `You are an ADHD-friendly message importance scorer. Evaluate the following message and return a JSON object with these fields:
+- importance_score: a float from 0 to 10 indicating how important/urgent this message is
+- confidence_score: a float from 0.0 to 1.0 indicating your confidence in the rating
+- reasoning: a brief explanation of your rating
+
+Message details:
+- Source: %s
+- Sender: %s
+- Channel: %s
+- Content: %s
+
+Respond ONLY with valid JSON. Do not include any other text.`
+
 // OllamaClient communicates with a local Ollama instance to score messages.
 type OllamaClient struct {
 	baseURL    string
@@ -24,7 +45,7 @@ type OllamaClient struct {
 // Returns an error if any parameter is invalid.
 func NewOllamaClient(baseURL string, model string, timeout time.Duration) (*OllamaClient, error) {
 	if baseURL == "" {
-		return nil, fmt.Errorf("base URL must not be empty")
+		return nil, fmt.Errorf("baseURL must not be empty")
 	}
 	if model == "" {
 		return nil, fmt.Errorf("model must not be empty")
@@ -73,29 +94,29 @@ func (c *OllamaClient) Score(ctx context.Context, msg *repository.Message) (*Sco
 
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("marshalling request: %w", err)
+		return nil, fmt.Errorf("marshalling Ollama request: %w", err)
 	}
 
-	url := c.baseURL + "/api/generate"
+	url := c.baseURL + ollamaGenerateEndpoint
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
 	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+		return nil, fmt.Errorf("creating HTTP request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", jsonContentType)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("sending request to Ollama: %w", err)
+		return nil, fmt.Errorf("sending HTTP request to Ollama: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Ollama returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("Ollama API returned non-200 status: %d", resp.StatusCode)
 	}
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
+		return nil, fmt.Errorf("reading Ollama response body: %w", err)
 	}
 
 	var outerResp ollamaResponse
@@ -119,31 +140,21 @@ func (c *OllamaClient) Score(ctx context.Context, msg *repository.Message) (*Sco
 
 // buildPrompt constructs the LLM prompt from the message fields.
 func buildPrompt(msg *repository.Message) string {
-	return fmt.Sprintf(`You are an ADHD-friendly message importance scorer. Evaluate the following message and return a JSON object with these fields:
-- importance_score: a float from 0 to 10 indicating how important/urgent this message is
-- confidence_score: a float from 0.0 to 1.0 indicating your confidence in the rating
-- reasoning: a brief explanation of your rating
-
-Message details:
-- Source: %s
-- Sender: %s
-- Channel: %s
-- Content: %s
-
-Respond ONLY with valid JSON. Do not include any other text.`, msg.Source, msg.Sender, msg.Channel, msg.RawContent)
+	return fmt.Sprintf(promptTemplate, msg.Source, msg.Sender, msg.Channel, msg.RawContent)
 }
 
 // extractJSON strips markdown code block wrapping if present.
+// Some LLMs wrap JSON responses in markdown code blocks like ```json...```
 func extractJSON(s string) string {
 	trimmed := strings.TrimSpace(s)
-	if strings.HasPrefix(trimmed, "```") {
+	if strings.HasPrefix(trimmed, markdownFence) {
 		// Remove opening fence (with optional language tag)
 		idx := strings.Index(trimmed, "\n")
 		if idx >= 0 {
 			trimmed = trimmed[idx+1:]
 		}
 		// Remove closing fence
-		if lastIdx := strings.LastIndex(trimmed, "```"); lastIdx >= 0 {
+		if lastIdx := strings.LastIndex(trimmed, markdownFence); lastIdx >= 0 {
 			trimmed = trimmed[:lastIdx]
 		}
 		trimmed = strings.TrimSpace(trimmed)

@@ -1,7 +1,7 @@
 # Feature 051: Fairy Interior Bounds
 
 **Phase:** Phase-5-Feature-051
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/character/fairy/`
 
 ---

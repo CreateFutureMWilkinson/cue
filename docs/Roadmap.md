@@ -95,3 +95,4 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 048 | Unused config field wiring | Done | — | [Feature-048](features/phase-5/Feature-048-Config-Field-Wiring.md) |
 | 049 | MessageRepository QueryByID | Done | — | [Feature-049](features/phase-5/Feature-049-MessageRepository-QueryByID.md) |
 | 050 | Resize refresh | Done | — | [Feature-050](features/phase-5/Feature-050-Resize-Refresh.md) |
+| 051 | Fairy interior bounds | Done | — | [Feature-051](features/phase-5/Feature-051-Fairy-Interior-Bounds.md) |

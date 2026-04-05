@@ -13,6 +13,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **Fairy flies outside jar bounds** — The fairy's normalized 0.0–1.0 position was mapped to the full container, ignoring `ImageFillContain` letterboxing and the jar's glass walls. Now computes the jar's rendered rect (accounting for pillarboxing/letterboxing) and maps the fairy's position into the jar's interior region (below the lid, above the base, inside the walls). All animators benefit automatically. (Phase-5-Feature-051)
 - **Fairy movement animations not visible** — `refreshFunc` in `FairyCharacter` was a no-op, so position changes from animators (working drift, notify dart, error vibrate) never triggered a container re-layout. Now wired to `fyne.Do(container.Refresh)` with a nil-app guard for test safety. (Phase-3-Feature-024C)
 - **Fyne thread-safety errors during animations** — `SetBodyColor` and `stopAndUpdateState` called `.Refresh()` directly on canvas objects from animator goroutines, bypassing `fyne.Do()`. Removed direct calls; all refreshes now route through `refreshFunc`. (Phase-3-Feature-024D)
 - **Character not re-rendering on window resize** — Jar `canvas.Image` objects in `fairyJarLayout` were resized but not refreshed, so cached pixels were not re-rendered at the new size. Added explicit `Refresh()` calls after `Resize()` in the layout. Also fixed UAT harness using `container.NewCenter` (min-size constrained) instead of `container.NewStack` (space-filling) to match main application embedding. (Phase-5-Feature-050)

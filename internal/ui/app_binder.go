@@ -13,8 +13,6 @@ type PlannerCallbacks interface {
 	HasActivePlan() bool
 	LoadExistingPlan(ctx context.Context) error
 	CompleteCurrentTask(ctx context.Context) error
-	AbandonPlan(ctx context.Context) error
-	ActiveSchedule() *presenter.ActiveScheduleState
 }
 
 // FocusRailCallbacks abstracts the focus rail for binding.
@@ -35,6 +33,8 @@ type ViewNavigator interface {
 }
 
 // AppBinder wires presenter callbacks to view updates.
+// It coordinates between the planner presenter, focus rail, views, and router
+// to keep the UI synchronized with the underlying application state.
 type AppBinder struct {
 	plannerP    PlannerCallbacks
 	focusRail   FocusRailCallbacks

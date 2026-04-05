@@ -26,6 +26,8 @@ type TaskUpdater interface {
 }
 
 // TimerLoop drives the timer at 1Hz by calling Tick and updating the UI.
+// It manages a background goroutine that ticks every second and updates
+// the timer widget, flash visibility, and current task display.
 type TimerLoop struct {
 	timer    TickableTimer
 	widget   TimerWidget

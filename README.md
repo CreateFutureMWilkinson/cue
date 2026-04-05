@@ -73,6 +73,22 @@ just tidy         # Module hygiene
 
 TDD (Red-Green-Refactor) is required for all feature work. See [CLAUDE.md](.claude/CLAUDE.md) Section 13.
 
+## Why Cue Instead of OpenClaw?
+
+[OpenClaw](https://openclaw.ai/) is a popular general-purpose AI agent that automates tasks across messaging platforms via a skills system. It's powerful and extensible, but it's a different tool for a different problem. Here's how they compare:
+
+| | Cue | OpenClaw |
+|---|---|---|
+| **Purpose** | Single-purpose ADHD notification triage | General-purpose AI agent |
+| **LLM** | Local Ollama only — no data leaves your machine | Cloud LLMs (Claude, GPT, DeepSeek) |
+| **Privacy** | Strict local-first by design | Connects to cloud services |
+| **Interface** | Desktop GUI (Fyne) | Chat-based (Signal, Telegram, Discord) |
+| **Extensibility** | Fixed pipeline: fetch → score → route | Plugin/skills system for arbitrary workflows |
+| **ADHD support** | Core design goal — noise filtering, importance scoring, batch processing, feedback loop | Available via community skills, not core |
+| **Feedback loop** | Built-in: rate messages 0–10, vector embeddings for learning | Not built-in |
+
+OpenClaw *could* approximate Cue's behavior with the right skills, but wouldn't have the tight scoring/routing engine, the built-in feedback loop, or the guarantee that nothing ever leaves your machine. Cue is purpose-built for one job: making sure ADHD users catch the messages that matter without drowning in noise.
+
 ## License
 
 TBD

@@ -64,6 +64,9 @@ type FairyCharacter struct {
 	// Current running animator (nil if none).
 	currentAnimator stateAnimator
 
+	// layoutRefreshCount tracks how many times the layout has called Refresh on jar images.
+	layoutRefreshCount int
+
 	// Mutex for thread-safe transitions.
 	mu sync.Mutex
 
@@ -303,13 +306,13 @@ func (f *FairyCharacter) GlowLayers() []*canvas.Circle {
 }
 
 // JarBack returns the jar back image layer.
-func (f *FairyCharacter) JarBack() *canvas.Image { return nil }
+func (f *FairyCharacter) JarBack() *canvas.Image { return f.jarBack }
 
 // JarFront returns the jar front image layer.
-func (f *FairyCharacter) JarFront() *canvas.Image { return nil }
+func (f *FairyCharacter) JarFront() *canvas.Image { return f.jarFront }
 
 // LayoutRefreshCount returns how many times the layout has called Refresh on jar images.
-func (f *FairyCharacter) LayoutRefreshCount() int { return 0 }
+func (f *FairyCharacter) LayoutRefreshCount() int { return f.layoutRefreshCount }
 
 // newGlowCircle creates a new glow circle with the default idle color and given alpha.
 func newGlowCircle(alpha uint8) *canvas.Circle {

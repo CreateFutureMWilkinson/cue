@@ -35,9 +35,13 @@ func (l *fairyJarLayout) positionJarLayers(size fyne.Size) {
 
 	l.fairy.jarBack.Resize(size)
 	l.fairy.jarBack.Move(origin)
+	l.fairy.jarBack.Refresh()
 
 	l.fairy.jarFront.Resize(size)
 	l.fairy.jarFront.Move(origin)
+	l.fairy.jarFront.Refresh()
+
+	l.fairy.layoutRefreshCount++
 }
 
 // positionFairyCircles positions the body circle and glow layers.

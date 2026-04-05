@@ -94,25 +94,7 @@ func (p *NotificationPresenter) Select(index int) (*NotificationDetail, error) {
 }
 
 func (p *NotificationPresenter) Resolve(ctx context.Context, id uuid.UUID) error {
-	idx := slices.IndexFunc(p.messages, func(m *repository.Message) bool { return m.ID == id })
-	if idx == -1 {
-		return fmt.Errorf("resolve: message %s not found", id)
-	}
-
-	msg := p.messages[idx]
-	now := time.Now()
-	msg.Status = statusResolved
-	msg.ResolvedAt = &now
-
-	if err := p.updater.Update(ctx, msg); err != nil {
-		// Undo in-memory mutation so the presenter stays consistent on failure.
-		msg.Status = statusNotified
-		msg.ResolvedAt = nil
-		return fmt.Errorf("resolve: %w", err)
-	}
-
-	p.messages = slices.Delete(p.messages, idx, idx+1)
-	return nil
+	return p.resolveMessage(ctx, id, "resolve")
 }
 
 func (p *NotificationPresenter) IsExpanded() bool {
@@ -131,9 +113,15 @@ func (p *NotificationPresenter) SetOnExpandedChange(fn func(bool)) {
 }
 
 func (p *NotificationPresenter) DismissMessage(ctx context.Context, id uuid.UUID) error {
+	return p.resolveMessage(ctx, id, "dismiss")
+}
+
+// resolveMessage handles the common logic for resolving messages (both Resolve and DismissMessage).
+// It finds the message by ID, marks it as resolved, updates it in the repository, and removes it from the list.
+func (p *NotificationPresenter) resolveMessage(ctx context.Context, id uuid.UUID, operation string) error {
 	idx := slices.IndexFunc(p.messages, func(m *repository.Message) bool { return m.ID == id })
 	if idx == -1 {
-		return fmt.Errorf("dismiss: message %s not found", id)
+		return fmt.Errorf("%s: message %s not found", operation, id)
 	}
 
 	msg := p.messages[idx]
@@ -142,9 +130,10 @@ func (p *NotificationPresenter) DismissMessage(ctx context.Context, id uuid.UUID
 	msg.ResolvedAt = &now
 
 	if err := p.updater.Update(ctx, msg); err != nil {
+		// Undo in-memory mutation so the presenter stays consistent on failure.
 		msg.Status = statusNotified
 		msg.ResolvedAt = nil
-		return fmt.Errorf("dismiss: %w", err)
+		return fmt.Errorf("%s: %w", operation, err)
 	}
 
 	p.messages = slices.Delete(p.messages, idx, idx+1)

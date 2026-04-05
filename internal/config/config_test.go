@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
@@ -30,20 +31,6 @@ func (s *ConfigSuite) TestLoadValidConfig() {
 	tomlContent := `
 [database]
 path = "/data/messages.db"
-
-[slack]
-enabled = true
-bot_token = "xoxb-test-token-123"
-workspace_id = "T0001"
-poll_interval_seconds = 300
-
-[email]
-enabled = false
-imap_host = "imap.example.com"
-imap_port = 993
-username = "alice@example.com"
-password_env = "MY_EMAIL_PW"
-poll_interval_seconds = 120
 
 [orchestrator.router]
 importance_threshold = 8
@@ -78,20 +65,6 @@ log_dir = "/var/log/cue"
 
 	// Database
 	s.Equal("/data/messages.db", cfg.Database.Path)
-
-	// Slack
-	s.True(cfg.Slack.Enabled)
-	s.Equal("xoxb-test-token-123", cfg.Slack.BotToken)
-	s.Equal("T0001", cfg.Slack.WorkspaceID)
-	s.Equal(300, cfg.Slack.PollIntervalSeconds)
-
-	// Email
-	s.False(cfg.Email.Enabled)
-	s.Equal("imap.example.com", cfg.Email.IMAPHost)
-	s.Equal(993, cfg.Email.IMAPPort)
-	s.Equal("alice@example.com", cfg.Email.Username)
-	s.Equal("MY_EMAIL_PW", cfg.Email.PasswordEnv)
-	s.Equal(120, cfg.Email.PollIntervalSeconds)
 
 	// Orchestrator / Router
 	s.Equal(8, cfg.Orchestrator.Router.ImportanceThreshold)
@@ -142,18 +115,6 @@ func (s *ConfigSuite) TestCreateDefaultConfigIfMissing() {
 	home, err := os.UserHomeDir()
 	s.Require().NoError(err)
 	s.Equal(filepath.Join(home, ".cue", "messages.db"), cfg.Database.Path)
-
-	s.True(cfg.Slack.Enabled)
-	s.Empty(cfg.Slack.BotToken)
-	s.Empty(cfg.Slack.WorkspaceID)
-	s.Equal(600, cfg.Slack.PollIntervalSeconds)
-
-	s.True(cfg.Email.Enabled)
-	s.Equal("imap.gmail.com", cfg.Email.IMAPHost)
-	s.Equal(993, cfg.Email.IMAPPort)
-	s.Empty(cfg.Email.Username)
-	s.Equal("CUE_EMAIL_PASSWORD", cfg.Email.PasswordEnv)
-	s.Equal(600, cfg.Email.PollIntervalSeconds)
 
 	s.Equal(7, cfg.Orchestrator.Router.ImportanceThreshold)
 	s.InDelta(0.8, cfg.Orchestrator.Router.ConfidenceThreshold, 0.001)
@@ -298,42 +259,6 @@ window_height = 0
 `,
 			errMsg: "gui.window_height",
 		},
-		{
-			name: "negative poll interval slack",
-			toml: `
-[database]
-path = "/tmp/db.sqlite"
-
-[ollama]
-host = "localhost"
-port = 11434
-inference_model = "neural-chat"
-embedding_model = "nomic-embed-text"
-timeout_seconds = 10
-
-[slack]
-poll_interval_seconds = -1
-`,
-			errMsg: "slack.poll_interval_seconds",
-		},
-		{
-			name: "negative poll interval email",
-			toml: `
-[database]
-path = "/tmp/db.sqlite"
-
-[ollama]
-host = "localhost"
-port = 11434
-inference_model = "neural-chat"
-embedding_model = "nomic-embed-text"
-timeout_seconds = 10
-
-[email]
-poll_interval_seconds = -5
-`,
-			errMsg: "email.poll_interval_seconds",
-		},
 	}
 
 	for _, tc := range tests {
@@ -379,24 +304,10 @@ port = "not-a-number"
 `,
 		},
 		{
-			name: "enabled as string instead of bool",
-			toml: `
-[slack]
-enabled = "yes"
-`,
-		},
-		{
 			name: "confidence_threshold as string",
 			toml: `
 [orchestrator.router]
 confidence_threshold = "high"
-`,
-		},
-		{
-			name: "poll_interval as float",
-			toml: `
-[slack]
-poll_interval_seconds = "ten"
 `,
 		},
 	}
@@ -1200,4 +1111,72 @@ timer_volume = 80
 
 	s.Equal("/home/user/sounds/timer.wav", cfg.Planner.TimerSound)
 	s.Equal(80, cfg.Planner.TimerVolume)
+}
+
+// ---------------------------------------------------------------------------
+// TestIgnoresUnknownSections — old TOML files with [slack]/[email] parse OK
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestIgnoresUnknownSections() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[slack]
+enabled = true
+bot_token = "xoxb-old-token"
+workspace_id = "T0001"
+poll_interval_seconds = 300
+
+[email]
+enabled = false
+imap_host = "imap.example.com"
+imap_port = 993
+username = "alice@example.com"
+password_env = "MY_EMAIL_PW"
+poll_interval_seconds = 120
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err, "stale config with [slack]/[email] sections must parse without error")
+	s.Require().NotNil(cfg)
+
+	// Core fields still load correctly.
+	s.Equal("/tmp/db.sqlite", cfg.Database.Path)
+	s.Equal("localhost", cfg.Ollama.Host)
+}
+
+// ---------------------------------------------------------------------------
+// TestDefaultTOMLHasNoSlackOrEmail — generated default has no [slack]/[email]
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestDefaultTOMLHasNoSlackOrEmail() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "subdir", "config.toml")
+
+	// Load from non-existent path triggers default creation.
+	_, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+
+	// Read the generated file back from disk.
+	data, err := os.ReadFile(cfgPath)
+	s.Require().NoError(err)
+
+	content := string(data)
+	s.False(strings.Contains(content, "[slack]"),
+		"default TOML must not contain [slack] section, got:\n%s", content)
+	s.False(strings.Contains(content, "[email]"),
+		"default TOML must not contain [email] section, got:\n%s", content)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
@@ -93,5 +94,23 @@ func (p *NotificationPanel) Container() fyne.CanvasObject {
 
 // RenderCard returns the rendered card widget for the notification at the given index.
 func (p *NotificationPanel) RenderCard(index int) fyne.CanvasObject {
-	return nil // stub — not implemented
+	cards := p.presenter.Cards()
+	if index < 0 || index >= len(cards) {
+		return nil
+	}
+	card := cards[index]
+	bg := canvas.NewRectangle(card.CardColor)
+	badge := canvas.NewRectangle(card.BadgeColor)
+	badge.SetMinSize(fyne.NewSize(8, 8))
+	badgeLabel := widget.NewLabel(fmt.Sprintf("[%.0f]", card.ImportanceScore))
+	channelLabel := widget.NewLabel(card.Channel)
+	previewLabel := widget.NewLabel(card.MessagePreview)
+	senderLabel := widget.NewLabel(card.Sender)
+	timeLabel := widget.NewLabel(card.RelativeTime)
+	content := container.NewVBox(
+		container.NewHBox(badge, badgeLabel, channelLabel),
+		previewLabel,
+		container.NewHBox(senderLabel, timeLabel),
+	)
+	return container.NewStack(bg, content)
 }

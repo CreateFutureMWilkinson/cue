@@ -302,6 +302,15 @@ func (f *FairyCharacter) GlowLayers() []*canvas.Circle {
 	return f.glowLayers
 }
 
+// JarBack returns the jar back image layer.
+func (f *FairyCharacter) JarBack() *canvas.Image { return nil }
+
+// JarFront returns the jar front image layer.
+func (f *FairyCharacter) JarFront() *canvas.Image { return nil }
+
+// LayoutRefreshCount returns how many times the layout has called Refresh on jar images.
+func (f *FairyCharacter) LayoutRefreshCount() int { return 0 }
+
 // newGlowCircle creates a new glow circle with the default idle color and given alpha.
 func newGlowCircle(alpha uint8) *canvas.Circle {
 	return canvas.NewCircle(color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: alpha})

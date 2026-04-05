@@ -170,6 +170,40 @@ func (s *FairyJarSuite) TestInitialPositionIsBottomCenter() {
 	s.Equal(1.0, y, "initial y position must be 1.0 (bottom)")
 }
 
+func (s *FairyJarSuite) TestJarImagesRefreshOnResize() {
+	c := fairy.NewFairyCharacter()
+	c.DisableRefresh()
+
+	w := c.Widget()
+
+	// First layout at initial size.
+	w.Resize(fyne.NewSize(200, 400))
+
+	jarBack := c.JarBack()
+	s.Require().NotNil(jarBack, "JarBack() must return the jar back image")
+	jarFront := c.JarFront()
+	s.Require().NotNil(jarFront, "JarFront() must return the jar front image")
+
+	// Verify initial sizes match first container size.
+	s.InDelta(200, jarBack.Size().Width, 1.0, "jar back width after first resize")
+	s.InDelta(400, jarBack.Size().Height, 1.0, "jar back height after first resize")
+	s.InDelta(200, jarFront.Size().Width, 1.0, "jar front width after first resize")
+	s.InDelta(400, jarFront.Size().Height, 1.0, "jar front height after first resize")
+
+	// Resize to a different size.
+	w.Resize(fyne.NewSize(400, 800))
+
+	// Verify jar images were resized to new container size.
+	s.InDelta(400, jarBack.Size().Width, 1.0, "jar back width after second resize")
+	s.InDelta(800, jarBack.Size().Height, 1.0, "jar back height after second resize")
+	s.InDelta(400, jarFront.Size().Width, 1.0, "jar front width after second resize")
+	s.InDelta(800, jarFront.Size().Height, 1.0, "jar front height after second resize")
+
+	// Verify that Refresh() was called on jar images during layout.
+	s.Greater(c.LayoutRefreshCount(), 0,
+		"layout must call Refresh() on jar images so they re-render at the new size")
+}
+
 func (s *FairyJarSuite) TestCharacterInterfaceSatisfied() {
 	c := fairy.NewFairyCharacter()
 

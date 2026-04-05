@@ -44,17 +44,17 @@ func NewSQLiteCategoryRepository(dbPath string) (*SQLiteCategoryRepository, erro
 	}
 
 	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("enable WAL mode: %w", err)
 	}
 
 	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("enable foreign keys: %w", err)
 	}
 
 	if _, err := db.Exec(createCategoriesTable); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("create categories table: %w", err)
 	}
 

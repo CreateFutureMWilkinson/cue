@@ -1,7 +1,7 @@
 # Feature 018: Notification Panel Redesign
 
 **Phase:** Phase-1-Feature-018
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/`, `internal/ui/presenter/`
 
 ---
@@ -141,24 +141,26 @@ type NotificationCard struct {
 - **Existing NotificationPresenter (Feature 011):** Extended with expand/collapse and dismiss methods. Existing query/resolve logic reused.
 - **UI-SPEC.md:** Authoritative reference for card format, color tokens, and interaction behavior.
 
-## Test Coverage Plan
+## Test Coverage Summary
 
-| Package | Suite | Expected Tests |
+| Package | Suite | Tests |
 |---|---|---|
-| `presenter` | `NotificationPresenterExpandSuite` | Default collapsed, toggle expands, toggle collapse, expanded change callback fires, dismiss marks resolved, dismiss removes from list |
-| `ui` | `NotificationCardSuite` | IS >= 9 red card/badge, IS >= 8 orange card/badge, IS < 8 blue card/badge, opacity scales with IS, compact card format, expanded card format |
-| `ui` | `NotificationDetailDialogSuite` | Shows full content, shows IS/CS/timestamp, resolve button marks resolved |
+| `presenter` | `NotificationPresenterExpandSuite` | 8 — default collapsed, toggle expands, toggle collapse, expanded change callback fires, dismiss marks resolved, dismiss removes from list, dismiss unknown ID error, dismiss updater error propagates |
+| `presenter` | `NotificationCardSuite` | 10 — IS >= 9 red card/badge, IS >= 8 orange card/badge, IS < 8 blue card/badge, opacity scales with IS, relative time (minutes/hours/just now), message preview truncated, card fields populated, empty messages |
+| `ui` | `NotificationPaneSuite` | 7 — panel not nil, default collapsed, toggle expand, toggle collapse, container not nil, detail dialog content, resolve removes message |
+
+**Total new tests: 25**
 
 ## TDD Agent Stats
 
 | TDD Cycle | Phase | Agent | Duration | Tokens | Commit |
 |---|---|---|---|---|---|
-| Presenter Expand | RED | Test Designer | — | — | — |
-| Presenter Expand | GREEN | Implementer | — | — | — |
-| Presenter Expand | REFACTOR | Refactorer | — | — | — |
-| Card View | RED | Test Designer | — | — | — |
-| Card View | GREEN | Implementer | — | — | — |
-| Card View | REFACTOR | Refactorer | — | — | — |
-| Detail Dialog | RED | Test Designer | — | — | — |
-| Detail Dialog | GREEN | Implementer | — | — | — |
-| Detail Dialog | REFACTOR | Refactorer | — | — | — |
+| Presenter Expand | RED | Test Designer | 164s | 26,503 | 9069a68 |
+| Presenter Expand | GREEN | Implementer | 34s | 22,503 | 098f77c |
+| Presenter Expand | REFACTOR | Refactorer | 54s | 31,995 | 7246a44 |
+| Card View | RED | Test Designer | 63s | 22,635 | dd31874 |
+| Card View | GREEN | Implementer | 40s | 23,636 | d6d4055 |
+| Card View | REFACTOR | Refactorer | 102s | 37,573 | 1175b57 |
+| Detail Dialog | RED | Test Designer | 61s | 28,659 | f2aed38 |
+| Detail Dialog | GREEN | Implementer | 34s | 22,055 | 3317a8d |
+| Detail Dialog | REFACTOR | Refactorer | 93s | 26,540 | ce71403 |

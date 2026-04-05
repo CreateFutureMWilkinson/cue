@@ -108,7 +108,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 055 | Focus rail is placeholder label | Bugfix | High | Planned | 052 | [Feature-055](features/phase-6/Feature-055-Focus-Rail-Wiring.md) |
 | 056 | Plan/Wizard views are placeholder labels | Bugfix | High | Done | 052 | [Feature-056](features/phase-6/Feature-056-Plan-Wizard-Wiring.md) |
 | 057 | Notification panel ignores color-coded cards | Bugfix | High | Done | 052 | [Feature-057](features/phase-6/Feature-057-Notification-Card-Rendering.md) |
-| 058 | Vector score advisor not wired in main.go | Bugfix | Medium | Planned | — | [Feature-058](features/phase-6/Feature-058-Vector-Advisor-Wiring.md) |
+| 058 | Vector score advisor not wired in main.go | Bugfix | Medium | Done | — | [Feature-058](features/phase-6/Feature-058-Vector-Advisor-Wiring.md) |
 | 059 | Feedback review modal never callable | Bugfix | Medium | Planned | 055 | [Feature-059](features/phase-6/Feature-059-Feedback-Review-Wiring.md) |
 | 060 | Settings view tabs are all stubs | Bugfix | Medium | Planned | 052 | [Feature-060](features/phase-6/Feature-060-Settings-View-Implementation.md) |
 | 061 | Database insert errors silently swallowed | Bugfix | Low | Planned | — | [Feature-061](features/phase-6/Feature-061-Insert-Error-Logging.md) |

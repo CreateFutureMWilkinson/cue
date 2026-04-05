@@ -139,7 +139,9 @@ func (s *ConfigSuite) TestCreateDefaultConfigIfMissing() {
 	s.NoError(err)
 
 	// Verify every default value matches CLAUDE.md specification.
-	s.Equal("~/.cue/messages.db", cfg.Database.Path)
+	home, err := os.UserHomeDir()
+	s.Require().NoError(err)
+	s.Equal(filepath.Join(home, ".cue", "messages.db"), cfg.Database.Path)
 
 	s.True(cfg.Slack.Enabled)
 	s.Empty(cfg.Slack.BotToken)

@@ -119,9 +119,19 @@ func run() error {
 		return fmt.Errorf("creating service config repository: %w", err)
 	}
 
-	// Create router with placeholder scorer.
+	// Create Ollama scorer for LLM-based message importance evaluation.
+	ollamaClient, err := decisionengine.NewOllamaClient(
+		ollamaURL,
+		cfg.Ollama.InferenceModel,
+		time.Duration(cfg.Ollama.TimeoutSeconds)*time.Second,
+	)
+	if err != nil {
+		return fmt.Errorf("creating ollama client: %w", err)
+	}
+
+	// Create router with Ollama scorer.
 	router, err := decisionengine.NewRouter(
-		&placeholderScorer{},
+		ollamaClient,
 		[]string{"user"},
 		decisionengine.RouterConfig{
 			ImportanceThreshold: cfg.Orchestrator.Router.ImportanceThreshold,
@@ -369,16 +379,6 @@ func buildWatchersFromDB(ctx context.Context, repo repository.ServiceConfigRepos
 }
 
 // --- Placeholder implementations for APIs not yet built ---
-
-type placeholderScorer struct{}
-
-func (p *placeholderScorer) Score(_ context.Context, msg *repository.Message) (*decisionengine.ScorerResult, error) {
-	return &decisionengine.ScorerResult{
-		ImportanceScore: 5.0,
-		ConfidenceScore: 0.5,
-		Reasoning:       "placeholder scorer",
-	}, nil
-}
 
 type placeholderSlackAPI struct{}
 

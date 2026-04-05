@@ -1,7 +1,7 @@
 # Feature 022-Hotfix-C: Todo List View + Task Detail Modal
 
 **Phase:** Phase-2-Feature-022-Hotfix-C
-**Status:** Planned
+**Status:** Done
 **Package:** `internal/ui/`
 **Parent:** Feature 022 (Planner UI)
 

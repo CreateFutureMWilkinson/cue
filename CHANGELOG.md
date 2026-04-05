@@ -32,6 +32,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Todo list view + task detail modal** — Right half of Plan view HSplit: sorted todo list with checkboxes, priority indicators, category badges, due dates, inline task creation, `[details]` link opening a task detail modal (500×450) with editable title/priority/category/due date/notes fields, save/cancel callbacks. `TodoListViewModel` interface decouples data from rendering. 23 new tests (Phase-2-Feature-022-Hotfix-C)
 - **Plan view with schedule tree + no-plan state** — Plan overview (left half of Plan split) shows either a random motivational placeholder with "Plan My Day" button (navigates to wizard), or an active schedule tree with blocks grouped by Pomodoro cycle, color-coded bars (focus/green, short break/light blue, long break/blue, meeting/amber), proportional bar widths, elapsed block/cycle pruning, and "Abandon Plan" button. New `ScheduleTree` type with `Cycles()` API. 23 new tests (Phase-2-Feature-022-Hotfix-B)
 
 ### Fixed

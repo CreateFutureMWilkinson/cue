@@ -1,7 +1,7 @@
 # Feature 049: MessageRepository QueryByID
 
 **Phase:** Phase-5-Feature-049
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/repository/`, `internal/repository/implementation/sqlite/`
 **Depends on:** —
 
@@ -57,10 +57,27 @@ func (r *SQLiteMessageRepository) QueryByID(ctx context.Context, id uuid.UUID) (
 - Query after insert returns the inserted message
 - Query with cancelled context returns context error
 
+## Implementation Notes
+
+The `QueryByID` method and interface already existed (added in Feature 042). The `ErrNotFound` sentinel already existed in `internal/repository/errors.go`. This feature's scope was narrowed to:
+
+1. Changing `QueryByID` to return `nil, repository.ErrNotFound` instead of `nil, nil` for missing IDs
+2. Adding cancelled-context test coverage
+3. Removing duplicate test (`TestQueryByID_UnknownID_ReturnsNil` → merged into `TestQueryByID_UnknownID_ReturnsErrNotFound`)
+
+The `VectorScoreAdvisor` (Feature 042) already handles `err != nil` by skipping, so the behavioral change is backward-compatible.
+
 ## Files
 
 | File | Action |
 |---|---|
-| `internal/repository/message.go` | **Modify** — add `QueryByID` to interface, add `ErrNotFound` sentinel |
-| `internal/repository/implementation/sqlite/message_impl.go` | **Modify** — implement `QueryByID` |
-| `internal/repository/implementation/sqlite/message_impl_test.go` | **Modify** — add `QueryByID` tests (test already exists as `TestInsertAndQueryByID` but may need interface alignment) |
+| `internal/repository/implementation/sqlite/message_impl.go` | **Modified** — return `ErrNotFound` instead of `nil, nil` |
+| `internal/repository/implementation/sqlite/message_impl_test.go` | **Modified** — add `ErrNotFound` and cancelled-context tests, remove duplicate |
+
+## TDD Agent Stats
+
+| Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | test-designer | ~48s | ~23,000 | 60181fa |
+| GREEN | implementer | ~38s | ~21,000 | 8f4188f |
+| REFACTOR | orchestrator | manual | — | 6ad0151 |

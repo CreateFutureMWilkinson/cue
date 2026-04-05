@@ -13,6 +13,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **QueryByID returns ErrNotFound sentinel** — `MessageRepository.QueryByID` now returns `repository.ErrNotFound` instead of `nil, nil` when no message matches the given ID. Adds cancelled-context test coverage. (Phase-5-Feature-049)
 - **MessageType SQLite persistence** — The `message_type` field is now persisted in SQLite via an idempotent ALTER TABLE migration. Insert, Update, and scanMessage all include the column. Existing databases are migrated automatically with an empty-string default. (Phase-5-Feature-047)
 - **IMAP email client** — Real `IMAPClient` implementing `EmailAPI` interface using `go-imap/v2` (pure Go). Connects to IMAP server, authenticates, fetches messages with UID-based filtering, extracts envelope and body text into `EmailMessage` structs. Replaces inert `placeholderEmailAPI` in `cmd/cue/main.go`. Password read from environment variable at construction time. (Phase-5-Feature-046)
 - **Slack Web API client** — Real `SlackWebClient` implementing `SlackAPI` interface with direct HTTP calls to `conversations.list`, `conversations.history`, and `conversations.replies`. Replaces inert `placeholderSlackAPI` in `cmd/cue/main.go`. Handles rate limiting (429), auth errors (401), network timeouts, and malformed JSON. Uses user token auth (`xoxp-`). (Phase-5-Feature-045)

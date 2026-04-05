@@ -472,6 +472,109 @@ func (s *MessageRepoSuite) TestDBAccessorReturnsNonNilDB() {
 	s.Require().NoError(err, "DB() handle should be pingable")
 }
 
+// --- Feature 042: QueryByID ---
+
+func (s *MessageRepoSuite) TestQueryByID_ReturnsCorrectMessage() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	msg := makeTestMessage("slack", "Notified", now)
+	s.Require().NoError(repo.Insert(ctx, msg))
+
+	// Insert a second message to ensure we get the right one.
+	msg2 := makeTestMessage("email", "Buffered", now.Add(time.Second))
+	s.Require().NoError(repo.Insert(ctx, msg2))
+
+	got, err := repo.QueryByID(ctx, msg.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+	s.Equal(msg.ID, got.ID)
+	s.Equal(msg.Source, got.Source)
+	s.Equal(msg.RawContent, got.RawContent)
+}
+
+func (s *MessageRepoSuite) TestQueryByID_UnknownID_ReturnsNil() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+
+	got, err := repo.QueryByID(ctx, uuid.New())
+	s.NoError(err)
+	s.Nil(got, "QueryByID should return nil for unknown ID")
+}
+
+func (s *MessageRepoSuite) TestQueryByID_NullableFieldsHandled() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	// Insert message with all nullable fields set.
+	rating := 7
+	feedback := "good catch"
+	vectorID := uuid.New()
+
+	msg := &repository.Message{
+		ID:              uuid.New(),
+		Source:          "slack",
+		SourceAccount:   "workspace-1",
+		Channel:         "alerts",
+		Sender:          "U999",
+		MessageID:       uuid.New().String(),
+		RawContent:      "server alert",
+		ImportanceScore: 8.5,
+		ConfidenceScore: 0.9,
+		Status:          "Notified",
+		Reasoning:       "outage detected",
+		UserRating:      &rating,
+		UserFeedback:    &feedback,
+		VectorID:        &vectorID,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+		ResolvedAt:      &now,
+	}
+	s.Require().NoError(repo.Insert(ctx, msg))
+
+	got, err := repo.QueryByID(ctx, msg.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+
+	s.Require().NotNil(got.UserRating)
+	s.Equal(7, *got.UserRating)
+
+	s.Require().NotNil(got.UserFeedback)
+	s.Equal("good catch", *got.UserFeedback)
+
+	s.Require().NotNil(got.VectorID)
+	s.Equal(vectorID, *got.VectorID)
+
+	s.Require().NotNil(got.ResolvedAt)
+	s.WithinDuration(now, *got.ResolvedAt, time.Second)
+
+	// Also insert a message with nil nullable fields and verify.
+	msg2 := makeTestMessage("email", "Ignored", now.Add(time.Second))
+	s.Require().NoError(repo.Insert(ctx, msg2))
+
+	got2, err := repo.QueryByID(ctx, msg2.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got2)
+	s.Nil(got2.UserRating)
+	s.Nil(got2.UserFeedback)
+	s.Nil(got2.VectorID)
+	s.Nil(got2.ResolvedAt)
+}
+
 func (s *MessageRepoSuite) TestUpsertByMessageID() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")

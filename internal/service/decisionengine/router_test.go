@@ -50,19 +50,19 @@ func TestRouter(t *testing.T) {
 // --- Constructor validation ---
 
 func (s *RouterSuite) TestNewRouter_NilScorer() {
-	_, err := decisionengine.NewRouter(nil, []string{"alice"}, defaultConfig())
+	_, err := decisionengine.NewRouter(nil, []string{"alice"}, defaultConfig(), nil)
 	s.Error(err)
 	s.Contains(err.Error(), "scorer")
 }
 
 func (s *RouterSuite) TestNewRouter_EmptyUsernames() {
-	_, err := decisionengine.NewRouter(&mockScorer{}, []string{}, defaultConfig())
+	_, err := decisionengine.NewRouter(&mockScorer{}, []string{}, defaultConfig(), nil)
 	s.Error(err)
 	s.Contains(err.Error(), "usernames")
 }
 
 func (s *RouterSuite) TestNewRouter_ValidInputs() {
-	r, err := decisionengine.NewRouter(&mockScorer{}, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(&mockScorer{}, []string{"alice"}, defaultConfig(), nil)
 	s.NoError(err)
 	s.NotNil(r)
 }
@@ -70,7 +70,7 @@ func (s *RouterSuite) TestNewRouter_ValidInputs() {
 // --- Deterministic rules ---
 
 func (s *RouterSuite) TestRoute_ChannelJoin_SetsNotified() {
-	r, err := decisionengine.NewRouter(&panicScorer{}, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(&panicScorer{}, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msg := &repository.Message{
@@ -87,7 +87,7 @@ func (s *RouterSuite) TestRoute_ChannelJoin_SetsNotified() {
 }
 
 func (s *RouterSuite) TestRoute_AtMention_SetsNotified() {
-	r, err := decisionengine.NewRouter(&panicScorer{}, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(&panicScorer{}, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msg := &repository.Message{
@@ -104,7 +104,7 @@ func (s *RouterSuite) TestRoute_AtMention_SetsNotified() {
 }
 
 func (s *RouterSuite) TestRoute_AtMention_CaseInsensitive() {
-	r, err := decisionengine.NewRouter(&panicScorer{}, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(&panicScorer{}, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msg := &repository.Message{
@@ -120,7 +120,7 @@ func (s *RouterSuite) TestRoute_AtMention_CaseInsensitive() {
 }
 
 func (s *RouterSuite) TestRoute_AtMention_MultipleUsernames() {
-	r, err := decisionengine.NewRouter(&panicScorer{}, []string{"alice", "bob"}, defaultConfig())
+	r, err := decisionengine.NewRouter(&panicScorer{}, []string{"alice", "bob"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msg := &repository.Message{
@@ -135,7 +135,7 @@ func (s *RouterSuite) TestRoute_AtMention_MultipleUsernames() {
 }
 
 func (s *RouterSuite) TestRoute_ChannelJoinTakesPrecedence() {
-	r, err := decisionengine.NewRouter(&panicScorer{}, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(&panicScorer{}, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msg := &repository.Message{
@@ -156,7 +156,7 @@ func (s *RouterSuite) TestRoute_ScorerHighImportanceHighConfidence_Notified() {
 		ConfidenceScore: 0.9,
 		Reasoning:       "server outage detected",
 	}}
-	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msg := &repository.Message{MessageType: "message", RawContent: "production is down"}
@@ -172,7 +172,7 @@ func (s *RouterSuite) TestRoute_ScorerHighImportanceLowConfidence_Buffered() {
 		ConfidenceScore: 0.5,
 		Reasoning:       "might be important",
 	}}
-	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msg := &repository.Message{MessageType: "message", RawContent: "something happened"}
@@ -188,7 +188,7 @@ func (s *RouterSuite) TestRoute_ScorerLowImportance_Ignored() {
 		ConfidenceScore: 0.9,
 		Reasoning:       "casual chat",
 	}}
-	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msg := &repository.Message{MessageType: "message", RawContent: "nice weather today"}
@@ -204,7 +204,7 @@ func (s *RouterSuite) TestRoute_ScorerExactThreshold_Notified() {
 		ConfidenceScore: 0.8,
 		Reasoning:       "at threshold",
 	}}
-	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msg := &repository.Message{MessageType: "message", RawContent: "borderline message"}
@@ -220,7 +220,7 @@ func (s *RouterSuite) TestRoute_ScorerBelowImportanceThreshold_Ignored() {
 		ConfidenceScore: 0.95,
 		Reasoning:       "just below threshold",
 	}}
-	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msg := &repository.Message{MessageType: "message", RawContent: "almost important"}
@@ -236,7 +236,7 @@ func (s *RouterSuite) TestRoute_ScorerReasoningPreserved() {
 		ConfidenceScore: 0.9,
 		Reasoning:       "server outage detected",
 	}}
-	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msg := &repository.Message{MessageType: "message", RawContent: "production is down"}
@@ -250,7 +250,7 @@ func (s *RouterSuite) TestRoute_ScorerReasoningPreserved() {
 
 func (s *RouterSuite) TestRoute_ScorerError_FallbackBuffered() {
 	scorer := &mockScorer{err: errors.New("connection timeout")}
-	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msg := &repository.Message{MessageType: "message", RawContent: "some message"}
@@ -264,7 +264,7 @@ func (s *RouterSuite) TestRoute_ScorerError_FallbackBuffered() {
 
 func (s *RouterSuite) TestRoute_ScorerError_ReasoningContainsError() {
 	scorer := &mockScorer{err: errors.New("timeout")}
-	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msg := &repository.Message{MessageType: "message", RawContent: "some message"}
@@ -286,7 +286,7 @@ func (s *RouterSuite) TestRoute_CustomThresholds() {
 		ImportanceThreshold: 5,
 		ConfidenceThreshold: 0.6,
 	}
-	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, cfg)
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, cfg, nil)
 	s.Require().NoError(err)
 
 	msg := &repository.Message{MessageType: "message", RawContent: "custom threshold message"}
@@ -304,7 +304,7 @@ func (s *RouterSuite) TestRouteBatch_MixedMessages() {
 		ConfidenceScore: 0.9,
 		Reasoning:       "important",
 	}}
-	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msgs := []*repository.Message{
@@ -322,7 +322,7 @@ func (s *RouterSuite) TestRouteBatch_MixedMessages() {
 }
 
 func (s *RouterSuite) TestRouteBatch_EmptySlice() {
-	r, err := decisionengine.NewRouter(&mockScorer{}, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(&mockScorer{}, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	results, err := r.RouteBatch(context.Background(), []*repository.Message{})
@@ -332,7 +332,7 @@ func (s *RouterSuite) TestRouteBatch_EmptySlice() {
 
 func (s *RouterSuite) TestRouteBatch_ScorerFailureDoesNotAbortBatch() {
 	scorer := &mockScorer{err: errors.New("scorer failed")}
-	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msgs := []*repository.Message{
@@ -355,7 +355,7 @@ func (s *RouterSuite) TestRoute_NormalMessage_NoSenderBasedImportance() {
 		ConfidenceScore: 0.9,
 		Reasoning:       "normal",
 	}}
-	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig())
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)
 
 	msg1 := &repository.Message{MessageType: "message", Sender: "ceo@company.com", RawContent: "hello"}
@@ -368,4 +368,184 @@ func (s *RouterSuite) TestRoute_NormalMessage_NoSenderBasedImportance() {
 
 	s.Equal(result1.Status, result2.Status, "sender identity must not affect routing")
 	s.Equal(result1.ImportanceScore, result2.ImportanceScore)
+}
+
+// --- Vector advisor integration ---
+
+// mockVectorAdvisor implements decisionengine.VectorScoreAdvisor interface for testing.
+type mockVectorAdvisor struct {
+	advice *decisionengine.ScoreAdvice
+	err    error
+	called bool
+}
+
+func (m *mockVectorAdvisor) Advise(_ context.Context, _ string) (*decisionengine.ScoreAdvice, error) {
+	m.called = true
+	return m.advice, m.err
+}
+
+func (s *RouterSuite) TestRoute_NilAdvisor_RoutingUnchanged() {
+	scorer := &mockScorer{result: &decisionengine.ScorerResult{
+		ImportanceScore: 8.0,
+		ConfidenceScore: 0.9,
+		Reasoning:       "important message",
+	}}
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), nil)
+	s.Require().NoError(err)
+
+	msg := &repository.Message{MessageType: "message", RawContent: "production issue"}
+
+	result, err := r.Route(context.Background(), msg)
+	s.NoError(err)
+	s.Equal(8.0, result.ImportanceScore)
+	s.Equal("Notified", result.Status)
+}
+
+func (s *RouterSuite) TestRoute_WithAdvisor_AdjustmentApplied() {
+	scorer := &mockScorer{result: &decisionengine.ScorerResult{
+		ImportanceScore: 6.0,
+		ConfidenceScore: 0.9,
+		Reasoning:       "moderate importance",
+	}}
+	advisor := &mockVectorAdvisor{advice: &decisionengine.ScoreAdvice{
+		Adjustment:    1.5,
+		SimilarCount:  3,
+		AvgUserRating: 8.0,
+		TopSimilarity: 0.92,
+	}}
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), advisor)
+	s.Require().NoError(err)
+
+	msg := &repository.Message{MessageType: "message", RawContent: "some message"}
+
+	result, err := r.Route(context.Background(), msg)
+	s.NoError(err)
+	// 6.0 + 1.5 = 7.5
+	s.InDelta(7.5, result.ImportanceScore, 0.01)
+	s.True(advisor.called)
+}
+
+func (s *RouterSuite) TestRoute_AdvisorDoesNotAffectDeterministicRules_ChannelJoin() {
+	advisor := &mockVectorAdvisor{advice: &decisionengine.ScoreAdvice{
+		Adjustment:    -2.0,
+		SimilarCount:  5,
+		AvgUserRating: 3.0,
+		TopSimilarity: 0.95,
+	}}
+	r, err := decisionengine.NewRouter(&panicScorer{}, []string{"alice"}, defaultConfig(), advisor)
+	s.Require().NoError(err)
+
+	msg := &repository.Message{MessageType: "channel_join", RawContent: "joined"}
+
+	result, err := r.Route(context.Background(), msg)
+	s.NoError(err)
+	s.Equal(9.0, result.ImportanceScore, "channel_join should not be affected by advisor")
+	s.Equal("Notified", result.Status)
+	s.False(advisor.called, "advisor should not be called for deterministic rules")
+}
+
+func (s *RouterSuite) TestRoute_AdvisorDoesNotAffectDeterministicRules_AtMention() {
+	advisor := &mockVectorAdvisor{advice: &decisionengine.ScoreAdvice{
+		Adjustment:    -2.0,
+		SimilarCount:  5,
+		AvgUserRating: 3.0,
+		TopSimilarity: 0.95,
+	}}
+	r, err := decisionengine.NewRouter(&panicScorer{}, []string{"alice"}, defaultConfig(), advisor)
+	s.Require().NoError(err)
+
+	msg := &repository.Message{MessageType: "message", RawContent: "hey @alice"}
+
+	result, err := r.Route(context.Background(), msg)
+	s.NoError(err)
+	s.Equal(8.0, result.ImportanceScore, "@mention should not be affected by advisor")
+	s.Equal("Notified", result.Status)
+	s.False(advisor.called, "advisor should not be called for deterministic rules")
+}
+
+func (s *RouterSuite) TestRoute_AdjustedScoreChangesStatus() {
+	// Ollama scores 6.5 (below threshold 7) -> would be IGNORED
+	// Advisor adds 1.0 -> 7.5 (above threshold) with high confidence -> NOTIFIED
+	scorer := &mockScorer{result: &decisionengine.ScorerResult{
+		ImportanceScore: 6.5,
+		ConfidenceScore: 0.9,
+		Reasoning:       "borderline",
+	}}
+	advisor := &mockVectorAdvisor{advice: &decisionengine.ScoreAdvice{
+		Adjustment:    1.0,
+		SimilarCount:  2,
+		AvgUserRating: 8.0,
+		TopSimilarity: 0.88,
+	}}
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), advisor)
+	s.Require().NoError(err)
+
+	msg := &repository.Message{MessageType: "message", RawContent: "potential issue"}
+
+	result, err := r.Route(context.Background(), msg)
+	s.NoError(err)
+	s.InDelta(7.5, result.ImportanceScore, 0.01)
+	s.Equal("Notified", result.Status, "adjusted score should change status from IGNORED to NOTIFIED")
+}
+
+func (s *RouterSuite) TestRoute_AdjustedScoreClampedToZero() {
+	scorer := &mockScorer{result: &decisionengine.ScorerResult{
+		ImportanceScore: 1.0,
+		ConfidenceScore: 0.9,
+		Reasoning:       "low importance",
+	}}
+	advisor := &mockVectorAdvisor{advice: &decisionengine.ScoreAdvice{
+		Adjustment:    -2.0,
+		SimilarCount:  3,
+		AvgUserRating: 1.0,
+		TopSimilarity: 0.90,
+	}}
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), advisor)
+	s.Require().NoError(err)
+
+	msg := &repository.Message{MessageType: "message", RawContent: "trivial message"}
+
+	result, err := r.Route(context.Background(), msg)
+	s.NoError(err)
+	s.True(result.ImportanceScore >= 0.0, "adjusted score should be clamped to >= 0, got %f", result.ImportanceScore)
+}
+
+func (s *RouterSuite) TestRoute_AdjustedScoreClampedToTen() {
+	scorer := &mockScorer{result: &decisionengine.ScorerResult{
+		ImportanceScore: 9.5,
+		ConfidenceScore: 0.9,
+		Reasoning:       "very important",
+	}}
+	advisor := &mockVectorAdvisor{advice: &decisionengine.ScoreAdvice{
+		Adjustment:    2.0,
+		SimilarCount:  3,
+		AvgUserRating: 10.0,
+		TopSimilarity: 0.95,
+	}}
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), advisor)
+	s.Require().NoError(err)
+
+	msg := &repository.Message{MessageType: "message", RawContent: "critical message"}
+
+	result, err := r.Route(context.Background(), msg)
+	s.NoError(err)
+	s.True(result.ImportanceScore <= 10.0, "adjusted score should be clamped to <= 10, got %f", result.ImportanceScore)
+}
+
+func (s *RouterSuite) TestRoute_AdvisorError_GracefulDegradation() {
+	scorer := &mockScorer{result: &decisionengine.ScorerResult{
+		ImportanceScore: 8.0,
+		ConfidenceScore: 0.9,
+		Reasoning:       "important",
+	}}
+	advisor := &mockVectorAdvisor{err: errors.New("vector store failure")}
+	r, err := decisionengine.NewRouter(scorer, []string{"alice"}, defaultConfig(), advisor)
+	s.Require().NoError(err)
+
+	msg := &repository.Message{MessageType: "message", RawContent: "some message"}
+
+	result, err := r.Route(context.Background(), msg)
+	s.NoError(err, "advisor error should not cause Route to fail")
+	s.Equal(8.0, result.ImportanceScore, "score should remain unchanged on advisor error")
+	s.Equal("Notified", result.Status)
 }

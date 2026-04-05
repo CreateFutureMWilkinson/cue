@@ -107,6 +107,40 @@ func (s *KeyFileEncryptorSuite) TestInvalidKeyLength() {
 	s.Contains(err.Error(), "32")
 }
 
+func (s *KeyFileEncryptorSuite) TestPathTraversalPrevention() {
+	// Create two separate temp directories.
+	allowedDir := s.T().TempDir()
+	secretDir := s.T().TempDir()
+
+	// Write a valid 32-byte key into secretDir.
+	keyData := make([]byte, 32)
+	for i := range keyData {
+		keyData[i] = byte(i)
+	}
+	keyFileName := "traversal.key"
+	err := os.WriteFile(filepath.Join(secretDir, keyFileName), keyData, 0600)
+	s.Require().NoError(err)
+
+	// Build a traversal path that starts in allowedDir but escapes via "../"
+	// to reach the key in secretDir.
+	// e.g. /tmp/allowedXXX/../secretXXX/traversal.key
+	traversalPath := filepath.Join(allowedDir, "..", filepath.Base(secretDir), keyFileName)
+
+	// Verify the traversal path actually resolves to the real key file
+	// (proving the path is valid on disk, just not scoped).
+	resolved, err := filepath.EvalSymlinks(traversalPath)
+	s.Require().NoError(err)
+	expected, err := filepath.EvalSymlinks(filepath.Join(secretDir, keyFileName))
+	s.Require().NoError(err)
+	s.Equal(expected, resolved, "traversal path should resolve to the secret key on disk")
+
+	// After the fix, NewKeyFileEncryptor should reject this path because
+	// os.OpenRoot scopes access to the key file's parent directory and
+	// "../" escapes that root.
+	_, err = secret.NewKeyFileEncryptor(traversalPath)
+	s.Error(err, "path traversal via '../' should be rejected")
+}
+
 func (s *KeyFileEncryptorSuite) TestNonceUniqueness() {
 	keyPath := filepath.Join(s.T().TempDir(), "test.key")
 

@@ -57,20 +57,22 @@ func NewKeyFileEncryptor(keyPath string) (*KeyFileEncryptor, error) {
 	return &KeyFileEncryptor{gcm: gcm}, nil
 }
 
-// Encrypt encrypts plaintext using AES-256-GCM. Returns nonce || ciphertext.
+// Encrypt encrypts plaintext using AES-256-GCM with a random nonce.
+// Returns the nonce prepended to the ciphertext (nonce || ciphertext).
 func (e *KeyFileEncryptor) Encrypt(plaintext []byte) ([]byte, error) {
 	nonce := make([]byte, e.gcm.NonceSize())
 	if _, err := rand.Read(nonce); err != nil {
-		return nil, fmt.Errorf("generating nonce: %w", err)
+		return nil, fmt.Errorf("generating random nonce: %w", err)
 	}
 	return e.gcm.Seal(nonce, nonce, plaintext, nil), nil
 }
 
-// Decrypt decrypts data produced by Encrypt. Input must be at least 12 bytes (nonce size).
+// Decrypt decrypts data produced by Encrypt. The input must contain a nonce prepended
+// to the ciphertext and be at least 12 bytes (the GCM nonce size).
 func (e *KeyFileEncryptor) Decrypt(ciphertext []byte) ([]byte, error) {
 	nonceSize := e.gcm.NonceSize()
 	if len(ciphertext) < nonceSize {
-		return nil, fmt.Errorf("ciphertext too short: must be at least %d bytes", nonceSize)
+		return nil, fmt.Errorf("ciphertext too short: expected at least %d bytes (nonce size), got %d", nonceSize, len(ciphertext))
 	}
 	nonce, ct := ciphertext[:nonceSize], ciphertext[nonceSize:]
 	return e.gcm.Open(nil, nonce, ct, nil)

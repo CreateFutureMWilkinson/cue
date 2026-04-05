@@ -51,9 +51,11 @@ CREATE TABLE IF NOT EXISTS calendar_accounts (
 );
 `
 
-const slackAccountColumns = "id, enabled, token_encrypted, workspace_id, poll_interval_seconds, created_at, updated_at"
-const emailAccountColumns = "id, enabled, imap_host, imap_port, username, password_encrypted, poll_interval_seconds, created_at, updated_at"
-const calendarAccountColumns = "id, enabled, name, ics_url_encrypted, poll_interval_seconds, created_at, updated_at"
+const (
+	slackAccountColumns    = "id, enabled, token_encrypted, workspace_id, poll_interval_seconds, created_at, updated_at"
+	emailAccountColumns    = "id, enabled, imap_host, imap_port, username, password_encrypted, poll_interval_seconds, created_at, updated_at"
+	calendarAccountColumns = "id, enabled, name, ics_url_encrypted, poll_interval_seconds, created_at, updated_at"
+)
 
 // SQLiteServiceConfigRepository implements repository.ServiceConfigRepository using SQLite.
 type SQLiteServiceConfigRepository struct {
@@ -65,15 +67,15 @@ type SQLiteServiceConfigRepository struct {
 // It creates the slack_accounts, email_accounts, and calendar_accounts tables if they do not exist.
 func NewSQLiteServiceConfigRepository(db *sql.DB, enc secret.Encryptor) (*SQLiteServiceConfigRepository, error) {
 	if _, err := db.Exec(createSlackAccountsTable); err != nil {
-		return nil, fmt.Errorf("create slack_accounts table: %w", err)
+		return nil, fmt.Errorf("creating slack_accounts table: %w", err)
 	}
 
 	if _, err := db.Exec(createEmailAccountsTable); err != nil {
-		return nil, fmt.Errorf("create email_accounts table: %w", err)
+		return nil, fmt.Errorf("creating email_accounts table: %w", err)
 	}
 
 	if _, err := db.Exec(createCalendarAccountsTable); err != nil {
-		return nil, fmt.Errorf("create calendar_accounts table: %w", err)
+		return nil, fmt.Errorf("creating calendar_accounts table: %w", err)
 	}
 
 	// Migrate existing databases: rename old column names to new encrypted column names.
@@ -91,7 +93,7 @@ func NewSQLiteServiceConfigRepository(db *sql.DB, enc secret.Encryptor) (*SQLite
 func (r *SQLiteServiceConfigRepository) UpsertSlackAccount(ctx context.Context, acct *repository.SlackAccount) error {
 	encToken, err := r.enc.Encrypt([]byte(acct.Token))
 	if err != nil {
-		return fmt.Errorf("encrypting slack token: %w", err)
+		return fmt.Errorf("encrypting Slack token: %w", err)
 	}
 
 	_, err = r.db.ExecContext(ctx, `
@@ -113,7 +115,7 @@ func (r *SQLiteServiceConfigRepository) UpsertSlackAccount(ctx context.Context, 
 		acct.UpdatedAt.Format(time.RFC3339),
 	)
 	if err != nil {
-		return fmt.Errorf("upsert slack account: %w", err)
+		return fmt.Errorf("upserting Slack account: %w", err)
 	}
 	return nil
 }
@@ -130,7 +132,7 @@ func (r *SQLiteServiceConfigRepository) GetSlackAccount(ctx context.Context, id 
 		return nil, fmt.Errorf("slack account %s: %w", id, repository.ErrNotFound)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get slack account: %w", err)
+		return nil, fmt.Errorf("getting Slack account: %w", err)
 	}
 
 	return acct, nil
@@ -140,7 +142,7 @@ func (r *SQLiteServiceConfigRepository) GetSlackAccount(ctx context.Context, id 
 func (r *SQLiteServiceConfigRepository) DeleteSlackAccount(ctx context.Context, id uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, "DELETE FROM slack_accounts WHERE id = ?", id.String())
 	if err != nil {
-		return fmt.Errorf("delete slack account: %w", err)
+		return fmt.Errorf("deleting Slack account: %w", err)
 	}
 	return nil
 }
@@ -152,7 +154,7 @@ func (r *SQLiteServiceConfigRepository) ListSlackAccounts(ctx context.Context) (
 		FROM slack_accounts
 	`)
 	if err != nil {
-		return nil, fmt.Errorf("list slack accounts: %w", err)
+		return nil, fmt.Errorf("listing Slack accounts: %w", err)
 	}
 	defer rows.Close()
 
@@ -160,12 +162,12 @@ func (r *SQLiteServiceConfigRepository) ListSlackAccounts(ctx context.Context) (
 	for rows.Next() {
 		acct, err := r.scanSlackAccount(rows)
 		if err != nil {
-			return nil, fmt.Errorf("scan slack account: %w", err)
+			return nil, fmt.Errorf("scanning Slack account: %w", err)
 		}
 		accounts = append(accounts, acct)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate slack accounts: %w", err)
+		return nil, fmt.Errorf("iterating Slack accounts: %w", err)
 	}
 
 	return accounts, nil
@@ -204,7 +206,7 @@ func (r *SQLiteServiceConfigRepository) UpsertEmailAccount(ctx context.Context, 
 		acct.UpdatedAt.Format(time.RFC3339),
 	)
 	if err != nil {
-		return fmt.Errorf("upsert email account: %w", err)
+		return fmt.Errorf("upserting email account: %w", err)
 	}
 	return nil
 }
@@ -221,7 +223,7 @@ func (r *SQLiteServiceConfigRepository) GetEmailAccount(ctx context.Context, id 
 		return nil, fmt.Errorf("email account %s: %w", id, repository.ErrNotFound)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get email account: %w", err)
+		return nil, fmt.Errorf("getting email account: %w", err)
 	}
 
 	return acct, nil
@@ -231,7 +233,7 @@ func (r *SQLiteServiceConfigRepository) GetEmailAccount(ctx context.Context, id 
 func (r *SQLiteServiceConfigRepository) DeleteEmailAccount(ctx context.Context, id uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, "DELETE FROM email_accounts WHERE id = ?", id.String())
 	if err != nil {
-		return fmt.Errorf("delete email account: %w", err)
+		return fmt.Errorf("deleting email account: %w", err)
 	}
 	return nil
 }
@@ -243,7 +245,7 @@ func (r *SQLiteServiceConfigRepository) ListEmailAccounts(ctx context.Context) (
 		FROM email_accounts
 	`)
 	if err != nil {
-		return nil, fmt.Errorf("list email accounts: %w", err)
+		return nil, fmt.Errorf("listing email accounts: %w", err)
 	}
 	defer rows.Close()
 
@@ -251,12 +253,12 @@ func (r *SQLiteServiceConfigRepository) ListEmailAccounts(ctx context.Context) (
 	for rows.Next() {
 		acct, err := r.scanEmailAccount(rows)
 		if err != nil {
-			return nil, fmt.Errorf("scan email account: %w", err)
+			return nil, fmt.Errorf("scanning email account: %w", err)
 		}
 		accounts = append(accounts, acct)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate email accounts: %w", err)
+		return nil, fmt.Errorf("iterating email accounts: %w", err)
 	}
 
 	return accounts, nil
@@ -290,7 +292,7 @@ func (r *SQLiteServiceConfigRepository) UpsertCalendarAccount(ctx context.Contex
 		acct.UpdatedAt.Format(time.RFC3339),
 	)
 	if err != nil {
-		return fmt.Errorf("upsert calendar account: %w", err)
+		return fmt.Errorf("upserting calendar account: %w", err)
 	}
 	return nil
 }
@@ -307,7 +309,7 @@ func (r *SQLiteServiceConfigRepository) GetCalendarAccount(ctx context.Context, 
 		return nil, fmt.Errorf("calendar account %s: %w", id, repository.ErrNotFound)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get calendar account: %w", err)
+		return nil, fmt.Errorf("getting calendar account: %w", err)
 	}
 
 	return acct, nil
@@ -317,7 +319,7 @@ func (r *SQLiteServiceConfigRepository) GetCalendarAccount(ctx context.Context, 
 func (r *SQLiteServiceConfigRepository) DeleteCalendarAccount(ctx context.Context, id uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, "DELETE FROM calendar_accounts WHERE id = ?", id.String())
 	if err != nil {
-		return fmt.Errorf("delete calendar account: %w", err)
+		return fmt.Errorf("deleting calendar account: %w", err)
 	}
 	return nil
 }
@@ -329,7 +331,7 @@ func (r *SQLiteServiceConfigRepository) ListCalendarAccounts(ctx context.Context
 		FROM calendar_accounts
 	`)
 	if err != nil {
-		return nil, fmt.Errorf("list calendar accounts: %w", err)
+		return nil, fmt.Errorf("listing calendar accounts: %w", err)
 	}
 	defer rows.Close()
 
@@ -337,12 +339,12 @@ func (r *SQLiteServiceConfigRepository) ListCalendarAccounts(ctx context.Context
 	for rows.Next() {
 		acct, err := r.scanCalendarAccount(rows)
 		if err != nil {
-			return nil, fmt.Errorf("scan calendar account: %w", err)
+			return nil, fmt.Errorf("scanning calendar account: %w", err)
 		}
 		accounts = append(accounts, acct)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate calendar accounts: %w", err)
+		return nil, fmt.Errorf("iterating calendar accounts: %w", err)
 	}
 
 	return accounts, nil
@@ -376,25 +378,25 @@ func (r *SQLiteServiceConfigRepository) scanSlackAccount(scanner interface {
 
 	tokenBytes, err := r.enc.Decrypt(tokenEnc)
 	if err != nil {
-		return nil, fmt.Errorf("decrypting slack token: %w", err)
+		return nil, fmt.Errorf("decrypting Slack token: %w", err)
 	}
 	acct.Token = string(tokenBytes)
 
 	acct.ID, err = uuid.Parse(idStr)
 	if err != nil {
-		return nil, fmt.Errorf("parse slack account ID: %w", err)
+		return nil, fmt.Errorf("parsing Slack account ID: %w", err)
 	}
 
 	acct.Enabled = enabled != 0
 
 	acct.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
 	if err != nil {
-		return nil, fmt.Errorf("parse created_at: %w", err)
+		return nil, fmt.Errorf("parsing created_at timestamp: %w", err)
 	}
 
 	acct.UpdatedAt, err = time.Parse(time.RFC3339, updatedAtStr)
 	if err != nil {
-		return nil, fmt.Errorf("parse updated_at: %w", err)
+		return nil, fmt.Errorf("parsing updated_at timestamp: %w", err)
 	}
 
 	return &acct, nil
@@ -426,19 +428,19 @@ func (r *SQLiteServiceConfigRepository) scanEmailAccount(scanner interface {
 
 	acct.ID, err = uuid.Parse(idStr)
 	if err != nil {
-		return nil, fmt.Errorf("parse email account ID: %w", err)
+		return nil, fmt.Errorf("parsing email account ID: %w", err)
 	}
 
 	acct.Enabled = enabled != 0
 
 	acct.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
 	if err != nil {
-		return nil, fmt.Errorf("parse created_at: %w", err)
+		return nil, fmt.Errorf("parsing created_at timestamp: %w", err)
 	}
 
 	acct.UpdatedAt, err = time.Parse(time.RFC3339, updatedAtStr)
 	if err != nil {
-		return nil, fmt.Errorf("parse updated_at: %w", err)
+		return nil, fmt.Errorf("parsing updated_at timestamp: %w", err)
 	}
 
 	return &acct, nil
@@ -470,19 +472,19 @@ func (r *SQLiteServiceConfigRepository) scanCalendarAccount(scanner interface {
 
 	acct.ID, err = uuid.Parse(idStr)
 	if err != nil {
-		return nil, fmt.Errorf("parse calendar account ID: %w", err)
+		return nil, fmt.Errorf("parsing calendar account ID: %w", err)
 	}
 
 	acct.Enabled = enabled != 0
 
 	acct.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
 	if err != nil {
-		return nil, fmt.Errorf("parse created_at: %w", err)
+		return nil, fmt.Errorf("parsing created_at timestamp: %w", err)
 	}
 
 	acct.UpdatedAt, err = time.Parse(time.RFC3339, updatedAtStr)
 	if err != nil {
-		return nil, fmt.Errorf("parse updated_at: %w", err)
+		return nil, fmt.Errorf("parsing updated_at timestamp: %w", err)
 	}
 
 	return &acct, nil

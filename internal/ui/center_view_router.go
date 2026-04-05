@@ -10,6 +10,8 @@ const (
 	ViewPlan
 	// ViewWizard shows the day planner wizard.
 	ViewWizard
+	// ViewSettings shows the settings view.
+	ViewSettings
 )
 
 // CenterViewRouter is a state machine controlling which view occupies the

@@ -3,21 +3,23 @@ package ui
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
 // FocusRail provides the persistent left column with a countdown timer,
 // task information, and navigation buttons (Plan, Back, Done, Review).
 type FocusRail struct {
-	router    *CenterViewRouter
-	planBtn   *widget.Button
-	backBtn   *widget.Button
-	doneBtn   *widget.Button
-	reviewBtn *widget.Button
-	taskLabel *widget.Label
-	timer     *CountdownTimer
-	onDone    func()
-	onReview  func()
+	router      *CenterViewRouter
+	planBtn     *widget.Button
+	backBtn     *widget.Button
+	doneBtn     *widget.Button
+	reviewBtn   *widget.Button
+	settingsBtn *widget.Button
+	taskLabel   *widget.Label
+	timer       *CountdownTimer
+	onDone      func()
+	onReview    func()
 }
 
 // NewFocusRail creates a focus rail bound to the given center view router.
@@ -48,6 +50,10 @@ func NewFocusRail(router *CenterViewRouter) *FocusRail {
 		}
 	})
 
+	rail.settingsBtn = widget.NewButtonWithIcon("", theme.SettingsIcon(), func() {
+		router.NavigateTo(ViewSettings)
+	})
+
 	// Set initial visibility based on current router state.
 	rail.applyViewState(router.CurrentView())
 
@@ -73,9 +79,15 @@ func (r *FocusRail) applyViewState(view CenterView) {
 	case ViewCharacter:
 		r.planBtn.Show()
 		r.backBtn.Hide()
+		r.settingsBtn.Show()
 	case ViewPlan, ViewWizard:
 		r.planBtn.Hide()
 		r.backBtn.Show()
+		r.settingsBtn.Hide()
+	case ViewSettings:
+		r.planBtn.Show()
+		r.backBtn.Show()
+		r.settingsBtn.Hide()
 	}
 }
 
@@ -90,6 +102,9 @@ func (r *FocusRail) DoneButton() *widget.Button { return r.doneBtn }
 
 // ReviewButton returns the Review button for feedback review.
 func (r *FocusRail) ReviewButton() *widget.Button { return r.reviewBtn }
+
+// SettingsButton returns the Settings navigation button.
+func (r *FocusRail) SettingsButton() *widget.Button { return r.settingsBtn }
 
 // TaskLabel returns the label displaying the current task name.
 func (r *FocusRail) TaskLabel() *widget.Label { return r.taskLabel }
@@ -143,5 +158,6 @@ func (r *FocusRail) Container() *fyne.Container {
 		r.backBtn,
 		r.doneBtn,
 		r.reviewBtn,
+		r.settingsBtn,
 	)
 }

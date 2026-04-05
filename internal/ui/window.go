@@ -77,6 +77,7 @@ func NewMainWindow(
 		ViewCharacter: characterContent,
 		ViewPlan:      widget.NewLabel("Plan"),
 		ViewWizard:    widget.NewLabel("Wizard"),
+		ViewSettings:  widget.NewLabel("Settings"),
 	}
 
 	// Start with the character view.

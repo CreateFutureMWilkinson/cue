@@ -134,10 +134,10 @@ deps:
     } else if _distro == "arch" {
         'echo "Install build dependencies:"; echo "  sudo pacman -S --needed ' + _arch_pkgs + '"'
     } else {
-        'echo "Unknown platform. See docs/BUILDING.md for package lists."'
+        'echo "Unknown platform. See docs/guides/Building.md for package lists."'
     } }}
     {{ if os == "linux" {
-        'echo ""; echo "Note: Both X11 and Wayland backends are compiled into the same binary."; echo "GLFW auto-detects the display server at runtime via WAYLAND_DISPLAY."; echo "See docs/BUILDING.md for details on forcing a specific backend."'
+        'echo ""; echo "Note: Both X11 and Wayland backends are compiled into the same binary."; echo "GLFW auto-detects the display server at runtime via WAYLAND_DISPLAY."; echo "See docs/guides/Building.md for details on forcing a specific backend."'
     } else { "" } }}
 
 # Create a local goreleaser snapshot (no publish)

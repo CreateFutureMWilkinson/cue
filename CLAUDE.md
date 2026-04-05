@@ -36,7 +36,7 @@ Validation sequence before marking work complete: `just fmt && just lint && just
 
 ## UI Specification
 
-The authoritative UI specification is `docs/UI-SPEC.md`. It defines layout wireframes, design tokens, component specs, interaction behavior, and acceptance criteria. All UI implementation work defers to UI-SPEC.md.
+The authoritative UI specification is `docs/guides/UiSpec.md`. It defines layout wireframes, design tokens, component specs, interaction behavior, and acceptance criteria. All UI implementation work defers to UiSpec.md.
 
 ## Architecture
 
@@ -107,7 +107,7 @@ One commit per phase. **Run `just fmt` as the last step before every commit** (r
 
 After the refactor commit, before marking a feature complete, create a single `docs(scope): ...` commit that includes:
 
-1. **Per-feature design doc** at `docs/Feature-NNN-Name.md` (zero-padded to 3 digits) — overview, design decisions, API, error handling, integration points, test coverage summary, and TDD agent stats table. Hotfix docs use `docs/Feature-NNN-Hotfix-X-Name.md`.
+1. **Per-feature design doc** at `docs/features/phase-P/Feature-NNN-Name.md` (zero-padded to 3 digits) — overview, design decisions, API, error handling, integration points, test coverage summary, and TDD agent stats table. Hotfix docs use `docs/features/phase-P/Feature-NNNX-Name.md`.
 2. **Agent stats log** in `docs/agent-log.md` — table with columns: Implementation Phase, TDD Phase, Agent, Duration, Tokens, Commit. Log all three TDD phases.
 3. **CHANGELOG.md** update — Keep a Changelog format. Use `### Breaking` for backwards-incompatible changes.
 4. **README.md** update — Keep project overview, setup, and feature status current.
@@ -119,13 +119,14 @@ All feature and phase references use **3-digit zero-padded numbers** everywhere:
 | Context | Format | Example |
 |---|---|---|
 | Feature doc filename | `Feature-NNN-Name.md` | `Feature-014-Character-System.md` |
-| Hotfix doc filename | `Feature-NNN-Hotfix-X-Name.md` | `Feature-014-Hotfix-A-Security-Hardening.md` |
+| Hotfix doc filename | `Feature-NNNX-Name.md` | `Feature-014A-Security-Hardening.md` |
+| Feature doc path | `docs/features/phase-P/Feature-NNN-Name.md` | `docs/features/phase-3/Feature-014-Character-System.md` |
 | Agent log phase | `Phase-P-Feature-NNN` | `Phase-1-Feature-003` |
-| Agent log hotfix phase | `Phase-P-Feature-NNN-Hotfix-X` | `Phase-3-Feature-014-Hotfix-A` |
+| Agent log hotfix phase | `Phase-P-Feature-NNNX` | `Phase-3-Feature-014A` |
 | CHANGELOG/prose reference | `Phase-P-Feature-NNN` | `Phase-1-Feature-012` |
 | Inline cross-reference | `Feature NNN` | `Feature 017` |
 
-`X` is an incrementing uppercase letter (A, B, C…) for multiple hotfixes on the same feature. The phase number matches the parent feature's phase.
+`X` is an incrementing uppercase letter (A, B, C...) for multiple hotfixes on the same feature. Feature docs are organized by phase under `docs/features/phase-P/`.
 
 ## Implementation Status
 

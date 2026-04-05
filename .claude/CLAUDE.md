@@ -238,7 +238,7 @@ log_dir = ""
 
 ## 7. UI Specification
 
-**The authoritative UI specification is `docs/UI-SPEC.md`.** It defines layout wireframes, design tokens, component specs, interaction behavior, and acceptance criteria. All UI implementation work defers to UI-SPEC.md.
+**The authoritative UI specification is `docs/guides/UiSpec.md`.** It defines layout wireframes, design tokens, component specs, interaction behavior, and acceptance criteria. All UI implementation work defers to UiSpec.md.
 
 ### Summary
 
@@ -250,7 +250,7 @@ The main window uses a **three-column layout** with no tab bar:
 | Character area | 60% | Fairy (Phase 3), activity log drawer, or Plan/Wizard views |
 | Notifications | 30% (collapsed) / 90% (expanded) | Color-coded notification cards |
 
-Key UI components defined in UI-SPEC.md:
+Key UI components defined in UiSpec.md:
 - **Notification panel** — collapsed/expanded states, color-coded cards by IS, detail dialog modal
 - **Activity log** — pull-up drawer in character area, hidden by default
 - **Focus rail** — countdown timer ring, task tracking, navigation
@@ -415,13 +415,14 @@ All feature and phase references use **3-digit zero-padded numbers** everywhere:
 | Context | Format | Example |
 |---|---|---|
 | Feature doc filename | `Feature-NNN-Name.md` | `Feature-014-Character-System.md` |
-| Hotfix doc filename | `Feature-NNN-Hotfix-X-Name.md` | `Feature-014-Hotfix-A-Security-Hardening.md` |
+| Hotfix doc filename | `Feature-NNNX-Name.md` | `Feature-014A-Security-Hardening.md` |
+| Feature doc path | `docs/features/phase-P/Feature-NNN-Name.md` | `docs/features/phase-3/Feature-014-Character-System.md` |
 | Agent log phase | `Phase-P-Feature-NNN` | `Phase-1-Feature-003` |
-| Agent log hotfix phase | `Phase-P-Feature-NNN-Hotfix-X` | `Phase-3-Feature-014-Hotfix-A` |
+| Agent log hotfix phase | `Phase-P-Feature-NNNX` | `Phase-3-Feature-014A` |
 | CHANGELOG/prose reference | `Phase-P-Feature-NNN` | `Phase-1-Feature-012` |
 | Inline cross-reference | `Feature NNN` | `Feature 017` |
 
-`X` is an incrementing uppercase letter (A, B, C…) for multiple hotfixes on the same feature. The phase number matches the parent feature's phase.
+`X` is an incrementing uppercase letter (A, B, C...) for multiple hotfixes on the same feature. Feature docs are organized by phase under `docs/features/phase-P/`.
 
 ---
 
@@ -537,7 +538,7 @@ Before marking work complete, run in order:
 - ✅ Feedback buffer captures 100 messages per source
 - ✅ User can rate messages 0–10 with optional notes
 - ✅ Audio alerts cross-platform
-- GUI matches `docs/UI-SPEC.md` three-column layout
+- GUI matches `docs/guides/UiSpec.md` three-column layout
 - ✅ Graceful error handling
 - ✅ All code documented, tested, passing coverage gates
 

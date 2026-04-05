@@ -7,89 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-**Phase 1** — Smart Routing + Feedback Buffer + UI
-
-| # | Component | Status |
-|---|---|---|
-| 1 | Config loading + validation | Done |
-| 2 | Message data model (SQLite) | Done |
-| 3 | Deterministic routing rules | Done |
-| 4 | Ollama client + scoring | Done |
-| 5 | Slack watcher | Done |
-| 6 | Email watcher | Done |
-| 7 | Router orchestration | Done |
-| 8 | Vector integration (chromem-go) | Done |
-| 9 | Feedback buffer | Done |
-| 10 | Audio alerts | Done |
-| 11 | Fyne GUI | Done |
-| 12 | Configurable audio alerts (amendment) | Done |
-| 13 | gopxl/beep audio player (amendment) | Done |
-| 16 | Three-column layout + center view router | Done |
-| 17 | Focus rail (timer ring shell, navigation) | Done |
-| 18 | Notification panel redesign (color-coded cards) | Done |
-| 19 | Activity log drawer | Done |
-
-**Phase 2** — Day Planner + Timer
-
-| # | Component | Status |
-|---|---|---|
-| 15 | Todo list (CRUD, categories, SQLite) | Done |
-| 20 | Calendar adapter (ICS-over-HTTP) | Done |
-| 21 | Day planner (scheduling engine, Pomodoro model) | Done |
-| 22 | Planner UI (wizard pane, Countdown timer) | Done |
-| 23 | Planner audio alerts (timer sounds, volume control) | Done |
-
-**Phase 3** — Animations
-
-| # | Component | Status |
-|---|---|---|
-| 14 | Character animation system | Done |
-| 24 | Character UAT harness | Done |
-| 25 | Jar rendering (SVG layers, fairy body/glow) | Done |
-| 26 | Fairy idle state (breathing glow) | Done |
-| 27 | Fairy working state (pseudo-random drift) | Done |
-| 28 | Fairy notification state (erratic dart) | Done |
-| 29 | Fairy error state (centered vibrate) | Done |
-| 30 | Fairy lifecycle states (startup/shutdown) | Done |
-
-**Hotfixes (Done)**
-
-| ID | Scope | Status |
-|---|---|---|
-| 001-A | Tilde expansion in config paths | Done |
-| 014-A | Security hardening (gosec G304/G404, x/image, x/net CVEs) | Done |
-| 015-A | Gosec G104 unhandled db.Close() in SQLite constructors | Done |
-| 024-A | Wayland thread-safety in UAT harness FPS update | Done |
-| 025-A | Animator wiring in FairyCharacter TransitionTo | Done |
-| 030-A | Gosec G115 integer overflow in color channel conversion | Done |
-
-**Phase 4** — Dynamic Service Config + Settings UI
-
-| # | Component | Status | Depends on |
-|---|---|---|---|
-| 031 | ServiceConfig repository interface | Planned | — |
-| 032 | SQLite ServiceConfig implementation | Planned | 031 |
-| 033 | Watcher config decoupling | Planned | — |
-| 034 | Dynamic watcher management | Planned | — |
-| 035 | TOML config slimming | Planned | 033 |
-| 036 | Settings presenter expansion | Planned | 031, 032, 034 |
-| 037 | Settings UI expansion | Planned | 036 |
-| 038 | Main wiring update | Planned | 031–037 |
-| 039 | Ollama model validation on startup | Planned | — |
-| 040 | Example config generation CLI | Planned | 035 |
-
-**Hotfixes (Planned)**
-
-| ID | Scope | Status |
-|---|---|---|
-| 014-B | Fairy animator integration (graduated glow, shutdown, thread safety) | Done |
-| 017-A | Countdown timer renderer (45-segment ring drawing) | Done |
-| 018-A | Notification card visual rendering (styled cards with presenter colors) | Done |
-| 022-A | Center view router wiring | Done |
-| 022-B | Plan view (schedule tree + no-plan state) | Done |
-| 022-C | Todo list view + task detail modal | Done |
-| 022-D | Day planner wizard steps 1-4 | Done |
-| 022-E | Timer tick loop + presenter ↔ view binding | Done |
+Phases 1–3 complete. Phase 4 (Dynamic Service Config + Settings UI) in progress. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 
@@ -103,12 +21,12 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 - Go 1.26+ with CGO enabled
 - [Ollama](https://ollama.ai) running locally with `neural-chat` and `nomic-embed-text` models
-- Platform-specific build dependencies — see [docs/BUILDING.md](docs/BUILDING.md)
+- Platform-specific build dependencies — see [docs/guides/Building.md](docs/guides/Building.md)
 
 ## Quick Start
 
 ```bash
-# Install build dependencies (see docs/BUILDING.md for your platform)
+# Install build dependencies (see docs/guides/Building.md for your platform)
 just deps
 
 # Build
@@ -121,7 +39,7 @@ just run
 just test
 ```
 
-> **macOS users:** Release binaries are unsigned. On first launch, remove the quarantine flag with `xattr -d com.apple.quarantine ./cue` or allow via System Settings → Privacy & Security. See [docs/BUILDING.md](docs/BUILDING.md#macos-gatekeeper) for details.
+> **macOS users:** Release binaries are unsigned. On first launch, remove the quarantine flag with `xattr -d com.apple.quarantine ./cue` or allow via System Settings → Privacy & Security. See [docs/guides/Building.md](docs/guides/Building.md#macos-gatekeeper) for details.
 
 ## Configuration
 

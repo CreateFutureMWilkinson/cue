@@ -136,7 +136,7 @@ Inject a counting `refreshFunc` via `SetRefreshFunc`, then assert each mutation 
 
 ## Character Development Guidelines
 
-Thread safety rules for character implementations are documented in `docs/Character-Development-Guide.md` (Step 4: Thread Safety). The guide includes a checklist, correct/incorrect code examples, and the `refreshFunc` pattern that this hotfix implements.
+Thread safety rules for character implementations are documented in `docs/guides/CharacterDevelopmentGuide.md` (Step 4: Thread Safety). The guide includes a checklist, correct/incorrect code examples, and the `refreshFunc` pattern that this hotfix implements.
 
 ## Verification
 

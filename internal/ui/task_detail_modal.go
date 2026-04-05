@@ -29,6 +29,14 @@ func NewTaskDetailModal(row TodoListRow, onSave func(TodoListRow), onCancel func
 		onCancel: onCancel,
 	}
 
+	m.createFormWidgets(row)
+	m.createActionButtons()
+
+	return m
+}
+
+// createFormWidgets initializes all form entry widgets with values from the todo row.
+func (m *TaskDetailModal) createFormWidgets(row TodoListRow) {
 	m.titleEntry = widget.NewEntry()
 	m.titleEntry.SetText(row.Title)
 
@@ -45,60 +53,57 @@ func NewTaskDetailModal(row TodoListRow, onSave func(TodoListRow), onCancel func
 
 	m.notesEntry = widget.NewMultiLineEntry()
 	m.notesEntry.SetText(row.Notes)
+}
 
+// createActionButtons initializes the save and cancel buttons with their callbacks.
+func (m *TaskDetailModal) createActionButtons() {
 	m.saveButton = widget.NewButton("Save", func() {
-		updated := m.row
-		updated.Title = m.titleEntry.Text
-		p, err := strconv.Atoi(m.priorityEntry.Text)
-		if err == nil {
-			updated.Priority = p
-		}
-		updated.DueDate = m.dueDateEntry.Text
-		updated.Notes = m.notesEntry.Text
+		updated := m.buildUpdatedRow()
 		m.onSave(updated)
 	})
 
 	m.cancelButton = widget.NewButton("Cancel", func() {
 		m.onCancel()
 	})
-
-	return m
 }
+
+// buildUpdatedRow creates an updated TodoListRow from the current form values.
+func (m *TaskDetailModal) buildUpdatedRow() TodoListRow {
+	updated := m.row
+	updated.Title = m.titleEntry.Text
+	updated.DueDate = m.dueDateEntry.Text
+	updated.Notes = m.notesEntry.Text
+
+	// Parse priority with error handling
+	if priority, err := strconv.Atoi(m.priorityEntry.Text); err == nil {
+		updated.Priority = priority
+	}
+
+	return updated
+}
+
+// Widget accessors for testing and external integration.
 
 // TitleEntry returns the title entry widget.
-func (m *TaskDetailModal) TitleEntry() *widget.Entry {
-	return m.titleEntry
-}
+func (m *TaskDetailModal) TitleEntry() *widget.Entry { return m.titleEntry }
 
 // PriorityEntry returns the priority entry widget.
-func (m *TaskDetailModal) PriorityEntry() *widget.Entry {
-	return m.priorityEntry
-}
+func (m *TaskDetailModal) PriorityEntry() *widget.Entry { return m.priorityEntry }
 
 // CategoryEntry returns the category entry widget.
-func (m *TaskDetailModal) CategoryEntry() *widget.Entry {
-	return m.categoryEntry
-}
+func (m *TaskDetailModal) CategoryEntry() *widget.Entry { return m.categoryEntry }
 
 // DueDateEntry returns the due date entry widget.
-func (m *TaskDetailModal) DueDateEntry() *widget.Entry {
-	return m.dueDateEntry
-}
+func (m *TaskDetailModal) DueDateEntry() *widget.Entry { return m.dueDateEntry }
 
 // NotesEntry returns the notes entry widget (multi-line).
-func (m *TaskDetailModal) NotesEntry() *widget.Entry {
-	return m.notesEntry
-}
+func (m *TaskDetailModal) NotesEntry() *widget.Entry { return m.notesEntry }
 
 // SaveButton returns the save button widget.
-func (m *TaskDetailModal) SaveButton() *widget.Button {
-	return m.saveButton
-}
+func (m *TaskDetailModal) SaveButton() *widget.Button { return m.saveButton }
 
 // CancelButton returns the cancel button widget.
-func (m *TaskDetailModal) CancelButton() *widget.Button {
-	return m.cancelButton
-}
+func (m *TaskDetailModal) CancelButton() *widget.Button { return m.cancelButton }
 
 // ModalSize returns the preferred size for the modal.
 func (m *TaskDetailModal) ModalSize() fyne.Size {

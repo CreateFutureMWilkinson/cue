@@ -150,7 +150,7 @@ func (s *TaskDetailModalSuite) TestNotesEntryIsMultiLine() {
 	modal := ui.NewTaskDetailModal(row, func(ui.TodoListRow) {}, func() {})
 
 	notesEntry := modal.NotesEntry()
-	_, ok := interface{}(notesEntry).(*widget.Entry)
+	_, ok := any(notesEntry).(*widget.Entry)
 	s.True(ok, "NotesEntry should be a *widget.Entry")
 	s.True(notesEntry.MultiLine,
 		"Notes entry should have MultiLine set to true")

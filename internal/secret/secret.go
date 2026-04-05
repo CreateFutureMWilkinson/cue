@@ -4,12 +4,22 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+// ErrNotImplemented is returned by stubs awaiting implementation.
+var ErrNotImplemented = errors.New("not implemented")
+
+// ReadKeyFromFile reads exactly 32 bytes from rc and closes it,
+// returning an error if either the read or the close fails.
+func ReadKeyFromFile(rc io.ReadCloser) ([]byte, error) {
+	return nil, ErrNotImplemented
+}
 
 // Encryptor defines the contract for symmetric encryption/decryption.
 type Encryptor interface {

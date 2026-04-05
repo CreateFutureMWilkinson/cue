@@ -1,6 +1,9 @@
 package secret_test
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,6 +11,16 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/secret"
 	"github.com/stretchr/testify/suite"
 )
+
+// failCloseReader wraps a Reader and returns a predefined error on Close.
+type failCloseReader struct {
+	io.Reader
+	closeErr error
+}
+
+func (f *failCloseReader) Close() error {
+	return f.closeErr
+}
 
 type KeyFileEncryptorSuite struct {
 	suite.Suite
@@ -142,6 +155,22 @@ func (s *KeyFileEncryptorSuite) TestPathTraversalPrevention() {
 	// "../" escapes that root.
 	_, err = secret.NewKeyFileEncryptor(traversalPath)
 	s.Error(err, "path traversal via '../' should be rejected")
+}
+
+func (s *KeyFileEncryptorSuite) TestReadKeyFromFileCloseError() {
+	validKey := make([]byte, 32)
+	for i := range validKey {
+		validKey[i] = byte(i)
+	}
+	closeErr := errors.New("simulated close failure")
+	rc := &failCloseReader{
+		Reader:   bytes.NewReader(validKey),
+		closeErr: closeErr,
+	}
+
+	_, err := secret.ReadKeyFromFile(rc)
+	s.Error(err, "should return error when Close fails")
+	s.ErrorContains(err, "closing key file")
 }
 
 func (s *KeyFileEncryptorSuite) TestNonceUniqueness() {

@@ -57,6 +57,15 @@ func (l *fairyJarLayout) positionFairyCircles(containerWidth, containerHeight fl
 	}
 }
 
+// Interior bounds constants — proportions of the rendered jar image defining
+// where the fairy can move (inside the glass walls, below the lid, above the base).
+const (
+	jarInteriorTop    = 0.2943
+	jarInteriorBottom = 0.9119
+	jarInteriorLeft   = 0.0693
+	jarInteriorRight  = 0.9307
+)
+
 // jarRenderedRect computes the position and size of the jar image as actually
 // rendered inside the container, accounting for ImageFillContain letterboxing.
 // imgAspect is the jar image's width/height ratio.

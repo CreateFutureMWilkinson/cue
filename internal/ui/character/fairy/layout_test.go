@@ -3,11 +3,11 @@ package fairy
 import (
 	"testing"
 
+	"fyne.io/fyne/v2"
 	"github.com/stretchr/testify/suite"
 )
 
-// LayoutSuite verifies the jar rendered rect calculation for ImageFillContain
-// letterboxing.
+// LayoutSuite verifies jar rendered rect and interior bounds mapping.
 type LayoutSuite struct {
 	suite.Suite
 }
@@ -50,4 +50,72 @@ func (s *LayoutSuite) TestNoGapsWhenAspectRatiosMatch() {
 	s.InDelta(0.0, y, 0.01, "matching aspect y offset should be 0")
 	s.InDelta(300.0, w, 0.01, "matching aspect width should equal container width")
 	s.InDelta(400.0, h, 0.01, "matching aspect height should equal container height")
+}
+
+// --- Behavior 2: Interior Bounds Mapping ---
+//
+// These tests verify that positionCircle maps the fairy's normalized 0.0–1.0
+// position into the jar's interior region, not the full container.
+// Jar image is 375x795 (aspect ≈ 0.4717).
+
+func (s *LayoutSuite) TestPositionOriginMapsToInteriorTopLeft() {
+	f := NewFairyCharacter()
+	f.DisableRefresh()
+	f.SetPosition(0.0, 0.0)
+
+	// Use container matching jar aspect ratio (375x795) → no letterboxing.
+	f.Widget().Resize(fyne.NewSize(375, 795))
+
+	body := f.BodyCircle()
+	bodyDiam := float32(375) * bodyRatio
+
+	// Expected: x = 0 + jarInteriorLeft * 375 - bodyDiam/2
+	//           y = 0 + jarInteriorTop * 795 - bodyDiam/2
+	expectedX := float32(jarInteriorLeft)*375 - bodyDiam/2
+	expectedY := float32(jarInteriorTop)*795 - bodyDiam/2
+
+	s.InDelta(expectedX, body.Position().X, 1.0,
+		"position (0,0) body X should map to interior left edge")
+	s.InDelta(expectedY, body.Position().Y, 1.0,
+		"position (0,0) body Y should map to interior top edge")
+}
+
+func (s *LayoutSuite) TestPositionMaxMapsToInteriorBottomRight() {
+	f := NewFairyCharacter()
+	f.DisableRefresh()
+	f.SetPosition(1.0, 1.0)
+
+	f.Widget().Resize(fyne.NewSize(375, 795))
+
+	body := f.BodyCircle()
+	bodyDiam := float32(375) * bodyRatio
+
+	expectedX := float32(jarInteriorRight)*375 - bodyDiam/2
+	expectedY := float32(jarInteriorBottom)*795 - bodyDiam/2
+
+	s.InDelta(expectedX, body.Position().X, 1.0,
+		"position (1,1) body X should map to interior right edge")
+	s.InDelta(expectedY, body.Position().Y, 1.0,
+		"position (1,1) body Y should map to interior bottom edge")
+}
+
+func (s *LayoutSuite) TestPositionCenterMapsToInteriorCenter() {
+	f := NewFairyCharacter()
+	f.DisableRefresh()
+	f.SetPosition(0.5, 0.5)
+
+	f.Widget().Resize(fyne.NewSize(375, 795))
+
+	body := f.BodyCircle()
+	bodyDiam := float32(375) * bodyRatio
+
+	midX := float32(jarInteriorLeft+jarInteriorRight) / 2
+	midY := float32(jarInteriorTop+jarInteriorBottom) / 2
+	expectedX := midX*375 - bodyDiam/2
+	expectedY := midY*795 - bodyDiam/2
+
+	s.InDelta(expectedX, body.Position().X, 1.0,
+		"position (0.5,0.5) body X should map to interior center")
+	s.InDelta(expectedY, body.Position().Y, 1.0,
+		"position (0.5,0.5) body Y should map to interior center")
 }

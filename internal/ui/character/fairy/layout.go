@@ -75,19 +75,16 @@ func jarRenderedRect(containerW, containerH, imgAspect float32) (x, y, w, h floa
 }
 
 // positionFairyCircles positions the body circle and glow layers within the
-// jar's interior region, computing the jar rendered rect once for all circles.
-// All circles share the same center (computed from the body diameter) so that
-// glow layers remain concentric with the body.
+// jar's interior region. All circles share the same center (computed from the
+// body diameter) so that glow layers remain concentric with the body.
 func (l *fairyJarLayout) positionFairyCircles(containerWidth, containerHeight float32) {
 	jarAspect := l.fairy.jarBack.Aspect()
-	var jarRect jarRenderInfo
+	jarRect := jarRenderInfo{}
 	if jarAspect != 0 {
 		jarRect.x, jarRect.y, jarRect.width, jarRect.height = jarRenderedRect(containerWidth, containerHeight, jarAspect)
 	}
 
 	bodyDiameter := containerWidth * bodyRatio
-
-	// Compute the body center once — all circles will share this center.
 	centerX, centerY := l.circleCenter(bodyDiameter, jarRect, containerWidth, containerHeight)
 
 	l.positionCircleAtCenter(l.fairy.bodyCircle, bodyDiameter, centerX, centerY)
@@ -109,12 +106,12 @@ type jarRenderInfo struct {
 // at the fairy's current position, mapping normalized 0.0–1.0 coordinates
 // into the jar's interior region (or full container if no jar is loaded).
 func (l *fairyJarLayout) circleCenter(diameter float32, jar jarRenderInfo, containerWidth, containerHeight float32) (float32, float32) {
-	fairyPosX := float32(l.fairy.posX)
-	fairyPosY := float32(l.fairy.posY)
+	posX := float32(l.fairy.posX)
+	posY := float32(l.fairy.posY)
 
 	// No jar loaded - use full container positioning
 	if jar.width == 0 || jar.height == 0 {
-		return fairyPosX * containerWidth, fairyPosY * containerHeight
+		return posX * containerWidth, posY * containerHeight
 	}
 
 	// Calculate jar interior bounds in pixel coordinates
@@ -128,8 +125,8 @@ func (l *fairyJarLayout) circleCenter(diameter float32, jar jarRenderInfo, conta
 	availableHeight := interiorBottom - interiorTop - diameter
 
 	// Center = top-left + diameter/2
-	centerX := interiorLeft + fairyPosX*availableWidth + diameter/2
-	centerY := interiorTop + fairyPosY*availableHeight + diameter/2
+	centerX := interiorLeft + posX*availableWidth + diameter/2
+	centerY := interiorTop + posY*availableHeight + diameter/2
 	return centerX, centerY
 }
 

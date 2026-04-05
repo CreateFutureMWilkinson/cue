@@ -53,6 +53,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-cache-
 
+      - name: Install CGO dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev \
+            libgl-dev \
+            libxcursor-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxi-dev \
+            libxxf86vm-dev \
+            pkg-config
+
       - name: Verify module hygiene
         run: |
           set -euo pipefail

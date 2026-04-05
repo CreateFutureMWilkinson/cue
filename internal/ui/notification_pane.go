@@ -102,7 +102,6 @@ func NewNotificationPanel(np *presenter.NotificationPresenter, win fyne.Window) 
 			list.Refresh()
 		})
 		d.Show()
-		list.UnselectAll()
 	}
 
 	headerLabel := widget.NewLabel("Notifications")

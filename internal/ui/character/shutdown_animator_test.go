@@ -125,18 +125,11 @@ func (s *ShutdownAnimatorSuite) TestDoneChannelClosesOnCompletion() {
 func (s *ShutdownAnimatorSuite) TestDoneChannelBeforeStart() {
 	animator := character.NewShutdownAnimator(s.clock)
 
-	// Done() should be safe to call before Start — returns a non-nil channel
-	// that is not yet closed.
+	// Done() returns nil before Start — no channel is allocated until the
+	// animation begins. This matches StartupAnimator behaviour and avoids a
+	// deadlock when Stop() is called without a preceding Start().
 	done := animator.Done()
-	s.NotNil(done, "Done() should return a non-nil channel even before Start")
-
-	// The channel should NOT be closed before Start.
-	select {
-	case <-done:
-		s.Fail("Done() channel should not be closed before Start")
-	default:
-		// Expected — channel is open.
-	}
+	s.Nil(done, "Done() should return nil before Start (channel created lazily)")
 }
 
 // --- Position interpolation from custom start ---
@@ -359,6 +352,25 @@ func (s *ShutdownAnimatorSuite) TestColorCapturePreservesChannelValues() {
 	s.Equal(g2, g1, "final body green channel should be 0x49")
 	s.Equal(b2, b1, "final body blue channel should be 0x00")
 	s.Equal(a2, a1, "final body alpha channel should be 0xFF")
+}
+
+// --- Stop without Start does not block ---
+
+func (s *ShutdownAnimatorSuite) TestStopWithoutStartDoesNotBlock() {
+	animator := character.NewShutdownAnimator(s.clock)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		animator.Stop()
+	}()
+
+	select {
+	case <-done:
+		// Stop returned without blocking — test passes.
+	case <-time.After(1 * time.Second):
+		s.Fail("Stop() blocked without a prior Start() call — probable deadlock")
+	}
 }
 
 // --- Color capture from bright color at midpoint ---

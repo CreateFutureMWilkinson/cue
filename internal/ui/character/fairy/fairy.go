@@ -157,7 +157,7 @@ func (f *FairyCharacter) stopAndUpdateState(state character.CharacterState) stat
 	f.mu.Lock()
 	f.state = state
 	f.indicator.FillColor = stateColor(state)
-	f.indicator.Refresh()
+	f.refreshFunc()
 
 	animator := f.createAnimatorForState(state)
 	f.currentAnimator = animator

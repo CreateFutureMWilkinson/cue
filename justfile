@@ -1,9 +1,35 @@
 # Cue project commands
 
+# Platform detection
+os := os()
+arch := arch()
+
+# CGO package lists by distro family
+_deb_pkgs := "libasound2-dev libgl-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev libwayland-dev libxkbcommon-dev wayland-protocols pkg-config"
+_rpm_pkgs := "alsa-lib-devel mesa-libGL-devel libXcursor-devel libXrandr-devel libXinerama-devel libXi-devel libXxf86vm-devel wayland-devel libxkbcommon-devel wayland-protocols-devel pkgconf-pkg-config"
+_arch_pkgs := "alsa-lib mesa libxcursor libxrandr libxinerama libxi libxxf86vm wayland wayland-protocols libxkbcommon pkgconf"
+
+# Detect Linux distro family
+_distro := if os == "linux" {
+    `if [ -f /etc/os-release ]; then . /etc/os-release; case "${ID:-} ${ID_LIKE:-}" in *arch*) echo arch;; *debian* | *ubuntu*) echo deb;; *fedora* | *rhel*) echo rpm;; *suse*) echo rpm;; *) echo unknown;; esac; else echo unknown; fi`
+} else {
+    ""
+}
+
+# Check whether CGO build dependencies are installed
+_check_deps := if os == "macos" {
+    `xcode-select -p >/dev/null 2>&1 && echo ok || echo missing`
+} else if os == "linux" {
+    `pkg-config --exists alsa gl xcursor xrandr xinerama xi xxf86vm wayland-client xkbcommon 2>/dev/null && echo ok || echo missing`
+} else {
+    "unknown"
+}
+
 # Build the binary
 build:
+    {{ if _check_deps == "missing" { "@ echo 'WARNING: Build dependencies not found. Run just deps to see install instructions.'" } else { "" } }}
     @mkdir -p _build
-    go build -o _build/cue ./cmd/cue
+    CGO_ENABLED=1 go build -o _build/cue ./cmd/cue
 
 # Run tests with short output
 test:
@@ -50,8 +76,9 @@ vulncheck:
 
 # Build the character UAT harness
 uat:
+    {{ if _check_deps == "missing" { "@ echo 'WARNING: Build dependencies not found. Run just deps to see install instructions.'" } else { "" } }}
     @mkdir -p _build
-    go build -o _build/character-uat ./cmd/cue-uat
+    CGO_ENABLED=1 go build -o _build/character-uat ./cmd/cue-uat
 
 # Build and run the character UAT harness
 run-uat: uat
@@ -62,8 +89,22 @@ build-all: build uat
 
 # Show required system packages for current platform
 deps:
-    @echo "Linux:  sudo apt-get install libasound2-dev libgl-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev libwayland-dev libxkbcommon-dev wayland-protocols pkg-config"
-    @echo "macOS:  xcode-select --install"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Platform: {{os}}/{{arch}}"
+    {{ if os == "macos" { 'echo "Distro:   macOS"' } else if os == "linux" { 'echo "Distro:   ' + _distro + '"' } else { 'echo "Distro:   unknown"' } }}
+    echo ""
+    {{ if os == "macos" {
+        'if xcode-select -p >/dev/null 2>&1; then echo "✓ Xcode Command Line Tools already installed"; else echo "Install Xcode Command Line Tools:"; echo "  xcode-select --install"; fi'
+    } else if _distro == "deb" {
+        'echo "Install build dependencies:"; echo "  sudo apt-get install -y ' + _deb_pkgs + '"'
+    } else if _distro == "rpm" {
+        'echo "Install build dependencies:"; echo "  sudo dnf install -y ' + _rpm_pkgs + '"'
+    } else if _distro == "arch" {
+        'echo "Install build dependencies:"; echo "  sudo pacman -S --needed ' + _arch_pkgs + '"'
+    } else {
+        'echo "Unknown platform. See docs/BUILDING.md for package lists."'
+    } }}
 
 # Create a local goreleaser snapshot (no publish)
 release-snapshot:

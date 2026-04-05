@@ -177,6 +177,22 @@ func (s *SettingsInteractionSuite) TestSlackTabContainsAddButton() {
 	s.True(found, "Slack tab should contain an 'Add Account' button")
 }
 
+func (s *SettingsInteractionSuite) TestEmailTabContainsAddButton() {
+	root := s.sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	emailContent := tabs.Items[1].Content
+
+	_, found := uitest.FindWidget[*widget.Button](emailContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	s.True(found, "Email tab should contain an 'Add Account' button")
+}
+
 func (s *SettingsInteractionSuite) TestAudioSliderOnChangedCallsPresenterSetVolume() {
 	root := s.sv.Container()
 

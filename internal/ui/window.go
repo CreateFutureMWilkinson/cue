@@ -54,10 +54,12 @@ func NewMainWindow(
 	win := fyneApp.NewWindow("Cue")
 	win.Resize(fyne.NewSize(float32(cfg.WindowWidth), float32(cfg.WindowHeight)))
 
-	// Focus rail (left 10%) — placeholder for now.
+	// Focus rail (left 10%) — placeholder for timer and navigation.
 	focusRail := widget.NewLabel("Focus")
 
-	// Center area (60%) — character widget + activity log.
+	// Center area (60%) — dynamically controlled by viewRouter.
+	// Currently shows character widget + activity log; later will route between
+	// ViewCharacter, ViewPlan, and ViewWizard.
 	var centerPane fyne.CanvasObject
 	if ap != nil {
 		activityList := newActivityLog(ap)
@@ -72,7 +74,7 @@ func NewMainWindow(
 		centerPane = widget.NewLabel("")
 	}
 
-	// Notification panel (right 30%).
+	// Notification panel (right 30%) — expandable from collapsed state.
 	var notifPane fyne.CanvasObject
 	if np != nil {
 		notifPane = newNotificationPane(np, win)
@@ -89,7 +91,7 @@ func NewMainWindow(
 
 	win.SetContent(outerSplit)
 
-	// Menu — guard against nil presenters.
+	// Menu bar — dynamically built based on available presenters.
 	menuItems := make([]*fyne.MenuItem, 0, 3)
 	if sp != nil {
 		menuItems = append(menuItems, fyne.NewMenuItem("Settings", func() {

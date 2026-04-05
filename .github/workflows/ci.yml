@@ -27,8 +27,10 @@ jobs:
       GO_VERSION: '1.26.1'
       GOTOOLCHAIN: auto
       GOSEC_VERSION: v2.25.0
-      SUMMARY_FILE: ${{ runner.temp }}/summary.md
     steps:
+      - name: Set summary file path
+        run: echo "SUMMARY_FILE=${{ runner.temp }}/summary.md" >> "$GITHUB_ENV"
+
       - name: Checkout
         uses: actions/checkout@v4
 

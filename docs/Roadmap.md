@@ -69,6 +69,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 |---|---|---|---|---|
 | 031 | ServiceConfig repository interface | Done | — | [Feature-031](features/phase-4/Feature-031-ServiceConfig-Repository.md) |
 | 031A | Encrypted credential storage | Done | 031, 032 | [Feature-031A](features/phase-4/Feature-031A-Encrypted-Credential-Storage.md) |
+| 031B | Key file path traversal fix (G304) | Done | 031A | [Feature-031B](features/phase-4/Feature-031B-Key-File-Path-Traversal.md) |
 | 032 | SQLite ServiceConfig implementation | Done | 031 | [Feature-032](features/phase-4/Feature-032-SQLite-ServiceConfig.md) |
 | 033 | Watcher config decoupling | Done | — | [Feature-033](features/phase-4/Feature-033-Watcher-Config-Decoupling.md) |
 | 034 | Dynamic watcher management | Done | — | [Feature-034](features/phase-4/Feature-034-Dynamic-Watcher-Management.md) |

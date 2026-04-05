@@ -37,6 +37,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Security
 
+- **Key file path traversal protection** — `NewKeyFileEncryptor` rejects paths containing `..` traversal components and uses `os.OpenRoot` (Go 1.24+) for kernel-level directory scoping on all key file I/O (gosec G304, Phase-4-Feature-031B)
 - **Path traversal protection** — `filterSupportedAudioFiles` rejects filenames resolving outside `AudioDir`; `BeepPlayer` uses `os.OpenRoot` (Go 1.24+) for kernel-level path scoping (gosec G304, Phase-3-Feature-014-Hotfix-A)
 - **Cryptographic RNG for audio selection** — Replaced `math/rand/v2` with `crypto/rand` in audio file selection (gosec G404, Phase-3-Feature-014-Hotfix-A)
 - **Dependency bumps** — `golang.org/x/image` v0.24.0→v0.38.0 (GO-2026-4815 TIFF OOM), `golang.org/x/net` v0.35.0→v0.45.0 (GO-2026-4441, GO-2026-4440, GO-2025-3595, GO-2025-3503) (Phase-3-Feature-014-Hotfix-A)

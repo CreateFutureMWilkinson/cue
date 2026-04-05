@@ -15,11 +15,11 @@ Tracks agent usage across TDD phases for each implementation feature.
 
 | Impl Phase | TDD Phase | Agent | Duration | Tokens | Commit |
 |---|---|---|---|---|---|
-| Phase-1-Feature-1 | RED | orchestrator | — | — | cd5c731 |
-| Phase-1-Feature-1 | GREEN | orchestrator | — | — | ff7c5e0 |
-| Phase-1-Feature-1 | REFACTOR | orchestrator | — | — | fee15bc |
-| Phase-1-Feature-2 | RED | orchestrator | — | — | fa9b574 |
-| Phase-1-Feature-2 | GREEN | orchestrator | — | — | 30e317e |
+| Phase-1-Feature-1 | RED | orchestrator | — | 4593 | cd5c731 |
+| Phase-1-Feature-1 | GREEN | orchestrator | — | 3587 | ff7c5e0 |
+| Phase-1-Feature-1 | REFACTOR | orchestrator | — | 2684 | fee15bc |
+| Phase-1-Feature-2 | RED | orchestrator | — | 10984 | fa9b574 |
+| Phase-1-Feature-2 | GREEN | orchestrator | — | 12589 | 30e317e |
 | Phase-1-Feature-2 | REFACTOR | orchestrator | — | — | 2ae7b0c |
 | Phase-1-Feature-3 | RED | orchestrator | — | — | 226cc71 |
 | Phase-1-Feature-3 | GREEN | Implementer | 118s | 24,324 | 3eee015 |
@@ -33,5 +33,6 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-1-Feature-6 | RED | orchestrator | — | — | b5216cd |
 | Phase-1-Feature-6 | GREEN | orchestrator | — | — | e729f70 |
 | Phase-1-Feature-6 | REFACTOR | orchestrator | — | — | adfe21f |
-
-> Features 1-2 were implemented before agent team logging was introduced. Duration and token data is unavailable.
+| Phase-1-Feature-7 | RED | Test Designer | 135s | 24,332 | 2dd21b4 |
+| Phase-1-Feature-7 | GREEN | Implementer | 45s | 25,667 | 9900806 |
+| Phase-1-Feature-7 | REFACTOR | Refactorer | 60s | 28,182 | 8aa1d7e |

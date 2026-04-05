@@ -195,8 +195,11 @@ func run() error {
 	// Start character presenter.
 	charPresenter.Start(ctx)
 
+	// Create center view router for three-column layout.
+	viewRouter := ui.NewCenterViewRouter()
+
 	// Create and run the Fyne window (blocks until quit).
-	mainWindow := ui.NewMainWindow(cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, char.Widget())
+	mainWindow := ui.NewMainWindow(cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, char.Widget(), viewRouter)
 	mainWindow.Run()
 
 	// Graceful shutdown.

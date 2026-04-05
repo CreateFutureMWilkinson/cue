@@ -92,7 +92,11 @@ func NewMainWindow(
 	// Build settings view content.
 	var settingsContent fyne.CanvasObject
 	if sp != nil && ssp != nil {
-		sv := NewSettingsView(sp, ssp, ollamaCfg, func() {})
+		sv := NewSettingsView(sp, ssp, ollamaCfg, func() {
+			if viewRouter != nil {
+				viewRouter.NavigateTo(ViewCharacter)
+			}
+		})
 		settingsContent = sv.Container()
 	} else {
 		settingsContent = widget.NewLabel("Settings")

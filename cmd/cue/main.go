@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	chromem "github.com/rengensheng/chromem-go"
 	"github.com/urfave/cli/v3"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/alert"
@@ -19,6 +20,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/service/buffer"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/vector"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
@@ -142,8 +144,20 @@ func run() error {
 		return fmt.Errorf("creating router: %w", err)
 	}
 
-	// Create buffer service.
-	bufferSvc, err := buffer.NewBufferService(repo, nil)
+	// Derive vector storage path from database path (sibling directory).
+	vectorPath := filepath.Join(filepath.Dir(cfg.Database.Path), "vectors")
+
+	// Create Ollama embedding function for vector store.
+	ollamaEmbFn := chromem.NewEmbeddingFuncOllama(cfg.Ollama.EmbeddingModel, ollamaURL+"/api")
+
+	// Create chromem-go vector store for persistent embeddings.
+	vectorStore, err := vector.NewChromemVectorStore(vectorPath, vector.EmbeddingFunc(ollamaEmbFn))
+	if err != nil {
+		return fmt.Errorf("creating vector store: %w", err)
+	}
+
+	// Create buffer service with vector embedder.
+	bufferSvc, err := buffer.NewBufferService(repo, vectorStore)
 	if err != nil {
 		return fmt.Errorf("creating buffer service: %w", err)
 	}

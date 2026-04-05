@@ -152,6 +152,26 @@ func (s *AppBinderSuite) TestBindWiresDoneToCompleteCurrentTask() {
 	s.plannerP.AssertCalled(s.T(), "CompleteCurrentTask", mock.Anything)
 }
 
+func (s *AppBinderSuite) TestBindDoneCallbackDoesNotPanicOnError() {
+	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
+	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
+
+	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
+	s.Require().NoError(err)
+
+	binder.Bind()
+
+	s.Require().NotNil(s.focusRail.doneCallback, "Bind should have wired a Done callback")
+
+	s.plannerP.On("CompleteCurrentTask", mock.Anything).Return(errors.New("task completion failed"))
+
+	s.NotPanics(func() {
+		s.focusRail.doneCallback()
+	})
+
+	s.plannerP.AssertCalled(s.T(), "CompleteCurrentTask", mock.Anything)
+}
+
 func (s *AppBinderSuite) TestBindWiresStepChangeToWizardRefresh() {
 	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
 	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()

@@ -67,7 +67,8 @@ type FairyCharacter struct {
 	// Mutex for thread-safe transitions.
 	mu sync.Mutex
 
-	// refreshFunc is called after visual updates; replaced by DisableRefresh in tests.
+	// refreshFunc is called after visual updates; wired to fyne.Do for thread-safety.
+	// Can be replaced via DisableRefresh or SetRefreshHook in tests.
 	refreshFunc func()
 }
 
@@ -107,7 +108,6 @@ func NewFairyCharacter() *FairyCharacter {
 		posY:          1.0,
 		glowIntensity: 0.0,
 		clock:         character.WallClock{},
-		refreshFunc:   func() {},
 	}
 
 	// Build the container with custom layout for proportional sizing.
@@ -203,7 +203,7 @@ func (f *FairyCharacter) SetClock(c character.Clock) { f.clock = c }
 // DisableRefresh replaces the refresh function with a no-op (used for testing).
 func (f *FairyCharacter) DisableRefresh() { f.refreshFunc = func() {} }
 
-// SetRefreshHook replaces the refresh function with a caller-provided function (for test observability).
+// SetRefreshHook replaces the refresh function with a caller-provided function for test observability.
 func (f *FairyCharacter) SetRefreshHook(fn func()) { f.refreshFunc = fn }
 
 // Close stops the current animator without changing the character state.

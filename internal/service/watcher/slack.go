@@ -10,6 +10,15 @@ import (
 	"github.com/google/uuid"
 )
 
+// Constants for Slack message types and status values
+const (
+	SourceSlack     = "slack"
+	StatusPending   = "Pending"
+	MessageTypeMsg  = "message"
+	MessageTypeJoin = "channel_join"
+	ThreadSeparator = "\n"
+)
+
 // SlackChannel represents a Slack channel.
 type SlackChannel struct {
 	ID   string
@@ -43,6 +52,7 @@ type SlackWatcher struct {
 }
 
 // NewSlackWatcher creates a new SlackWatcher with the given API client and configuration.
+// Returns an error if api is nil or if the workspace ID is empty.
 func NewSlackWatcher(api SlackAPI, cfg config.SlackConfig) (*SlackWatcher, error) {
 	if api == nil {
 		return nil, fmt.Errorf("api must not be nil")
@@ -59,6 +69,7 @@ func NewSlackWatcher(api SlackAPI, cfg config.SlackConfig) (*SlackWatcher, error
 }
 
 // Poll fetches new messages from all Slack channels and returns them as repository messages.
+// It detects new channel joins and includes thread context for threaded messages.
 func (w *SlackWatcher) Poll(ctx context.Context) ([]*repository.Message, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -71,67 +82,107 @@ func (w *SlackWatcher) Poll(ctx context.Context) ([]*repository.Message, error) 
 
 	var result []*repository.Message
 
-	for _, ch := range channels {
-		isNew := !w.knownChannels[ch.ID]
-		if isNew {
-			w.knownChannels[ch.ID] = true
-		}
-
-		messages, msgErr := w.api.GetChannelMessages(ctx, ch.ID, w.lastTimestamp[ch.ID])
-		if msgErr != nil {
-			if isNew {
-				result = append(result, w.newChannelJoinMessage(ch))
-			}
-			continue
-		}
-
-		if isNew && len(messages) == 0 {
-			result = append(result, w.newChannelJoinMessage(ch))
-		}
-
-		for _, sm := range messages {
-			rawContent := sm.Text
-
-			if sm.ThreadTS != "" {
-				replies, threadErr := w.api.GetThreadReplies(ctx, sm.ChannelID, sm.ThreadTS)
-				if threadErr == nil && len(replies) > 0 {
-					rawContent = replies[0].Text + "\n" + sm.Text
-				}
-			}
-
-			msg := &repository.Message{
-				ID:            uuid.New(),
-				Source:        "slack",
-				SourceAccount: w.workspaceID,
-				Channel:       sm.ChannelName,
-				Sender:        sm.Sender,
-				MessageID:     sm.ID,
-				MessageType:   "message",
-				RawContent:    rawContent,
-				Status:        "Pending",
-				CreatedAt:     time.Now(),
-			}
-			result = append(result, msg)
-
-			if sm.Timestamp > w.lastTimestamp[ch.ID] {
-				w.lastTimestamp[ch.ID] = sm.Timestamp
-			}
-		}
+	for _, channel := range channels {
+		channelMessages := w.processChannel(ctx, channel)
+		result = append(result, channelMessages...)
 	}
 
 	return result, nil
 }
 
-func (w *SlackWatcher) newChannelJoinMessage(ch SlackChannel) *repository.Message {
+// processChannel handles message fetching and processing for a single channel
+func (w *SlackWatcher) processChannel(ctx context.Context, channel SlackChannel) []*repository.Message {
+	var result []*repository.Message
+
+	isNewChannel := !w.knownChannels[channel.ID]
+	if isNewChannel {
+		w.knownChannels[channel.ID] = true
+	}
+
+	messages, err := w.api.GetChannelMessages(ctx, channel.ID, w.lastTimestamp[channel.ID])
+	if err != nil {
+		// If we can't fetch messages but this is a new channel, still emit the join event
+		if isNewChannel {
+			result = append(result, w.createChannelJoinMessage(channel))
+		}
+		return result
+	}
+
+	// Emit channel join event for new channels with no messages
+	if isNewChannel && len(messages) == 0 {
+		result = append(result, w.createChannelJoinMessage(channel))
+	}
+
+	// Process each message
+	for _, slackMsg := range messages {
+		repoMsg := w.convertSlackMessage(ctx, slackMsg)
+		result = append(result, repoMsg)
+
+		// Update last seen timestamp for this channel
+		w.updateLastTimestamp(channel.ID, slackMsg.Timestamp)
+	}
+
+	return result
+}
+
+// convertSlackMessage converts a SlackMessage to a repository.Message with thread context
+func (w *SlackWatcher) convertSlackMessage(ctx context.Context, slackMsg SlackMessage) *repository.Message {
+	content := w.buildMessageContent(ctx, slackMsg)
+
 	return &repository.Message{
 		ID:            uuid.New(),
-		Source:        "slack",
+		Source:        SourceSlack,
 		SourceAccount: w.workspaceID,
-		Channel:       ch.Name,
-		MessageID:     ch.ID,
-		MessageType:   "channel_join",
-		RawContent:    fmt.Sprintf("Joined channel %s", ch.Name),
-		Status:        "Pending",
+		Channel:       slackMsg.ChannelName,
+		Sender:        slackMsg.Sender,
+		MessageID:     slackMsg.ID,
+		MessageType:   MessageTypeMsg,
+		RawContent:    content,
+		Status:        StatusPending,
+		CreatedAt:     time.Now(),
+	}
+}
+
+// buildMessageContent constructs the message content, including thread context if available
+func (w *SlackWatcher) buildMessageContent(ctx context.Context, slackMsg SlackMessage) string {
+	content := slackMsg.Text
+
+	if slackMsg.ThreadTS != "" {
+		if threadContext := w.getThreadContext(ctx, slackMsg); threadContext != "" {
+			content = threadContext + ThreadSeparator + content
+		}
+	}
+
+	return content
+}
+
+// getThreadContext retrieves the parent message content for thread replies
+func (w *SlackWatcher) getThreadContext(ctx context.Context, slackMsg SlackMessage) string {
+	replies, err := w.api.GetThreadReplies(ctx, slackMsg.ChannelID, slackMsg.ThreadTS)
+	if err != nil || len(replies) == 0 {
+		return ""
+	}
+	return replies[0].Text
+}
+
+// updateLastTimestamp updates the last seen timestamp for a channel if the new timestamp is newer
+func (w *SlackWatcher) updateLastTimestamp(channelID, timestamp string) {
+	if timestamp > w.lastTimestamp[channelID] {
+		w.lastTimestamp[channelID] = timestamp
+	}
+}
+
+// createChannelJoinMessage creates a repository message for channel join events
+func (w *SlackWatcher) createChannelJoinMessage(channel SlackChannel) *repository.Message {
+	return &repository.Message{
+		ID:            uuid.New(),
+		Source:        SourceSlack,
+		SourceAccount: w.workspaceID,
+		Channel:       channel.Name,
+		MessageID:     channel.ID,
+		MessageType:   MessageTypeJoin,
+		RawContent:    fmt.Sprintf("Joined channel %s", channel.Name),
+		Status:        StatusPending,
 		CreatedAt:     time.Now(),
 	}
 }

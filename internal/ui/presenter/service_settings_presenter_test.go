@@ -93,7 +93,7 @@ func validSlackAccount() *repository.SlackAccount {
 	return &repository.SlackAccount{
 		ID:                  uuid.New(),
 		Enabled:             true,
-		BotToken:            "xoxb-test-token",
+		Token:               "xoxb-test-token",
 		WorkspaceID:         "T12345",
 		PollIntervalSeconds: 600,
 	}
@@ -477,9 +477,9 @@ func (s *ServiceSettingsSuite) TestToggleEmailDisable() {
 
 // --- Validation tests ---
 
-func (s *ServiceSettingsSuite) TestValidationSlackEmptyBotToken() {
+func (s *ServiceSettingsSuite) TestValidationSlackEmptyToken() {
 	acct := validSlackAccount()
-	acct.BotToken = ""
+	acct.Token = ""
 	repo := &mockServiceConfigRepo{
 		upsertSlackFn: func(ctx context.Context, a *repository.SlackAccount) error {
 			s.Fail("upsert should not be called on validation failure")
@@ -496,7 +496,7 @@ func (s *ServiceSettingsSuite) TestValidationSlackEmptyBotToken() {
 	err := p.SaveSlackAccount(context.Background(), acct)
 
 	s.Error(err)
-	s.Contains(err.Error(), "bot token")
+	s.Contains(err.Error(), "token is required")
 }
 
 func (s *ServiceSettingsSuite) TestValidationSlackEmptyWorkspaceID() {

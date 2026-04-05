@@ -165,8 +165,8 @@ func slackWatcherName(workspaceID string) string { return "slack:" + workspaceID
 func emailWatcherName(username string) string    { return "email:" + username }
 
 func validateSlackAccount(acct *repository.SlackAccount) error {
-	if acct.BotToken == "" {
-		return fmt.Errorf("bot token is required")
+	if acct.Token == "" {
+		return fmt.Errorf("token is required")
 	}
 	if acct.WorkspaceID == "" {
 		return fmt.Errorf("workspace ID is required")

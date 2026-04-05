@@ -16,7 +16,7 @@ const createSlackAccountsTable = `
 CREATE TABLE IF NOT EXISTS slack_accounts (
     id TEXT PRIMARY KEY,
     enabled INTEGER NOT NULL,
-    bot_token TEXT NOT NULL,
+    token TEXT NOT NULL,
     workspace_id TEXT NOT NULL UNIQUE,
     poll_interval_seconds INTEGER NOT NULL,
     created_at TEXT NOT NULL,
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS email_accounts (
 );
 `
 
-const slackAccountColumns = "id, enabled, bot_token, workspace_id, poll_interval_seconds, created_at, updated_at"
+const slackAccountColumns = "id, enabled, token, workspace_id, poll_interval_seconds, created_at, updated_at"
 const emailAccountColumns = "id, enabled, imap_host, imap_port, username, password_env, poll_interval_seconds, created_at, updated_at"
 
 // SQLiteServiceConfigRepository implements repository.ServiceConfigRepository using SQLite.
@@ -57,6 +57,10 @@ func NewSQLiteServiceConfigRepository(db *sql.DB) (*SQLiteServiceConfigRepositor
 		return nil, fmt.Errorf("create email_accounts table: %w", err)
 	}
 
+	// Migrate existing databases: rename bot_token → token.
+	// Silently ignored if the column was already named token (new databases).
+	_, _ = db.Exec("ALTER TABLE slack_accounts RENAME COLUMN bot_token TO token")
+
 	return &SQLiteServiceConfigRepository{db: db}, nil
 }
 
@@ -66,18 +70,18 @@ func NewSQLiteServiceConfigRepository(db *sql.DB) (*SQLiteServiceConfigRepositor
 // On conflict with the same ID, all fields except created_at are updated.
 func (r *SQLiteServiceConfigRepository) UpsertSlackAccount(ctx context.Context, acct *repository.SlackAccount) error {
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO slack_accounts (id, enabled, bot_token, workspace_id, poll_interval_seconds, created_at, updated_at)
+		INSERT INTO slack_accounts (id, enabled, token, workspace_id, poll_interval_seconds, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			enabled = excluded.enabled,
-			bot_token = excluded.bot_token,
+			token = excluded.token,
 			workspace_id = excluded.workspace_id,
 			poll_interval_seconds = excluded.poll_interval_seconds,
 			updated_at = excluded.updated_at
 	`,
 		acct.ID.String(),
 		boolToInt(acct.Enabled),
-		acct.BotToken,
+		acct.Token,
 		acct.WorkspaceID,
 		acct.PollIntervalSeconds,
 		acct.CreatedAt.Format(time.RFC3339),
@@ -249,7 +253,7 @@ func scanSlackAccount(scanner interface {
 		updatedAtStr string
 	)
 
-	err := scanner.Scan(&idStr, &enabled, &acct.BotToken, &acct.WorkspaceID, &acct.PollIntervalSeconds, &createdAtStr, &updatedAtStr)
+	err := scanner.Scan(&idStr, &enabled, &acct.Token, &acct.WorkspaceID, &acct.PollIntervalSeconds, &createdAtStr, &updatedAtStr)
 	if err != nil {
 		return nil, err
 	}

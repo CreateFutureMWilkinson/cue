@@ -201,7 +201,7 @@ path = "~/.cue/messages.db"
 
 [slack]
 enabled = true
-bot_token = "xoxb-..."
+token = "xoxp-..."
 workspace_id = "T..."
 poll_interval_seconds = 600
 

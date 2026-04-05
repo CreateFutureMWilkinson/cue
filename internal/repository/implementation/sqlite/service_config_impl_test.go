@@ -59,7 +59,7 @@ func (s *ServiceConfigSuite) TestSlackAccountRoundTrip() {
 	acct := &repository.SlackAccount{
 		ID:                  uuid.New(),
 		Enabled:             true,
-		BotToken:            "xoxb-test-token-123",
+		Token:               "xoxb-test-token-123",
 		WorkspaceID:         "T0001",
 		PollIntervalSeconds: 300,
 		CreatedAt:           now,
@@ -75,7 +75,7 @@ func (s *ServiceConfigSuite) TestSlackAccountRoundTrip() {
 
 	s.Equal(acct.ID, got.ID)
 	s.Equal(acct.Enabled, got.Enabled)
-	s.Equal(acct.BotToken, got.BotToken)
+	s.Equal(acct.Token, got.Token)
 	s.Equal(acct.WorkspaceID, got.WorkspaceID)
 	s.Equal(acct.PollIntervalSeconds, got.PollIntervalSeconds)
 	s.WithinDuration(acct.CreatedAt, got.CreatedAt, time.Second)
@@ -125,7 +125,7 @@ func (s *ServiceConfigSuite) TestSlackAccountUpdate() {
 	acct := &repository.SlackAccount{
 		ID:                  uuid.New(),
 		Enabled:             true,
-		BotToken:            "xoxb-original",
+		Token:               "xoxb-original",
 		WorkspaceID:         "T0002",
 		PollIntervalSeconds: 600,
 		CreatedAt:           now,
@@ -136,7 +136,7 @@ func (s *ServiceConfigSuite) TestSlackAccountUpdate() {
 	s.Require().NoError(err)
 
 	// Update fields.
-	acct.BotToken = "xoxb-updated"
+	acct.Token = "xoxb-updated"
 	acct.Enabled = false
 	acct.PollIntervalSeconds = 120
 	acct.UpdatedAt = now.Add(time.Minute)
@@ -147,7 +147,7 @@ func (s *ServiceConfigSuite) TestSlackAccountUpdate() {
 	got, err := s.repo.GetSlackAccount(ctx, acct.ID)
 	s.Require().NoError(err)
 
-	s.Equal("xoxb-updated", got.BotToken)
+	s.Equal("xoxb-updated", got.Token)
 	s.Equal(false, got.Enabled)
 	s.Equal(120, got.PollIntervalSeconds)
 	s.WithinDuration(now.Add(time.Minute), got.UpdatedAt, time.Second)
@@ -206,7 +206,7 @@ func (s *ServiceConfigSuite) TestSlackAccountDelete() {
 	acct := &repository.SlackAccount{
 		ID:                  uuid.New(),
 		Enabled:             true,
-		BotToken:            "xoxb-delete-me",
+		Token:               "xoxb-delete-me",
 		WorkspaceID:         "T0003",
 		PollIntervalSeconds: 600,
 		CreatedAt:           now,
@@ -308,7 +308,7 @@ func (s *ServiceConfigSuite) TestListSlackAccountsMultiple() {
 		acct := &repository.SlackAccount{
 			ID:                  id,
 			Enabled:             true,
-			BotToken:            "xoxb-list-" + id.String()[:8],
+			Token:               "xoxb-list-" + id.String()[:8],
 			WorkspaceID:         "T100" + string(rune('0'+i)),
 			PollIntervalSeconds: 600,
 			CreatedAt:           now,
@@ -377,7 +377,7 @@ func (s *ServiceConfigSuite) TestSlackAccountUniqueWorkspaceID() {
 	acct1 := &repository.SlackAccount{
 		ID:                  uuid.New(),
 		Enabled:             true,
-		BotToken:            "xoxb-first",
+		Token:               "xoxb-first",
 		WorkspaceID:         "T-DUPLICATE",
 		PollIntervalSeconds: 600,
 		CreatedAt:           now,
@@ -391,7 +391,7 @@ func (s *ServiceConfigSuite) TestSlackAccountUniqueWorkspaceID() {
 	acct2 := &repository.SlackAccount{
 		ID:                  uuid.New(),
 		Enabled:             true,
-		BotToken:            "xoxb-second",
+		Token:               "xoxb-second",
 		WorkspaceID:         "T-DUPLICATE",
 		PollIntervalSeconds: 600,
 		CreatedAt:           now,

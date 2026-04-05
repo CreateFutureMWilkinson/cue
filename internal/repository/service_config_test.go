@@ -69,7 +69,7 @@ func (s *ServiceConfigSuite) TestSlackAccountFields() {
 	acct := &repository.SlackAccount{
 		ID:                  id,
 		Enabled:             true,
-		BotToken:            "xoxb-test-token",
+		Token:               "xoxb-test-token",
 		WorkspaceID:         "T12345",
 		PollIntervalSeconds: 600,
 		CreatedAt:           now,
@@ -78,7 +78,7 @@ func (s *ServiceConfigSuite) TestSlackAccountFields() {
 
 	s.Equal(id, acct.ID)
 	s.True(acct.Enabled)
-	s.Equal("xoxb-test-token", acct.BotToken)
+	s.Equal("xoxb-test-token", acct.Token)
 	s.Equal("T12345", acct.WorkspaceID)
 	s.Equal(600, acct.PollIntervalSeconds)
 	s.Equal(now, acct.CreatedAt)
@@ -90,7 +90,7 @@ func (s *ServiceConfigSuite) TestSlackAccountDefaultValues() {
 
 	s.Equal(uuid.UUID{}, acct.ID)
 	s.False(acct.Enabled)
-	s.Empty(acct.BotToken)
+	s.Empty(acct.Token)
 	s.Empty(acct.WorkspaceID)
 	s.Zero(acct.PollIntervalSeconds)
 	s.True(acct.CreatedAt.IsZero())

@@ -2,7 +2,6 @@ package character
 
 import (
 	"context"
-	"image/color"
 	"math"
 	"sync"
 	"time"
@@ -69,9 +68,9 @@ func (a *IdleAnimator) Start(fairy *FairyCharacter) {
 
 // initializeFairyState sets the fairy to its idle appearance and position.
 func (a *IdleAnimator) initializeFairyState(fairy *FairyCharacter) {
-	fairy.SetPosition(0.5, 1.0)                                        // Bottom-center
-	fairy.SetBodyColor(color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: 0xFF}) // Dark green
-	fairy.SetGlowIntensity(IdleGlowIntensity(0.0))                     // Initial glow
+	fairy.SetPosition(IdleOriginX, IdleOriginY)    // Bottom-center
+	fairy.SetBodyColor(IdleBodyColor)              // Dark green
+	fairy.SetGlowIntensity(IdleGlowIntensity(0.0)) // Initial glow
 }
 
 // runAnimationLoop drives the breathing animation in a separate goroutine.

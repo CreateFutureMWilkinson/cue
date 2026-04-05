@@ -23,11 +23,18 @@ const (
 
 	// glowAlpha is the alpha channel value for glow circles.
 	glowAlpha = 30
+
+	// Idle position coordinates.
+	IdleOriginX = 0.5
+	IdleOriginY = 1.0
 )
 
 var (
+	// IdleBodyColor is the idle state body color (#006100).
+	IdleBodyColor = color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: 0xFF}
+
 	// initialFairyColor is the default body color (#006100).
-	initialFairyColor = color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: 0xFF}
+	initialFairyColor = IdleBodyColor
 
 	// State colors for the fairy character indicator.
 	colorIdle         = color.RGBA{R: 200, G: 200, B: 255, A: 255} // Light blue
@@ -185,6 +192,16 @@ func clamp01(v float64) float64 {
 		return 1.0
 	}
 	return v
+}
+
+// lerpColor linearly interpolates between two RGBA colors.
+func lerpColor(a, b color.RGBA, t float64) color.RGBA {
+	return color.RGBA{
+		R: uint8(float64(a.R) + t*(float64(b.R)-float64(a.R))),
+		G: uint8(float64(a.G) + t*(float64(b.G)-float64(a.G))),
+		B: uint8(float64(a.B) + t*(float64(b.B)-float64(a.B))),
+		A: uint8(float64(a.A) + t*(float64(b.A)-float64(a.A))),
+	}
 }
 
 func stateColor(s CharacterState) color.Color {

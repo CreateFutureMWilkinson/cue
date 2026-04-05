@@ -25,22 +25,13 @@ const (
 // WorkingBodyColor is the body color used after the entry transition completes.
 var WorkingBodyColor = color.RGBA{R: 0x00, G: 0x92, B: 0x00, A: 0xFF}
 
-// idleOriginX and idleOriginY are the idle position coordinates.
-const (
-	idleOriginX = 0.5
-	idleOriginY = 1.0
-)
-
-// idleBodyColor is the idle state body color (#006100).
-var idleBodyColor = color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: 0xFF}
-
 // WorkingPosition computes the drift position at elapsed time t using layered
 // sinusoidal motion. The result is clamped to [0.0, 1.0].
 func WorkingPosition(t float64) (x, y float64) {
 	// Primary circuit: 4.0s period, radius 0.35, centered at 0.5.
 	primaryPhase := 2 * math.Pi * t / WorkingCircuitSec
-	px := 0.5 + WorkingDriftRadius*math.Cos(primaryPhase)
-	py := 0.5 + WorkingDriftRadius*math.Sin(primaryPhase)
+	px := 0.5 + WorkingDriftRadius*math.Sin(primaryPhase)
+	py := 0.5 + WorkingDriftRadius*math.Cos(primaryPhase)
 
 	// Secondary noise: 7.3s and 5.7s periods, amplitude 0.08.
 	px += 0.08 * math.Sin(2*math.Pi*t/7.3)
@@ -78,8 +69,8 @@ func (a *WorkingAnimator) Start(fairy *FairyCharacter) {
 	defer a.mu.Unlock()
 
 	// Set initial state: idle position and color.
-	fairy.SetPosition(idleOriginX, idleOriginY)
-	fairy.SetBodyColor(idleBodyColor)
+	fairy.SetPosition(IdleOriginX, IdleOriginY)
+	fairy.SetBodyColor(IdleBodyColor)
 	fairy.SetGlowIntensity(IdleGlowIntensity(0.0))
 
 	startTime := a.clock.Now()
@@ -159,20 +150,10 @@ func (a *WorkingAnimator) interpolateEntry(fairy *FairyCharacter, elapsed, t flo
 	driftX, driftY := WorkingPosition(elapsed)
 
 	// Linearly interpolate position.
-	x := idleOriginX + t*(driftX-idleOriginX)
-	y := idleOriginY + t*(driftY-idleOriginY)
+	x := IdleOriginX + t*(driftX-IdleOriginX)
+	y := IdleOriginY + t*(driftY-IdleOriginY)
 	fairy.SetPosition(x, y)
 
 	// Linearly interpolate color channels.
-	fairy.SetBodyColor(lerpColor(idleBodyColor, WorkingBodyColor, t))
-}
-
-// lerpColor linearly interpolates between two RGBA colors.
-func lerpColor(a, b color.RGBA, t float64) color.RGBA {
-	return color.RGBA{
-		R: uint8(float64(a.R) + t*(float64(b.R)-float64(a.R))),
-		G: uint8(float64(a.G) + t*(float64(b.G)-float64(a.G))),
-		B: uint8(float64(a.B) + t*(float64(b.B)-float64(a.B))),
-		A: uint8(float64(a.A) + t*(float64(b.A)-float64(a.A))),
-	}
+	fairy.SetBodyColor(lerpColor(IdleBodyColor, WorkingBodyColor, t))
 }

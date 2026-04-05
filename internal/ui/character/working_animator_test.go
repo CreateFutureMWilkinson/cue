@@ -27,7 +27,7 @@ func (s *WorkingAnimatorSuite) SetupTest() {
 
 func (s *WorkingAnimatorSuite) TestPositionStaysWithinBounds() {
 	// Sample many time points across several circuits.
-	for i := 0; i < 2000; i++ {
+	for i := range 2000 {
 		t := float64(i) * 0.01 // 0.0s to 20.0s, covering ~5 circuits
 		x, y := character.WorkingPosition(t)
 		s.GreaterOrEqual(x, 0.0, "x at t=%v must be >= 0.0", t)

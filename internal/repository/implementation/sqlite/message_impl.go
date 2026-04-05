@@ -40,8 +40,6 @@ CREATE INDEX IF NOT EXISTS idx_messages_source_created ON messages(source, creat
 CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_message_id ON messages(message_id);
 `
 
-const maxMessagesPerSource = 100
-
 const (
 	queryCountBySource        = "SELECT COUNT(*) FROM messages WHERE source = ?"
 	queryDeleteOldestBySource = "DELETE FROM messages WHERE id = (SELECT id FROM messages WHERE source = ? ORDER BY created_at ASC LIMIT 1)"
@@ -57,12 +55,18 @@ const messageColumnsStr = "id, source, source_account, channel, sender, message_
 
 // SQLiteMessageRepository implements repository.MessageRepository using SQLite.
 type SQLiteMessageRepository struct {
-	db *sql.DB
+	db                   *sql.DB
+	maxMessagesPerSource int
 }
 
 // NewSQLiteMessageRepository opens (or creates) a SQLite database at dbPath,
 // enables WAL mode, creates the messages table if needed, and returns the repository.
-func NewSQLiteMessageRepository(dbPath string) (*SQLiteMessageRepository, error) {
+// maxMessagesPerSource controls the FIFO eviction threshold per source and must be > 0.
+func NewSQLiteMessageRepository(dbPath string, maxMessagesPerSource int) (*SQLiteMessageRepository, error) {
+	if maxMessagesPerSource <= 0 {
+		return nil, fmt.Errorf("maxMessagesPerSource must be greater than 0, got %d", maxMessagesPerSource)
+	}
+
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
@@ -90,7 +94,7 @@ func NewSQLiteMessageRepository(dbPath string) (*SQLiteMessageRepository, error)
 		return nil, fmt.Errorf("migrate message_type column: %w", err)
 	}
 
-	return &SQLiteMessageRepository{db: db}, nil
+	return &SQLiteMessageRepository{db: db, maxMessagesPerSource: maxMessagesPerSource}, nil
 }
 
 // DB returns the underlying *sql.DB connection.
@@ -276,7 +280,7 @@ func (r *SQLiteMessageRepository) evictOldestIfNeeded(ctx context.Context, tx *s
 		return fmt.Errorf("count messages by source: %w", err)
 	}
 
-	if count >= maxMessagesPerSource {
+	if count >= r.maxMessagesPerSource {
 		_, err = tx.ExecContext(ctx, queryDeleteOldestBySource, source)
 		if err != nil {
 			return fmt.Errorf("evict oldest message: %w", err)

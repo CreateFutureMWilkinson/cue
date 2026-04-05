@@ -110,7 +110,7 @@ func run() error {
 	}
 
 	// Open SQLite database.
-	repo, err := sqlite.NewSQLiteMessageRepository(cfg.Database.Path)
+	repo, err := sqlite.NewSQLiteMessageRepository(cfg.Database.Path, cfg.Orchestrator.Router.BufferSizePerSource)
 	if err != nil {
 		return fmt.Errorf("opening database: %w", err)
 	}

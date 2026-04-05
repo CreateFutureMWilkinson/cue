@@ -71,7 +71,6 @@ type OllamaConfig struct {
 
 type NotificationConfig struct {
 	AudioEnabled         bool   `toml:"audio_enabled"`
-	BatchProcess         bool   `toml:"batch_process"`
 	AudioDir             string `toml:"audio_dir"`
 	AudioCooldownSeconds int    `toml:"audio_cooldown_seconds"`
 	AudioVolume          int    `toml:"audio_volume"`
@@ -127,7 +126,6 @@ func defaultConfig() *Config {
 		},
 		Notification: NotificationConfig{
 			AudioEnabled:         true,
-			BatchProcess:         true,
 			AudioDir:             "",
 			AudioCooldownSeconds: 2,
 			AudioVolume:          100,

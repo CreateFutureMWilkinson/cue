@@ -76,9 +76,6 @@ vector_damping_factor = 0.5
 # Master toggle for audio alerts.
 audio_enabled = true
 
-# Process messages in batches (recommended).
-batch_process = true
-
 # Directory containing custom notification sounds.
 # Leave empty to use system fallback beep.
 audio_dir = ""

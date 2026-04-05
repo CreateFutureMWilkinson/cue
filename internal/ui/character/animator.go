@@ -14,12 +14,12 @@ type Clock interface {
 	NewTicker(d time.Duration) Ticker
 }
 
-// StateAnimator defines the interface for character state animators.
-type StateAnimator interface {
-	Start(fairy *FairyCharacter)
-	Stop()
-	State() CharacterState
-}
+// Animation timing constants shared across all character implementations.
+const (
+	AnimationFPS           = 30                  // Target frames per second
+	AnimationTickMs        = 1000 / AnimationFPS // Milliseconds between animation frames
+	AnimationFrameInterval = time.Millisecond    // Frame interval for high-frequency animators
+)
 
 // wallTicker wraps a standard time.Ticker to implement the Ticker interface.
 type wallTicker struct {

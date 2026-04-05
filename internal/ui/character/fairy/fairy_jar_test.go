@@ -1,4 +1,4 @@
-package character_test
+package fairy_test
 
 import (
 	"image/color"
@@ -6,6 +6,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/fairy"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -21,13 +22,13 @@ func TestFairyJar(t *testing.T) {
 }
 
 func (s *FairyJarSuite) TestWidgetReturnsNonNilContainer() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 	w := c.Widget()
 	s.NotNil(w, "Widget() must return a non-nil container")
 }
 
 func (s *FairyJarSuite) TestSVGLayersPresent() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 	w := c.Widget()
 
 	// The widget should be a container with at least 3 children:
@@ -39,7 +40,7 @@ func (s *FairyJarSuite) TestSVGLayersPresent() {
 }
 
 func (s *FairyJarSuite) TestBodyCircleSizedAt10Percent() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 	w := c.Widget()
 
 	// Resize the container to a known size so proportions are testable.
@@ -57,7 +58,7 @@ func (s *FairyJarSuite) TestBodyCircleSizedAt10Percent() {
 }
 
 func (s *FairyJarSuite) TestGlowCircleSizedAt25Percent() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 	w := c.Widget()
 
 	jarWidth := float32(200)
@@ -74,7 +75,7 @@ func (s *FairyJarSuite) TestGlowCircleSizedAt25Percent() {
 }
 
 func (s *FairyJarSuite) TestSetPositionClampingAboveOne() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 	c.SetPosition(1.5, 2.0)
 	x, y := c.Position()
 	s.Equal(1.0, x, "x > 1.0 must be clamped to 1.0")
@@ -82,7 +83,7 @@ func (s *FairyJarSuite) TestSetPositionClampingAboveOne() {
 }
 
 func (s *FairyJarSuite) TestSetPositionClampingBelowZero() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 	c.SetPosition(-0.5, -1.0)
 	x, y := c.Position()
 	s.Equal(0.0, x, "x < 0.0 must be clamped to 0.0")
@@ -90,7 +91,7 @@ func (s *FairyJarSuite) TestSetPositionClampingBelowZero() {
 }
 
 func (s *FairyJarSuite) TestPositionRoundTrip() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 
 	cases := []struct {
 		x, y float64
@@ -110,7 +111,7 @@ func (s *FairyJarSuite) TestPositionRoundTrip() {
 }
 
 func (s *FairyJarSuite) TestSetBodyColorApplied() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 
 	newColor := color.RGBA{R: 255, G: 0, B: 0, A: 255}
 	c.SetBodyColor(newColor)
@@ -127,27 +128,27 @@ func (s *FairyJarSuite) TestSetBodyColorApplied() {
 }
 
 func (s *FairyJarSuite) TestSetGlowIntensityClampingAboveOne() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 	c.SetGlowIntensity(1.5)
 	s.Equal(1.0, c.GlowIntensity(),
 		"glow intensity > 1.0 must be clamped to 1.0")
 }
 
 func (s *FairyJarSuite) TestSetGlowIntensityClampingBelowZero() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 	c.SetGlowIntensity(-0.5)
 	s.Equal(0.0, c.GlowIntensity(),
 		"glow intensity < 0.0 must be clamped to 0.0")
 }
 
 func (s *FairyJarSuite) TestGlowLayerCountIsEight() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 	layers := c.GlowLayers()
 	s.Len(layers, 8, "there must be exactly 8 concentric glow layers")
 }
 
 func (s *FairyJarSuite) TestInitialColorIsDarkGreen() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 
 	bodyCircle := c.BodyCircle()
 	s.Require().NotNil(bodyCircle, "BodyCircle() must return the body circle")
@@ -163,14 +164,14 @@ func (s *FairyJarSuite) TestInitialColorIsDarkGreen() {
 }
 
 func (s *FairyJarSuite) TestInitialPositionIsBottomCenter() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 	x, y := c.Position()
 	s.Equal(0.5, x, "initial x position must be 0.5 (center)")
 	s.Equal(1.0, y, "initial y position must be 1.0 (bottom)")
 }
 
 func (s *FairyJarSuite) TestCharacterInterfaceSatisfied() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 
 	// Widget returns non-nil.
 	s.NotNil(c.Widget(), "Widget() must be non-nil")

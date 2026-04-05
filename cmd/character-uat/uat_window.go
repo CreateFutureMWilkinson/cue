@@ -217,15 +217,9 @@ func (w *UATWindow) setStateButtonsEnabled(enabled bool) {
 }
 
 // availableCharacterNames returns sorted character names from the registry,
-// excluding the "none" no-op character.
+// including the "none" no-op character for baseline testing.
 func availableCharacterNames() []string {
 	all := character.Available()
-	names := make([]string, 0, len(all))
-	for _, name := range all {
-		if name != character.NoneCharacterName {
-			names = append(names, name)
-		}
-	}
-	sort.Strings(names)
-	return names
+	sort.Strings(all)
+	return all
 }

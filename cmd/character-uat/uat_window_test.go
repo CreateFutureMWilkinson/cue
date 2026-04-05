@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/fairy"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -18,7 +19,7 @@ func TestUATWindow(t *testing.T) {
 func (s *UATWindowSuite) SetupTest() {
 	character.ResetRegistry()
 	character.Register("fairy", func() character.Character {
-		return character.NewFairyCharacter()
+		return fairy.NewFairyCharacter()
 	})
 }
 

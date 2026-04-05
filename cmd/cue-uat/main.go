@@ -5,11 +5,12 @@ import (
 
 	characteruat "github.com/CreateFutureMWilkinson/cue/cmd/character-uat"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/fairy"
 )
 
 func init() {
 	character.Register("fairy", func() character.Character {
-		return character.NewFairyCharacter()
+		return fairy.NewFairyCharacter()
 	})
 }
 

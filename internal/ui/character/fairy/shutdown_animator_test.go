@@ -1,4 +1,4 @@
-package character_test
+package fairy_test
 
 import (
 	"image/color"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/fairy"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -26,7 +27,7 @@ func (s *ShutdownAnimatorSuite) SetupTest() {
 // --- State() returns StateShuttingDown ---
 
 func (s *ShutdownAnimatorSuite) TestStateReturnsShuttingDown() {
-	animator := character.NewShutdownAnimator(s.clock)
+	animator := fairy.NewShutdownAnimator(s.clock)
 	s.Equal(character.StateShuttingDown, animator.State(),
 		"ShutdownAnimator.State() must return StateShuttingDown")
 }
@@ -34,14 +35,14 @@ func (s *ShutdownAnimatorSuite) TestStateReturnsShuttingDown() {
 // --- Captures current state on Start ---
 
 func (s *ShutdownAnimatorSuite) TestCapturesCurrentStateOnStart() {
-	fairy := character.NewFairyCharacter()
+	f := fairy.NewFairyCharacter()
 	// Set fairy to a non-default state.
-	fairy.SetPosition(0.2, 0.3)
-	fairy.SetBodyColor(color.RGBA{R: 0x00, G: 0xB8, B: 0x00, A: 0xFF})
-	fairy.SetGlowIntensity(0.8)
+	f.SetPosition(0.2, 0.3)
+	f.SetBodyColor(color.RGBA{R: 0x00, G: 0xB8, B: 0x00, A: 0xFF})
+	f.SetGlowIntensity(0.8)
 
-	animator := character.NewShutdownAnimator(s.clock)
-	animator.Start(fairy)
+	animator := fairy.NewShutdownAnimator(s.clock)
+	animator.Start(f)
 	defer animator.Stop()
 
 	// Advance to midpoint (0.75s).
@@ -49,14 +50,14 @@ func (s *ShutdownAnimatorSuite) TestCapturesCurrentStateOnStart() {
 	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
 
 	// Position should be between start (0.2, 0.3) and dormant (0.5, 1.0).
-	x, y := fairy.Position()
+	x, y := f.Position()
 	s.Greater(x, 0.2, "x at midpoint should be above start (0.2)")
 	s.Less(x, 0.5, "x at midpoint should be below dormant (0.5)")
 	s.Greater(y, 0.3, "y at midpoint should be above start (0.3)")
 	s.Less(y, 1.0, "y at midpoint should be below dormant (1.0)")
 
 	// Glow should be between start (0.8) and dormant (0.15).
-	glow := fairy.GlowIntensity()
+	glow := f.GlowIntensity()
 	s.Less(glow, 0.8, "glow at midpoint should be below start (0.8)")
 	s.Greater(glow, 0.15, "glow at midpoint should be above dormant (0.15)")
 }
@@ -64,12 +65,12 @@ func (s *ShutdownAnimatorSuite) TestCapturesCurrentStateOnStart() {
 // --- Final state is dormant after 1.5s ---
 
 func (s *ShutdownAnimatorSuite) TestFinalStateIsDormant() {
-	fairy := character.NewFairyCharacter()
+	f := fairy.NewFairyCharacter()
 	// Start from idle defaults.
-	fairy.SetGlowIntensity(0.5)
+	f.SetGlowIntensity(0.5)
 
-	animator := character.NewShutdownAnimator(s.clock)
-	animator.Start(fairy)
+	animator := fairy.NewShutdownAnimator(s.clock)
+	animator.Start(f)
 	defer animator.Stop()
 
 	// Advance past the full 1.5s shutdown duration.
@@ -77,12 +78,12 @@ func (s *ShutdownAnimatorSuite) TestFinalStateIsDormant() {
 	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
 
 	// Position should be dormant (0.5, 1.0).
-	x, y := fairy.Position()
+	x, y := f.Position()
 	s.InDelta(0.5, x, 1e-9, "final position x must be 0.5")
 	s.InDelta(1.0, y, 1e-9, "final position y must be 1.0")
 
 	// Body color should be dormant (#004900).
-	bodyCircle := fairy.BodyCircle()
+	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
 
 	expected := color.RGBA{R: 0x00, G: 0x49, B: 0x00, A: 0xFF}
@@ -94,17 +95,17 @@ func (s *ShutdownAnimatorSuite) TestFinalStateIsDormant() {
 	s.Equal(a2, a1, "final body alpha channel should be 0xFF")
 
 	// Glow intensity should be shutdown dormant (0.15).
-	s.InDelta(character.ShutdownDormantGlowIntensity, fairy.GlowIntensity(), 0.01,
+	s.InDelta(fairy.ShutdownDormantGlowIntensity, f.GlowIntensity(), 0.01,
 		"glow intensity at end should be shutdown dormant (0.15)")
 }
 
 // --- Done channel closes on completion ---
 
 func (s *ShutdownAnimatorSuite) TestDoneChannelClosesOnCompletion() {
-	fairy := character.NewFairyCharacter()
-	animator := character.NewShutdownAnimator(s.clock)
+	f := fairy.NewFairyCharacter()
+	animator := fairy.NewShutdownAnimator(s.clock)
 
-	animator.Start(fairy)
+	animator.Start(f)
 	defer animator.Stop()
 
 	// Advance past the full 1.5s shutdown duration.
@@ -114,7 +115,7 @@ func (s *ShutdownAnimatorSuite) TestDoneChannelClosesOnCompletion() {
 	// Done channel should be closed.
 	select {
 	case <-animator.Done():
-		// Success — channel is closed.
+		// Success -- channel is closed.
 	case <-time.After(time.Second):
 		s.Fail("Done() channel was not closed within timeout")
 	}
@@ -123,9 +124,9 @@ func (s *ShutdownAnimatorSuite) TestDoneChannelClosesOnCompletion() {
 // --- Done channel before Start ---
 
 func (s *ShutdownAnimatorSuite) TestDoneChannelBeforeStart() {
-	animator := character.NewShutdownAnimator(s.clock)
+	animator := fairy.NewShutdownAnimator(s.clock)
 
-	// Done() returns nil before Start — no channel is allocated until the
+	// Done() returns nil before Start -- no channel is allocated until the
 	// animation begins. This matches StartupAnimator behaviour and avoids a
 	// deadlock when Stop() is called without a preceding Start().
 	done := animator.Done()
@@ -135,11 +136,11 @@ func (s *ShutdownAnimatorSuite) TestDoneChannelBeforeStart() {
 // --- Position interpolation from custom start ---
 
 func (s *ShutdownAnimatorSuite) TestPositionInterpolationFromCustomStart() {
-	fairy := character.NewFairyCharacter()
-	fairy.SetPosition(0.2, 0.3)
+	f := fairy.NewFairyCharacter()
+	f.SetPosition(0.2, 0.3)
 
-	animator := character.NewShutdownAnimator(s.clock)
-	animator.Start(fairy)
+	animator := fairy.NewShutdownAnimator(s.clock)
+	animator.Start(f)
 	defer animator.Stop()
 
 	// Advance past the full 1.5s shutdown duration.
@@ -147,7 +148,7 @@ func (s *ShutdownAnimatorSuite) TestPositionInterpolationFromCustomStart() {
 	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
 
 	// Final position should be dormant (0.5, 1.0).
-	x, y := fairy.Position()
+	x, y := f.Position()
 	s.InDelta(0.5, x, 1e-9, "final position x must be 0.5")
 	s.InDelta(1.0, y, 1e-9, "final position y must be 1.0")
 }
@@ -155,12 +156,12 @@ func (s *ShutdownAnimatorSuite) TestPositionInterpolationFromCustomStart() {
 // --- Color interpolation at midpoint ---
 
 func (s *ShutdownAnimatorSuite) TestColorInterpolationAtMidpoint() {
-	fairy := character.NewFairyCharacter()
-	// Set body color to idle (#006100) — a non-dormant color.
-	fairy.SetBodyColor(character.IdleBodyColor)
+	f := fairy.NewFairyCharacter()
+	// Set body color to idle (#006100) -- a non-dormant color.
+	f.SetBodyColor(fairy.IdleBodyColor)
 
-	animator := character.NewShutdownAnimator(s.clock)
-	animator.Start(fairy)
+	animator := fairy.NewShutdownAnimator(s.clock)
+	animator.Start(f)
 	defer animator.Stop()
 
 	// Advance to ~0.75s (midpoint of 1.5s animation).
@@ -168,7 +169,7 @@ func (s *ShutdownAnimatorSuite) TestColorInterpolationAtMidpoint() {
 	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
 
 	// At midpoint, color should be between idle (#006100) and dormant (#004900).
-	bodyCircle := fairy.BodyCircle()
+	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
 	_, g, _, _ := bodyCircle.FillColor.RGBA()
 
@@ -182,11 +183,11 @@ func (s *ShutdownAnimatorSuite) TestColorInterpolationAtMidpoint() {
 // --- Glow interpolation at midpoint ---
 
 func (s *ShutdownAnimatorSuite) TestGlowInterpolationAtMidpoint() {
-	fairy := character.NewFairyCharacter()
-	fairy.SetGlowIntensity(0.8)
+	f := fairy.NewFairyCharacter()
+	f.SetGlowIntensity(0.8)
 
-	animator := character.NewShutdownAnimator(s.clock)
-	animator.Start(fairy)
+	animator := fairy.NewShutdownAnimator(s.clock)
+	animator.Start(f)
 	defer animator.Stop()
 
 	// Advance to ~0.75s (midpoint of 1.5s animation).
@@ -194,35 +195,35 @@ func (s *ShutdownAnimatorSuite) TestGlowInterpolationAtMidpoint() {
 	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
 
 	// At midpoint, glow should be between start (0.8) and dormant (0.15).
-	glow := fairy.GlowIntensity()
+	glow := f.GlowIntensity()
 	s.Less(glow, 0.8,
 		"glow intensity at midpoint should be below start (0.8)")
-	s.Greater(glow, character.ShutdownDormantGlowIntensity,
+	s.Greater(glow, fairy.ShutdownDormantGlowIntensity,
 		"glow intensity at midpoint should be above shutdown dormant (0.15)")
 }
 
 // --- Animation from idle state ---
 
 func (s *ShutdownAnimatorSuite) TestAnimationFromIdleState() {
-	fairy := character.NewFairyCharacter()
+	f := fairy.NewFairyCharacter()
 	// Fairy starts at idle defaults: position (0.5, 1.0), color #006100.
-	fairy.SetGlowIntensity(0.5)
+	f.SetGlowIntensity(0.5)
 
-	animator := character.NewShutdownAnimator(s.clock)
-	animator.Start(fairy)
+	animator := fairy.NewShutdownAnimator(s.clock)
+	animator.Start(f)
 	defer animator.Stop()
 
 	// Advance past the full 1.5s shutdown duration.
 	s.clock.Advance(1600 * time.Millisecond)
 	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
 
-	// Final position should still be (0.5, 1.0) — same as idle origin.
-	x, y := fairy.Position()
+	// Final position should still be (0.5, 1.0) -- same as idle origin.
+	x, y := f.Position()
 	s.InDelta(0.5, x, 1e-9, "final position x must be 0.5")
 	s.InDelta(1.0, y, 1e-9, "final position y must be 1.0")
 
 	// Body color should be dormant (#004900).
-	bodyCircle := fairy.BodyCircle()
+	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
 
 	expected := color.RGBA{R: 0x00, G: 0x49, B: 0x00, A: 0xFF}
@@ -234,21 +235,21 @@ func (s *ShutdownAnimatorSuite) TestAnimationFromIdleState() {
 	s.Equal(a2, a1, "body alpha channel should be dormant")
 
 	// Glow intensity should be shutdown dormant (0.15).
-	s.InDelta(character.ShutdownDormantGlowIntensity, fairy.GlowIntensity(), 0.01,
+	s.InDelta(fairy.ShutdownDormantGlowIntensity, f.GlowIntensity(), 0.01,
 		"glow intensity at end should be shutdown dormant (0.15)")
 }
 
 // --- Animation from error state ---
 
 func (s *ShutdownAnimatorSuite) TestAnimationFromErrorState() {
-	fairy := character.NewFairyCharacter()
+	f := fairy.NewFairyCharacter()
 	// Simulate error state: position (0.5, 0.5), color #00B800, glow 0.65.
-	fairy.SetPosition(0.5, 0.5)
-	fairy.SetBodyColor(color.RGBA{R: 0x00, G: 0xB8, B: 0x00, A: 0xFF})
-	fairy.SetGlowIntensity(0.65)
+	f.SetPosition(0.5, 0.5)
+	f.SetBodyColor(color.RGBA{R: 0x00, G: 0xB8, B: 0x00, A: 0xFF})
+	f.SetGlowIntensity(0.65)
 
-	animator := character.NewShutdownAnimator(s.clock)
-	animator.Start(fairy)
+	animator := fairy.NewShutdownAnimator(s.clock)
+	animator.Start(f)
 	defer animator.Stop()
 
 	// Advance past the full 1.5s shutdown duration.
@@ -256,12 +257,12 @@ func (s *ShutdownAnimatorSuite) TestAnimationFromErrorState() {
 	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
 
 	// Final position should be dormant (0.5, 1.0).
-	x, y := fairy.Position()
+	x, y := f.Position()
 	s.InDelta(0.5, x, 1e-9, "final position x must be 0.5")
 	s.InDelta(1.0, y, 1e-9, "final position y must be 1.0")
 
 	// Body color should be dormant (#004900).
-	bodyCircle := fairy.BodyCircle()
+	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
 
 	expected := color.RGBA{R: 0x00, G: 0x49, B: 0x00, A: 0xFF}
@@ -273,31 +274,31 @@ func (s *ShutdownAnimatorSuite) TestAnimationFromErrorState() {
 	s.Equal(a2, a1, "body alpha channel should be dormant")
 
 	// Glow intensity should be shutdown dormant (0.15).
-	s.InDelta(character.ShutdownDormantGlowIntensity, fairy.GlowIntensity(), 0.01,
+	s.InDelta(fairy.ShutdownDormantGlowIntensity, f.GlowIntensity(), 0.01,
 		"glow intensity at end should be shutdown dormant (0.15)")
 }
 
 // --- Shutdown duration constant ---
 
 func (s *ShutdownAnimatorSuite) TestShutdownDurationConstant() {
-	s.Equal(1.5, character.ShutdownDurationSec,
+	s.Equal(1.5, fairy.ShutdownDurationSec,
 		"shutdown duration must be 1.5 seconds")
 }
 
 // --- Shutdown dormant glow constant ---
 
 func (s *ShutdownAnimatorSuite) TestShutdownDormantGlowConstant() {
-	s.Equal(0.15, character.ShutdownDormantGlowIntensity,
+	s.Equal(0.15, fairy.ShutdownDormantGlowIntensity,
 		"shutdown dormant glow intensity must be 0.15")
 }
 
 // --- Stop waits for completion ---
 
 func (s *ShutdownAnimatorSuite) TestStopWaitsForCompletion() {
-	fairy := character.NewFairyCharacter()
-	animator := character.NewShutdownAnimator(s.clock)
+	f := fairy.NewFairyCharacter()
+	animator := fairy.NewShutdownAnimator(s.clock)
 
-	animator.Start(fairy)
+	animator.Start(f)
 
 	// Advance clock past full 1.5s duration so the animation can complete.
 	s.clock.Advance(1600 * time.Millisecond)
@@ -312,29 +313,21 @@ func (s *ShutdownAnimatorSuite) TestStopWaitsForCompletion() {
 
 	select {
 	case <-done:
-		// Success — Stop() returned.
+		// Success -- Stop() returned.
 	case <-time.After(time.Second):
-		s.Fail("Stop() did not return within timeout — may be blocking indefinitely")
+		s.Fail("Stop() did not return within timeout -- may be blocking indefinitely")
 	}
-}
-
-// --- StateAnimator interface compliance ---
-
-func (s *ShutdownAnimatorSuite) TestImplementsStateAnimator() {
-	animator := character.NewShutdownAnimator(s.clock)
-	// Compile-time check that *ShutdownAnimator satisfies StateAnimator.
-	var _ character.StateAnimator = animator
 }
 
 // --- Color capture preserves arbitrary channel values ---
 
 func (s *ShutdownAnimatorSuite) TestColorCapturePreservesChannelValues() {
-	fairy := character.NewFairyCharacter()
+	f := fairy.NewFairyCharacter()
 	// Set fairy to a color with distinct channel values.
-	fairy.SetBodyColor(color.RGBA{R: 0xAA, G: 0xBB, B: 0xCC, A: 0xFF})
+	f.SetBodyColor(color.RGBA{R: 0xAA, G: 0xBB, B: 0xCC, A: 0xFF})
 
-	animator := character.NewShutdownAnimator(s.clock)
-	animator.Start(fairy)
+	animator := fairy.NewShutdownAnimator(s.clock)
+	animator.Start(f)
 	defer animator.Stop()
 
 	// Advance past the full 1.5s shutdown duration.
@@ -342,7 +335,7 @@ func (s *ShutdownAnimatorSuite) TestColorCapturePreservesChannelValues() {
 	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
 
 	// Final body color should be exactly DormantColor (#004900).
-	bodyCircle := fairy.BodyCircle()
+	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
 
 	expected := color.RGBA{R: 0x00, G: 0x49, B: 0x00, A: 0xFF}
@@ -357,7 +350,7 @@ func (s *ShutdownAnimatorSuite) TestColorCapturePreservesChannelValues() {
 // --- Stop without Start does not block ---
 
 func (s *ShutdownAnimatorSuite) TestStopWithoutStartDoesNotBlock() {
-	animator := character.NewShutdownAnimator(s.clock)
+	animator := fairy.NewShutdownAnimator(s.clock)
 
 	done := make(chan struct{})
 	go func() {
@@ -367,21 +360,21 @@ func (s *ShutdownAnimatorSuite) TestStopWithoutStartDoesNotBlock() {
 
 	select {
 	case <-done:
-		// Stop returned without blocking — test passes.
+		// Stop returned without blocking -- test passes.
 	case <-time.After(1 * time.Second):
-		s.Fail("Stop() blocked without a prior Start() call — probable deadlock")
+		s.Fail("Stop() blocked without a prior Start() call -- probable deadlock")
 	}
 }
 
 // --- Color capture from bright color at midpoint ---
 
 func (s *ShutdownAnimatorSuite) TestColorCaptureFromBrightColor() {
-	fairy := character.NewFairyCharacter()
+	f := fairy.NewFairyCharacter()
 	// Set fairy to brightest green (#00FF00).
-	fairy.SetBodyColor(color.RGBA{R: 0x00, G: 0xFF, B: 0x00, A: 0xFF})
+	f.SetBodyColor(color.RGBA{R: 0x00, G: 0xFF, B: 0x00, A: 0xFF})
 
-	animator := character.NewShutdownAnimator(s.clock)
-	animator.Start(fairy)
+	animator := fairy.NewShutdownAnimator(s.clock)
+	animator.Start(f)
 	defer animator.Stop()
 
 	// Advance to midpoint (750ms of 1.5s animation).
@@ -389,7 +382,7 @@ func (s *ShutdownAnimatorSuite) TestColorCaptureFromBrightColor() {
 	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
 
 	// At midpoint, green channel should be between 0xFF and 0x49 (dormant).
-	bodyCircle := fairy.BodyCircle()
+	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
 	_, g, _, _ := bodyCircle.FillColor.RGBA()
 

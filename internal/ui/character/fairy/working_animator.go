@@ -1,4 +1,4 @@
-package character
+package fairy
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"math"
 	"sync"
 	"time"
+
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
 )
 
 const (
@@ -22,50 +24,41 @@ const (
 // WorkingBodyColor is the body color used after the entry transition completes.
 var WorkingBodyColor = color.RGBA{R: 0x00, G: 0x92, B: 0x00, A: 0xFF}
 
-// WorkingPosition computes the drift position at elapsed time t using layered
-// sinusoidal motion. The result is clamped to [0.0, 1.0].
+// WorkingPosition computes the drift position at elapsed time t.
 func WorkingPosition(t float64) (x, y float64) {
-	// Primary circuit: 4.0s period, radius 0.35, centered at 0.5.
 	primaryPhase := 2 * math.Pi * t / WorkingCircuitSec
 	px := 0.5 + WorkingDriftRadius*math.Sin(primaryPhase)
 	py := 0.5 + WorkingDriftRadius*math.Cos(primaryPhase)
 
-	// Secondary noise: 7.3s and 5.7s periods, amplitude 0.08.
 	px += 0.08 * math.Sin(2*math.Pi*t/7.3)
 	py += 0.08 * math.Cos(2*math.Pi*t/5.7)
 
-	// Tertiary wobble: 1.9s and 2.3s periods, amplitude 0.03.
 	px += 0.03 * math.Sin(2*math.Pi*t/1.9)
 	py += 0.03 * math.Cos(2*math.Pi*t/2.3)
 
 	return clamp01(px), clamp01(py)
 }
 
-// WorkingAnimator drives the fairy's working state animation with an entry
-// transition from idle position/color to working drift.
+// WorkingAnimator drives the fairy's working state animation.
 type WorkingAnimator struct {
-	clock  Clock
+	clock  character.Clock
 	mu     sync.Mutex
 	cancel context.CancelFunc
 	done   chan struct{}
 }
 
 // NewWorkingAnimator creates a new WorkingAnimator using the provided clock.
-func NewWorkingAnimator(clock Clock) *WorkingAnimator {
+func NewWorkingAnimator(clock character.Clock) *WorkingAnimator {
 	return &WorkingAnimator{clock: clock}
 }
 
-// Start begins the working animation on the given fairy. It sets the initial
-// idle position and color, then starts a goroutine that interpolates through
-// the entry transition and into drift mode. If already running, the previous
-// animation is stopped first.
+// Start begins the working animation on the given fairy.
 func (a *WorkingAnimator) Start(fairy *FairyCharacter) {
 	a.Stop()
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	// Set initial state: idle position and color.
 	fairy.SetPosition(IdleOriginX, IdleOriginY)
 	fairy.SetBodyColor(IdleBodyColor)
 	fairy.SetGlowIntensity(IdleGlowIntensity(0.0))
@@ -80,8 +73,7 @@ func (a *WorkingAnimator) Start(fairy *FairyCharacter) {
 	go a.runAnimationLoop(ctx, fairy, startTime, done)
 }
 
-// Stop cancels the animation goroutine and waits for it to exit. It is safe
-// to call without a prior Start, or to call multiple times.
+// Stop cancels the animation goroutine and waits for it to exit.
 func (a *WorkingAnimator) Stop() {
 	a.mu.Lock()
 	cancel := a.cancel
@@ -99,17 +91,15 @@ func (a *WorkingAnimator) Stop() {
 }
 
 // State returns StateWorking.
-func (a *WorkingAnimator) State() CharacterState {
-	return StateWorking
+func (a *WorkingAnimator) State() character.CharacterState {
+	return character.StateWorking
 }
 
 // runAnimationLoop drives the working animation in a separate goroutine.
-// It uses a real-time ticker for frame pacing and reads elapsed time from
-// the clock interface, allowing mock clocks to control time progression.
 func (a *WorkingAnimator) runAnimationLoop(ctx context.Context, fairy *FairyCharacter, startTime time.Time, done chan struct{}) {
 	defer close(done)
 
-	ticker := time.NewTicker(AnimationFrameInterval)
+	ticker := time.NewTicker(character.AnimationFrameInterval)
 	defer ticker.Stop()
 
 	for {
@@ -123,34 +113,27 @@ func (a *WorkingAnimator) runAnimationLoop(ctx context.Context, fairy *FairyChar
 	}
 }
 
-// updateFrame updates the fairy's position, color, and glow for the current
-// elapsed time.
+// updateFrame updates the fairy's position, color, and glow for the current elapsed time.
 func (a *WorkingAnimator) updateFrame(fairy *FairyCharacter, elapsed float64) {
-	// Glow always uses the idle breathing cycle.
 	fairy.SetGlowIntensity(IdleGlowIntensity(elapsed))
 
 	if elapsed < WorkingEntryDurationSec {
-		// Entry transition: interpolate from idle to working.
 		t := elapsed / WorkingEntryDurationSec
 		a.interpolateEntry(fairy, elapsed, t)
 	} else {
-		// Pure drift mode.
 		driftX, driftY := WorkingPosition(elapsed)
 		fairy.SetPosition(driftX, driftY)
 		fairy.SetBodyColor(WorkingBodyColor)
 	}
 }
 
-// interpolateEntry handles the entry transition, interpolating position and
-// color between idle and working states.
+// interpolateEntry handles the entry transition.
 func (a *WorkingAnimator) interpolateEntry(fairy *FairyCharacter, elapsed, t float64) {
 	driftX, driftY := WorkingPosition(elapsed)
 
-	// Linearly interpolate position.
 	x := IdleOriginX + t*(driftX-IdleOriginX)
 	y := IdleOriginY + t*(driftY-IdleOriginY)
 	fairy.SetPosition(x, y)
 
-	// Linearly interpolate color channels.
 	fairy.SetBodyColor(lerpColor(IdleBodyColor, WorkingBodyColor, t))
 }

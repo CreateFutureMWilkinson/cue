@@ -22,6 +22,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/fairy"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
 
@@ -246,7 +247,7 @@ func run() error {
 
 	// Create character from config, with fallback to "none".
 	character.Register("fairy", func() character.Character {
-		return character.NewFairyCharacter()
+		return fairy.NewFairyCharacter()
 	})
 	charName := cfg.GUI.Character
 	char, charErr := character.Create(charName)

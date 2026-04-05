@@ -1,4 +1,4 @@
-package character_test
+package fairy_test
 
 import (
 	"image/color"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/fairy"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -48,7 +49,7 @@ func (s *NotifyAnimatorSuite) TestNotifyGlowIntensityAtKeyPoints() {
 
 	for _, tc := range tests {
 		s.Run(tc.name, func() {
-			got := character.NotifyGlowIntensity(tc.t)
+			got := fairy.NotifyGlowIntensity(tc.t)
 			s.InDelta(tc.expected, got, 1e-9,
 				"NotifyGlowIntensity(%v) should be %v", tc.t, tc.expected)
 		})
@@ -64,13 +65,13 @@ func (s *NotifyAnimatorSuite) TestNotifyGlowIntensityBounds() {
 		expected float64
 		desc     string
 	}{
-		{"minimum at trough", 1.125, character.NotifyGlowMin, "glow should reach minimum"},
-		{"maximum at peak", 0.375, character.NotifyGlowMax, "glow should reach maximum"},
+		{"minimum at trough", 1.125, fairy.NotifyGlowMin, "glow should reach minimum"},
+		{"maximum at peak", 0.375, fairy.NotifyGlowMax, "glow should reach maximum"},
 	}
 
 	for _, tc := range tests {
 		s.Run(tc.name, func() {
-			got := character.NotifyGlowIntensity(tc.t)
+			got := fairy.NotifyGlowIntensity(tc.t)
 			s.InDelta(tc.expected, got, 1e-9, tc.desc)
 		})
 	}
@@ -79,7 +80,7 @@ func (s *NotifyAnimatorSuite) TestNotifyGlowIntensityBounds() {
 func (s *NotifyAnimatorSuite) TestNotifyGlowIntensityNeverExceedsBounds() {
 	for i := range 1000 {
 		t := float64(i) * 0.01
-		got := character.NotifyGlowIntensity(t)
+		got := fairy.NotifyGlowIntensity(t)
 		s.GreaterOrEqual(got, 0.5, "glow at t=%v must be >= 0.5", t)
 		s.LessOrEqual(got, 0.9, "glow at t=%v must be <= 0.9", t)
 	}
@@ -88,14 +89,14 @@ func (s *NotifyAnimatorSuite) TestNotifyGlowIntensityNeverExceedsBounds() {
 // --- 1.5-second cycle period ---
 
 func (s *NotifyAnimatorSuite) TestNotifyGlowIntensityPeriodIs1Point5Seconds() {
-	v0 := character.NotifyGlowIntensity(0.0)
-	v15 := character.NotifyGlowIntensity(1.5)
+	v0 := fairy.NotifyGlowIntensity(0.0)
+	v15 := fairy.NotifyGlowIntensity(1.5)
 	s.InDelta(v0, v15, 1e-9,
 		"glow intensity must be periodic with period 1.5s")
 
 	// Also check an arbitrary offset.
-	v1 := character.NotifyGlowIntensity(0.789)
-	v2 := character.NotifyGlowIntensity(0.789 + 1.5)
+	v1 := fairy.NotifyGlowIntensity(0.789)
+	v2 := fairy.NotifyGlowIntensity(0.789 + 1.5)
 	s.InDelta(v1, v2, 1e-9,
 		"glow intensity must be periodic with period 1.5s at arbitrary offset")
 }
@@ -107,7 +108,7 @@ func (s *NotifyAnimatorSuite) TestNotifyGlowIntensityIsSinusoidal() {
 	t := 0.6
 	normalized := math.Sin(2 * math.Pi * t / 1.5)
 	expected := 0.5 + (0.9-0.5)*(normalized+1.0)/2.0
-	got := character.NotifyGlowIntensity(t)
+	got := fairy.NotifyGlowIntensity(t)
 	s.InDelta(expected, got, 1e-9,
 		"glow intensity should follow the sinusoidal formula")
 }
@@ -115,16 +116,16 @@ func (s *NotifyAnimatorSuite) TestNotifyGlowIntensityIsSinusoidal() {
 // --- Body color is #00C300 ---
 
 func (s *NotifyAnimatorSuite) TestStartSetsBodyColorToBrightGreen() {
-	fairy := character.NewFairyCharacter()
+	f := fairy.NewFairyCharacter()
 	// Change body color away from default.
-	fairy.SetBodyColor(color.RGBA{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF})
+	f.SetBodyColor(color.RGBA{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF})
 
 	rng := rand.New(rand.NewSource(42))
-	animator := character.NewNotifyAnimator(s.clock, rng)
-	animator.Start(fairy)
+	animator := fairy.NewNotifyAnimator(s.clock, rng)
+	animator.Start(f)
 	defer animator.Stop()
 
-	bodyCircle := fairy.BodyCircle()
+	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
 
 	expected := color.RGBA{R: 0x00, G: 0xC3, B: 0x00, A: 0xFF}
@@ -139,29 +140,29 @@ func (s *NotifyAnimatorSuite) TestStartSetsBodyColorToBrightGreen() {
 // --- Immediate glow on start ---
 
 func (s *NotifyAnimatorSuite) TestStartSetsImmediateGlow() {
-	fairy := character.NewFairyCharacter()
+	f := fairy.NewFairyCharacter()
 	rng := rand.New(rand.NewSource(42))
-	animator := character.NewNotifyAnimator(s.clock, rng)
+	animator := fairy.NewNotifyAnimator(s.clock, rng)
 
-	animator.Start(fairy)
+	animator.Start(f)
 	defer animator.Stop()
 
 	// Glow should snap to NotifyGlowMax (0.9) immediately, no transition.
-	s.InDelta(character.NotifyGlowMax, fairy.GlowIntensity(), 1e-9,
+	s.InDelta(fairy.NotifyGlowMax, f.GlowIntensity(), 1e-9,
 		"glow should be NotifyGlowMax (0.9) immediately after Start")
 }
 
 // --- Immediate dart on start ---
 
 func (s *NotifyAnimatorSuite) TestStartTriggersImmediateDart() {
-	fairy := character.NewFairyCharacter()
+	f := fairy.NewFairyCharacter()
 	rng := rand.New(rand.NewSource(42))
-	animator := character.NewNotifyAnimator(s.clock, rng)
+	animator := fairy.NewNotifyAnimator(s.clock, rng)
 
-	animator.Start(fairy)
+	animator.Start(f)
 	defer animator.Stop()
 
-	x, y := fairy.Position()
+	x, y := f.Position()
 	// Position should NOT be at idle origin (0.5, 1.0) -- it should have
 	// darted to a random position.
 	atIdleOrigin := (x == 0.5) && (y == 1.0)
@@ -172,20 +173,20 @@ func (s *NotifyAnimatorSuite) TestStartTriggersImmediateDart() {
 // --- Dart every 0.5 seconds ---
 
 func (s *NotifyAnimatorSuite) TestDartPositionsChangeEveryHalfSecond() {
-	fairy := character.NewFairyCharacter()
+	f := fairy.NewFairyCharacter()
 	rng := rand.New(rand.NewSource(42))
-	animator := character.NewNotifyAnimator(s.clock, rng)
+	animator := fairy.NewNotifyAnimator(s.clock, rng)
 
-	animator.Start(fairy)
+	animator.Start(f)
 	defer animator.Stop()
 
-	x0, y0 := fairy.Position()
+	x0, y0 := f.Position()
 
 	// Advance 500ms -- dart should happen.
 	s.clock.Advance(500 * time.Millisecond)
 	time.Sleep(5 * time.Millisecond)
 
-	x1, y1 := fairy.Position()
+	x1, y1 := f.Position()
 	posChanged := (x0 != x1) || (y0 != y1)
 	s.True(posChanged,
 		"position should change after 500ms dart: was (%v,%v), still (%v,%v)", x0, y0, x1, y1)
@@ -194,7 +195,7 @@ func (s *NotifyAnimatorSuite) TestDartPositionsChangeEveryHalfSecond() {
 	s.clock.Advance(500 * time.Millisecond)
 	time.Sleep(5 * time.Millisecond)
 
-	x2, y2 := fairy.Position()
+	x2, y2 := f.Position()
 	posChanged2 := (x1 != x2) || (y1 != y2)
 	s.True(posChanged2,
 		"position should change again after another 500ms: was (%v,%v), now (%v,%v)", x1, y1, x2, y2)
@@ -203,15 +204,15 @@ func (s *NotifyAnimatorSuite) TestDartPositionsChangeEveryHalfSecond() {
 // --- Dart positions within bounds ---
 
 func (s *NotifyAnimatorSuite) TestDartPositionsWithinBounds() {
-	fairy := character.NewFairyCharacter()
+	f := fairy.NewFairyCharacter()
 	rng := rand.New(rand.NewSource(42))
-	animator := character.NewNotifyAnimator(s.clock, rng)
+	animator := fairy.NewNotifyAnimator(s.clock, rng)
 
-	animator.Start(fairy)
+	animator.Start(f)
 	defer animator.Stop()
 
 	// Check initial position.
-	x, y := fairy.Position()
+	x, y := f.Position()
 	s.GreaterOrEqual(x, 0.0, "x must be >= 0.0")
 	s.LessOrEqual(x, 1.0, "x must be <= 1.0")
 	s.GreaterOrEqual(y, 0.0, "y must be >= 0.0")
@@ -222,7 +223,7 @@ func (s *NotifyAnimatorSuite) TestDartPositionsWithinBounds() {
 		s.clock.Advance(500 * time.Millisecond)
 		time.Sleep(5 * time.Millisecond)
 
-		x, y = fairy.Position()
+		x, y = f.Position()
 		s.GreaterOrEqual(x, 0.0, "dart %d: x must be >= 0.0", i)
 		s.LessOrEqual(x, 1.0, "dart %d: x must be <= 1.0", i)
 		s.GreaterOrEqual(y, 0.0, "dart %d: y must be >= 0.0", i)
@@ -233,18 +234,18 @@ func (s *NotifyAnimatorSuite) TestDartPositionsWithinBounds() {
 // --- Deterministic RNG ---
 
 func (s *NotifyAnimatorSuite) TestDeterministicRNG() {
-	fairy1 := character.NewFairyCharacter()
+	fairy1 := fairy.NewFairyCharacter()
 	rng1 := rand.New(rand.NewSource(99))
-	animator1 := character.NewNotifyAnimator(s.clock, rng1)
+	animator1 := fairy.NewNotifyAnimator(s.clock, rng1)
 	animator1.Start(fairy1)
 
 	x1, y1 := fairy1.Position()
 	animator1.Stop()
 
-	fairy2 := character.NewFairyCharacter()
+	fairy2 := fairy.NewFairyCharacter()
 	rng2 := rand.New(rand.NewSource(99))
 	clock2 := newMockClock(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
-	animator2 := character.NewNotifyAnimator(clock2, rng2)
+	animator2 := fairy.NewNotifyAnimator(clock2, rng2)
 	animator2.Start(fairy2)
 
 	x2, y2 := fairy2.Position()
@@ -257,35 +258,35 @@ func (s *NotifyAnimatorSuite) TestDeterministicRNG() {
 // --- Start/Stop lifecycle ---
 
 func (s *NotifyAnimatorSuite) TestStartStopLifecycle() {
-	fairy := character.NewFairyCharacter()
+	f := fairy.NewFairyCharacter()
 	rng := rand.New(rand.NewSource(42))
-	animator := character.NewNotifyAnimator(s.clock, rng)
+	animator := fairy.NewNotifyAnimator(s.clock, rng)
 
 	testCases := []struct {
 		name string
 		fn   func()
 	}{
 		{"start and stop", func() {
-			animator.Start(fairy)
+			animator.Start(f)
 			animator.Stop()
 		}},
 		{"stop without start", func() {
 			animator.Stop()
 		}},
 		{"double stop", func() {
-			animator.Start(fairy)
+			animator.Start(f)
 			animator.Stop()
 			animator.Stop()
 		}},
 		{"double start", func() {
-			animator.Start(fairy)
-			animator.Start(fairy) // Should stop first then restart
+			animator.Start(f)
+			animator.Start(f) // Should stop first then restart
 			animator.Stop()
 		}},
 		{"multiple cycles", func() {
-			animator.Start(fairy)
+			animator.Start(f)
 			animator.Stop()
-			animator.Start(fairy)
+			animator.Start(f)
 			animator.Stop()
 		}},
 	}
@@ -301,33 +302,24 @@ func (s *NotifyAnimatorSuite) TestStartStopLifecycle() {
 
 func (s *NotifyAnimatorSuite) TestStateReturnsStateNotifying() {
 	rng := rand.New(rand.NewSource(42))
-	animator := character.NewNotifyAnimator(s.clock, rng)
+	animator := fairy.NewNotifyAnimator(s.clock, rng)
 	s.Equal(character.StateNotifying, animator.State(),
 		"NotifyAnimator.State() must return StateNotifying")
-}
-
-// --- StateAnimator interface compliance ---
-
-func (s *NotifyAnimatorSuite) TestImplementsStateAnimator() {
-	rng := rand.New(rand.NewSource(42))
-	animator := character.NewNotifyAnimator(s.clock, rng)
-	// Compile-time check that *NotifyAnimator satisfies StateAnimator.
-	var _ character.StateAnimator = animator
 }
 
 // --- Animation constants ---
 
 func (s *NotifyAnimatorSuite) TestNotifyAnimationConstants() {
-	s.Equal(0.5, character.NotifyDartIntervalSec,
+	s.Equal(0.5, fairy.NotifyDartIntervalSec,
 		"notify dart interval must be 0.5 seconds")
-	s.Equal(1.5, character.NotifyBreathCycleSec,
+	s.Equal(1.5, fairy.NotifyBreathCycleSec,
 		"notify breath cycle must be 1.5 seconds")
-	s.Equal(0.5, character.NotifyGlowMin,
+	s.Equal(0.5, fairy.NotifyGlowMin,
 		"notify glow minimum must be 0.5")
-	s.Equal(0.9, character.NotifyGlowMax,
+	s.Equal(0.9, fairy.NotifyGlowMax,
 		"notify glow maximum must be 0.9")
 
 	expectedColor := color.RGBA{R: 0x00, G: 0xC3, B: 0x00, A: 0xFF}
-	s.Equal(expectedColor, character.NotifyBodyColor,
+	s.Equal(expectedColor, fairy.NotifyBodyColor,
 		"notify body color must be #00C300")
 }

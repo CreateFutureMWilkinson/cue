@@ -1,10 +1,12 @@
-package character
+package fairy
 
 import (
 	"context"
 	"image/color"
 	"sync"
 	"time"
+
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
 )
 
 const (
@@ -15,25 +17,22 @@ const (
 	ShutdownDormantGlowIntensity = 0.15
 )
 
-// ShutdownAnimator drives the fairy's shutdown animation, transitioning from
-// the current state to dormant state over ShutdownDurationSec seconds.
+// ShutdownAnimator drives the fairy's shutdown animation.
 type ShutdownAnimator struct {
-	clock  Clock
+	clock  character.Clock
 	mu     sync.Mutex
 	cancel context.CancelFunc
 	done   chan struct{}
 }
 
 // NewShutdownAnimator creates a new ShutdownAnimator using the provided clock.
-func NewShutdownAnimator(clock Clock) *ShutdownAnimator {
+func NewShutdownAnimator(clock character.Clock) *ShutdownAnimator {
 	return &ShutdownAnimator{
 		clock: clock,
 	}
 }
 
-// Start begins the shutdown animation on the given fairy. It captures the
-// fairy's current position, body color, and glow intensity, then starts a
-// background goroutine that interpolates to dormant state over 1.5 seconds.
+// Start begins the shutdown animation on the given fairy.
 func (a *ShutdownAnimator) Start(fairy *FairyCharacter) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -69,7 +68,7 @@ func (a *ShutdownAnimator) runAnimationLoop(
 	)
 	targetColor := DormantColor
 
-	ticker := time.NewTicker(AnimationFrameInterval)
+	ticker := time.NewTicker(character.AnimationFrameInterval)
 	defer ticker.Stop()
 
 	for {
@@ -81,14 +80,12 @@ func (a *ShutdownAnimator) runAnimationLoop(
 			progress := elapsed / ShutdownDurationSec
 
 			if progress >= 1.0 {
-				// Set final state exactly.
 				fairy.SetPosition(targetX, targetY)
 				fairy.SetBodyColor(targetColor)
 				fairy.SetGlowIntensity(targetGlow)
 				return
 			}
 
-			// Apply eased interpolation.
 			eased := EaseInOut(clamp01(progress))
 
 			x := startX + eased*(targetX-startX)
@@ -118,8 +115,7 @@ func (a *ShutdownAnimator) captureFairyState(fairy *FairyCharacter) (float64, fl
 	return x, y, bodyColor, glow
 }
 
-// Stop cancels the animation goroutine and waits for it to exit. It is safe
-// to call without a prior Start, or to call multiple times.
+// Stop cancels the animation goroutine and waits for it to exit.
 func (a *ShutdownAnimator) Stop() {
 	a.mu.Lock()
 	cancel := a.cancel
@@ -137,8 +133,8 @@ func (a *ShutdownAnimator) Stop() {
 }
 
 // State returns StateShuttingDown.
-func (a *ShutdownAnimator) State() CharacterState {
-	return StateShuttingDown
+func (a *ShutdownAnimator) State() character.CharacterState {
+	return character.StateShuttingDown
 }
 
 // Done returns a channel that is closed when the animation completes.

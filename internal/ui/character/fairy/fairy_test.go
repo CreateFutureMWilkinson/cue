@@ -1,4 +1,4 @@
-package character_test
+package fairy_test
 
 import (
 	"image/color"
@@ -8,6 +8,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/fairy"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -23,17 +24,17 @@ func TestFairyCharacter(t *testing.T) {
 }
 
 func (s *FairyCharacterSuite) TestNameReturnsFairy() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 	s.Equal("fairy", c.Name())
 }
 
 func (s *FairyCharacterSuite) TestInitialStateIsIdle() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 	s.Equal(character.StateIdle, c.CurrentState())
 }
 
 func (s *FairyCharacterSuite) TestTransitionToAllStates() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 
 	states := []character.CharacterState{
 		character.StateIdle,
@@ -51,13 +52,13 @@ func (s *FairyCharacterSuite) TestTransitionToAllStates() {
 }
 
 func (s *FairyCharacterSuite) TestWidgetReturnsNonNil() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 	w := c.Widget()
 	s.NotNil(w)
 }
 
 func (s *FairyCharacterSuite) TestEachStateHasDistinctWidget() {
-	c := character.NewFairyCharacter()
+	c := fairy.NewFairyCharacter()
 
 	states := []character.CharacterState{
 		character.StateIdle,
@@ -78,7 +79,7 @@ func (s *FairyCharacterSuite) TestEachStateHasDistinctWidget() {
 func (s *FairyCharacterSuite) TestRegisteredAsFairy() {
 	character.ResetRegistry()
 	character.Register("fairy", func() character.Character {
-		return character.NewFairyCharacter()
+		return fairy.NewFairyCharacter()
 	})
 
 	c, err := character.Create("fairy")
@@ -88,12 +89,12 @@ func (s *FairyCharacterSuite) TestRegisteredAsFairy() {
 
 // --- Helper: create fairy with mock clock and refresh disabled ---
 
-func (s *FairyCharacterSuite) newTestFairy() (*character.FairyCharacter, *mockClock) {
-	fairy := character.NewFairyCharacter()
+func (s *FairyCharacterSuite) newTestFairy() (*fairy.FairyCharacter, *mockClock) {
+	f := fairy.NewFairyCharacter()
 	clock := newMockClock(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
-	fairy.SetClock(clock)
-	fairy.DisableRefresh()
-	return fairy, clock
+	f.SetClock(clock)
+	f.DisableRefresh()
+	return f, clock
 }
 
 // advanceAndTick advances the mock clock and sends a tick to trigger animation frames.
@@ -111,96 +112,96 @@ func (s *FairyCharacterSuite) advanceAndTick(clock *mockClock, d time.Duration) 
 // --- TransitionTo animator wiring tests ---
 
 func (s *FairyCharacterSuite) TestTransitionToIdleStartsAnimator() {
-	fairy, clock := s.newTestFairy()
-	defer fairy.Close()
+	f, clock := s.newTestFairy()
+	defer f.Close()
 
 	// Move fairy away from idle position to verify animator resets it.
-	fairy.SetPosition(0.0, 0.0)
+	f.SetPosition(0.0, 0.0)
 
-	fairy.TransitionTo(character.StateIdle)
+	f.TransitionTo(character.StateIdle)
 
 	// Advance clock ~3 seconds (one full breathing cycle).
 	s.advanceAndTick(clock, 3*time.Second)
 
 	// Verify position is at idle origin (0.5, 1.0).
-	x, y := fairy.Position()
-	s.InDelta(character.IdleOriginX, x, 0.01, "idle position x should be 0.5")
-	s.InDelta(character.IdleOriginY, y, 0.01, "idle position y should be 1.0")
+	x, y := f.Position()
+	s.InDelta(fairy.IdleOriginX, x, 0.01, "idle position x should be 0.5")
+	s.InDelta(fairy.IdleOriginY, y, 0.01, "idle position y should be 1.0")
 
 	// Verify body color is IdleBodyColor.
-	bc := fairy.BodyCircle().FillColor
+	bc := f.BodyCircle().FillColor
 	r, g, b, a := bc.RGBA()
-	er, eg, eb, ea := character.IdleBodyColor.RGBA()
+	er, eg, eb, ea := fairy.IdleBodyColor.RGBA()
 	s.Equal(er, r, "body red should match IdleBodyColor")
 	s.Equal(eg, g, "body green should match IdleBodyColor")
 	s.Equal(eb, b, "body blue should match IdleBodyColor")
 	s.Equal(ea, a, "body alpha should match IdleBodyColor")
 
-	// Verify glow intensity oscillates (is not zero — proving idle animator is running).
-	glow := fairy.GlowIntensity()
+	// Verify glow intensity oscillates (is not zero -- proving idle animator is running).
+	glow := f.GlowIntensity()
 	s.Greater(glow, 0.0, "glow intensity should be non-zero after idle animator runs")
 }
 
 func (s *FairyCharacterSuite) TestTransitionToWorkingStartsAnimator() {
-	fairy, clock := s.newTestFairy()
-	defer fairy.Close()
+	f, clock := s.newTestFairy()
+	defer f.Close()
 
-	fairy.TransitionTo(character.StateWorking)
+	f.TransitionTo(character.StateWorking)
 
 	// Advance past the entry duration (0.5s) well into drift mode.
 	s.advanceAndTick(clock, 1*time.Second)
 
 	// Verify body color has changed toward WorkingBodyColor.
-	bc := fairy.BodyCircle().FillColor
+	bc := f.BodyCircle().FillColor
 	r, g, b, a := bc.RGBA()
-	wr, wg, wb, wa := character.WorkingBodyColor.RGBA()
+	wr, wg, wb, wa := fairy.WorkingBodyColor.RGBA()
 	s.Equal(wr, r, "body red should match WorkingBodyColor after entry")
 	s.Equal(wg, g, "body green should match WorkingBodyColor after entry")
 	s.Equal(wb, b, "body blue should match WorkingBodyColor after entry")
 	s.Equal(wa, a, "body alpha should match WorkingBodyColor after entry")
 
 	// Verify position has moved from idle origin.
-	x, y := fairy.Position()
-	movedFromOrigin := (x != character.IdleOriginX) || (y != character.IdleOriginY)
+	x, y := f.Position()
+	movedFromOrigin := (x != fairy.IdleOriginX) || (y != fairy.IdleOriginY)
 	s.True(movedFromOrigin, "position should drift away from idle origin in working state")
 }
 
 func (s *FairyCharacterSuite) TestTransitionToErrorStartsAnimator() {
-	fairy, clock := s.newTestFairy()
-	defer fairy.Close()
+	f, clock := s.newTestFairy()
+	defer f.Close()
 
-	fairy.TransitionTo(character.StateError)
+	f.TransitionTo(character.StateError)
 
 	// Give animator time to set initial state.
 	s.advanceAndTick(clock, 100*time.Millisecond)
 
 	// Verify body color is ErrorBodyColor.
-	bc := fairy.BodyCircle().FillColor
+	bc := f.BodyCircle().FillColor
 	r, g, b, a := bc.RGBA()
-	er, eg, eb, ea := character.ErrorBodyColor.RGBA()
+	er, eg, eb, ea := fairy.ErrorBodyColor.RGBA()
 	s.Equal(er, r, "body red should match ErrorBodyColor")
 	s.Equal(eg, g, "body green should match ErrorBodyColor")
 	s.Equal(eb, b, "body blue should match ErrorBodyColor")
 	s.Equal(ea, a, "body alpha should match ErrorBodyColor")
 
 	// Verify position y is 0.5 (center).
-	_, y := fairy.Position()
+	_, y := f.Position()
 	s.InDelta(0.5, y, 0.01, "error state position y should be 0.5 (center)")
 }
 
 func (s *FairyCharacterSuite) TestTransitionToNotifyStartsAnimator() {
-	fairy, clock := s.newTestFairy()
-	defer fairy.Close()
+	f, clock := s.newTestFairy()
+	defer f.Close()
 
-	fairy.TransitionTo(character.StateNotifying)
+	f.TransitionTo(character.StateNotifying)
 
 	// Give animator time to set initial state.
 	s.advanceAndTick(clock, 100*time.Millisecond)
 
 	// Verify body color is NotifyBodyColor.
-	bc := fairy.BodyCircle().FillColor
+	bc := f.BodyCircle().FillColor
 	r, g, b, a := bc.RGBA()
-	nr, ng, nb, na := character.NotifyBodyColor.RGBA()
+	nr, ng, nb, na := fairy.NotifyBodyColor.RGBA()
 	s.Equal(nr, r, "body red should match NotifyBodyColor")
 	s.Equal(ng, g, "body green should match NotifyBodyColor")
 	s.Equal(nb, b, "body blue should match NotifyBodyColor")
@@ -208,33 +209,33 @@ func (s *FairyCharacterSuite) TestTransitionToNotifyStartsAnimator() {
 }
 
 func (s *FairyCharacterSuite) TestTransitionStopsPreviousAnimator() {
-	fairy, clock := s.newTestFairy()
-	defer fairy.Close()
+	f, clock := s.newTestFairy()
+	defer f.Close()
 
-	// Start working — fairy drifts away from idle origin.
-	fairy.TransitionTo(character.StateWorking)
+	// Start working -- fairy drifts away from idle origin.
+	f.TransitionTo(character.StateWorking)
 	s.advanceAndTick(clock, 1*time.Second)
 
 	// Verify fairy has moved from idle origin in working state.
-	x, y := fairy.Position()
-	movedFromOrigin := (x != character.IdleOriginX) || (y != character.IdleOriginY)
+	x, y := f.Position()
+	movedFromOrigin := (x != fairy.IdleOriginX) || (y != fairy.IdleOriginY)
 	s.True(movedFromOrigin, "working state should drift from idle origin")
 
-	// Transition to idle — should stop working animator and start idle animator.
-	fairy.TransitionTo(character.StateIdle)
+	// Transition to idle -- should stop working animator and start idle animator.
+	f.TransitionTo(character.StateIdle)
 	s.advanceAndTick(clock, 100*time.Millisecond)
 
-	// Verify position returns to (0.5, 1.0) — proving the idle animator reset it.
-	x, y = fairy.Position()
-	s.InDelta(character.IdleOriginX, x, 0.01, "after idle transition, x should return to 0.5")
-	s.InDelta(character.IdleOriginY, y, 0.01, "after idle transition, y should return to 1.0")
+	// Verify position returns to (0.5, 1.0) -- proving the idle animator reset it.
+	x, y = f.Position()
+	s.InDelta(fairy.IdleOriginX, x, 0.01, "after idle transition, x should return to 0.5")
+	s.InDelta(fairy.IdleOriginY, y, 0.01, "after idle transition, y should return to 1.0")
 }
 
 func (s *FairyCharacterSuite) TestStartupAutoTransitionsToIdle() {
-	fairy, clock := s.newTestFairy()
-	defer fairy.Close()
+	f, clock := s.newTestFairy()
+	defer f.Close()
 
-	fairy.TransitionTo(character.StateStarting)
+	f.TransitionTo(character.StateStarting)
 
 	// Advance past startup duration (1.5s).
 	s.advanceAndTick(clock, 2*time.Second)
@@ -243,7 +244,7 @@ func (s *FairyCharacterSuite) TestStartupAutoTransitionsToIdle() {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify state has auto-transitioned to Idle.
-	s.Equal(character.StateIdle, fairy.CurrentState(),
+	s.Equal(character.StateIdle, f.CurrentState(),
 		"after startup duration, state should auto-transition to Idle")
 }
 
@@ -253,12 +254,12 @@ func (s *FairyCharacterSuite) TestStartupAutoTransitionsToIdle() {
 var glowBaseAlphas = [8]uint8{128, 112, 96, 80, 64, 48, 32, 16}
 
 func (s *FairyCharacterSuite) TestSetGlowIntensityUpdatesGlowAlphaGraduated() {
-	fairy := character.NewFairyCharacter()
-	fairy.DisableRefresh()
+	f := fairy.NewFairyCharacter()
+	f.DisableRefresh()
 
-	// Set glow intensity to 1.0 — each layer should have its graduated base alpha.
-	fairy.SetGlowIntensity(1.0)
-	layers := fairy.GlowLayers()
+	// Set glow intensity to 1.0 -- each layer should have its graduated base alpha.
+	f.SetGlowIntensity(1.0)
+	layers := f.GlowLayers()
 	s.Require().Len(layers, 8, "fairy should have exactly 8 glow layers")
 
 	for i, gl := range layers {
@@ -268,8 +269,8 @@ func (s *FairyCharacterSuite) TestSetGlowIntensityUpdatesGlowAlphaGraduated() {
 			"glow layer %d alpha should be %d when intensity=1.0", i, glowBaseAlphas[i])
 	}
 
-	// Set glow intensity to 0.0 — all layers should have zero alpha.
-	fairy.SetGlowIntensity(0.0)
+	// Set glow intensity to 0.0 -- all layers should have zero alpha.
+	f.SetGlowIntensity(0.0)
 	for i, gl := range layers {
 		_, _, _, a := gl.FillColor.RGBA()
 		alpha := uint8((a >> 8) & 0xFF)
@@ -279,12 +280,12 @@ func (s *FairyCharacterSuite) TestSetGlowIntensityUpdatesGlowAlphaGraduated() {
 }
 
 func (s *FairyCharacterSuite) TestSetGlowIntensityHalfGraduated() {
-	fairy := character.NewFairyCharacter()
-	fairy.DisableRefresh()
+	f := fairy.NewFairyCharacter()
+	f.DisableRefresh()
 
 	// At intensity=0.5, each layer's alpha should be half its base alpha.
-	fairy.SetGlowIntensity(0.5)
-	layers := fairy.GlowLayers()
+	f.SetGlowIntensity(0.5)
+	layers := f.GlowLayers()
 	s.Require().Len(layers, 8)
 
 	for i, gl := range layers {
@@ -297,11 +298,11 @@ func (s *FairyCharacterSuite) TestSetGlowIntensityHalfGraduated() {
 }
 
 func (s *FairyCharacterSuite) TestGlowAlphaInnerBrighterThanOuter() {
-	fairy := character.NewFairyCharacter()
-	fairy.DisableRefresh()
+	f := fairy.NewFairyCharacter()
+	f.DisableRefresh()
 
-	fairy.SetGlowIntensity(1.0)
-	layers := fairy.GlowLayers()
+	f.SetGlowIntensity(1.0)
+	layers := f.GlowLayers()
 	s.Require().Len(layers, 8)
 
 	// Inner layer (index 0) alpha should be greater than outer layer (index 7) alpha.
@@ -314,14 +315,14 @@ func (s *FairyCharacterSuite) TestGlowAlphaInnerBrighterThanOuter() {
 // --- Shutdown tests ---
 
 func (s *FairyCharacterSuite) TestShutdownReturnsCompletionChannel() {
-	fairy, clock := s.newTestFairy()
+	f, clock := s.newTestFairy()
 
 	// Shutdown should return a channel that closes when the animation completes.
-	done := fairy.Shutdown()
+	done := f.Shutdown()
 	s.Require().NotNil(done, "Shutdown() must return a non-nil channel")
 
 	// Verify state transitions to ShuttingDown.
-	s.Equal(character.StateShuttingDown, fairy.CurrentState(),
+	s.Equal(character.StateShuttingDown, f.CurrentState(),
 		"Shutdown() should transition to StateShuttingDown")
 
 	// Advance past shutdown duration (1.5s) to complete animation.
@@ -330,7 +331,7 @@ func (s *FairyCharacterSuite) TestShutdownReturnsCompletionChannel() {
 	// The done channel should close within a reasonable time.
 	select {
 	case <-done:
-		// Success — animation completed.
+		// Success -- animation completed.
 	case <-time.After(2 * time.Second):
 		s.Fail("Shutdown() done channel did not close after animation completed")
 	}
@@ -339,47 +340,47 @@ func (s *FairyCharacterSuite) TestShutdownReturnsCompletionChannel() {
 // --- Close tests ---
 
 func (s *FairyCharacterSuite) TestCloseStopsAnimator() {
-	fairy, clock := s.newTestFairy()
+	f, clock := s.newTestFairy()
 
-	fairy.TransitionTo(character.StateWorking)
+	f.TransitionTo(character.StateWorking)
 	s.advanceAndTick(clock, 100*time.Millisecond)
 
 	// Close should not panic.
-	s.NotPanics(func() { fairy.Close() })
+	s.NotPanics(func() { f.Close() })
 
 	// State should still be Working (Close doesn't change state, just stops animator).
-	s.Equal(character.StateWorking, fairy.CurrentState(),
+	s.Equal(character.StateWorking, f.CurrentState(),
 		"Close() should not change the current state")
 }
 
 func (s *FairyCharacterSuite) TestCloseIdempotent() {
-	fairy, _ := s.newTestFairy()
+	f, _ := s.newTestFairy()
 
-	fairy.TransitionTo(character.StateIdle)
+	f.TransitionTo(character.StateIdle)
 	time.Sleep(10 * time.Millisecond)
 
 	// Close twice without panic.
 	s.NotPanics(func() {
-		fairy.Close()
-		fairy.Close()
+		f.Close()
+		f.Close()
 	}, "calling Close() twice should not panic")
 }
 
 func (s *FairyCharacterSuite) TestCloseWithoutAnimator() {
-	fairy := character.NewFairyCharacter()
-	fairy.DisableRefresh()
+	f := fairy.NewFairyCharacter()
+	f.DisableRefresh()
 
 	// Close without any TransitionTo that starts an animator. No panic.
-	s.NotPanics(func() { fairy.Close() },
+	s.NotPanics(func() { f.Close() },
 		"Close() on fresh fairy without animator should not panic")
 }
 
 // --- Thread safety test ---
 
 func (s *FairyCharacterSuite) TestConcurrentSetMethodsDoNotPanic() {
-	fairy := character.NewFairyCharacter()
-	fairy.DisableRefresh()
-	defer fairy.Close()
+	f := fairy.NewFairyCharacter()
+	f.DisableRefresh()
+	defer f.Close()
 
 	var wg sync.WaitGroup
 	for range 10 {
@@ -387,19 +388,19 @@ func (s *FairyCharacterSuite) TestConcurrentSetMethodsDoNotPanic() {
 		go func() {
 			defer wg.Done()
 			for range 50 {
-				fairy.SetPosition(0.3, 0.7)
+				f.SetPosition(0.3, 0.7)
 			}
 		}()
 		go func() {
 			defer wg.Done()
 			for range 50 {
-				fairy.SetBodyColor(color.RGBA{R: 255, G: 0, B: 0, A: 255})
+				f.SetBodyColor(color.RGBA{R: 255, G: 0, B: 0, A: 255})
 			}
 		}()
 		go func() {
 			defer wg.Done()
 			for range 50 {
-				fairy.SetGlowIntensity(0.5)
+				f.SetGlowIntensity(0.5)
 			}
 		}()
 	}
@@ -409,8 +410,8 @@ func (s *FairyCharacterSuite) TestConcurrentSetMethodsDoNotPanic() {
 }
 
 func (s *FairyCharacterSuite) TestConcurrentTransitions() {
-	fairy, _ := s.newTestFairy()
-	defer fairy.Close()
+	f, _ := s.newTestFairy()
+	defer f.Close()
 
 	states := []character.CharacterState{
 		character.StateIdle,
@@ -427,7 +428,7 @@ func (s *FairyCharacterSuite) TestConcurrentTransitions() {
 		go func() {
 			defer wg.Done()
 			for _, st := range states {
-				fairy.TransitionTo(st)
+				f.TransitionTo(st)
 			}
 		}()
 	}

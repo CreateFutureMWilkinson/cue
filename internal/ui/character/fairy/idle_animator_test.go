@@ -1,4 +1,4 @@
-package character_test
+package fairy_test
 
 import (
 	"image/color"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/fairy"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -94,7 +95,7 @@ func (s *IdleAnimatorSuite) TestGlowIntensityAtKeyPoints() {
 
 	for _, tc := range tests {
 		s.Run(tc.name, func() {
-			got := character.IdleGlowIntensity(tc.t)
+			got := fairy.IdleGlowIntensity(tc.t)
 			s.InDelta(tc.expected, got, 1e-9,
 				"IdleGlowIntensity(%v) should be %v", tc.t, tc.expected)
 		})
@@ -110,13 +111,13 @@ func (s *IdleAnimatorSuite) TestGlowIntensityBounds() {
 		expected float64
 		desc     string
 	}{
-		{"minimum at trough", 2.25, character.IdleGlowMin, "glow should reach minimum"},
-		{"maximum at peak", 0.75, character.IdleGlowMax, "glow should reach maximum"},
+		{"minimum at trough", 2.25, fairy.IdleGlowMin, "glow should reach minimum"},
+		{"maximum at peak", 0.75, fairy.IdleGlowMax, "glow should reach maximum"},
 	}
 
 	for _, tc := range tests {
 		s.Run(tc.name, func() {
-			got := character.IdleGlowIntensity(tc.t)
+			got := fairy.IdleGlowIntensity(tc.t)
 			s.InDelta(tc.expected, got, 1e-9, tc.desc)
 		})
 	}
@@ -126,7 +127,7 @@ func (s *IdleAnimatorSuite) TestGlowIntensityNeverExceedsBounds() {
 	// Sample many points across several cycles.
 	for i := range 1000 {
 		t := float64(i) * 0.01
-		got := character.IdleGlowIntensity(t)
+		got := fairy.IdleGlowIntensity(t)
 		s.GreaterOrEqual(got, 0.3, "glow at t=%v must be >= 0.3", t)
 		s.LessOrEqual(got, 0.8, "glow at t=%v must be <= 0.8", t)
 	}
@@ -136,14 +137,14 @@ func (s *IdleAnimatorSuite) TestGlowIntensityNeverExceedsBounds() {
 
 func (s *IdleAnimatorSuite) TestGlowIntensityPeriodIs3Seconds() {
 	// Glow at t=0.0 should equal glow at t=3.0 (full cycle).
-	v0 := character.IdleGlowIntensity(0.0)
-	v3 := character.IdleGlowIntensity(3.0)
+	v0 := fairy.IdleGlowIntensity(0.0)
+	v3 := fairy.IdleGlowIntensity(3.0)
 	s.InDelta(v0, v3, 1e-9,
 		"glow intensity must be periodic with period 3.0s")
 
 	// Also check an arbitrary offset.
-	v1 := character.IdleGlowIntensity(1.234)
-	v4 := character.IdleGlowIntensity(1.234 + 3.0)
+	v1 := fairy.IdleGlowIntensity(1.234)
+	v4 := fairy.IdleGlowIntensity(1.234 + 3.0)
 	s.InDelta(v1, v4, 1e-9,
 		"glow intensity must be periodic with period 3.0s at arbitrary offset")
 }
@@ -155,7 +156,7 @@ func (s *IdleAnimatorSuite) TestGlowIntensityIsSinusoidal() {
 	t := 1.0
 	normalized := math.Sin(2 * math.Pi * t / 3.0)
 	expected := 0.3 + (0.8-0.3)*(normalized+1.0)/2.0
-	got := character.IdleGlowIntensity(t)
+	got := fairy.IdleGlowIntensity(t)
 	s.InDelta(expected, got, 1e-9,
 		"glow intensity should follow the sinusoidal formula")
 }
@@ -163,15 +164,15 @@ func (s *IdleAnimatorSuite) TestGlowIntensityIsSinusoidal() {
 // --- Position stays at (0.5, 1.0) ---
 
 func (s *IdleAnimatorSuite) TestStartSetsPositionToBottomCenter() {
-	fairy := character.NewFairyCharacter()
+	f := fairy.NewFairyCharacter()
 	// Move fairy away from the idle position first.
-	fairy.SetPosition(0.0, 0.0)
+	f.SetPosition(0.0, 0.0)
 
-	animator := character.NewIdleAnimator(s.clock)
-	animator.Start(fairy)
+	animator := fairy.NewIdleAnimator(s.clock)
+	animator.Start(f)
 	defer animator.Stop()
 
-	x, y := fairy.Position()
+	x, y := f.Position()
 	s.Equal(0.5, x, "idle position x must be 0.5 (center)")
 	s.Equal(1.0, y, "idle position y must be 1.0 (bottom)")
 }
@@ -179,15 +180,15 @@ func (s *IdleAnimatorSuite) TestStartSetsPositionToBottomCenter() {
 // --- Body color is #006100 ---
 
 func (s *IdleAnimatorSuite) TestStartSetsBodyColorToDarkGreen() {
-	fairy := character.NewFairyCharacter()
+	f := fairy.NewFairyCharacter()
 	// Change body color away from default.
-	fairy.SetBodyColor(color.RGBA{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF})
+	f.SetBodyColor(color.RGBA{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF})
 
-	animator := character.NewIdleAnimator(s.clock)
-	animator.Start(fairy)
+	animator := fairy.NewIdleAnimator(s.clock)
+	animator.Start(f)
 	defer animator.Stop()
 
-	bodyCircle := fairy.BodyCircle()
+	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
 
 	expected := color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: 0xFF}
@@ -202,34 +203,34 @@ func (s *IdleAnimatorSuite) TestStartSetsBodyColorToDarkGreen() {
 // --- Start/Stop lifecycle ---
 
 func (s *IdleAnimatorSuite) TestStartStopLifecycle() {
-	fairy := character.NewFairyCharacter()
-	animator := character.NewIdleAnimator(s.clock)
+	f := fairy.NewFairyCharacter()
+	animator := fairy.NewIdleAnimator(s.clock)
 
 	testCases := []struct {
 		name string
 		fn   func()
 	}{
 		{"start and stop", func() {
-			animator.Start(fairy)
+			animator.Start(f)
 			animator.Stop()
 		}},
 		{"stop without start", func() {
 			animator.Stop()
 		}},
 		{"double stop", func() {
-			animator.Start(fairy)
+			animator.Start(f)
 			animator.Stop()
 			animator.Stop()
 		}},
 		{"double start", func() {
-			animator.Start(fairy)
-			animator.Start(fairy) // Should stop first then restart
+			animator.Start(f)
+			animator.Start(f) // Should stop first then restart
 			animator.Stop()
 		}},
 		{"multiple cycles", func() {
-			animator.Start(fairy)
+			animator.Start(f)
 			animator.Stop()
-			animator.Start(fairy)
+			animator.Start(f)
 			animator.Stop()
 		}},
 	}
@@ -244,43 +245,35 @@ func (s *IdleAnimatorSuite) TestStartStopLifecycle() {
 // --- State() returns StateIdle ---
 
 func (s *IdleAnimatorSuite) TestStateReturnsStateIdle() {
-	animator := character.NewIdleAnimator(s.clock)
+	animator := fairy.NewIdleAnimator(s.clock)
 	s.Equal(character.StateIdle, animator.State(),
 		"IdleAnimator.State() must return StateIdle")
-}
-
-// --- StateAnimator interface compliance ---
-
-func (s *IdleAnimatorSuite) TestIdleAnimatorImplementsStateAnimator() {
-	animator := character.NewIdleAnimator(s.clock)
-	// Compile-time check that *IdleAnimator satisfies StateAnimator.
-	var _ character.StateAnimator = animator
 }
 
 // --- Synchronous cleanup verification ---
 
 func (s *IdleAnimatorSuite) TestStopIsSynchronous() {
-	fairy := character.NewFairyCharacter()
-	animator := character.NewIdleAnimator(s.clock)
+	f := fairy.NewFairyCharacter()
+	animator := fairy.NewIdleAnimator(s.clock)
 
-	animator.Start(fairy)
+	animator.Start(f)
 	// Stop should block until the animation goroutine exits.
 	animator.Stop()
 
 	// After Stop returns, calling Start again must work immediately,
 	// proving the previous goroutine has fully exited.
-	animator.Start(fairy)
+	animator.Start(f)
 	animator.Stop()
 }
 
 // --- Animation constants ---
 
 func (s *IdleAnimatorSuite) TestAnimationConstants() {
-	s.Equal(3.0, character.IdleBreathCycleSec,
+	s.Equal(3.0, fairy.IdleBreathCycleSec,
 		"idle breath cycle must be 3.0 seconds")
-	s.Equal(0.3, character.IdleGlowMin,
+	s.Equal(0.3, fairy.IdleGlowMin,
 		"idle glow minimum must be 0.3")
-	s.Equal(0.8, character.IdleGlowMax,
+	s.Equal(0.8, fairy.IdleGlowMax,
 		"idle glow maximum must be 0.8")
 	s.Equal(30, character.AnimationFPS,
 		"animation FPS must be 30")
@@ -291,15 +284,15 @@ func (s *IdleAnimatorSuite) TestAnimationConstants() {
 // --- Glow intensity is driven by animator ---
 
 func (s *IdleAnimatorSuite) TestAnimatorDrivesGlowIntensity() {
-	fairy := character.NewFairyCharacter()
-	animator := character.NewIdleAnimator(s.clock)
+	f := fairy.NewFairyCharacter()
+	animator := fairy.NewIdleAnimator(s.clock)
 
-	animator.Start(fairy)
+	animator.Start(f)
 	defer animator.Stop()
 
 	// At t=0, the glow intensity should be set to the midpoint (0.55).
 	// The animator should have set it on Start.
-	expected := character.IdleGlowIntensity(0.0)
-	s.InDelta(expected, fairy.GlowIntensity(), 1e-9,
+	expected := fairy.IdleGlowIntensity(0.0)
+	s.InDelta(expected, f.GlowIntensity(), 1e-9,
 		"glow intensity at start should match IdleGlowIntensity(0.0)")
 }

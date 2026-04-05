@@ -1,4 +1,4 @@
-package character
+package fairy
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
 )
 
 const (
@@ -25,17 +27,14 @@ const (
 // NotifyBodyColor is the body color used in the notify state (#00C300).
 var NotifyBodyColor = color.RGBA{R: 0x00, G: 0xC3, B: 0x00, A: 0xFF}
 
-// NotifyGlowIntensity computes the glow intensity at time t using a sinusoidal
-// breathing pattern. The result oscillates between NotifyGlowMin and NotifyGlowMax
-// with a period of NotifyBreathCycleSec.
+// NotifyGlowIntensity computes the glow intensity at time t.
 func NotifyGlowIntensity(t float64) float64 {
 	return glowIntensity(t, NotifyBreathCycleSec, NotifyGlowMin, NotifyGlowMax)
 }
 
-// NotifyAnimator drives the fairy's notify state animation with rapid darting
-// and a fast breathing glow.
+// NotifyAnimator drives the fairy's notify state animation.
 type NotifyAnimator struct {
-	clock  Clock
+	clock  character.Clock
 	rng    *rand.Rand
 	mu     sync.Mutex
 	cancel context.CancelFunc
@@ -43,21 +42,17 @@ type NotifyAnimator struct {
 }
 
 // NewNotifyAnimator creates a new NotifyAnimator using the provided clock and RNG.
-func NewNotifyAnimator(clock Clock, rng *rand.Rand) *NotifyAnimator {
+func NewNotifyAnimator(clock character.Clock, rng *rand.Rand) *NotifyAnimator {
 	return &NotifyAnimator{clock: clock, rng: rng}
 }
 
-// Start begins the notify animation on the given fairy. It immediately sets
-// the body color to NotifyBodyColor, glow to NotifyGlowMax, and darts to a
-// random position. A background goroutine then darts every 0.5s and updates
-// glow continuously. If already running, the previous animation is stopped first.
+// Start begins the notify animation on the given fairy.
 func (a *NotifyAnimator) Start(fairy *FairyCharacter) {
 	a.Stop()
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	// Immediate state changes.
 	fairy.SetBodyColor(NotifyBodyColor)
 	fairy.SetGlowIntensity(NotifyGlowMax)
 	a.dart(fairy)
@@ -72,8 +67,7 @@ func (a *NotifyAnimator) Start(fairy *FairyCharacter) {
 	go a.runAnimationLoop(ctx, fairy, startTime, done)
 }
 
-// Stop cancels the animation goroutine and waits for it to exit. It is safe
-// to call without a prior Start, or to call multiple times.
+// Stop cancels the animation goroutine and waits for it to exit.
 func (a *NotifyAnimator) Stop() {
 	a.mu.Lock()
 	cancel := a.cancel
@@ -91,8 +85,8 @@ func (a *NotifyAnimator) Stop() {
 }
 
 // State returns StateNotifying.
-func (a *NotifyAnimator) State() CharacterState {
-	return StateNotifying
+func (a *NotifyAnimator) State() character.CharacterState {
+	return character.StateNotifying
 }
 
 // dart moves the fairy to a new random position using the RNG.
@@ -106,7 +100,7 @@ func (a *NotifyAnimator) dart(fairy *FairyCharacter) {
 func (a *NotifyAnimator) runAnimationLoop(ctx context.Context, fairy *FairyCharacter, startTime time.Time, done chan struct{}) {
 	defer close(done)
 
-	ticker := time.NewTicker(AnimationFrameInterval)
+	ticker := time.NewTicker(character.AnimationFrameInterval)
 	defer ticker.Stop()
 
 	lastDartCount := 0
@@ -118,10 +112,8 @@ func (a *NotifyAnimator) runAnimationLoop(ctx context.Context, fairy *FairyChara
 		case <-ticker.C:
 			elapsed := a.clock.Now().Sub(startTime).Seconds()
 
-			// Update glow continuously.
 			fairy.SetGlowIntensity(NotifyGlowIntensity(elapsed))
 
-			// Dart when a new 0.5s interval is reached.
 			dartCount := int(elapsed / NotifyDartIntervalSec)
 			if dartCount > lastDartCount {
 				a.dart(fairy)

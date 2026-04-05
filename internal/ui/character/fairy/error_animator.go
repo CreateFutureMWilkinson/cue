@@ -1,4 +1,4 @@
-package character
+package fairy
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"math"
 	"sync"
 	"time"
+
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
 )
 
 const (
@@ -28,40 +30,31 @@ var ErrorVibrateFreqHz = 15.0
 // ErrorBodyColor is the body color used in the error state (#00B800).
 var ErrorBodyColor = color.RGBA{R: 0x00, G: 0xB8, B: 0x00, A: 0xFF}
 
-// ErrorGlowIntensity computes the glow intensity at time t using a sinusoidal
-// pulse. The result oscillates between ErrorGlowMin and ErrorGlowMax with a
-// period of ErrorPulseCycleSec.
+// ErrorGlowIntensity computes the glow intensity at time t.
 func ErrorGlowIntensity(t float64) float64 {
 	return glowIntensity(t, ErrorPulseCycleSec, ErrorGlowMin, ErrorGlowMax)
 }
 
-// ErrorPosition computes the fairy position at time t. The x coordinate
-// vibrates horizontally around 0.5 with amplitude ErrorVibrateAmplitude at
-// ErrorVibrateFreqHz. The y coordinate is always 0.5.
+// ErrorPosition computes the fairy position at time t.
 func ErrorPosition(t float64) (float64, float64) {
 	x := 0.5 + ErrorVibrateAmplitude*math.Sin(2*math.Pi*ErrorVibrateFreqHz*t)
 	return x, 0.5
 }
 
-// ErrorAnimator drives the fairy's error state animation with rapid horizontal
-// vibration and a pulsing glow.
+// ErrorAnimator drives the fairy's error state animation.
 type ErrorAnimator struct {
-	clock  Clock
+	clock  character.Clock
 	mu     sync.Mutex
 	cancel context.CancelFunc
 	done   chan struct{}
 }
 
 // NewErrorAnimator creates a new ErrorAnimator using the provided clock.
-func NewErrorAnimator(clock Clock) *ErrorAnimator {
+func NewErrorAnimator(clock character.Clock) *ErrorAnimator {
 	return &ErrorAnimator{clock: clock}
 }
 
-// Start begins the error animation on the given fairy. It immediately sets
-// the body color to ErrorBodyColor, snaps position to center (0.5, 0.5),
-// and sets glow to ErrorGlowIntensity(0). A background goroutine then
-// vibrates and updates glow continuously. If already running, the previous
-// animation is stopped first.
+// Start begins the error animation on the given fairy.
 func (a *ErrorAnimator) Start(fairy *FairyCharacter) {
 	a.Stop()
 
@@ -80,8 +73,7 @@ func (a *ErrorAnimator) Start(fairy *FairyCharacter) {
 	go a.runAnimationLoop(ctx, fairy, startTime, done)
 }
 
-// Stop cancels the animation goroutine and waits for it to exit. It is safe
-// to call without a prior Start, or to call multiple times.
+// Stop cancels the animation goroutine and waits for it to exit.
 func (a *ErrorAnimator) Stop() {
 	a.mu.Lock()
 	cancel := a.cancel
@@ -99,8 +91,8 @@ func (a *ErrorAnimator) Stop() {
 }
 
 // State returns StateError.
-func (a *ErrorAnimator) State() CharacterState {
-	return StateError
+func (a *ErrorAnimator) State() character.CharacterState {
+	return character.StateError
 }
 
 // initializeFairyState sets the fairy to its error appearance and position.
@@ -114,7 +106,7 @@ func (a *ErrorAnimator) initializeFairyState(fairy *FairyCharacter) {
 func (a *ErrorAnimator) runAnimationLoop(ctx context.Context, fairy *FairyCharacter, startTime time.Time, done chan struct{}) {
 	defer close(done)
 
-	ticker := time.NewTicker(AnimationFrameInterval)
+	ticker := time.NewTicker(character.AnimationFrameInterval)
 	defer ticker.Stop()
 
 	for {

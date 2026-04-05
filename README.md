@@ -60,6 +60,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 15-A | Gosec G104 unhandled db.Close() in SQLite constructors | Done |
 | 30-A | Gosec G115 integer overflow in color channel conversion | Done |
 | 24-A | Wayland thread-safety in UAT harness FPS update | Done |
+| 25-A | Animator wiring in FairyCharacter TransitionTo | Done |
 
 ## Supported Platforms
 

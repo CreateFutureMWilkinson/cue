@@ -1,7 +1,7 @@
 # Feature 031: ServiceConfig Repository Interface
 
 **Phase:** Phase-4-Feature-031
-**Status:** Planned
+**Status:** Done
 **Package:** `internal/repository/`
 
 ---
@@ -86,10 +86,20 @@ This feature defines the interface only. Error semantics:
 ## Test Coverage
 
 - Compilation test: mock struct satisfies `ServiceConfigRepository` interface
-- Type field verification tests
+- Type field verification tests (SlackAccount + EmailAccount field values and defaults)
+- 5 tests total, all passing
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | Test Designer | 116s | 21,614 | 118e324 |
+| GREEN | Implementer | 18s | 20,716 | 4f576d7 |
+| REFACTOR | Refactorer | — | — | 6e8c5e9 |
 
 ## Files
 
 | File | Action |
 |---|---|
 | `internal/repository/service_config.go` | **New** — domain types + interface |
+| `internal/repository/service_config_test.go` | **New** — interface satisfaction + field tests |

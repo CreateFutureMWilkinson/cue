@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–3 complete. Phase 4 (Dynamic Service Config + Settings UI) in progress. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–3 complete. Phase 4 (Dynamic Service Config + Settings UI) in progress — Feature 031 (ServiceConfig repository interface) done. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 

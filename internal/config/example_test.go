@@ -76,7 +76,6 @@ func (s *ExampleConfigSuite) TestExampleTOMLMatchesDefaultNotificationValues() {
 	s.Require().NoError(err)
 
 	s.True(cfg.Notification.AudioEnabled)
-	s.True(cfg.Notification.BatchProcess)
 	s.Equal(2, cfg.Notification.AudioCooldownSeconds)
 	s.Equal(100, cfg.Notification.AudioVolume)
 	s.Equal(1000, cfg.Notification.FallbackFrequency)
@@ -227,4 +226,11 @@ func (s *ExampleConfigSuite) TestWriteExampleConfigCreatesParentDirectories() {
 	content, readErr := os.ReadFile(path)
 	s.NoError(readErr)
 	s.Equal(config.ExampleTOML(), string(content))
+}
+
+// --- Feature 048: BatchProcess removal ---
+
+func (s *ExampleConfigSuite) TestExampleTOMLOmitsBatchProcess() {
+	output := config.ExampleTOML()
+	s.NotContains(output, "batch_process", "ExampleTOML should not contain batch_process after removal")
 }

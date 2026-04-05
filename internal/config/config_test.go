@@ -46,7 +46,6 @@ timeout_seconds = 30
 
 [notification]
 audio_enabled = false
-batch_process = false
 
 [gui]
 window_width = 1920
@@ -80,7 +79,6 @@ log_dir = "/var/log/cue"
 
 	// Notification
 	s.False(cfg.Notification.AudioEnabled)
-	s.False(cfg.Notification.BatchProcess)
 
 	// GUI
 	s.Equal(1920, cfg.GUI.WindowWidth)
@@ -127,7 +125,6 @@ func (s *ConfigSuite) TestCreateDefaultConfigIfMissing() {
 	s.Equal(10, cfg.Ollama.TimeoutSeconds)
 
 	s.True(cfg.Notification.AudioEnabled)
-	s.True(cfg.Notification.BatchProcess)
 
 	s.Equal(1200, cfg.GUI.WindowWidth)
 	s.Equal(800, cfg.GUI.WindowHeight)
@@ -1482,4 +1479,35 @@ vector_similarity_threshold = -0.1
 	err = cfg.Validate()
 	s.Require().Error(err)
 	s.Contains(err.Error(), "similarity")
+}
+
+// ---------------------------------------------------------------------------
+// Feature 048: BatchProcess field removal — backward compatibility
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestBatchProcessFieldIgnored() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/data/messages.db"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[notification]
+audio_enabled = true
+batch_process = true
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.NoError(err, "TOML with batch_process should load without error (unknown keys ignored)")
+	s.NotNil(cfg)
 }

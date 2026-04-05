@@ -49,7 +49,7 @@ func (s *MessageRepoSuite) TestCreateDatabase() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 	s.Require().NotNil(repo)
 
@@ -60,7 +60,7 @@ func (s *MessageRepoSuite) TestCreateDatabase() {
 func (s *MessageRepoSuite) TestInsertAndQueryByID() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -129,7 +129,7 @@ func (s *MessageRepoSuite) TestInsertAndQueryByID() {
 func (s *MessageRepoSuite) TestQueryByStatus() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -166,7 +166,7 @@ func (s *MessageRepoSuite) TestQueryByStatus() {
 func (s *MessageRepoSuite) TestUpdateMessage() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -222,7 +222,7 @@ func (s *MessageRepoSuite) TestUpdateMessage() {
 func (s *MessageRepoSuite) TestFIFOEviction() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -266,7 +266,7 @@ func (s *MessageRepoSuite) TestFIFOEviction() {
 func (s *MessageRepoSuite) TestFIFOEvictionSourceIsolation() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -304,7 +304,7 @@ func (s *MessageRepoSuite) TestFIFOEvictionSourceIsolation() {
 func (s *MessageRepoSuite) TestQueryOldestToNewest() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -341,7 +341,7 @@ func (s *MessageRepoSuite) TestQueryOldestToNewest() {
 func (s *MessageRepoSuite) TestQueryAll() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -367,7 +367,7 @@ func (s *MessageRepoSuite) TestQueryAll() {
 func (s *MessageRepoSuite) TestCountBySource() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -399,7 +399,7 @@ func (s *MessageRepoSuite) TestWALMode() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	_, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	_, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	db, err := sql.Open("sqlite", dbPath)
@@ -415,7 +415,7 @@ func (s *MessageRepoSuite) TestWALMode() {
 func (s *MessageRepoSuite) TestNullableFields() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -460,7 +460,7 @@ func (s *MessageRepoSuite) TestDBAccessorReturnsNonNilDB() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 	s.Require().NotNil(repo)
 
@@ -477,7 +477,7 @@ func (s *MessageRepoSuite) TestDBAccessorReturnsNonNilDB() {
 func (s *MessageRepoSuite) TestQueryByID_ReturnsCorrectMessage() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -501,7 +501,7 @@ func (s *MessageRepoSuite) TestQueryByID_ReturnsCorrectMessage() {
 func (s *MessageRepoSuite) TestQueryByID_UnknownID_ReturnsNil() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -514,7 +514,7 @@ func (s *MessageRepoSuite) TestQueryByID_UnknownID_ReturnsNil() {
 func (s *MessageRepoSuite) TestQueryByID_NullableFieldsHandled() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -578,7 +578,7 @@ func (s *MessageRepoSuite) TestQueryByID_NullableFieldsHandled() {
 func (s *MessageRepoSuite) TestUpsertByMessageID() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -608,7 +608,7 @@ func (s *MessageRepoSuite) TestUpsertByMessageID() {
 func (s *MessageRepoSuite) TestMessageTypePersisted() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -627,7 +627,7 @@ func (s *MessageRepoSuite) TestMessageTypePersisted() {
 func (s *MessageRepoSuite) TestMessageTypeEmptyStringPersisted() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -646,7 +646,7 @@ func (s *MessageRepoSuite) TestMessageTypeEmptyStringPersisted() {
 func (s *MessageRepoSuite) TestMessageTypeUpdated() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
-	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -673,12 +673,12 @@ func (s *MessageRepoSuite) TestMessageTypeMigrationIdempotent() {
 	dbPath := filepath.Join(tmpDir, "test.db")
 
 	// Open the repo once to create the schema.
-	repo1, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo1, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 	_ = repo1
 
 	// Open the repo a second time on the same database — migration should be idempotent.
-	repo2, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	repo2, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -692,4 +692,92 @@ func (s *MessageRepoSuite) TestMessageTypeMigrationIdempotent() {
 	s.Require().NoError(err)
 	s.Require().NotNil(got)
 	s.Equal("channel_join", got.MessageType, "MessageType should round-trip after idempotent migration")
+}
+
+// --- Feature 048: Configurable maxMessagesPerSource ---
+
+func (s *MessageRepoSuite) TestConstructorRejectsZeroMaxMessages() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 0)
+	s.Error(err, "constructor should reject maxMessagesPerSource=0")
+	s.Nil(repo)
+}
+
+func (s *MessageRepoSuite) TestConstructorRejectsNegativeMaxMessages() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, -1)
+	s.Error(err, "constructor should reject negative maxMessagesPerSource")
+	s.Nil(repo)
+}
+
+func (s *MessageRepoSuite) TestEvictionAtCustomThreshold() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 5)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	var oldestID uuid.UUID
+	for i := 0; i < 5; i++ {
+		msg := makeTestMessage("slack", "Buffered", baseTime.Add(time.Duration(i)*time.Minute))
+		if i == 0 {
+			oldestID = msg.ID
+		}
+		s.Require().NoError(repo.Insert(ctx, msg))
+	}
+
+	// Insert 6th message — should trigger eviction of the oldest.
+	msg6 := makeTestMessage("slack", "Buffered", baseTime.Add(5*time.Minute))
+	s.Require().NoError(repo.Insert(ctx, msg6))
+
+	count, err := repo.CountBySource(ctx, "slack")
+	s.Require().NoError(err)
+	s.Equal(5, count, "should have exactly 5 slack messages after eviction")
+
+	results, err := repo.QueryAll(ctx)
+	s.Require().NoError(err)
+
+	foundOldest := false
+	foundMsg6 := false
+	for _, r := range results {
+		if r.ID == oldestID {
+			foundOldest = true
+		}
+		if r.ID == msg6.ID {
+			foundMsg6 = true
+		}
+	}
+	s.False(foundOldest, "oldest message should have been evicted")
+	s.True(foundMsg6, "6th message should be present")
+}
+
+func (s *MessageRepoSuite) TestEvictionAtThresholdOne() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 1)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	msg1 := makeTestMessage("slack", "Buffered", baseTime)
+	s.Require().NoError(repo.Insert(ctx, msg1))
+
+	msg2 := makeTestMessage("slack", "Buffered", baseTime.Add(time.Minute))
+	s.Require().NoError(repo.Insert(ctx, msg2))
+
+	count, err := repo.CountBySource(ctx, "slack")
+	s.Require().NoError(err)
+	s.Equal(1, count, "should have exactly 1 slack message after eviction")
+
+	results, err := repo.QueryAll(ctx)
+	s.Require().NoError(err)
+	s.Require().Len(results, 1)
+	s.Equal(msg2.ID, results[0].ID, "only the latest message should remain")
 }

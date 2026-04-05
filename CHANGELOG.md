@@ -24,6 +24,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Router orchestration** — Coordinates watchers, router, and repository in batch polling loops with per-source goroutines, immediate first poll, configurable intervals, activity event emission, graceful error handling (individual store errors don't abort batch), and idempotent shutdown (Phase-1-Feature-7)
 - **Vector store with cosine similarity** — In-memory vector storage with pluggable embedding function, cosine similarity search (topN), message ID association for feedback linking, and zero-denominator handling (Phase-1-Feature-8)
 - **Feedback buffer service** — Review workflow for buffered messages (IS >= 7, CS < 0.8) with oldest-first retrieval, user rating (0-10) with optional notes, message deletion, optional vector embedding on save for learning loop, and graceful embedding failure handling (Phase-1-Feature-9)
+- **Audio alerts** — Cross-platform audio notifications using `beeep` with sharp ping on NOTIFIED messages (1000 Hz), startup chime (600 Hz), shutdown tone (400 Hz), 2-second cooldown to prevent spam, configurable on/off via config, and non-fatal error handling (Phase-1-Feature-10)
 - `MessageType` field on `Message` struct for distinguishing message event types
 - Agent team TDD workflow with test-designer, implementer, and refactorer agents
 - Agent log tracking duration and token usage per TDD phase

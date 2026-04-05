@@ -1,7 +1,10 @@
 package fairy_test
 
 import (
+	"bytes"
 	"image/color"
+	"log"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -418,6 +421,41 @@ func (s *FairyCharacterSuite) TestRefreshFuncCalledOnSetPosition() {
 
 	f.SetPosition(0.3, 0.7)
 	s.Greater(callCount, 0, "refreshFunc should be called when SetPosition is invoked")
+}
+
+func (s *FairyCharacterSuite) TestSetBodyColorDoesNotDirectlyRefreshCanvasObject() {
+	// Regression: SetBodyColor used to call bodyCircle.Refresh() directly, which
+	// violates Fyne's threading model when called from animator goroutines.
+	// Only refreshFunc (wired to fyne.Do) should trigger refreshes.
+	//
+	// Without a running Fyne app, calling .Refresh() on a canvas object logs a
+	// "Fyne error" to stderr via the standard logger. We capture log output to
+	// detect any such direct Refresh() call.
+	f := fairy.NewFairyCharacter()
+	f.SetRefreshHook(func() { /* no-op hook: absorbs the refreshFunc call */ })
+
+	// Redirect the standard logger output to a buffer.
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer log.SetOutput(os.Stderr)
+
+	f.SetBodyColor(color.RGBA{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF})
+
+	// Verify color was updated (behavioral correctness).
+	bc := f.BodyCircle().FillColor
+	r, g, b, a := bc.RGBA()
+	s.Equal(uint32(0xFFFF), r, "body red should be 0xFF")
+	s.Equal(uint32(0x0000), g, "body green should be 0x00")
+	s.Equal(uint32(0x0000), b, "body blue should be 0x00")
+	s.Equal(uint32(0xFFFF), a, "body alpha should be 0xFF")
+
+	// The key assertion: no Fyne error should have been logged. A direct
+	// bodyCircle.Refresh() call (without a Fyne app) triggers a log line
+	// containing "Fyne error". If refreshFunc is the sole refresh mechanism,
+	// no such log output appears.
+	s.Empty(buf.String(),
+		"SetBodyColor should not call Refresh() directly on canvas objects; "+
+			"got log output: %s", buf.String())
 }
 
 func (s *FairyCharacterSuite) TestConcurrentTransitions() {

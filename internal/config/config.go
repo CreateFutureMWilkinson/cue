@@ -60,8 +60,23 @@ type OllamaConfig struct {
 }
 
 type NotificationConfig struct {
-	AudioEnabled bool `toml:"audio_enabled"`
-	BatchProcess bool `toml:"batch_process"`
+	AudioEnabled         bool   `toml:"audio_enabled"`
+	BatchProcess         bool   `toml:"batch_process"`
+	AudioDir             string `toml:"audio_dir"`
+	AudioCooldownSeconds int    `toml:"audio_cooldown_seconds"`
+	AudioVolume          int    `toml:"audio_volume"`
+	FallbackFrequency    int    `toml:"fallback_frequency"`
+	FallbackDurationMs   int    `toml:"fallback_duration_ms"`
+}
+
+// notificationAudioConfigured returns true if any audio-specific notification
+// field has been set to a non-zero value, indicating the section was configured.
+func (n NotificationConfig) notificationAudioConfigured() bool {
+	return n.AudioDir != "" ||
+		n.AudioCooldownSeconds != 0 ||
+		n.AudioVolume != 0 ||
+		n.FallbackFrequency != 0 ||
+		n.FallbackDurationMs != 0
 }
 
 type GUIConfig struct {
@@ -106,8 +121,13 @@ func defaultConfig() *Config {
 			TimeoutSeconds: 10,
 		},
 		Notification: NotificationConfig{
-			AudioEnabled: true,
-			BatchProcess: true,
+			AudioEnabled:         true,
+			BatchProcess:         true,
+			AudioDir:             "",
+			AudioCooldownSeconds: 2,
+			AudioVolume:          100,
+			FallbackFrequency:    1000,
+			FallbackDurationMs:   200,
 		},
 		GUI: GUIConfig{
 			WindowWidth:  1200,
@@ -167,6 +187,7 @@ func expandPaths(cfg *Config) {
 	}
 	cfg.Database.Path = expandTilde(cfg.Database.Path, home)
 	cfg.Logging.LogDir = expandTilde(cfg.Logging.LogDir, home)
+	cfg.Notification.AudioDir = expandTilde(cfg.Notification.AudioDir, home)
 }
 
 func expandTilde(path, home string) string {
@@ -192,8 +213,41 @@ func (c *Config) Validate() error {
 		{func(cfg *Config) bool { return cfg.Ollama.EmbeddingModel != "" }, "ollama.embedding_model must not be empty"},
 		{func(cfg *Config) bool { return cfg.Slack.PollIntervalSeconds >= 0 }, "slack.poll_interval_seconds must not be negative"},
 		{func(cfg *Config) bool { return cfg.Email.PollIntervalSeconds >= 0 }, "email.poll_interval_seconds must not be negative"},
-		{func(cfg *Config) bool { return cfg.GUI.WindowWidth > 0 }, "gui.window_width must be greater than 0"},
-		{func(cfg *Config) bool { return cfg.GUI.WindowHeight > 0 }, "gui.window_height must be greater than 0"},
+		{func(cfg *Config) bool {
+			if cfg.Notification.AudioDir == "" {
+				return true
+			}
+			_, err := os.Stat(cfg.Notification.AudioDir)
+			return err == nil
+		}, "notification.audio_dir must be a valid directory"},
+		{func(cfg *Config) bool { return cfg.Notification.AudioCooldownSeconds >= 0 }, "notification.audio_cooldown_seconds must not be negative"},
+		{func(cfg *Config) bool {
+			return cfg.Notification.AudioVolume >= 0 && cfg.Notification.AudioVolume <= 100
+		}, "notification.audio_volume must be between 0 and 100"},
+		{func(cfg *Config) bool {
+			if !cfg.Notification.notificationAudioConfigured() {
+				return true
+			}
+			return cfg.Notification.FallbackFrequency > 0
+		}, "notification.fallback_frequency must be greater than 0"},
+		{func(cfg *Config) bool {
+			if !cfg.Notification.notificationAudioConfigured() {
+				return true
+			}
+			return cfg.Notification.FallbackDurationMs > 0
+		}, "notification.fallback_duration_ms must be greater than 0"},
+		{func(cfg *Config) bool {
+			if cfg.GUI.WindowWidth == 0 && cfg.GUI.WindowHeight == 0 {
+				return true
+			}
+			return cfg.GUI.WindowWidth > 0
+		}, "gui.window_width must be greater than 0"},
+		{func(cfg *Config) bool {
+			if cfg.GUI.WindowWidth == 0 && cfg.GUI.WindowHeight == 0 {
+				return true
+			}
+			return cfg.GUI.WindowHeight > 0
+		}, "gui.window_height must be greater than 0"},
 	}
 
 	for _, rule := range rules {

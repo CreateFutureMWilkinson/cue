@@ -132,3 +132,9 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-2-Feature-023 | RED | Test Designer | 119s | 65,202 | 2caa668 |
 | Phase-2-Feature-023 | GREEN | Implementer | 87s | 37,533 | 8c69fa3 |
 | Phase-2-Feature-023 | REFACTOR | Refactorer | 113s | 40,928 | 17a8dc8 |
+| Phase-3-Feature-024 (fps) | RED | Test Designer | 57s | 19,239 | fa6bd5f |
+| Phase-3-Feature-024 (fps) | GREEN | Implementer | 45s | 19,863 | dae8bbe |
+| Phase-3-Feature-024 (fps) | REFACTOR | Refactorer | — | — | — |
+| Phase-3-Feature-024 (window) | RED | Test Designer | 53s | 24,445 | b758676 |
+| Phase-3-Feature-024 (window) | GREEN | Implementer | 104s | 37,938 | dfec3c7 |
+| Phase-3-Feature-024 (window) | REFACTOR | Refactorer | — | — | 7df8f41 |

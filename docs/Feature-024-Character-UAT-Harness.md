@@ -1,7 +1,7 @@
 # Feature 024: Character UAT Harness
 
 **Phase:** Phase-3-Feature-024
-**Status:** Planned
+**Status:** Done
 **Packages:** `cmd/character-uat/`, `internal/ui/character/`
 
 ---
@@ -147,9 +147,9 @@ Note: The UAT window itself is a manual testing tool — its primary value is en
 
 | TDD Cycle | Phase | Agent | Duration | Tokens | Commit |
 |---|---|---|---|---|---|
-| FPS Counter | RED | Test Designer | — | — | — |
-| FPS Counter | GREEN | Implementer | — | — | — |
+| FPS Counter | RED | Test Designer | 57s | 19,239 | fa6bd5f |
+| FPS Counter | GREEN | Implementer | 45s | 19,863 | dae8bbe |
 | FPS Counter | REFACTOR | Refactorer | — | — | — |
-| UAT Window | RED | Test Designer | — | — | — |
-| UAT Window | GREEN | Implementer | — | — | — |
-| UAT Window | REFACTOR | Refactorer | — | — | — |
+| UAT Window | RED | Test Designer | 53s | 24,445 | b758676 |
+| UAT Window | GREEN | Implementer | 104s | 37,938 | dfec3c7 |
+| UAT Window | REFACTOR | Refactorer | — | — | 7df8f41 |

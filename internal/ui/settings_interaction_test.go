@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"strings"
 	"testing"
 
 	"fyne.io/fyne/v2/container"
@@ -19,6 +20,7 @@ import (
 type SettingsInteractionSuite struct {
 	suite.Suite
 	sv *ui.SettingsView
+	sp *presenter.SettingsPresenter
 }
 
 func TestSettingsInteraction(t *testing.T) {
@@ -29,6 +31,7 @@ func (s *SettingsInteractionSuite) SetupTest() {
 	vc := &stubVolumeController{}
 	sp, err := presenter.NewSettingsPresenter(vc, 50)
 	s.Require().NoError(err)
+	s.sp = sp
 
 	repo := &stubServiceConfigRepo{}
 	mgr := &stubWatcherRemover{}
@@ -105,4 +108,48 @@ func (s *SettingsInteractionSuite) TestSettingsViewEachTabHasContent() {
 	for i, item := range tabs.Items {
 		s.NotNilf(item.Content, "tab %d (%s) should have non-nil Content", i, item.Text)
 	}
+}
+
+func (s *SettingsInteractionSuite) TestAudioSliderOnChangedUpdatesVolumeLabel() {
+	root := s.sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+	audioContent := tabs.Items[2].Content
+
+	slider := uitest.RequireWidget[*widget.Slider](s.T(), audioContent, func(_ *widget.Slider) bool {
+		return true
+	})
+
+	s.Require().NotNil(slider.OnChanged, "slider.OnChanged should be wired")
+
+	slider.OnChanged(75)
+
+	lbl := uitest.RequireWidget[*widget.Label](s.T(), audioContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "Notification Volume:")
+	})
+
+	s.Equal("Notification Volume: 75%", lbl.Text,
+		"volume label should reflect the new slider value")
+}
+
+func (s *SettingsInteractionSuite) TestAudioSliderOnChangedCallsPresenterSetVolume() {
+	root := s.sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+	audioContent := tabs.Items[2].Content
+
+	slider := uitest.RequireWidget[*widget.Slider](s.T(), audioContent, func(_ *widget.Slider) bool {
+		return true
+	})
+
+	s.Require().NotNil(slider.OnChanged, "slider.OnChanged should be wired")
+
+	slider.OnChanged(75)
+
+	s.Equal(75, s.sp.Volume(),
+		"presenter volume should be updated to 75 after slider change")
 }

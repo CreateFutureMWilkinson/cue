@@ -20,6 +20,9 @@ const (
 
 	// glowRatio is the outermost glow circle diameter as a fraction of jar width.
 	glowRatio = 0.25
+
+	// glowAlpha is the alpha channel value for glow circles.
+	glowAlpha = 30
 )
 
 var (
@@ -79,7 +82,7 @@ func NewFairyCharacter() *FairyCharacter {
 	// Glow layers — 8 concentric circles from innermost to outermost.
 	glowLayers := make([]*canvas.Circle, fairyGlowLayerCount)
 	for i := range glowLayers {
-		c := canvas.NewCircle(color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: 30})
+		c := canvas.NewCircle(color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: glowAlpha})
 		glowLayers[i] = c
 	}
 
@@ -217,36 +220,48 @@ func (l *fairyJarLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 	w := size.Width
 	h := size.Height
 
-	// Jar SVGs fill the entire container.
+	// Position jar SVGs to fill the entire container.
+	l.positionJarLayers(size)
+
+	// Position fairy circles (body + glow layers).
+	l.positionFairyCircles(w, h)
+
+	// Hidden indicator (kept for backward compatibility).
+	l.fairy.indicator.Resize(fyne.NewSize(fairyIndicatorSize, fairyIndicatorSize))
+}
+
+// positionJarLayers positions the jar back and front SVG layers.
+func (l *fairyJarLayout) positionJarLayers(size fyne.Size) {
+	origin := fyne.NewPos(0, 0)
+
 	l.fairy.jarBack.Resize(size)
-	l.fairy.jarBack.Move(fyne.NewPos(0, 0))
+	l.fairy.jarBack.Move(origin)
 
 	l.fairy.jarFront.Resize(size)
-	l.fairy.jarFront.Move(fyne.NewPos(0, 0))
+	l.fairy.jarFront.Move(origin)
+}
 
+// positionFairyCircles positions the body circle and glow layers.
+func (l *fairyJarLayout) positionFairyCircles(containerWidth, containerHeight float32) {
 	// Body circle: 10% of jar width.
-	bodyDiam := w * bodyRatio
-	bodySize := fyne.NewSize(bodyDiam, bodyDiam)
-	l.fairy.bodyCircle.Resize(bodySize)
-	l.fairy.bodyCircle.Move(fyne.NewPos(
-		float32(l.fairy.posX)*w-bodyDiam/2,
-		float32(l.fairy.posY)*h-bodyDiam/2,
-	))
+	bodyDiam := containerWidth * bodyRatio
+	l.positionCircle(l.fairy.bodyCircle, bodyDiam, containerWidth, containerHeight)
 
 	// Glow layers: linearly interpolated from body size to 25% of jar width.
-	glowDiam := w * glowRatio
+	glowDiam := containerWidth * glowRatio
 	for i, gl := range l.fairy.glowLayers {
 		// Layer 0 is innermost (smallest), layer N-1 is outermost (largest).
 		t := float32(i+1) / float32(fairyGlowLayerCount)
 		d := bodyDiam + (glowDiam-bodyDiam)*t
-		s := fyne.NewSize(d, d)
-		gl.Resize(s)
-		gl.Move(fyne.NewPos(
-			float32(l.fairy.posX)*w-d/2,
-			float32(l.fairy.posY)*h-d/2,
-		))
+		l.positionCircle(gl, d, containerWidth, containerHeight)
 	}
+}
 
-	// Hidden indicator.
-	l.fairy.indicator.Resize(fyne.NewSize(fairyIndicatorSize, fairyIndicatorSize))
+// positionCircle positions and resizes a circle at the fairy's current position.
+func (l *fairyJarLayout) positionCircle(circle *canvas.Circle, diameter, containerWidth, containerHeight float32) {
+	circle.Resize(fyne.NewSize(diameter, diameter))
+	circle.Move(fyne.NewPos(
+		float32(l.fairy.posX)*containerWidth-diameter/2,
+		float32(l.fairy.posY)*containerHeight-diameter/2,
+	))
 }

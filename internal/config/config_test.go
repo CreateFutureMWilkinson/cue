@@ -178,9 +178,9 @@ func (s *ConfigSuite) TestCreateDefaultConfigIfMissing() {
 
 func (s *ConfigSuite) TestValidateRequiredFields() {
 	tests := []struct {
-		name    string
-		toml    string
-		errMsg  string // substring expected in error
+		name   string
+		toml   string
+		errMsg string // substring expected in error
 	}{
 		{
 			name: "empty database path",

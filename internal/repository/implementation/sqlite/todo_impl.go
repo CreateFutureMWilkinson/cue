@@ -156,14 +156,22 @@ func (r *SQLiteTodoRepository) Delete(ctx context.Context, id uuid.UUID) error {
 // QueryByID returns a todo by ID with populated categories, or nil and an error
 // wrapping repository.ErrNotFound if no todo with that ID exists.
 func (r *SQLiteTodoRepository) QueryByID(ctx context.Context, id uuid.UUID) (*repository.Todo, error) {
-	row := r.db.QueryRowContext(ctx, querySelectTodoByID, id.String())
-
-	todo, err := scanTodo(row)
+	rows, err := r.db.QueryContext(ctx, querySelectTodoByID, id.String())
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("query todo by id: %w", repository.ErrNotFound)
-		}
 		return nil, fmt.Errorf("query todo by id: %w", err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("query todo by id: %w", err)
+		}
+		return nil, fmt.Errorf("query todo by id: %w", repository.ErrNotFound)
+	}
+
+	todo, err := scanTodo(rows)
+	if err != nil {
+		return nil, fmt.Errorf("scan todo: %w", err)
 	}
 
 	cats, err := r.fetchCategories(ctx, todo.ID)
@@ -262,8 +270,8 @@ func (r *SQLiteTodoRepository) fetchCategories(ctx context.Context, todoID uuid.
 	return cats, nil
 }
 
-// scanTodo scans a single row into a Todo.
-func scanTodo(row *sql.Row) (*repository.Todo, error) {
+// scanTodo reads a todo from a sql.Rows scanner.
+func scanTodo(rows *sql.Rows) (*repository.Todo, error) {
 	var (
 		todo         repository.Todo
 		idStr        string
@@ -272,7 +280,7 @@ func scanTodo(row *sql.Row) (*repository.Todo, error) {
 		completedAt  sql.NullString
 	)
 
-	err := row.Scan(
+	err := rows.Scan(
 		&idStr,
 		&todo.Title,
 		&todo.Description,
@@ -282,7 +290,7 @@ func scanTodo(row *sql.Row) (*repository.Todo, error) {
 		&completedAt,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("scan todo row: %w", err)
 	}
 
 	todo.ID, err = uuid.Parse(idStr)
@@ -318,54 +326,11 @@ func scanTodo(row *sql.Row) (*repository.Todo, error) {
 func scanTodos(rows *sql.Rows) ([]*repository.Todo, error) {
 	var todos []*repository.Todo
 	for rows.Next() {
-		var (
-			todo         repository.Todo
-			idStr        string
-			createdAtStr string
-			dueDate      sql.NullString
-			completedAt  sql.NullString
-		)
-
-		err := rows.Scan(
-			&idStr,
-			&todo.Title,
-			&todo.Description,
-			&todo.Priority,
-			&dueDate,
-			&createdAtStr,
-			&completedAt,
-		)
+		todo, err := scanTodo(rows)
 		if err != nil {
 			return nil, fmt.Errorf("scan todo: %w", err)
 		}
-
-		todo.ID, err = uuid.Parse(idStr)
-		if err != nil {
-			return nil, fmt.Errorf("parse todo ID: %w", err)
-		}
-
-		todo.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
-		if err != nil {
-			return nil, fmt.Errorf("parse created_at: %w", err)
-		}
-
-		if dueDate.Valid {
-			t, err := time.Parse(time.RFC3339, dueDate.String)
-			if err != nil {
-				return nil, fmt.Errorf("parse due_date: %w", err)
-			}
-			todo.DueDate = &t
-		}
-
-		if completedAt.Valid {
-			t, err := time.Parse(time.RFC3339, completedAt.String)
-			if err != nil {
-				return nil, fmt.Errorf("parse completed_at: %w", err)
-			}
-			todo.CompletedAt = &t
-		}
-
-		todos = append(todos, &todo)
+		todos = append(todos, todo)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate todos: %w", err)

@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–4 complete (including Feature 031A: encrypted credential storage with AES-256-GCM, Feature 031B: key file G304 path traversal fix). Phase 5 (Wiring — Scaffold Completion + Real API Clients) in progress — Features 042–051 done, including Feature 051 (fairy interior bounds — fairy constrained to jar's glass interior). See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–5 complete. Phase 6 (The Big Clean — bugfixes + test infrastructure) in progress. Recent: Feature 011A injectable Fyne dependencies (eliminated ~50 CI error lines). See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 

@@ -25,6 +25,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 017A | Countdown timer renderer (45-segment ring) | Done | [Feature-017A](features/phase-1/Feature-017A-Timer-Renderer.md) |
 | 018 | Notification panel redesign (color-coded cards) | Done | [Feature-018](features/phase-1/Feature-018-Notification-Panel-Redesign.md) |
 | 018A | Notification card visual rendering | Done | [Feature-018A](features/phase-1/Feature-018A-Notification-Card-Rendering.md) |
+| 011A | Injectable Fyne dependencies | Done | [Feature-011A](features/phase-1/Feature-011A-Injectable-Fyne-Dependencies.md) |
 | 019 | Activity log drawer | Done | [Feature-019](features/phase-1/Feature-019-Activity-Log-Drawer.md) |
 
 ## Phase 2 — Day Planner + Timer

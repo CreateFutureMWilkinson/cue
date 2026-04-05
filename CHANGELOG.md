@@ -11,6 +11,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- **Injectable Fyne dependencies** — `NewFairyCharacter()` now defaults `refreshFunc` to a no-op instead of calling `fyne.CurrentApp()`, eliminating ~50 noisy error lines in CI test output. Production callers wire the real refresh via `SetRefreshHook(fyne.Do(...))`. `NewMainWindow` now accepts `fyne.App` as an injected first parameter, replacing the package-level `newFyneApp` factory and `export_test.go` init hook. `DisableRefresh()` deprecated. (Phase-1-Feature-011A)
+
 ### Fixed
 
 - **Fairy body too large and too dim** — Body circle reduced from 10% to 5% of jar width. Body color brightened across all states: idle `#00FF00`, working `#00DD00`, notify `#00FF88`, error `#88FF00`. All state body colors are now visually brighter than the dark green glow (`#006100`). Startup fades from dormant to bright idle; shutdown fades back to dormant. (Phase-5-Feature-051)

@@ -297,7 +297,8 @@ func (s *ErrorAnimatorSuite) TestVibrationUpdatesPositionOverTime() {
 
 	// Advance clock by a fraction of the vibration period so position changes.
 	// 1/(4*15) = ~16.67ms is a quarter vibration cycle; x should be 0.54.
-	quarterVibration := time.Duration(float64(time.Second) / (4.0 * character.ErrorVibrateFreqHz))
+	freqHz := character.ErrorVibrateFreqHz
+	quarterVibration := time.Duration(float64(time.Second) / (4.0 * freqHz))
 	s.clock.Advance(quarterVibration)
 	time.Sleep(5 * time.Millisecond) // Let animation goroutine tick.
 

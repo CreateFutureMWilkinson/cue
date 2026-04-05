@@ -458,6 +458,39 @@ func (s *FairyCharacterSuite) TestSetBodyColorDoesNotDirectlyRefreshCanvasObject
 			"got log output: %s", buf.String())
 }
 
+func (s *FairyCharacterSuite) TestTransitionToDoesNotDirectlyRefreshCanvasObject() {
+	// Regression: stopAndUpdateState calls f.indicator.Refresh() directly, which
+	// violates Fyne's threading model when called from animator goroutines.
+	// Only refreshFunc (wired to fyne.Do) should trigger refreshes.
+	//
+	// Without a running Fyne app, calling .Refresh() on a canvas object logs a
+	// "Fyne error" to stderr via the standard logger. We capture log output to
+	// detect any such direct Refresh() call.
+	f := fairy.NewFairyCharacter()
+	f.SetRefreshHook(func() { /* no-op hook: absorbs the refreshFunc call */ })
+	clock := newMockClock(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	f.SetClock(clock)
+
+	// Redirect the standard logger output to a buffer.
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer log.SetOutput(os.Stderr)
+
+	f.TransitionTo(character.StateIdle)
+
+	// Stop the animator promptly so only the direct Refresh in stopAndUpdateState
+	// is captured, not any Fyne errors from the animator goroutine.
+	f.Close()
+
+	// The key assertion: no Fyne error should have been logged. A direct
+	// indicator.Refresh() call (without a Fyne app) triggers a log line
+	// containing "Fyne error". If refreshFunc is the sole refresh mechanism,
+	// no such log output appears.
+	s.Empty(buf.String(),
+		"TransitionTo should not call Refresh() directly on canvas objects; "+
+			"got log output: %s", buf.String())
+}
+
 func (s *FairyCharacterSuite) TestConcurrentTransitions() {
 	f, _ := s.newTestFairy()
 	defer f.Close()

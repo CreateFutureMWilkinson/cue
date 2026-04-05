@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	timerBeepFrequency = 440.0
-	timerBeepDuration  = 800
+	// Timer-specific audio constants (distinct from notification sounds)
+	timerBeepFrequency = 440.0 // Hz - Lower than notification frequency for distinction
+	timerBeepDuration  = 800   // ms - Longer than notification for timer events
 )
 
 // MissedAlert represents a timer alert that was suppressed (e.g., during a meeting).
@@ -31,7 +32,7 @@ type TimerAlertService struct {
 	mu          sync.Mutex
 }
 
-// NewTimerAlertService creates a new TimerAlertService.
+// NewTimerAlertService creates a new TimerAlertService, validating dependencies.
 // beeper is always required. fileSystem is required when soundPath is non-empty.
 // audioPlayer may be nil (fallback beep-only mode).
 func NewTimerAlertService(soundPath string, volume int, beeper Beeper, fileSystem FileSystem, audioPlayer AudioPlayer) (*TimerAlertService, error) {
@@ -41,6 +42,7 @@ func NewTimerAlertService(soundPath string, volume int, beeper Beeper, fileSyste
 	if soundPath != "" && fileSystem == nil {
 		return nil, fmt.Errorf("filesystem is required when sound path is set")
 	}
+
 	return &TimerAlertService{
 		soundPath:   soundPath,
 		volume:      clampVolume(volume),
@@ -61,24 +63,23 @@ func (t *TimerAlertService) PlayTimerEnd(ctx context.Context, blockType string, 
 		}, nil
 	}
 
+	// Get current volume setting atomically
 	t.mu.Lock()
-	vol := t.volume
+	currentVolume := t.volume
 	t.mu.Unlock()
 
-	if vol == 0 {
+	// Skip playback if volume is muted
+	if currentVolume == 0 {
 		return nil, nil
 	}
 
+	// Try file playback if configured, otherwise use fallback beep
 	if t.soundPath != "" && t.audioPlayer != nil {
-		go func() {
-			if err := t.audioPlayer.PlayFile(t.soundPath, vol); err != nil {
-				_ = t.beeper.Beep(timerBeepFrequency, timerBeepDuration)
-			}
-		}()
-		return nil, nil
+		t.playFileAsync(currentVolume)
+	} else {
+		t.playFallbackBeep()
 	}
 
-	_ = t.beeper.Beep(timerBeepFrequency, timerBeepDuration)
 	return nil, nil
 }
 
@@ -94,6 +95,20 @@ func (t *TimerAlertService) Volume() int {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.volume
+}
+
+// playFileAsync plays the sound file asynchronously with fallback to beep on failure.
+func (t *TimerAlertService) playFileAsync(volume int) {
+	go func() {
+		if err := t.audioPlayer.PlayFile(t.soundPath, volume); err != nil {
+			t.playFallbackBeep()
+		}
+	}()
+}
+
+// playFallbackBeep plays the timer-specific beep tone.
+func (t *TimerAlertService) playFallbackBeep() {
+	_ = t.beeper.Beep(timerBeepFrequency, timerBeepDuration)
 }
 
 // formatBlockMessage creates a human-readable message for a missed alert.

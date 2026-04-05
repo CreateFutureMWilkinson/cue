@@ -1,7 +1,7 @@
 # Feature 029: Fairy Error State
 
 **Phase:** Phase-3-Feature-029
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/character/`
 
 ---
@@ -113,6 +113,6 @@ func (a *ErrorAnimator) State() CharacterState  // returns StateError
 
 | TDD Cycle | Phase | Agent | Duration | Tokens | Commit |
 |---|---|---|---|---|---|
-| Error Animator | RED | Test Designer | — | — | — |
-| Error Animator | GREEN | Implementer | — | — | — |
-| Error Animator | REFACTOR | Refactorer | — | — | — |
+| Error Animator | RED | Test Designer | 97s | 38,911 | 6d6536d |
+| Error Animator | GREEN | Implementer | 85s | 33,064 | 0d3f4cd |
+| Error Animator | REFACTOR | Refactorer | 103s | 39,111 | 5fb31f2 |

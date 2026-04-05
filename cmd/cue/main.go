@@ -141,20 +141,6 @@ func run() error {
 		return fmt.Errorf("creating ollama client: %w", err)
 	}
 
-	// Create router with Ollama scorer.
-	router, err := decisionengine.NewRouter(
-		ollamaClient,
-		[]string{"user"},
-		decisionengine.RouterConfig{
-			ImportanceThreshold: cfg.Orchestrator.Router.ImportanceThreshold,
-			ConfidenceThreshold: cfg.Orchestrator.Router.ConfidenceThreshold,
-		},
-		nil,
-	)
-	if err != nil {
-		return fmt.Errorf("creating router: %w", err)
-	}
-
 	// Derive vector storage path from database path (sibling directory).
 	vectorPath := filepath.Join(filepath.Dir(cfg.Database.Path), "vectors")
 
@@ -165,6 +151,26 @@ func run() error {
 	vectorStore, err := vector.NewChromemVectorStore(vectorPath, vector.EmbeddingFunc(ollamaEmbFn))
 	if err != nil {
 		return fmt.Errorf("creating vector store: %w", err)
+	}
+
+	// Build vector score advisor (nil when vector scoring is disabled).
+	vectorAdvisor, err := buildVectorAdvisor(cfg.Orchestrator.Router, vectorStore, repo)
+	if err != nil {
+		return fmt.Errorf("creating vector advisor: %w", err)
+	}
+
+	// Create router with Ollama scorer and optional vector advisor.
+	router, err := decisionengine.NewRouter(
+		ollamaClient,
+		[]string{"user"},
+		decisionengine.RouterConfig{
+			ImportanceThreshold: cfg.Orchestrator.Router.ImportanceThreshold,
+			ConfidenceThreshold: cfg.Orchestrator.Router.ConfidenceThreshold,
+		},
+		vectorAdvisor,
+	)
+	if err != nil {
+		return fmt.Errorf("creating router: %w", err)
 	}
 
 	// Create buffer service with vector embedder.
@@ -429,7 +435,14 @@ func buildWatchersFromDB(ctx context.Context, repo repository.ServiceConfigRepos
 // buildVectorAdvisor creates a VectorScoreAdvisor if vector scoring is enabled
 // in the router config, or returns nil if disabled.
 func buildVectorAdvisor(cfg config.RouterConfig, querier vector.VectorQuerier, msgQuerier decisionengine.MessageQuerier) (decisionengine.VectorScoreAdvisor, error) {
-	return nil, nil
+	if !cfg.VectorEnabled {
+		return nil, nil
+	}
+	return decisionengine.NewVectorScoreAdvisor(querier, msgQuerier, decisionengine.VectorAdvisorConfig{
+		SimilarityThreshold: cfg.VectorSimilarityThreshold,
+		TopN:                cfg.VectorTopN,
+		DampingFactor:       cfg.VectorDampingFactor,
+	})
 }
 
 // osFileSystem implements alert.FileSystem using the real OS.

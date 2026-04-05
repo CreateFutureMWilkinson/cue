@@ -102,6 +102,33 @@ func (s *LayoutSuite) TestBodyEntirelyInsideAtMax() {
 		"position (1,1) body bottom edge should align with interior bottom wall")
 }
 
+func (s *LayoutSuite) TestGlowLayersConcentricWithBody() {
+	f := NewFairyCharacter()
+	f.DisableRefresh()
+	f.SetPosition(0.0, 0.0)
+
+	f.Widget().Resize(fyne.NewSize(375, 795))
+
+	body := f.BodyCircle()
+	bodyDiam := float32(375) * bodyRatio
+	bodyCenterX := body.Position().X + bodyDiam/2
+	bodyCenterY := body.Position().Y + bodyDiam/2
+
+	glowDiam := float32(375) * glowRatio
+	for i, glowLayer := range f.GlowLayers() {
+		interpolation := float32(i+1) / float32(fairyGlowLayerCount)
+		diameter := bodyDiam + (glowDiam-bodyDiam)*interpolation
+
+		glowCenterX := glowLayer.Position().X + diameter/2
+		glowCenterY := glowLayer.Position().Y + diameter/2
+
+		s.InDelta(bodyCenterX, glowCenterX, 0.01,
+			"glow layer %d center X should match body center X", i)
+		s.InDelta(bodyCenterY, glowCenterY, 0.01,
+			"glow layer %d center Y should match body center Y", i)
+	}
+}
+
 func (s *LayoutSuite) TestBodyCenteredAtHalf() {
 	f := NewFairyCharacter()
 	f.DisableRefresh()

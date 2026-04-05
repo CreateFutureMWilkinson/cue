@@ -122,9 +122,12 @@ func (s *KeyFileEncryptorSuite) TestPathTraversalPrevention() {
 	s.Require().NoError(err)
 
 	// Build a traversal path that starts in allowedDir but escapes via "../"
-	// to reach the key in secretDir.
+	// to reach the key in secretDir. Use string concatenation (not filepath.Join)
+	// to preserve the ".." component — filepath.Join would normalize it away.
 	// e.g. /tmp/allowedXXX/../secretXXX/traversal.key
-	traversalPath := filepath.Join(allowedDir, "..", filepath.Base(secretDir), keyFileName)
+	traversalPath := allowedDir + string(filepath.Separator) + ".." +
+		string(filepath.Separator) + filepath.Base(secretDir) +
+		string(filepath.Separator) + keyFileName
 
 	// Verify the traversal path actually resolves to the real key file
 	// (proving the path is valid on disk, just not scoped).

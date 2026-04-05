@@ -5,7 +5,10 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 // Encryptor defines the contract for symmetric encryption/decryption.
@@ -21,21 +24,51 @@ type KeyFileEncryptor struct {
 
 // NewKeyFileEncryptor creates a KeyFileEncryptor. If keyPath does not exist, a new
 // 32-byte random key is generated and written with mode 0600. If it exists, the file
-// must contain exactly 32 bytes.
+// must contain exactly 32 bytes. Paths containing ".." traversal components are rejected.
 func NewKeyFileEncryptor(keyPath string) (*KeyFileEncryptor, error) {
+	// Reject paths containing ".." components to prevent path traversal (G304).
+	for _, part := range strings.Split(filepath.ToSlash(keyPath), "/") {
+		if part == ".." {
+			return nil, fmt.Errorf("key path must not contain path traversal (..): %s", keyPath)
+		}
+	}
+
+	cleaned := filepath.Clean(keyPath)
+	dir := filepath.Dir(cleaned)
+	base := filepath.Base(cleaned)
+
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, fmt.Errorf("opening key directory: %w", err)
+	}
+	defer root.Close()
+
 	var key []byte
 
-	if _, err := os.Stat(keyPath); os.IsNotExist(err) {
+	if _, err := root.Stat(base); os.IsNotExist(err) {
 		key = make([]byte, 32)
 		if _, err := rand.Read(key); err != nil {
 			return nil, fmt.Errorf("generating key: %w", err)
 		}
-		if err := os.WriteFile(keyPath, key, 0600); err != nil {
+		f, err := root.OpenFile(base, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
 			return nil, fmt.Errorf("writing key file: %w", err)
 		}
+		_, writeErr := f.Write(key)
+		closeErr := f.Close()
+		if writeErr != nil {
+			return nil, fmt.Errorf("writing key file: %w", writeErr)
+		}
+		if closeErr != nil {
+			return nil, fmt.Errorf("closing key file: %w", closeErr)
+		}
 	} else {
-		var err error
-		key, err = os.ReadFile(keyPath)
+		f, err := root.Open(base)
+		if err != nil {
+			return nil, fmt.Errorf("reading key file: %w", err)
+		}
+		key, err = io.ReadAll(f)
+		f.Close()
 		if err != nil {
 			return nil, fmt.Errorf("reading key file: %w", err)
 		}

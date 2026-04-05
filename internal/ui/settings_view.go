@@ -25,13 +25,18 @@ func NewSettingsView(
 ) *SettingsView {
 	slackTab := container.NewTabItem("Slack", widget.NewLabel("Slack Accounts"))
 	emailTab := container.NewTabItem("Email", widget.NewLabel("Email Accounts"))
+	volumeLabel := widget.NewLabel(fmt.Sprintf("Notification Volume: %d%%", sp.Volume()))
 	volumeSlider := &widget.Slider{
 		Min:   0,
 		Max:   100,
 		Step:  1,
 		Value: float64(sp.Volume()),
+		OnChanged: func(v float64) {
+			vol := int(v)
+			sp.SetVolume(vol)
+			volumeLabel.SetText(fmt.Sprintf("Notification Volume: %d%%", vol))
+		},
 	}
-	volumeLabel := widget.NewLabel(fmt.Sprintf("Notification Volume: %d%%", sp.Volume()))
 	audioContent := container.NewVBox(
 		widget.NewLabel("Audio Settings"),
 		volumeLabel,

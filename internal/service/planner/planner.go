@@ -2,6 +2,7 @@ package planner
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -72,10 +73,74 @@ type Planner struct {
 
 // NewPlanner creates a new Planner with the given configuration, estimator, and clock.
 func NewPlanner(cfg config.PlannerConfig, estimator TaskEstimator, clock Clock) (*Planner, error) {
-	return nil, nil
+	if clock == nil {
+		return nil, fmt.Errorf("clock must not be nil")
+	}
+	if err := validatePlannerConfig(cfg); err != nil {
+		return nil, err
+	}
+	return &Planner{
+		cfg:       cfg,
+		estimator: estimator,
+		clock:     clock,
+	}, nil
+}
+
+func validatePlannerConfig(cfg config.PlannerConfig) error {
+	if cfg.PomodoroMinutes <= 0 {
+		return fmt.Errorf("pomodoro_minutes must be greater than 0")
+	}
+	if cfg.ShortBreakMinutes <= 0 {
+		return fmt.Errorf("short_break_minutes must be greater than 0")
+	}
+	if cfg.LongBreakMinutes <= 0 {
+		return fmt.Errorf("long_break_minutes must be greater than 0")
+	}
+	if cfg.LongBreakAfterCycles <= 0 {
+		return fmt.Errorf("long_break_after_cycles must be greater than 0")
+	}
+	if _, err := time.Parse("15:04", cfg.WorkdayStart); err != nil {
+		return fmt.Errorf("workday_start must be a valid HH:MM time: %w", err)
+	}
+	if _, err := time.Parse("15:04", cfg.WorkdayEnd); err != nil {
+		return fmt.Errorf("workday_end must be a valid HH:MM time: %w", err)
+	}
+	if _, err := time.Parse("15:04", cfg.PlanningCutoff); err != nil {
+		return fmt.Errorf("planning_cutoff must be a valid HH:MM time: %w", err)
+	}
+	ws, _ := time.Parse("15:04", cfg.WorkdayStart)
+	we, _ := time.Parse("15:04", cfg.WorkdayEnd)
+	if !we.After(ws) {
+		return fmt.Errorf("workday_end must be after workday_start")
+	}
+	return nil
 }
 
 // TargetDate returns the date that planning should target given the current time.
+// If now is before the planning cutoff on a weekday, returns today.
+// If now is at or after the cutoff, or on a weekend, returns the next working day.
 func (p *Planner) TargetDate(now time.Time) time.Time {
-	return time.Time{}
+	cutoff, _ := time.Parse("15:04", p.cfg.PlanningCutoff)
+	cutoffToday := time.Date(now.Year(), now.Month(), now.Day(),
+		cutoff.Hour(), cutoff.Minute(), 0, 0, now.Location())
+
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	if isWeekday(now) && now.Before(cutoffToday) {
+		return today
+	}
+	return nextWorkingDay(today)
+}
+
+func isWeekday(t time.Time) bool {
+	day := t.Weekday()
+	return day != time.Saturday && day != time.Sunday
+}
+
+func nextWorkingDay(date time.Time) time.Time {
+	next := date.AddDate(0, 0, 1)
+	for !isWeekday(next) {
+		next = next.AddDate(0, 0, 1)
+	}
+	return next
 }

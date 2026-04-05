@@ -1,6 +1,7 @@
 package character_test
 
 import (
+	"image/color"
 	"sync"
 	"testing"
 	"time"
@@ -248,29 +249,90 @@ func (s *FairyCharacterSuite) TestStartupAutoTransitionsToIdle() {
 
 // --- Visual refresh / glow alpha tests ---
 
-func (s *FairyCharacterSuite) TestSetGlowIntensityUpdatesGlowAlpha() {
+// GlowBaseAlphas defines the expected graduated base alphas from inner to outer.
+var glowBaseAlphas = [8]uint8{128, 112, 96, 80, 64, 48, 32, 16}
+
+func (s *FairyCharacterSuite) TestSetGlowIntensityUpdatesGlowAlphaGraduated() {
 	fairy := character.NewFairyCharacter()
 	fairy.DisableRefresh()
 
-	// Set glow intensity to 1.0 — glow layers should have non-zero alpha.
+	// Set glow intensity to 1.0 — each layer should have its graduated base alpha.
 	fairy.SetGlowIntensity(1.0)
 	layers := fairy.GlowLayers()
-	s.Require().NotEmpty(layers, "fairy should have glow layers")
+	s.Require().Len(layers, 8, "fairy should have exactly 8 glow layers")
 
 	for i, gl := range layers {
 		_, _, _, a := gl.FillColor.RGBA()
 		alpha := uint8((a >> 8) & 0xFF)
-		s.Equal(uint8(30), alpha,
-			"glow layer %d alpha should be glowAlpha (30) when intensity=1.0", i)
+		s.Equal(glowBaseAlphas[i], alpha,
+			"glow layer %d alpha should be %d when intensity=1.0", i, glowBaseAlphas[i])
 	}
 
-	// Set glow intensity to 0.0 — glow layers should have zero alpha.
+	// Set glow intensity to 0.0 — all layers should have zero alpha.
 	fairy.SetGlowIntensity(0.0)
 	for i, gl := range layers {
 		_, _, _, a := gl.FillColor.RGBA()
 		alpha := uint8((a >> 8) & 0xFF)
 		s.Equal(uint8(0), alpha,
 			"glow layer %d alpha should be 0 when intensity=0.0", i)
+	}
+}
+
+func (s *FairyCharacterSuite) TestSetGlowIntensityHalfGraduated() {
+	fairy := character.NewFairyCharacter()
+	fairy.DisableRefresh()
+
+	// At intensity=0.5, each layer's alpha should be half its base alpha.
+	fairy.SetGlowIntensity(0.5)
+	layers := fairy.GlowLayers()
+	s.Require().Len(layers, 8)
+
+	for i, gl := range layers {
+		_, _, _, a := gl.FillColor.RGBA()
+		alpha := uint8((a >> 8) & 0xFF)
+		expected := uint8(float64(glowBaseAlphas[i]) * 0.5)
+		s.Equal(expected, alpha,
+			"glow layer %d alpha should be %d when intensity=0.5", i, expected)
+	}
+}
+
+func (s *FairyCharacterSuite) TestGlowAlphaInnerBrighterThanOuter() {
+	fairy := character.NewFairyCharacter()
+	fairy.DisableRefresh()
+
+	fairy.SetGlowIntensity(1.0)
+	layers := fairy.GlowLayers()
+	s.Require().Len(layers, 8)
+
+	// Inner layer (index 0) alpha should be greater than outer layer (index 7) alpha.
+	_, _, _, aInner := layers[0].FillColor.RGBA()
+	_, _, _, aOuter := layers[7].FillColor.RGBA()
+	s.Greater(uint8((aInner>>8)&0xFF), uint8((aOuter>>8)&0xFF),
+		"inner glow layer should have higher alpha than outer glow layer")
+}
+
+// --- Shutdown tests ---
+
+func (s *FairyCharacterSuite) TestShutdownReturnsCompletionChannel() {
+	fairy, clock := s.newTestFairy()
+
+	// Shutdown should return a channel that closes when the animation completes.
+	done := fairy.Shutdown()
+	s.Require().NotNil(done, "Shutdown() must return a non-nil channel")
+
+	// Verify state transitions to ShuttingDown.
+	s.Equal(character.StateShuttingDown, fairy.CurrentState(),
+		"Shutdown() should transition to StateShuttingDown")
+
+	// Advance past shutdown duration (1.5s) to complete animation.
+	s.advanceAndTick(clock, 2*time.Second)
+
+	// The done channel should close within a reasonable time.
+	select {
+	case <-done:
+		// Success — animation completed.
+	case <-time.After(2 * time.Second):
+		s.Fail("Shutdown() done channel did not close after animation completed")
 	}
 }
 
@@ -313,6 +375,38 @@ func (s *FairyCharacterSuite) TestCloseWithoutAnimator() {
 }
 
 // --- Thread safety test ---
+
+func (s *FairyCharacterSuite) TestConcurrentSetMethodsDoNotPanic() {
+	fairy := character.NewFairyCharacter()
+	fairy.DisableRefresh()
+	defer fairy.Close()
+
+	var wg sync.WaitGroup
+	for range 10 {
+		wg.Add(3)
+		go func() {
+			defer wg.Done()
+			for range 50 {
+				fairy.SetPosition(0.3, 0.7)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			for range 50 {
+				fairy.SetBodyColor(color.RGBA{R: 255, G: 0, B: 0, A: 255})
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			for range 50 {
+				fairy.SetGlowIntensity(0.5)
+			}
+		}()
+	}
+
+	s.NotPanics(func() { wg.Wait() },
+		"concurrent calls to SetPosition, SetBodyColor, SetGlowIntensity should not panic")
+}
 
 func (s *FairyCharacterSuite) TestConcurrentTransitions() {
 	fairy, _ := s.newTestFairy()

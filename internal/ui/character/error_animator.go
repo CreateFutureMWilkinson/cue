@@ -68,9 +68,7 @@ func (a *ErrorAnimator) Start(fairy *FairyCharacter) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	fairy.SetBodyColor(ErrorBodyColor)
-	fairy.SetPosition(0.5, 0.5)
-	fairy.SetGlowIntensity(ErrorGlowIntensity(0))
+	a.initializeFairyState(fairy)
 
 	startTime := a.clock.Now()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -103,6 +101,13 @@ func (a *ErrorAnimator) Stop() {
 // State returns StateError.
 func (a *ErrorAnimator) State() CharacterState {
 	return StateError
+}
+
+// initializeFairyState sets the fairy to its error appearance and position.
+func (a *ErrorAnimator) initializeFairyState(fairy *FairyCharacter) {
+	fairy.SetBodyColor(ErrorBodyColor)
+	fairy.SetPosition(0.5, 0.5)
+	fairy.SetGlowIntensity(ErrorGlowIntensity(0))
 }
 
 // runAnimationLoop drives the error animation in a separate goroutine.

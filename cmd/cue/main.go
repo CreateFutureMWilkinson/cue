@@ -332,7 +332,7 @@ func run() error {
 
 	// Create and run the Fyne window (blocks until quit).
 	fyneApp := app.New()
-	mainWindow := ui.NewMainWindow(fyneApp, cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, serviceSettingsPresenter, cfg.Ollama, char.Widget(), viewRouter)
+	mainWindow := ui.NewMainWindow(fyneApp, cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, serviceSettingsPresenter, cfg.Ollama, char.Widget(), viewRouter, nil, nil, nil)
 	mainWindow.Run()
 
 	// Graceful shutdown: play shutdown animation if character supports it.

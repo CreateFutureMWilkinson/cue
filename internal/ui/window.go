@@ -50,6 +50,9 @@ func NewMainWindow(
 	ollamaCfg config.OllamaConfig,
 	characterWidget fyne.CanvasObject,
 	viewRouter *CenterViewRouter,
+	plannerVM PlannerViewModel,
+	timerVM TimerViewModel,
+	wizardVM WizardViewModel,
 ) *MainWindow {
 	win := fyneApp.NewWindow("Cue")
 	win.Resize(fyne.NewSize(float32(cfg.WindowWidth), float32(cfg.WindowHeight)))

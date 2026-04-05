@@ -5,12 +5,37 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/planner"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
+
+// stubPlannerTimerVM satisfies both PlannerViewModel and TimerViewModel
+// with zero-value returns for all methods. Used in layout wiring tests.
+type stubPlannerTimerVM struct{}
+
+func (s *stubPlannerTimerVM) CurrentStep() presenter.WizardStep      { return presenter.StepIdle }
+func (s *stubPlannerTimerVM) HasActivePlan() bool                    { return false }
+func (s *stubPlannerTimerVM) AvailableTasks() []presenter.TodoRow    { return nil }
+func (s *stubPlannerTimerVM) Estimates() []presenter.TaskEstimateRow { return nil }
+func (s *stubPlannerTimerVM) EstimateSummary() presenter.EstimateSummary {
+	return presenter.EstimateSummary{}
+}
+func (s *stubPlannerTimerVM) FocusSchedule() *presenter.SchedulePreview { return nil }
+func (s *stubPlannerTimerVM) RecoverySchedule() *presenter.SchedulePreview {
+	return nil
+}
+func (s *stubPlannerTimerVM) ActiveSchedule() *presenter.ActiveScheduleState { return nil }
+func (s *stubPlannerTimerVM) IsRunning() bool                                { return false }
+func (s *stubPlannerTimerVM) ActiveSegment() int                             { return 0 }
+func (s *stubPlannerTimerVM) ElapsedFraction() float64                       { return 0 }
+func (s *stubPlannerTimerVM) IsFlashVisible() bool                           { return false }
+func (s *stubPlannerTimerVM) CurrentTaskName() string                        { return "" }
+func (s *stubPlannerTimerVM) BlockType() planner.BlockType                   { return planner.BlockFocus }
 
 // ThreeColumnLayoutSuite tests that the MainWindow API accepts the
 // CenterViewRouter parameter required by the three-column layout.
@@ -43,6 +68,9 @@ func newTestMainWindow(fyneApp fyne.App, router *ui.CenterViewRouter) *ui.MainWi
 		config.OllamaConfig{},
 		nil, // characterWidget
 		router,
+		nil, // plannerVM
+		nil, // timerVM
+		nil, // wizardVM
 	)
 }
 
@@ -129,6 +157,43 @@ func (s *ThreeColumnLayoutSuite) TestNavigateToSettingsSwapsCenterContent() {
 	s.NotNil(newContent, "CenterContent should not be nil after navigating to ViewSettings")
 	s.NotEqual(originalContent, newContent,
 		"Navigating to ViewSettings should swap the center pane to different content")
+}
+
+func (s *ThreeColumnLayoutSuite) TestViewPlanShowsPlannerViewWhenVMsProvided() {
+	fyneApp := test.NewApp()
+	router := ui.NewCenterViewRouter()
+	vm := &stubPlannerTimerVM{}
+
+	cfg := config.GUIConfig{
+		WindowWidth:  1200,
+		WindowHeight: 800,
+	}
+	mw := ui.NewMainWindow(
+		fyneApp,
+		cfg,
+		(*presenter.NotificationPresenter)(nil),
+		(*presenter.ActivityPresenter)(nil),
+		(*presenter.FeedbackPresenter)(nil),
+		(*presenter.AppPresenter)(nil),
+		(*presenter.SettingsPresenter)(nil),
+		(*presenter.ServiceSettingsPresenter)(nil),
+		config.OllamaConfig{},
+		nil, // characterWidget
+		router,
+		vm,  // plannerVM
+		vm,  // timerVM
+		nil, // wizardVM
+	)
+
+	router.NavigateTo(ui.ViewPlan)
+
+	content := mw.CenterContent()
+	s.Require().NotNil(content, "CenterContent should not be nil after navigating to ViewPlan")
+
+	// When PlannerViewModel and TimerViewModel are provided, ViewPlan should
+	// show a real PlannerView container, NOT a placeholder label.
+	_, isLabel := content.(*widget.Label)
+	s.False(isLabel, "ViewPlan content should be a *fyne.Container from PlannerView, not a *widget.Label placeholder")
 }
 
 func (s *ThreeColumnLayoutSuite) TestNavigateBackToCharacterRestoresContent() {

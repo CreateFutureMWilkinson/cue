@@ -117,6 +117,9 @@ func (s *ViewContentSuite) TestSettingsViewWithPresentersContainsTabs() {
 		config.OllamaConfig{},
 		nil, // characterWidget
 		router,
+		nil, // plannerVM
+		nil, // timerVM
+		nil, // wizardVM
 	)
 
 	router.NavigateTo(ui.ViewSettings)

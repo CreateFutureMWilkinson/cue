@@ -32,10 +32,12 @@ type TimerViewModel interface {
 }
 
 // PlannerView is the Fyne component for the day planner wizard and active schedule.
+// It displays different sets of buttons based on the current wizard step or active plan state.
 type PlannerView struct {
 	plannerModel PlannerViewModel
 	timerModel   TimerViewModel
 
+	// Navigation and control buttons
 	planBtn         *widget.Button
 	nextBtn         *widget.Button
 	backBtn         *widget.Button
@@ -52,12 +54,7 @@ func NewPlannerView(plannerModel PlannerViewModel, timerModel TimerViewModel) *P
 		timerModel:   timerModel,
 	}
 
-	v.planBtn = widget.NewButton("Plan My Day", func() {})
-	v.nextBtn = widget.NewButton("Next", func() {})
-	v.backBtn = widget.NewButton("Back", func() {})
-	v.completeTaskBtn = widget.NewButton("Complete Task", func() {})
-	v.abandonBtn = widget.NewButton("Abandon Plan", func() {})
-
+	v.initializeButtons()
 	v.applyVisibility()
 
 	v.container = container.NewVBox(
@@ -71,27 +68,36 @@ func NewPlannerView(plannerModel PlannerViewModel, timerModel TimerViewModel) *P
 	return v
 }
 
+// initializeButtons creates all the buttons with their default text and empty callbacks.
+func (v *PlannerView) initializeButtons() {
+	v.planBtn = widget.NewButton("Plan My Day", func() {})
+	v.nextBtn = widget.NewButton("Next", func() {})
+	v.backBtn = widget.NewButton("Back", func() {})
+	v.completeTaskBtn = widget.NewButton("Complete Task", func() {})
+	v.abandonBtn = widget.NewButton("Abandon Plan", func() {})
+}
+
 // Container returns the top-level Fyne container for the planner view.
 func (v *PlannerView) Container() *fyne.Container {
 	return v.container
 }
 
-// PlanButton returns the "Plan My Day" button.
+// PlanButton returns the "Plan My Day" button for initiating the day planning wizard.
 func (v *PlannerView) PlanButton() *widget.Button { return v.planBtn }
 
-// NextButton returns the "Next" wizard step button.
+// NextButton returns the "Next" button for progressing through wizard steps.
 func (v *PlannerView) NextButton() *widget.Button { return v.nextBtn }
 
-// BackButton returns the "Back" wizard step button.
+// BackButton returns the "Back" button for returning to previous wizard steps.
 func (v *PlannerView) BackButton() *widget.Button { return v.backBtn }
 
-// CompleteTaskButton returns the "Complete Task" button.
+// CompleteTaskButton returns the "Complete Task" button for finishing the current active task.
 func (v *PlannerView) CompleteTaskButton() *widget.Button { return v.completeTaskBtn }
 
-// AbandonButton returns the "Abandon Plan" button.
+// AbandonButton returns the "Abandon Plan" button for cancelling the active schedule.
 func (v *PlannerView) AbandonButton() *widget.Button { return v.abandonBtn }
 
-// SetPlannerModel replaces the planner view model.
+// SetPlannerModel replaces the planner view model and updates button visibility.
 func (v *PlannerView) SetPlannerModel(model PlannerViewModel) {
 	v.plannerModel = model
 }
@@ -110,40 +116,44 @@ func (v *PlannerView) Refresh() {
 func (v *PlannerView) applyVisibility() {
 	step := v.plannerModel.CurrentStep()
 
-	// PlanButton: visible only at StepIdle
-	if step == presenter.StepIdle {
-		v.planBtn.Show()
+	// Configure visibility for each button based on the current step
+	v.setButtonVisibility(v.planBtn, v.isPlanButtonVisible(step))
+	v.setButtonVisibility(v.nextBtn, v.isNextButtonVisible(step))
+	v.setButtonVisibility(v.backBtn, v.isBackButtonVisible(step))
+	v.setButtonVisibility(v.completeTaskBtn, v.isActiveStepButton(step))
+	v.setButtonVisibility(v.abandonBtn, v.isActiveStepButton(step))
+}
+
+// setButtonVisibility shows or hides a button based on the visible flag.
+func (v *PlannerView) setButtonVisibility(button *widget.Button, visible bool) {
+	if visible {
+		button.Show()
 	} else {
-		v.planBtn.Hide()
+		button.Hide()
 	}
+}
 
-	// NextButton: visible at StepTaskSelect, StepEstimates, StepPriority
-	switch step {
-	case presenter.StepTaskSelect, presenter.StepEstimates, presenter.StepPriority:
-		v.nextBtn.Show()
-	default:
-		v.nextBtn.Hide()
-	}
+// isPlanButtonVisible returns true if the Plan button should be visible for the given step.
+func (v *PlannerView) isPlanButtonVisible(step presenter.WizardStep) bool {
+	return step == presenter.StepIdle
+}
 
-	// BackButton: visible at StepTaskSelect, StepEstimates, StepPriority, StepSchedule
-	switch step {
-	case presenter.StepTaskSelect, presenter.StepEstimates, presenter.StepPriority, presenter.StepSchedule:
-		v.backBtn.Show()
-	default:
-		v.backBtn.Hide()
-	}
+// isNextButtonVisible returns true if the Next button should be visible for the given step.
+func (v *PlannerView) isNextButtonVisible(step presenter.WizardStep) bool {
+	return step == presenter.StepTaskSelect ||
+		step == presenter.StepEstimates ||
+		step == presenter.StepPriority
+}
 
-	// CompleteTaskButton: visible only at StepActive
-	if step == presenter.StepActive {
-		v.completeTaskBtn.Show()
-	} else {
-		v.completeTaskBtn.Hide()
-	}
+// isBackButtonVisible returns true if the Back button should be visible for the given step.
+func (v *PlannerView) isBackButtonVisible(step presenter.WizardStep) bool {
+	return step == presenter.StepTaskSelect ||
+		step == presenter.StepEstimates ||
+		step == presenter.StepPriority ||
+		step == presenter.StepSchedule
+}
 
-	// AbandonButton: visible only at StepActive
-	if step == presenter.StepActive {
-		v.abandonBtn.Show()
-	} else {
-		v.abandonBtn.Hide()
-	}
+// isActiveStepButton returns true if active step buttons (Complete/Abandon) should be visible.
+func (v *PlannerView) isActiveStepButton(step presenter.WizardStep) bool {
+	return step == presenter.StepActive
 }

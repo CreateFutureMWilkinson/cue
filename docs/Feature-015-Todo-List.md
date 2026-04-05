@@ -8,7 +8,7 @@
 
 ## Overview
 
-Standalone task manager providing CRUD operations for todos with user-defined categories. Todos are the canonical task source for the day planner (Feature 017) and can also be created directly during the planning flow. Categories support name and color, with autocomplete from previously used values. All data persisted in SQLite using the established repository pattern.
+Standalone task manager providing CRUD operations for todos with user-defined categories. Todos are the canonical task source for the day planner (Feature 021) and can also be created directly during the planning flow. Categories support name and color, with autocomplete from previously used values. All data persisted in SQLite using the established repository pattern.
 
 ## Design Decisions
 
@@ -127,8 +127,8 @@ func NewSQLiteCategoryRepository(dbPath string) (*SQLiteCategoryRepository, erro
 
 ## Integration Points
 
-- **Day Planner (Feature 017):** Reads incomplete todos as task candidates for schedule generation. Writes new todos created during planning flow.
-- **Planner UI (Feature 018):** TodoPresenter queries todos for display, supports create/edit/complete/delete actions.
+- **Day Planner (Feature 021):** Reads incomplete todos as task candidates for schedule generation. Writes new todos created during planning flow.
+- **Planner UI (Feature 022):** TodoPresenter queries todos for display, supports create/edit/complete/delete actions.
 - **Config:** No config section needed for MVP — todo storage uses the same database path as messages (`database.path`).
 
 ## Test Coverage Plan

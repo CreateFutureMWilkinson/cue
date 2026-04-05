@@ -52,13 +52,15 @@ func (s *LayoutSuite) TestNoGapsWhenAspectRatiosMatch() {
 	s.InDelta(400.0, h, 0.01, "matching aspect height should equal container height")
 }
 
-// --- Behavior 2: Interior Bounds Mapping ---
+// --- Behavior 2: Body Circle Edge Inset ---
 //
-// These tests verify that positionCircle maps the fairy's normalized 0.0–1.0
-// position into the jar's interior region, not the full container.
+// The ENTIRE circle must stay within the jar interior. At pos=0 the circle's
+// leading edge touches the interior wall; at pos=1 the trailing edge touches
+// the opposite wall. The circle diameter is subtracted from the available
+// interior span so half the body never extends outside the jar walls.
 // Jar image is 375x795 (aspect ≈ 0.4717).
 
-func (s *LayoutSuite) TestPositionOriginMapsToInteriorTopLeft() {
+func (s *LayoutSuite) TestBodyEntirelyInsideAtOrigin() {
 	f := NewFairyCharacter()
 	f.DisableRefresh()
 	f.SetPosition(0.0, 0.0)
@@ -67,20 +69,19 @@ func (s *LayoutSuite) TestPositionOriginMapsToInteriorTopLeft() {
 	f.Widget().Resize(fyne.NewSize(375, 795))
 
 	body := f.BodyCircle()
-	bodyDiam := float32(375) * bodyRatio
 
-	// Expected: x = 0 + jarInteriorLeft * 375 - bodyDiam/2
-	//           y = 0 + jarInteriorTop * 795 - bodyDiam/2
-	expectedX := float32(jarInteriorLeft)*375 - bodyDiam/2
-	expectedY := float32(jarInteriorTop)*795 - bodyDiam/2
+	// At pos (0,0) the circle's top-left corner should align with the
+	// interior top-left corner — the entire circle is inside the jar.
+	expectedX := float32(jarInteriorLeft) * 375
+	expectedY := float32(jarInteriorTop) * 795
 
 	s.InDelta(expectedX, body.Position().X, 1.0,
-		"position (0,0) body X should map to interior left edge")
+		"position (0,0) body left edge should align with interior left wall")
 	s.InDelta(expectedY, body.Position().Y, 1.0,
-		"position (0,0) body Y should map to interior top edge")
+		"position (0,0) body top edge should align with interior top wall")
 }
 
-func (s *LayoutSuite) TestPositionMaxMapsToInteriorBottomRight() {
+func (s *LayoutSuite) TestBodyEntirelyInsideAtMax() {
 	f := NewFairyCharacter()
 	f.DisableRefresh()
 	f.SetPosition(1.0, 1.0)
@@ -90,16 +91,18 @@ func (s *LayoutSuite) TestPositionMaxMapsToInteriorBottomRight() {
 	body := f.BodyCircle()
 	bodyDiam := float32(375) * bodyRatio
 
-	expectedX := float32(jarInteriorRight)*375 - bodyDiam/2
-	expectedY := float32(jarInteriorBottom)*795 - bodyDiam/2
+	// At pos (1,1) the circle's right/bottom edges should align with the
+	// interior right/bottom walls. Top-left = wall - diameter.
+	expectedX := float32(jarInteriorRight)*375 - bodyDiam
+	expectedY := float32(jarInteriorBottom)*795 - bodyDiam
 
 	s.InDelta(expectedX, body.Position().X, 1.0,
-		"position (1,1) body X should map to interior right edge")
+		"position (1,1) body right edge should align with interior right wall")
 	s.InDelta(expectedY, body.Position().Y, 1.0,
-		"position (1,1) body Y should map to interior bottom edge")
+		"position (1,1) body bottom edge should align with interior bottom wall")
 }
 
-func (s *LayoutSuite) TestPositionCenterMapsToInteriorCenter() {
+func (s *LayoutSuite) TestBodyCenteredAtHalf() {
 	f := NewFairyCharacter()
 	f.DisableRefresh()
 	f.SetPosition(0.5, 0.5)
@@ -109,13 +112,19 @@ func (s *LayoutSuite) TestPositionCenterMapsToInteriorCenter() {
 	body := f.BodyCircle()
 	bodyDiam := float32(375) * bodyRatio
 
-	midX := float32(jarInteriorLeft+jarInteriorRight) / 2
-	midY := float32(jarInteriorTop+jarInteriorBottom) / 2
-	expectedX := midX*375 - bodyDiam/2
-	expectedY := midY*795 - bodyDiam/2
+	// Interior pixel boundaries.
+	intLeft := float32(jarInteriorLeft) * 375
+	intRight := float32(jarInteriorRight) * 375
+	intTop := float32(jarInteriorTop) * 795
+	intBottom := float32(jarInteriorBottom) * 795
+
+	// At pos (0.5, 0.5) the body is centered in the available interior span
+	// (which is interior size minus the body diameter).
+	expectedX := intLeft + 0.5*(intRight-intLeft-bodyDiam)
+	expectedY := intTop + 0.5*(intBottom-intTop-bodyDiam)
 
 	s.InDelta(expectedX, body.Position().X, 1.0,
-		"position (0.5,0.5) body X should map to interior center")
+		"position (0.5,0.5) body X should be centered in interior")
 	s.InDelta(expectedY, body.Position().Y, 1.0,
-		"position (0.5,0.5) body Y should map to interior center")
+		"position (0.5,0.5) body Y should be centered in interior")
 }

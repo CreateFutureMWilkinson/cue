@@ -161,6 +161,22 @@ func (s *SettingsInteractionSuite) TestOllamaTabDisplaysConfigFields() {
 	s.True(foundModel, "Ollama tab should contain a label with the configured inference model 'neural-chat'")
 }
 
+func (s *SettingsInteractionSuite) TestSlackTabContainsAddButton() {
+	root := s.sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	slackContent := tabs.Items[0].Content
+
+	_, found := uitest.FindWidget[*widget.Button](slackContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	s.True(found, "Slack tab should contain an 'Add Account' button")
+}
+
 func (s *SettingsInteractionSuite) TestAudioSliderOnChangedCallsPresenterSetVolume() {
 	root := s.sv.Container()
 

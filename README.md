@@ -24,7 +24,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 11 | Fyne GUI | Done |
 | 12 | Configurable audio alerts (amendment) | Done |
 | 13 | gopxl/beep audio player (amendment) | Done |
-| 16 | Three-column layout + center view router | Planned |
+| 16 | Three-column layout + center view router | Done |
 | 17 | Focus rail (timer ring shell, navigation) | Planned |
 | 18 | Notification panel redesign (color-coded cards) | Planned |
 | 19 | Activity log drawer | Planned |

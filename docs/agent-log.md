@@ -87,3 +87,6 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-2-Feature-15 (todo) | RED | Test Designer | — | — | cf5a27f |
 | Phase-2-Feature-15 (todo) | GREEN | Implementer | — | — | 9fce09e |
 | Phase-2-Feature-15 (todo) | REFACTOR | Refactorer | 82s | 29,376 | effa192 |
+| Phase-1-Feature-16 | RED | Test Designer | 89s | 22,943 | e3c364b |
+| Phase-1-Feature-16 | GREEN | Implementer | 476s | 46,629 | 49308c9 |
+| Phase-1-Feature-16 | REFACTOR | Refactorer | 87s | 41,773 | 32d6cc7 |

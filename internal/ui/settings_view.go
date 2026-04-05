@@ -23,7 +23,15 @@ func NewSettingsView(
 	ssp *presenter.ServiceSettingsPresenter,
 	ollamaCfg config.OllamaConfig,
 ) *SettingsView {
-	slackTab := container.NewTabItem("Slack", widget.NewLabel("Slack Accounts"))
+	slackAccountList := container.NewVBox()
+	addSlackBtn := widget.NewButton("Add Account", func() {})
+	slackContent := container.NewBorder(
+		widget.NewLabel("Slack Accounts"),
+		addSlackBtn,
+		nil, nil,
+		container.NewVScroll(slackAccountList),
+	)
+	slackTab := container.NewTabItem("Slack", slackContent)
 	emailTab := container.NewTabItem("Email", widget.NewLabel("Email Accounts"))
 	volumeLabel := widget.NewLabel(fmt.Sprintf("Notification Volume: %d%%", sp.Volume()))
 	volumeSlider := &widget.Slider{

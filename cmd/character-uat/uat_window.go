@@ -37,7 +37,7 @@ type UATWindow struct {
 	charContainer *fyne.Container
 	stateButtons  []*widget.Button
 	dropdown      *widget.Select
-	stopFPS       chan struct{}
+	fpsLoop       *FPSLoop
 }
 
 // NewUATWindow creates a new UAT harness window attached to the given app.
@@ -47,11 +47,18 @@ func NewUATWindow(app fyne.App) *UATWindow {
 	w := &UATWindow{
 		window:     app.NewWindow("Character UAT"),
 		fps:        NewFPSCounter(),
-		stopFPS:    make(chan struct{}),
 		charLabel:  widget.NewLabel("Character: (none)"),
 		stateLabel: widget.NewLabel("State: (none)"),
 		fpsLabel:   widget.NewLabel("FPS: 0"),
 	}
+
+	w.fpsLoop = NewFPSLoop(FPSLoopConfig{
+		Counter:  w.fps,
+		Interval: fpsUpdateInterval,
+		OnFPSUpdate: func(text string) {
+			fyne.Do(func() { w.fpsLabel.SetText(text) })
+		},
+	})
 
 	w.charContainer = container.NewStack()
 
@@ -76,9 +83,9 @@ func NewUATWindow(app fyne.App) *UATWindow {
 // Run starts the FPS update goroutine and shows the window. It blocks
 // until the window is closed.
 func (w *UATWindow) Run() {
-	go w.updateFPSLoop()
+	w.fpsLoop.Start()
 	w.window.ShowAndRun()
-	close(w.stopFPS)
+	w.fpsLoop.Stop()
 }
 
 // selectCharacter creates a character by name from the registry and swaps
@@ -196,21 +203,6 @@ func (w *UATWindow) buildLayout() {
 
 	content := container.New(layout.NewBorderLayout(nil, footer, nil, nil), footer, split)
 	w.window.SetContent(content)
-}
-
-// updateFPSLoop periodically refreshes the FPS label.
-func (w *UATWindow) updateFPSLoop() {
-	ticker := time.NewTicker(fpsUpdateInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			fps := w.fps.FPS()
-			w.fpsLabel.SetText(fmt.Sprintf("FPS: %.1f", fps))
-		case <-w.stopFPS:
-			return
-		}
-	}
 }
 
 // setStateButtonsEnabled enables or disables all state trigger buttons.

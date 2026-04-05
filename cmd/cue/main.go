@@ -195,6 +195,9 @@ func run() error {
 	// Start character presenter.
 	charPresenter.Start(ctx)
 
+	// Trigger startup animation (fairy fades from dormant to idle over 1.5s).
+	char.TransitionTo(character.StateStarting)
+
 	// Create center view router for three-column layout.
 	viewRouter := ui.NewCenterViewRouter()
 
@@ -202,7 +205,15 @@ func run() error {
 	mainWindow := ui.NewMainWindow(cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, char.Widget(), viewRouter)
 	mainWindow.Run()
 
-	// Graceful shutdown.
+	// Graceful shutdown: play shutdown animation if character supports it.
+	type shutdownable interface {
+		Shutdown() <-chan struct{}
+	}
+	if s, ok := char.(shutdownable); ok {
+		<-s.Shutdown()
+	} else {
+		char.Close()
+	}
 	charPresenter.Stop()
 	_ = appPresenter.Shutdown(ctx)
 	_ = orch.Stop()

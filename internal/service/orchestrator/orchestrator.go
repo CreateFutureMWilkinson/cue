@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
 )
 
 // Watcher polls an external source for new messages.
@@ -66,57 +67,56 @@ func NewOrchestrator(cfg OrchestratorConfig, router BatchRouter, repo repository
 	}, nil
 }
 
+// emitEvent sends an activity event to the event channel.
+func (o *Orchestrator) emitEvent(source, message string, isError bool) {
+	o.eventCh <- ActivityEvent{
+		Source:  source,
+		Message: message,
+		IsError: isError,
+	}
+}
+
 // PollOnce executes a single poll cycle across all watchers.
 func (o *Orchestrator) PollOnce(ctx context.Context) {
 	for name, watcher := range o.watchers {
 		msgs, err := watcher.Poll(ctx)
 		if err != nil {
-			o.eventCh <- ActivityEvent{
-				Source:  name,
-				Message: fmt.Sprintf("poll error: %s", err.Error()),
-				IsError: true,
-			}
+			o.emitEvent(name, fmt.Sprintf("poll error: %s", err.Error()), true)
 			continue
 		}
 
-		o.eventCh <- ActivityEvent{
-			Source:  name,
-			Message: fmt.Sprintf("fetched %d messages", len(msgs)),
-			IsError: false,
-		}
+		o.emitEvent(name, fmt.Sprintf("fetched %d messages", len(msgs)), false)
 
 		routed, err := o.router.RouteBatch(ctx, msgs)
 		if err != nil {
-			o.eventCh <- ActivityEvent{
-				Source:  name,
-				Message: fmt.Sprintf("routing error: %s", err.Error()),
-				IsError: true,
-			}
+			o.emitEvent(name, fmt.Sprintf("routing error: %s", err.Error()), true)
 			continue
 		}
 
-		var notified, buffered, ignored int
+		notified, buffered, ignored := countByStatus(routed)
 		for _, msg := range routed {
-			switch msg.Status {
-			case "Notified":
-				notified++
-			case "Buffered":
-				buffered++
-			case "Ignored":
-				ignored++
-			}
-
 			if err := o.repo.Insert(ctx, msg); err != nil {
 				continue
 			}
 		}
 
-		o.eventCh <- ActivityEvent{
-			Source:  name,
-			Message: fmt.Sprintf("Routed %d NOTIFIED, %d BUFFERED, %d IGNORED", notified, buffered, ignored),
-			IsError: false,
+		o.emitEvent(name, fmt.Sprintf("Routed %d NOTIFIED, %d BUFFERED, %d IGNORED", notified, buffered, ignored), false)
+	}
+}
+
+// countByStatus tallies routed messages by their status.
+func countByStatus(msgs []*repository.Message) (notified, buffered, ignored int) {
+	for _, msg := range msgs {
+		switch msg.Status {
+		case decisionengine.StatusNotified:
+			notified++
+		case decisionengine.StatusBuffered:
+			buffered++
+		case decisionengine.StatusIgnored:
+			ignored++
 		}
 	}
+	return
 }
 
 // Start launches background polling loops. It performs an immediate first poll,
@@ -125,10 +125,7 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	o.cancel = cancel
 
-	o.wg.Add(1)
-	go func() {
-		defer o.wg.Done()
-
+	o.wg.Go(func() {
 		// Immediate first poll
 		o.PollOnce(ctx)
 
@@ -144,7 +141,7 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 				o.PollOnce(ctx)
 			}
 		}
-	}()
+	})
 
 	return nil
 }

@@ -65,8 +65,8 @@ type NotificationConfig struct {
 }
 
 type GUIConfig struct {
-	Host string `toml:"host"`
-	Port int    `toml:"port"`
+	WindowWidth  int `toml:"window_width"`
+	WindowHeight int `toml:"window_height"`
 }
 
 type LoggingConfig struct {
@@ -110,8 +110,8 @@ func defaultConfig() *Config {
 			BatchProcess: true,
 		},
 		GUI: GUIConfig{
-			Host: "localhost",
-			Port: 8080,
+			WindowWidth:  1200,
+			WindowHeight: 800,
 		},
 		Logging: LoggingConfig{
 			LogLevel: "info",
@@ -193,7 +193,8 @@ func (c *Config) Validate() error {
 		{"ollama.embedding_model", func(cfg *Config) bool { return cfg.Ollama.EmbeddingModel != "" }, "ollama.embedding_model must not be empty"},
 		{"slack.poll_interval_seconds", func(cfg *Config) bool { return cfg.Slack.PollIntervalSeconds >= 0 }, "slack.poll_interval_seconds must not be negative"},
 		{"email.poll_interval_seconds", func(cfg *Config) bool { return cfg.Email.PollIntervalSeconds >= 0 }, "email.poll_interval_seconds must not be negative"},
-		{"gui.port", func(cfg *Config) bool { return cfg.GUI.Port > 0 }, "gui.port must be greater than 0"},
+		{"gui.window_width", func(cfg *Config) bool { return cfg.GUI.WindowWidth > 0 }, "gui.window_width must be greater than 0"},
+		{"gui.window_height", func(cfg *Config) bool { return cfg.GUI.WindowHeight > 0 }, "gui.window_height must be greater than 0"},
 	}
 
 	for _, rule := range rules {

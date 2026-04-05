@@ -3,7 +3,7 @@
 **Phase:** Phase-6-Feature-054
 **Type:** Bugfix
 **Severity:** Critical
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/service/orchestrator/`, `cmd/cue/`
 **Related:** Feature 010 (Audio Alerts), Feature 012 (Configurable Audio Alerts), Feature 007 (Orchestrator)
 
@@ -23,23 +23,39 @@ The `AlertService` instance exists but is completely inert at runtime. No code p
 
 ## Root Cause
 
-`cmd/cue/main.go:175-190` — `alertSvc` is created and configured but never passed to the orchestrator or connected via callback. The orchestrator has no reference to the alert service.
+`cmd/cue/main.go` — `alertSvc` was created and configured but never passed to the orchestrator or connected via callback. The orchestrator had no reference to the alert service.
 
-## Proposed Fix
+## Fix (Option B — Interface Injection)
 
-Wire the alert service into the orchestrator's post-routing pipeline. The orchestrator already iterates over routed messages to insert them — add a callback or direct dependency that triggers `alertSvc.PlayNotification()` for each message with status NOTIFIED.
+Chose Option B: defined a minimal `Alerter` interface in the orchestrator package and injected the `AlertService` via the constructor.
 
-Two approaches:
+### Design
 
-**Option A (callback):** Add an `OnNotified func()` callback to the orchestrator. Set it to `alertSvc.PlayNotification` in `main.go`.
+1. **`Alerter` interface** (`orchestrator.go:27-30`) — single method `PlayNotification(ctx context.Context) error`
+2. **Constructor injection** — `NewOrchestrator` accepts an `Alerter` parameter (nullable for backwards compatibility)
+3. **Post-routing trigger** (`orchestrator.go:163-167`) — after counting routed messages, if `notified > 0` and alerter is non-nil, calls `PlayNotification`
+4. **`main.go` wiring** — `alertSvc` passed directly to `NewOrchestrator`
 
-**Option B (interface injection):** Define a minimal `Alerter` interface (`PlayNotification()`) and inject it into the orchestrator constructor.
+### Error Handling
 
-Option A is simpler and avoids adding a new interface for a single method.
+- Alert errors are non-fatal: logged as activity events, do not abort the poll cycle
+- Nil alerter is safe: guarded by nil check, no panic
 
-## Test Strategy
+## Test Coverage
 
-- RED: Test that the orchestrator calls the `OnNotified` callback when a message is routed as NOTIFIED
-- RED: Test that the callback is NOT called for BUFFERED or IGNORED messages
-- GREEN: Implement the callback wiring
-- REFACTOR: Clean up
+| Test | Behavior |
+|---|---|
+| `TestPollCycleTriggersAlertOnNotified` | Alert fires when batch contains NOTIFIED messages |
+| `TestPollCycleNoAlertOnBufferedOnly` | Alert does NOT fire for BUFFERED-only batches |
+| `TestPollCycleAlertErrorNonFatal` | Alert error does not crash or abort poll cycle |
+| `TestPollCycleNilAlerterSafe` | Nil alerter does not panic on NOTIFIED messages |
+
+All tests pass. Coverage includes the happy path, negative case, error path, and nil-safety.
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Commit |
+|---|---|---|
+| RED | Test Designer | `129c97b` |
+| GREEN | Implementer | `a03bfa4` |
+| REFACTOR | Refactorer | `5e71a54` |

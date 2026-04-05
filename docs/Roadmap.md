@@ -104,7 +104,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 |---|---|---|---|---|---|---|
 | 052 | Automated UI testing framework | Enhancement | — | Done | — | [Feature-052](features/phase-6/Feature-052-Automated-UI-Testing.md) |
 | 053 | Email mention detection never triggers IS=8 | Bugfix | Critical | Done | — | [Feature-053](features/phase-6/Feature-053-Email-Mention-Detection.md) |
-| 054 | Audio alerts never fire on NOTIFIED | Bugfix | Critical | Planned | — | [Feature-054](features/phase-6/Feature-054-Audio-Alert-Wiring.md) |
+| 054 | Audio alerts never fire on NOTIFIED | Bugfix | Critical | Done | — | [Feature-054](features/phase-6/Feature-054-Audio-Alert-Wiring.md) |
 | 055 | Focus rail is placeholder label | Bugfix | High | Planned | 052 | [Feature-055](features/phase-6/Feature-055-Focus-Rail-Wiring.md) |
 | 056 | Plan/Wizard views are placeholder labels | Bugfix | High | Planned | 052 | [Feature-056](features/phase-6/Feature-056-Plan-Wizard-Wiring.md) |
 | 057 | Notification panel ignores color-coded cards | Bugfix | High | Planned | 052 | [Feature-057](features/phase-6/Feature-057-Notification-Card-Rendering.md) |

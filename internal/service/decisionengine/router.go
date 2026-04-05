@@ -132,7 +132,16 @@ func (r *Router) applyDeterministicRules(msg *repository.Message) bool {
 		return true
 	}
 
-	// Check for @mentions
+	// Check for mention message type (e.g., email To/CC/BCC detection)
+	if msg.MessageType == "mention" {
+		msg.ImportanceScore = AtMentionImportanceScore
+		msg.ConfidenceScore = HighConfidenceScore
+		msg.Status = StatusNotified
+		msg.Reasoning = "Direct mention of user detected via message type"
+		return true
+	}
+
+	// Check for @mentions in content
 	lower := strings.ToLower(msg.RawContent)
 	for _, u := range r.usernames {
 		if strings.Contains(lower, "@"+strings.ToLower(u)) {

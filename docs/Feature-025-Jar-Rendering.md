@@ -1,7 +1,7 @@
 # Feature 025: Jar Rendering
 
 **Phase:** Phase-3-Feature-025
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/character/`
 
 ---
@@ -152,6 +152,6 @@ This feature initializes the fairy at `#006100`. Color transitions are handled b
 
 | TDD Cycle | Phase | Agent | Duration | Tokens | Commit |
 |---|---|---|---|---|---|
-| Jar Rendering | RED | Test Designer | — | — | — |
-| Jar Rendering | GREEN | Implementer | — | — | — |
-| Jar Rendering | REFACTOR | Refactorer | — | — | — |
+| Jar Rendering | RED | Test Designer | 135s | 28,185 | 9fcc3b9 |
+| Jar Rendering | GREEN | Implementer | 82s | 40,077 | cb044e9 |
+| Jar Rendering | REFACTOR | Refactorer | 80s | 51,088 | 93c357d |

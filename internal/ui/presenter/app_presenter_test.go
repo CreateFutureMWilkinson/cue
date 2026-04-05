@@ -2,7 +2,6 @@ package presenter_test
 
 import (
 	"context"
-	"sync"
 	"testing"
 	"time"
 
@@ -12,30 +11,6 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
-
-// --- Mock Alerter ---
-
-type mockAlerter struct {
-	mu             sync.Mutex
-	startupCalled  bool
-	shutdownCalled bool
-	startupErr     error
-	shutdownErr    error
-}
-
-func (m *mockAlerter) PlayStartup(_ context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.startupCalled = true
-	return m.startupErr
-}
-
-func (m *mockAlerter) PlayShutdown(_ context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.shutdownCalled = true
-	return m.shutdownErr
-}
 
 // --- Helper: minimal mock deps for constructing real sub-presenters ---
 
@@ -92,7 +67,6 @@ type AppPresenterSuite struct {
 	notification *presenter.NotificationPresenter
 	activity     *presenter.ActivityPresenter
 	feedback     *presenter.FeedbackPresenter
-	alerter      *mockAlerter
 }
 
 func TestAppPresenter(t *testing.T) {
@@ -102,7 +76,6 @@ func TestAppPresenter(t *testing.T) {
 func (s *AppPresenterSuite) SetupTest() {
 	s.notifQuerier = &stubMessageQuerier{}
 	s.actSource = newStubActivitySource()
-	s.alerter = &mockAlerter{}
 
 	var err error
 	s.notification, err = presenter.NewNotificationPresenter(s.notifQuerier, &stubMessageUpdater{})
@@ -118,57 +91,27 @@ func (s *AppPresenterSuite) SetupTest() {
 // --- Constructor Tests ---
 
 func (s *AppPresenterSuite) TestConstructorRequiresNotificationPresenter() {
-	_, err := presenter.NewAppPresenter(nil, s.activity, s.feedback, s.alerter)
+	_, err := presenter.NewAppPresenter(nil, s.activity, s.feedback)
 	s.Error(err)
 	s.Contains(err.Error(), "notification")
 }
 
 func (s *AppPresenterSuite) TestConstructorRequiresActivityPresenter() {
-	_, err := presenter.NewAppPresenter(s.notification, nil, s.feedback, s.alerter)
+	_, err := presenter.NewAppPresenter(s.notification, nil, s.feedback)
 	s.Error(err)
 	s.Contains(err.Error(), "activity")
 }
 
 func (s *AppPresenterSuite) TestConstructorRequiresFeedbackPresenter() {
-	_, err := presenter.NewAppPresenter(s.notification, s.activity, nil, s.alerter)
+	_, err := presenter.NewAppPresenter(s.notification, s.activity, nil)
 	s.Error(err)
 	s.Contains(err.Error(), "feedback")
 }
 
-func (s *AppPresenterSuite) TestConstructorAllowsNilAlerter() {
-	p, err := presenter.NewAppPresenter(s.notification, s.activity, s.feedback, nil)
-	s.NoError(err)
-	s.NotNil(p)
-}
-
 // --- Start Tests ---
 
-func (s *AppPresenterSuite) TestStartPlaysStartupAlert() {
-	p, err := presenter.NewAppPresenter(s.notification, s.activity, s.feedback, s.alerter)
-	s.Require().NoError(err)
-
-	ctx := context.Background()
-	err = p.Start(ctx)
-	s.Require().NoError(err)
-	defer p.Shutdown(ctx) //nolint:errcheck
-
-	s.True(s.alerter.startupCalled)
-}
-
-func (s *AppPresenterSuite) TestStartWithNilAlerterDoesNotPanic() {
-	p, err := presenter.NewAppPresenter(s.notification, s.activity, s.feedback, nil)
-	s.Require().NoError(err)
-
-	ctx := context.Background()
-	s.NotPanics(func() {
-		err = p.Start(ctx)
-	})
-	s.NoError(err)
-	defer p.Shutdown(ctx) //nolint:errcheck
-}
-
 func (s *AppPresenterSuite) TestStartStartsActivityPresenter() {
-	p, err := presenter.NewAppPresenter(s.notification, s.activity, s.feedback, s.alerter)
+	p, err := presenter.NewAppPresenter(s.notification, s.activity, s.feedback)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -196,7 +139,7 @@ func (s *AppPresenterSuite) TestStartTriggersNotificationRefresh() {
 		},
 	}
 
-	p, err := presenter.NewAppPresenter(s.notification, s.activity, s.feedback, s.alerter)
+	p, err := presenter.NewAppPresenter(s.notification, s.activity, s.feedback)
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -212,35 +155,8 @@ func (s *AppPresenterSuite) TestStartTriggersNotificationRefresh() {
 
 // --- Shutdown Tests ---
 
-func (s *AppPresenterSuite) TestShutdownPlaysShutdownAlert() {
-	p, err := presenter.NewAppPresenter(s.notification, s.activity, s.feedback, s.alerter)
-	s.Require().NoError(err)
-
-	ctx := context.Background()
-	err = p.Start(ctx)
-	s.Require().NoError(err)
-
-	err = p.Shutdown(ctx)
-	s.Require().NoError(err)
-
-	s.True(s.alerter.shutdownCalled)
-}
-
-func (s *AppPresenterSuite) TestShutdownWithNilAlerterDoesNotPanic() {
-	p, err := presenter.NewAppPresenter(s.notification, s.activity, s.feedback, nil)
-	s.Require().NoError(err)
-
-	ctx := context.Background()
-	_ = p.Start(ctx)
-
-	s.NotPanics(func() {
-		err = p.Shutdown(ctx)
-	})
-	s.NoError(err)
-}
-
 func (s *AppPresenterSuite) TestShutdownStopsActivityPresenter() {
-	p, err := presenter.NewAppPresenter(s.notification, s.activity, s.feedback, s.alerter)
+	p, err := presenter.NewAppPresenter(s.notification, s.activity, s.feedback)
 	s.Require().NoError(err)
 
 	ctx := context.Background()

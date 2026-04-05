@@ -115,7 +115,7 @@ func (c *IMAPClient) FetchNewMessages(ctx context.Context, lastUID uint32) ([]Em
 
 		buf, err := msg.Collect()
 		if err != nil {
-			fetchCmd.Close() //nolint:errcheck
+			fetchCmd.Close() // #nosec G104 -- best-effort cleanup; the collect error on the next line is the actionable one
 			return nil, fmt.Errorf("collecting FETCH data: %w", err)
 		}
 

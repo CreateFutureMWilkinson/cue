@@ -14,6 +14,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Fixed
 
 - **Fairy movement animations not visible** — `refreshFunc` in `FairyCharacter` was a no-op, so position changes from animators (working drift, notify dart, error vibrate) never triggered a container re-layout. Now wired to `fyne.Do(container.Refresh)` with a nil-app guard for test safety. (Phase-3-Feature-024C)
+- **Fyne thread-safety errors during animations** — `SetBodyColor` and `stopAndUpdateState` called `.Refresh()` directly on canvas objects from animator goroutines, bypassing `fyne.Do()`. Removed direct calls; all refreshes now route through `refreshFunc`. (Phase-3-Feature-024D)
 
 ### Added
 

@@ -83,7 +83,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 
 | # | Component | Status | Depends on | Doc |
 |---|---|---|---|---|
-| 042 | Vector-assisted routing | Planned | 043, 044 | [Feature-042](features/phase-5/Feature-042-Vector-Assisted-Routing.md) |
+| 042 | Vector-assisted routing | Done | 043, 044 | [Feature-042](features/phase-5/Feature-042-Vector-Assisted-Routing.md) |
 | 043 | chromem-go vector database | Done | 044 | [Feature-043](features/phase-5/Feature-043-Chromem-Go-Vector-Database.md) |
 | 044 | Ollama scorer wiring | Done | 039 | [Feature-044](features/phase-5/Feature-044-Ollama-Scorer-Wiring.md) |
 | 045 | Slack API client | Planned | 038 | [Feature-045](features/phase-5/Feature-045-Slack-API-Client.md) |

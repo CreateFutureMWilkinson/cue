@@ -11,6 +11,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- **Vector-assisted routing** — Historical user feedback now influences future routing decisions; after Ollama scoring, the router queries the vector store for similar previously-rated messages and adjusts importance scores (±2.0 max, configurable damping factor). New config fields: `vector_enabled`, `vector_similarity_threshold`, `vector_top_n`, `vector_damping_factor`. Disabled by default. Also adds `MessageRepository.QueryByID` method (Phase-5-Feature-042)
+
 ### Changed
 
 - **Ollama scorer wiring** — Wire real `OllamaClient` scorer replacing placeholder in composition root; `placeholderScorer` struct removed from `cmd/cue/main.go` (Phase-5-Feature-044)

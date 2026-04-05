@@ -1,7 +1,7 @@
 # Feature 042: Vector-Assisted Routing
 
 **Phase:** Phase-5-Feature-042
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/service/decisionengine/`, `internal/service/vector/`, `internal/service/buffer/`, `cmd/cue/`
 **Depends on:** Feature 043 (chromem-go Vector Database), Feature 044 (Ollama Scorer Wiring)
 
@@ -257,3 +257,13 @@ This feature completes scaffolding that was built in earlier phases but never co
 | `Slack.Enabled` / `Email.Enabled` flags | Feature 001 | `internal/config/config.go:52,59` | Loaded, never checked | Watchers always created regardless of flag |
 | `Orchestrator.WatcherManager` methods | Feature 034 | `orchestrator/orchestrator.go:16-20` | `AddWatcher`/`RemoveWatcher` implemented, never called from main | Dormant until Feature 038 wires settings UI to orchestrator |
 | chromem-go dependency | — | `go.mod` | **Not present** despite CLAUDE.md listing it | In-memory `VectorStore` is the actual implementation |
+
+---
+
+## TDD Agent Stats
+
+| Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | Test Designer | ~212s | ~69,000 | e74434d |
+| GREEN | Implementer | ~339s | ~82,000 | 273fe78 |
+| REFACTOR | Refactorer | ~121s | ~47,000 | 0f806fb |

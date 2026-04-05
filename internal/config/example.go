@@ -55,6 +55,22 @@ confidence_threshold = 0.8
 # Maximum messages retained per source (FIFO eviction).
 buffer_size_per_source = 100
 
+# ─── Vector-Assisted Routing ─────────────────────────────────
+# When enabled, historical user feedback influences future scoring.
+# The router queries the vector store for similar previously-rated
+# messages and adjusts importance scores accordingly.
+vector_enabled = false
+
+# Minimum cosine similarity to consider a match (0.0-1.0).
+vector_similarity_threshold = 0.75
+
+# Maximum number of similar messages to consider.
+vector_top_n = 5
+
+# How aggressively to adjust scores (0.0-1.0).
+# 0.0 = no adjustment, 1.0 = full adjustment.
+vector_damping_factor = 0.5
+
 # ─── Notifications & Audio ─────────────────────────────────
 [notification]
 # Master toggle for audio alerts.

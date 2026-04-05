@@ -40,9 +40,16 @@ func NewScheduleTree(blocks []presenter.TimeBlockPreview, now time.Time) *Schedu
 
 // Cycles returns the schedule blocks grouped into Pomodoro cycles.
 func (t *ScheduleTree) Cycles() []ScheduleCycle {
-	// Step 1: Group blocks into cycles. A long_break ends its cycle, and a new
-	// cycle begins at the next focus block. Non-focus blocks after a long_break
-	// (e.g. meetings) remain in the previous cycle.
+	rawCycles := t.groupBlocksIntoCycles()
+	totalCycles := len(rawCycles)
+	maxDuration := t.findMaxRemainingDuration(rawCycles)
+
+	return t.buildPrunedCycles(rawCycles, totalCycles, maxDuration)
+}
+
+// groupBlocksIntoCycles groups blocks into cycles. A long_break ends its cycle,
+// and a new cycle begins at the next focus block.
+func (t *ScheduleTree) groupBlocksIntoCycles() [][]presenter.TimeBlockPreview {
 	var rawCycles [][]presenter.TimeBlockPreview
 	var current []presenter.TimeBlockPreview
 	sawLongBreak := false
@@ -63,9 +70,11 @@ func (t *ScheduleTree) Cycles() []ScheduleCycle {
 		rawCycles = append(rawCycles, current)
 	}
 
-	totalCycles := len(rawCycles)
+	return rawCycles
+}
 
-	// Step 2: Find the longest remaining (non-elapsed) block duration for bar scaling.
+// findMaxRemainingDuration finds the longest remaining (non-elapsed) block duration for bar scaling.
+func (t *ScheduleTree) findMaxRemainingDuration(rawCycles [][]presenter.TimeBlockPreview) time.Duration {
 	var maxDuration time.Duration
 	for _, cycle := range rawCycles {
 		for _, b := range cycle {
@@ -78,8 +87,11 @@ func (t *ScheduleTree) Cycles() []ScheduleCycle {
 			}
 		}
 	}
+	return maxDuration
+}
 
-	// Step 3: Build cycles, pruning elapsed blocks and fully-elapsed cycles.
+// buildPrunedCycles builds the final cycles, pruning elapsed blocks and fully-elapsed cycles.
+func (t *ScheduleTree) buildPrunedCycles(rawCycles [][]presenter.TimeBlockPreview, totalCycles int, maxDuration time.Duration) []ScheduleCycle {
 	var result []ScheduleCycle
 	for i, cycle := range rawCycles {
 		var rows []ScheduleBlockRow
@@ -98,7 +110,6 @@ func (t *ScheduleTree) Cycles() []ScheduleCycle {
 			Blocks: rows,
 		})
 	}
-
 	return result
 }
 

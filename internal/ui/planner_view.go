@@ -152,35 +152,55 @@ func (v *PlannerView) Refresh() {
 // buildContent rebuilds the placeholder text and schedule tree from the current model state.
 func (v *PlannerView) buildContent() {
 	step := v.plannerModel.CurrentStep()
-	if step == presenter.StepIdle && !v.plannerModel.HasActivePlan() {
-		//nolint:gosec // math/rand is fine for placeholder text selection
-		v.placeholderText = placeholderMessages[rand.Intn(len(placeholderMessages))]
-		v.scheduleTree = nil
+	hasActivePlan := v.plannerModel.HasActivePlan()
+
+	if step == presenter.StepIdle && !hasActivePlan {
+		v.buildNoActivePlanContent()
 		return
 	}
 
 	v.placeholderText = ""
-	if v.plannerModel.HasActivePlan() {
-		if sched := v.plannerModel.ActiveSchedule(); sched != nil && len(sched.Blocks) > 0 {
-			v.scheduleTree = NewScheduleTree(sched.Blocks, time.Now())
-		} else {
-			v.scheduleTree = nil
-		}
-	} else {
-		v.scheduleTree = nil
+	v.scheduleTree = v.buildScheduleTree(hasActivePlan)
+}
+
+// buildNoActivePlanContent sets up content when there's no active plan.
+func (v *PlannerView) buildNoActivePlanContent() {
+	//nolint:gosec // math/rand is fine for placeholder text selection
+	v.placeholderText = placeholderMessages[rand.Intn(len(placeholderMessages))]
+	v.scheduleTree = nil
+}
+
+// buildScheduleTree creates a schedule tree if there's an active plan with blocks.
+func (v *PlannerView) buildScheduleTree(hasActivePlan bool) *ScheduleTree {
+	if !hasActivePlan {
+		return nil
 	}
+
+	sched := v.plannerModel.ActiveSchedule()
+	if sched == nil || len(sched.Blocks) == 0 {
+		return nil
+	}
+
+	return NewScheduleTree(sched.Blocks, time.Now())
 }
 
 // applyVisibility sets button show/hide state based on the current wizard step.
 func (v *PlannerView) applyVisibility() {
 	step := v.plannerModel.CurrentStep()
 
-	// Configure visibility for each button based on the current step
-	v.setButtonVisibility(v.planBtn, v.isPlanButtonVisible(step))
-	v.setButtonVisibility(v.nextBtn, v.isNextButtonVisible(step))
-	v.setButtonVisibility(v.backBtn, v.isBackButtonVisible(step))
-	v.setButtonVisibility(v.completeTaskBtn, v.isActiveStepButton(step))
-	v.setButtonVisibility(v.abandonBtn, v.isActiveStepButton(step))
+	// Define visibility for each button type based on current step
+	buttonVisibility := map[*widget.Button]bool{
+		v.planBtn:         step == presenter.StepIdle,
+		v.nextBtn:         v.isWizardProgressStep(step),
+		v.backBtn:         v.isWizardNavigableStep(step),
+		v.completeTaskBtn: step == presenter.StepActive,
+		v.abandonBtn:      step == presenter.StepActive,
+	}
+
+	// Apply visibility to all buttons
+	for button, visible := range buttonVisibility {
+		v.setButtonVisibility(button, visible)
+	}
 }
 
 // setButtonVisibility shows or hides a button based on the visible flag.
@@ -192,27 +212,17 @@ func (v *PlannerView) setButtonVisibility(button *widget.Button, visible bool) {
 	}
 }
 
-// isPlanButtonVisible returns true if the Plan button should be visible for the given step.
-func (v *PlannerView) isPlanButtonVisible(step presenter.WizardStep) bool {
-	return step == presenter.StepIdle
-}
-
-// isNextButtonVisible returns true if the Next button should be visible for the given step.
-func (v *PlannerView) isNextButtonVisible(step presenter.WizardStep) bool {
+// isWizardProgressStep returns true for wizard steps that allow progressing forward.
+func (v *PlannerView) isWizardProgressStep(step presenter.WizardStep) bool {
 	return step == presenter.StepTaskSelect ||
 		step == presenter.StepEstimates ||
 		step == presenter.StepPriority
 }
 
-// isBackButtonVisible returns true if the Back button should be visible for the given step.
-func (v *PlannerView) isBackButtonVisible(step presenter.WizardStep) bool {
+// isWizardNavigableStep returns true for wizard steps that allow navigation (forward/back).
+func (v *PlannerView) isWizardNavigableStep(step presenter.WizardStep) bool {
 	return step == presenter.StepTaskSelect ||
 		step == presenter.StepEstimates ||
 		step == presenter.StepPriority ||
 		step == presenter.StepSchedule
-}
-
-// isActiveStepButton returns true if active step buttons (Complete/Abandon) should be visible.
-func (v *PlannerView) isActiveStepButton(step presenter.WizardStep) bool {
-	return step == presenter.StepActive
 }

@@ -90,8 +90,8 @@ func (s *EmailWatcherSuite) TestNewEmailWatcher_EmptyUsername() {
 func (s *EmailWatcherSuite) TestPoll_FetchesNewMessages() {
 	api := &mockEmailAPI{
 		messages: []watcher.EmailMessage{
-			{UID: 1, From: "alice@example.com", Subject: "Hello", Folder: "INBOX", Body: "Hi there", To: []string{"user@example.com"}},
-			{UID: 2, From: "bob@example.com", Subject: "Meeting", Folder: "INBOX", Body: "Let's meet", To: []string{"user@example.com"}},
+			{UID: 1, From: "alice@example.com", Subject: "Hello", Folder: "INBOX", Body: "Hi there", To: []string{"team@example.com"}},
+			{UID: 2, From: "bob@example.com", Subject: "Meeting", Folder: "INBOX", Body: "Let's meet", To: []string{"team@example.com"}},
 		},
 	}
 
@@ -111,7 +111,7 @@ func (s *EmailWatcherSuite) TestPoll_FetchesNewMessages() {
 func (s *EmailWatcherSuite) TestPoll_MessageFieldsPopulated() {
 	api := &mockEmailAPI{
 		messages: []watcher.EmailMessage{
-			{UID: 1, MessageID: "abc123@example.com", From: "alice@example.com", Subject: "Important", Folder: "INBOX", Body: "Please review", To: []string{"user@example.com"}},
+			{UID: 1, MessageID: "abc123@example.com", From: "alice@example.com", Subject: "Important", Folder: "INBOX", Body: "Please review", To: []string{"team@example.com"}},
 		},
 	}
 

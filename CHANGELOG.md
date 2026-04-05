@@ -43,6 +43,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Settings UI expansion** — Replaced popup settings window with full center-area `ViewSettings` in `CenterViewRouter`; added cog button to `FocusRail`; new `SettingsView` with four-tab layout (Slack, Email, Audio, Ollama); placeholder tab content for Feature 038 wiring (Phase-4-Feature-037)
 - **Service settings presenter** — Service settings presenter for Slack/Email account CRUD and watcher lifecycle (Phase-4-Feature-036)
 - **ServiceConfig repository interface** — `SlackAccount` and `EmailAccount` domain types with `ServiceConfigRepository` interface for multi-account database-backed service configuration (Phase-4-Feature-031)
 - **SQLite ServiceConfig implementation** — Full CRUD for `slack_accounts` and `email_accounts` tables with upsert semantics, UNIQUE constraints on natural keys, and idempotent deletes (Phase-4-Feature-032)

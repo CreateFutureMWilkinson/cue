@@ -218,3 +218,6 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-4-Feature-036 | RED | Test Designer | ~120s | ~32,000 | 6e46fee |
 | Phase-4-Feature-036 | GREEN | Implementer | ~60s | ~35,000 | 76c3fd5 |
 | Phase-4-Feature-036 | REFACTOR | Refactorer | manual | — | 1bd4b00 |
+| Phase-4-Feature-037 | RED | Test Designer | ~89s | ~47,800 | 5c52ace |
+| Phase-4-Feature-037 | GREEN | Implementer | ~95s | ~35,400 | 18e6782 |
+| Phase-4-Feature-037 | REFACTOR | Refactorer | manual | — | 1240e55 |

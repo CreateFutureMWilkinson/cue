@@ -216,6 +216,12 @@ func (w *UATWindow) setStateButtonsEnabled(enabled bool) {
 	}
 }
 
+// NewCharacterPanel creates the left panel container that holds the character widget.
+// The character widget fills the available space to match the main application's embedding.
+func NewCharacterPanel(charContainer *fyne.Container) fyne.CanvasObject {
+	return nil // stub — not implemented
+}
+
 // availableCharacterNames returns sorted character names from the registry,
 // including the "none" no-op character for baseline testing.
 func availableCharacterNames() []string {

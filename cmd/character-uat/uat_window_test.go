@@ -3,6 +3,9 @@ package characteruat_test
 import (
 	"testing"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	characteruat "github.com/CreateFutureMWilkinson/cue/cmd/character-uat"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/fairy"
 	"github.com/stretchr/testify/suite"
@@ -84,4 +87,22 @@ func (s *UATWindowSuite) TestCharacterSwapResetsToInitialState() {
 	s.Require().NoError(err)
 	s.Equal(character.StateIdle, ch2.CurrentState(),
 		"newly created character after swap should start in StateIdle")
+}
+
+func (s *UATWindowSuite) TestCharacterPanelFillsSpace() {
+	ch, err := character.Create("fairy")
+	s.Require().NoError(err)
+
+	charContainer := container.NewStack()
+	charContainer.Add(ch.Widget())
+
+	panel := characteruat.NewCharacterPanel(charContainer)
+	s.Require().NotNil(panel, "NewCharacterPanel must return a non-nil container")
+
+	// Resize the panel and verify the charContainer fills the space.
+	panel.Resize(fyne.NewSize(400, 600))
+	s.InDelta(400, charContainer.Size().Width, 1.0,
+		"character container should fill panel width")
+	s.InDelta(600, charContainer.Size().Height, 1.0,
+		"character container should fill panel height")
 }

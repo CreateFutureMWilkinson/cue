@@ -257,7 +257,6 @@ func (f *FairyCharacter) SetBodyColor(c color.Color) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.bodyCircle.FillColor = c
-	f.bodyCircle.Refresh()
 	f.refreshFunc()
 }
 

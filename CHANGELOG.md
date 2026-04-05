@@ -19,6 +19,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **gopxl/beep audio player** — Real AudioPlayer implementation using gopxl/beep/v2 for MP3/WAV/OGG playback with lazy speaker init, automatic resampling, and logarithmic volume mapping (Phase-1-Feature-13)
 - **Configurable audio alerts** — Random file playback from user-configured directory (MP3/WAV/OGG), async playback, beeep fallback when no files available, configurable cooldown and fallback tone, runtime volume control via settings panel (Phase-1-Feature-12)
 - **Audio config fields** — `audio_dir`, `audio_cooldown_seconds`, `audio_volume`, `fallback_frequency`, `fallback_duration_ms` in `[notification]` section with validation and tilde expansion (Phase-1-Feature-12)
 - **Settings panel** — Standalone Fyne settings window with volume slider (0-100), accessible from menu bar (Phase-1-Feature-12)

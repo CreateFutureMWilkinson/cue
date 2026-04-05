@@ -1,0 +1,86 @@
+package characteruat_test
+
+import (
+	"testing"
+
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
+	"github.com/stretchr/testify/suite"
+)
+
+type UATWindowSuite struct {
+	suite.Suite
+}
+
+func TestUATWindow(t *testing.T) {
+	suite.Run(t, new(UATWindowSuite))
+}
+
+func (s *UATWindowSuite) SetupTest() {
+	character.ResetRegistry()
+	character.Register("fairy", func() character.Character {
+		return character.NewFairyCharacter()
+	})
+}
+
+func (s *UATWindowSuite) TestAvailableCharactersIncludesFairy() {
+	names := character.Available()
+	s.Contains(names, "fairy", "registry should include fairy after registration")
+}
+
+func (s *UATWindowSuite) TestCreateCharacterReturnsValidCharacter() {
+	ch, err := character.Create("fairy")
+	s.Require().NoError(err, "creating a registered character should not error")
+	s.Require().NotNil(ch, "created character should not be nil")
+	s.Equal("fairy", ch.Name(), "character Name() should match registered name")
+}
+
+func (s *UATWindowSuite) TestCreatedCharacterStartsIdle() {
+	ch, err := character.Create("fairy")
+	s.Require().NoError(err)
+	s.Equal(character.StateIdle, ch.CurrentState(),
+		"newly created character should start in StateIdle")
+}
+
+func (s *UATWindowSuite) TestTriggerStateUpdatesCharacter() {
+	ch, err := character.Create("fairy")
+	s.Require().NoError(err)
+
+	ch.TransitionTo(character.StateWorking)
+	s.Equal(character.StateWorking, ch.CurrentState(),
+		"CurrentState should reflect the state set via TransitionTo")
+}
+
+func (s *UATWindowSuite) TestAllStatesAccessible() {
+	ch, err := character.Create("fairy")
+	s.Require().NoError(err)
+
+	allStates := []character.CharacterState{
+		character.StateIdle,
+		character.StateStarting,
+		character.StateWorking,
+		character.StateNotifying,
+		character.StateError,
+		character.StateShuttingDown,
+	}
+
+	for _, state := range allStates {
+		ch.TransitionTo(state)
+		s.Equal(state, ch.CurrentState(),
+			"CurrentState should be %s after TransitionTo(%s)", state, state)
+	}
+}
+
+func (s *UATWindowSuite) TestCharacterSwapResetsToInitialState() {
+	// Create first character and change its state.
+	ch1, err := character.Create("fairy")
+	s.Require().NoError(err)
+	ch1.TransitionTo(character.StateError)
+	s.Equal(character.StateError, ch1.CurrentState(),
+		"first character should be in Error state")
+
+	// Create a second character (simulating a swap in the UAT window).
+	ch2, err := character.Create("fairy")
+	s.Require().NoError(err)
+	s.Equal(character.StateIdle, ch2.CurrentState(),
+		"newly created character after swap should start in StateIdle")
+}

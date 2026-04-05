@@ -71,9 +71,7 @@ func (w *EmailWatcher) Poll(ctx context.Context) ([]*repository.Message, error) 
 		msg := w.convertEmailMessage(email)
 		result = append(result, msg)
 
-		if email.UID > w.lastUID {
-			w.lastUID = email.UID
-		}
+		w.updateLastUID(email.UID)
 	}
 
 	return result, nil
@@ -103,20 +101,23 @@ func (w *EmailWatcher) convertEmailMessage(email EmailMessage) *repository.Messa
 
 func (w *EmailWatcher) isMentioned(email EmailMessage) bool {
 	lower := strings.ToLower(w.username)
-	for _, addr := range email.To {
-		if strings.ToLower(addr) == lower {
-			return true
-		}
-	}
-	for _, addr := range email.CC {
-		if strings.ToLower(addr) == lower {
-			return true
-		}
-	}
-	for _, addr := range email.BCC {
-		if strings.ToLower(addr) == lower {
+	return containsAddress(email.To, lower) ||
+		containsAddress(email.CC, lower) ||
+		containsAddress(email.BCC, lower)
+}
+
+func containsAddress(addrs []string, target string) bool {
+	for _, addr := range addrs {
+		if strings.ToLower(addr) == target {
 			return true
 		}
 	}
 	return false
+}
+
+// updateLastUID advances the high-water mark if uid is newer.
+func (w *EmailWatcher) updateLastUID(uid uint32) {
+	if uid > w.lastUID {
+		w.lastUID = uid
+	}
 }

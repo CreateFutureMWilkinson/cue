@@ -1,7 +1,7 @@
 # Feature 022-Hotfix-D: Day Planner Wizard Steps 1-4
 
 **Phase:** Phase-2-Feature-022-Hotfix-D
-**Status:** Planned
+**Status:** Done
 **Package:** `internal/ui/`
 **Parent:** Feature 022 (Planner UI)
 
@@ -9,49 +9,34 @@
 
 ## Overview
 
-The PlannerPresenter has all wizard step transitions tested, but no Fyne UI exists for steps 1-4. This hotfix implements the wizard view that renders in the center column when `ViewWizard` is active, with step-specific content driven by the PlannerPresenter state machine.
+Implements the Fyne UI for the 4-step day planner wizard. The `WizardView` renders step-specific content in the center column when `ViewWizard` is active, delegating all state transitions to the `WizardViewModel` interface (backed by `PlannerPresenter`).
 
-## Requirements (from UI-SPEC.md)
+## Design Decisions
 
-### Step 1: Task Selection
+### WizardViewModel Interface
 
-- Step indicator: "Step 1 of 4"
-- Date label: target planning date
-- Checkbox list of todos from repository with category badges
-- Inline "Add Task" field (title + priority + Add button)
-- "Next" button (enabled when ≥1 task selected)
-- "Cancel" returns to Plan view (ViewPlan)
+A dedicated `WizardViewModel` interface combines read methods (from `PlannerViewModel`) with write/mutation methods needed to drive wizard interactions. This keeps the wizard view decoupled from the concrete `PlannerPresenter` and enables isolated testing with mocks.
 
-### Step 2: Pomodoro Estimates
+Methods: `CurrentStep`, `AvailableTasks`, `Estimates`, `EstimateSummary`, `FocusSchedule`, `RecoverySchedule`, `SelectTask`, `AddTask`, `NextStep`, `PreviousStep`, `OverrideEstimate`, `ReorderTask`, `SelectSchedule`, `SelectedCount`.
 
-- Available Pomodoros label (calculated from calendar gaps)
-- Table: task name | visual dots + estimated pomos | override input
-- Total summary: "X of Y Pomodoros" (updates live)
-- Overload warning (orange text) when total > available
-- "Back" / "Next" buttons
+### Cached State Pattern
 
-### Step 3: Priority Ordering
+`WizardView` uses a `buildState()` method (called from constructor and `Refresh()`) that reads the entire view model once and caches all computed fields. Accessors return cached values, avoiding repeated view model calls during rendering. This matches the pattern used in `PlannerView` and `TodoListView`.
 
-- Instruction text: "Drag to reorder or use arrows"
-- Numbered task list with estimated pomos and up/down buttons
-- "Tasks are scheduled in this order" hint
-- "Back" / "Next" buttons
+### Step-Specific Content
 
-### Step 4: Schedule Choice
+Each wizard step renders distinct content:
 
-- Two schedule cards side by side in HBox:
-  - Strategy name ("A: Focus-Maximized" / "B: Recovery-Balanced")
-  - Stats: focus block count, break count, total focus time
-  - Mini-timeline: horizontal bar with color-coded blocks
-  - Tradeoff text (plain description)
-  - "Select" button per card
-- "Back" button
+| Step | Indicator | Primary Content | Navigation |
+|---|---|---|---|
+| 1 — Task Selection | "Step 1 of 4" | Checkbox list + category badges + inline add | Cancel, Next (disabled if 0 selected) |
+| 2 — Estimates | "Step 2 of 4" | Estimate table + summary + overload warning | Back, Next |
+| 3 — Priority | "Step 3 of 4" | Numbered task list + up/down reorder buttons | Back, Next |
+| 4 — Schedule | "Step 4 of 4" | Two schedule cards (focus/recovery) with stats | Back, Select A/B |
 
-### Navigation
+### Schedule Card Stats
 
-- All steps: "Back" returns to previous step
-- Step 1: "Cancel" returns to ViewPlan
-- Step 4: "Select" persists schedule to SQLite, returns to ViewPlan (which now shows schedule tree)
+Each card displays: strategy name, focus block count, break count, and total focus time. Focus blocks are counted from `TimeBlockPreview` entries with `Type == "focus"`. Duration is formatted as `"Xh Ym"` (e.g., `"3h0m"`).
 
 ## Files
 
@@ -65,33 +50,55 @@ The PlannerPresenter has all wizard step transitions tested, but no Fyne UI exis
 - 022-A (center view router wiring) — wizard must display in center column via ViewWizard
 - PlannerPresenter (Feature 022) — wizard delegates all state transitions to presenter
 
+## API
+
+### Types
+
+- `WizardViewModel` — interface for wizard data source and mutations
+- `WizardView` — Fyne component rendering wizard step content
+- `TaskCheckboxItem` — view model for step 1 task checkboxes (ID, Title, Selected, Categories)
+- `ScheduleCardStats` — view model for step 4 card stats (FocusBlocks, Breaks, TotalTime)
+
+### Constructor
+
+- `NewWizardView(vm WizardViewModel, router *CenterViewRouter) *WizardView`
+
+### Accessors
+
+- `Container()` — Fyne container
+- `StepIndicator()` — "Step N of 4"
+- `TaskCheckboxes()` — step 1 checkbox items
+- `NextButtonEnabled()` — step 1 next button state
+- `HasCancelButton()` — step 1 cancel presence
+- `EstimateRows()` — step 2 estimate table data
+- `SummaryText()` — step 2 "X of Y Pomodoros"
+- `OverloadWarningVisible()` — step 2 overload state
+- `PriorityList()` — step 3 ordered task titles
+- `HasUpDownButtons()` — step 3 reorder buttons
+- `ScheduleCards()` — step 4 card count
+- `FocusCardStrategy()` / `RecoveryCardStrategy()` — strategy names
+- `FocusCardStats()` / `RecoveryCardStats()` — card statistics
+- `HasBackButton()` / `HasNextButton()` — navigation presence
+- `Refresh()` — rebuild from view model
+
+## Error Handling
+
+No error paths — the wizard view is a pure projection of view model state. All error handling (Ollama failures, repository errors) is managed by the `PlannerPresenter`.
+
 ## Test Coverage
 
-**Step 1 — Task Selection:**
-- Shows task checkboxes from presenter's AvailableTasks()
-- Categories displayed as colored badges
-- Inline Add Task creates todo via presenter
-- "Next" disabled when no tasks selected
-- "Next" advances to step 2 via presenter.NextStep()
-- "Cancel" navigates to ViewPlan
+25 tests covering:
+- Constructor (2): non-nil view and container
+- Step 1 — Task Selection (7): step indicator, checkboxes, category badges, next enabled/disabled, cancel/next buttons
+- Step 2 — Estimates (7): step indicator, estimate rows, summary text, overload hidden/visible, back/next buttons
+- Step 3 — Priority (5): step indicator, numbered list, up/down buttons, back/next buttons
+- Step 4 — Schedule (8): step indicator, two cards, focus/recovery strategy names, focus/recovery stats, back button, no next button
+- Refresh (1): step indicator updates across steps
 
-**Step 2 — Estimates:**
-- Shows estimate table from presenter's Estimates()
-- Override input calls presenter.OverrideEstimate()
-- Summary updates from presenter.EstimateSummary()
-- Overload warning visible when Overloaded=true
-- "Back" calls presenter.PreviousStep()
-- "Next" advances to step 3
+## TDD Agent Stats
 
-**Step 3 — Priority:**
-- Shows numbered task list with up/down buttons
-- Up/down calls presenter.ReorderTask()
-- "Back" / "Next" navigate correctly
-
-**Step 4 — Schedule Choice:**
-- Shows two cards from presenter's FocusSchedule() and RecoverySchedule()
-- Each card displays stats and mini-timeline
-- "Select A" calls presenter.SelectSchedule("focus-maximized")
-- "Select B" calls presenter.SelectSchedule("recovery-balanced")
-- After selection, navigates to ViewPlan
-- "Back" returns to step 3
+| Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | Test Designer | 143s | 57,819 | 9625636 |
+| GREEN | Implementer | 65s | 34,954 | f1a514f |
+| REFACTOR | Refactorer | 80s | 38,462 | 2bc571b |

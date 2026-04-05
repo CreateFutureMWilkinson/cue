@@ -32,6 +32,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Day planner wizard steps 1-4** — `WizardView` renders 4-step wizard in center column: task selection (checkboxes with category badges, inline add, next-when-selected), Pomodoro estimates (table with overrides, summary, overload warning), priority ordering (numbered list with up/down reorder), schedule choice (two cards with strategy name, focus/break stats, total time). `WizardViewModel` interface decouples from `PlannerPresenter`. 25 new tests (Phase-2-Feature-022-Hotfix-D)
 - **Todo list view + task detail modal** — Right half of Plan view HSplit: sorted todo list with checkboxes, priority indicators, category badges, due dates, inline task creation, `[details]` link opening a task detail modal (500×450) with editable title/priority/category/due date/notes fields, save/cancel callbacks. `TodoListViewModel` interface decouples data from rendering. 23 new tests (Phase-2-Feature-022-Hotfix-C)
 - **Plan view with schedule tree + no-plan state** — Plan overview (left half of Plan split) shows either a random motivational placeholder with "Plan My Day" button (navigates to wizard), or an active schedule tree with blocks grouped by Pomodoro cycle, color-coded bars (focus/green, short break/light blue, long break/blue, meeting/amber), proportional bar widths, elapsed block/cycle pruning, and "Abandon Plan" button. New `ScheduleTree` type with `Cycles()` API. 23 new tests (Phase-2-Feature-022-Hotfix-B)
 

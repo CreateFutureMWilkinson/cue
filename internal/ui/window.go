@@ -68,6 +68,10 @@ func NewMainWindow(
 				showFeedbackReview(fp, fyneApp)
 			})
 		}
+		if np != nil {
+			fr.SetNotificationsExpanded(np.IsExpanded())
+			np.SetOnExpandedChange(fr.SetNotificationsExpanded)
+		}
 		focusRailWidget = fr.Container()
 	} else {
 		focusRailWidget = widget.NewLabel("Focus")

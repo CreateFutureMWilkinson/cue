@@ -15,10 +15,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - **Alert service API change** — `NewAlertService` now takes 4 args (cfg, beeper, filesystem, player); `PlayStartup` and `PlayShutdown` removed (Phase-1-Feature-12)
 - **AppPresenter API change** — `NewAppPresenter` now takes 3 args (removed alerter parameter); presenter `Alerter` interface removed (Phase-1-Feature-12)
-- **NewMainWindow API change** — Now accepts `SettingsPresenter` as 6th argument (Phase-1-Feature-12)
+- **NewMainWindow API change** — Now accepts `SettingsPresenter` as 6th argument and `characterWidget fyne.CanvasObject` as 7th argument (Phase-1-Feature-12, Phase-3-Feature-14)
 
 ### Added
 
+- **Character animation system** — Pluggable character abstraction with state machine (Idle/Starting/Working/Notifying/Error/ShuttingDown), registry pattern, NoOp and Fairy implementations, CharacterPresenter consuming activity events with auto-decay, configurable via `gui.character` in config.toml (Phase-3-Feature-14)
 - **gopxl/beep audio player** — Real AudioPlayer implementation using gopxl/beep/v2 for MP3/WAV/OGG playback with lazy speaker init, automatic resampling, and logarithmic volume mapping (Phase-1-Feature-13)
 - **Configurable audio alerts** — Random file playback from user-configured directory (MP3/WAV/OGG), async playback, beeep fallback when no files available, configurable cooldown and fallback tone, runtime volume control via settings panel (Phase-1-Feature-12)
 - **Audio config fields** — `audio_dir`, `audio_cooldown_seconds`, `audio_volume`, `fallback_frequency`, `fallback_duration_ms` in `[notification]` section with validation and tilde expansion (Phase-1-Feature-12)

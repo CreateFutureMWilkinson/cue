@@ -1,235 +1,116 @@
 # Feature 14: Character Animation System
 
 **Phase:** Phase-3-Feature-14
-**Status:** Not Started
+**Status:** Done
 **Packages:** `internal/ui/character/`, `internal/ui/presenter/`, `internal/config/`, `cmd/cue/`
 
 ---
 
-## Prompt
+## Overview
 
-Implement a character animation abstraction layer for Cue's GUI. The system displays an animated character in the UI whose visual state reflects what the application is doing (idle, working, notifying, error, etc.). The first character implementation is "fairy" but the system must support swapping characters via config. Characters are purely visual — they observe system state but never affect routing, scoring, or any business logic.
+A character animation abstraction layer for Cue's GUI. The system displays an animated character whose visual state reflects application activity (idle, working, notifying, error, etc.). Characters are configurable via `config.toml` and purely visual — they never affect routing, scoring, or business logic.
 
-**Read these files before starting:**
-- `CLAUDE.md` and `.claude/CLAUDE.md` — project conventions, hard constraints, TDD workflow
-- `docs/UI-SPEC.md` — current UI layout and design tokens
-- `docs/UI-DESIGN-GUIDE.md` — design-to-implementation pipeline and testing tiers
-- `internal/ui/presenter/interfaces.go` — existing presenter interfaces
-- `internal/ui/window.go` — current main window composition
-- `internal/config/config.go` — current config structure
-- `.claude/agents/` — TDD agent role definitions
+## Design Decisions
 
----
+- **Registry pattern** for character lookup — `Register`/`Create`/`Available` with factory functions. Default `"none"` always registered via `init()`.
+- **`NoneCharacterName` constant** (`"none"`) is the single source of truth for the no-op character name.
+- **CharacterPresenter** consumes the same `ActivityEvent` stream as the activity log via a fan-out bridge, mapping events to states and handling auto-decay timers.
+- **FairyCharacter** uses a colored `canvas.Circle` with state-specific colors — simple, no CGO dependencies.
+- **Config default is `"none"`** — opt-in, zero behavioral change from existing state when not configured.
+- **Fan-out activity events** — `bridgeEvents` in `main.go` accepts variadic output channels, sending each event to both the activity presenter and character presenter channels.
 
-## Requirements
+## API
 
-### Character State Machine
+### CharacterState
 
-Define a `CharacterState` enum representing application states:
-
-| State          | Trigger                                           |
-|----------------|---------------------------------------------------|
-| `Idle`         | No activity (default)                             |
-| `Starting`     | Application startup                               |
-| `Working`      | Fetching or routing messages (batch in progress)  |
-| `Notifying`    | A NOTIFIED message was just routed                |
-| `Error`        | A system error occurred                           |
-| `ShuttingDown` | Graceful shutdown initiated                       |
-
-State transitions are driven by the same `ActivityEvent` stream that feeds the activity log. The character presenter observes events and maps them to states. States auto-decay back to `Idle` after a configurable duration (e.g., `Notifying` → `Idle` after 5 seconds) unless a new event arrives.
+```go
+type CharacterState int // iota: StateIdle, StateStarting, StateWorking, StateNotifying, StateError, StateShuttingDown
+func (s CharacterState) String() string
+```
 
 ### Character Interface
 
 ```go
-// Character represents an animated UI character with state-driven visuals.
 type Character interface {
-    // Name returns the character's identifier (matches config value).
     Name() string
-
-    // TransitionTo changes the character's visual state.
     TransitionTo(state CharacterState)
-
-    // CurrentState returns the character's current state.
     CurrentState() CharacterState
-
-    // Widget returns a Fyne CanvasObject that can be embedded in the UI.
     Widget() fyne.CanvasObject
 }
 ```
 
-### Character Registry
-
-A registry maps config names to `Character` factory functions:
+### Registry
 
 ```go
-type CharacterFactory func() Character
-
 func Register(name string, factory CharacterFactory)
-func Create(name string) (Character, error)  // returns error if name not registered
-func Available() []string                     // list registered names
+func Create(name string) (Character, error)
+func Available() []string
+func ResetRegistry() // test helper
 ```
 
-Built-in registrations:
-- `"none"` — a no-op character (returns an empty/invisible widget, accepts all state transitions silently)
-- `"fairy"` — the fairy character (Phase 3 deliverable)
+### CharacterPresenter
 
-### Configuration
-
-Add to `config.toml`:
-
-```toml
-[gui]
-character = "none"         # "none", "fairy", or any registered character
-window_width = 1200
-window_height = 800
+```go
+func NewCharacterPresenter(char character.Character, source ActivitySource, decayDuration time.Duration) (*CharacterPresenter, error)
+func (p *CharacterPresenter) Start(ctx context.Context)
+func (p *CharacterPresenter) Stop()
 ```
 
-Default is `"none"` so the character system is opt-in and doesn't affect existing behavior.
+## Event Mapping
 
-### Character Presenter
+| Event Pattern | Character State |
+|---|---|
+| `IsError == true` | `StateError` |
+| Message contains "NOTIFIED" | `StateNotifying` |
+| All other events | `StateWorking` |
+| No events for decay duration | `StateIdle` (auto-decay) |
 
-A new `CharacterPresenter` that:
-- Implements `ActivitySource` consumption (same event channel pattern as `ActivityPresenter`)
-- Maps `ActivityEvent` types to `CharacterState` transitions
-- Handles state decay timers (e.g., return to `Idle` after timeout)
-- Delegates visual changes to the `Character` interface
-- Is fully testable at the presenter level (Tier 1) with no Fyne dependency
+## Error Handling
 
-### Fairy Character (First Implementation)
+- Unknown character name in config → falls back to `"none"` with log warning
+- Character presenter decay timer resets on each new event
+- All state transitions are no-op safe (NoOpCharacter accepts any transition silently)
 
-For Phase 3, the fairy character uses static images or simple Fyne canvas primitives to represent each state. The exact visual design is secondary — what matters is:
-- Each state has a visually distinct representation
-- Transitions are smooth (not jarring)
-- The widget fits in a constrained area of the UI
+## Integration Points
 
-**Placement in the UI:** Add the character widget to the main window layout. Suggested location: bottom-right corner or as a small panel below the activity log. The exact placement should be defined in `UI-SPEC.md` before implementation begins — update the spec as part of the design phase.
+- **Config**: `gui.character` field in `config.toml`, defaults to `"none"`
+- **Main window**: Character widget placed below activity log (right pane) via `container.NewBorder`
+- **Main.go**: Fairy registered, character created from config, CharacterPresenter started/stopped alongside other presenters
 
-### No-Op Character
+## UI Placement
 
-The `"none"` character is the default and must:
-- Return a minimal/invisible `fyne.CanvasObject` (e.g., empty container)
-- Accept all `TransitionTo` calls without error
-- Be usable as a drop-in replacement so all code paths work with or without a visible character
-
----
-
-## Package Structure
+Character widget is in the bottom-right corner of the main window, below the activity log:
 
 ```
-internal/ui/character/
-    state.go          # CharacterState enum, string representations
-    character.go      # Character interface + CharacterFactory + registry
-    noop.go           # NoOpCharacter implementation
-    fairy.go          # FairyCharacter implementation
-
-internal/ui/presenter/
-    character_presenter.go       # CharacterPresenter (state machine logic)
-    character_presenter_test.go  # Tier 1 tests
+┌───────────────────────────┬──────────────────────────────────────┐
+│                           │         Activity Log                 │
+│   Notification Queue      │         (scrollable list)            │
+│                           │                                      │
+│                           ├──────────────────────────────────────┤
+│                           │   [Character Widget]                 │
+├───────────────────────────┴──────────────────────────────────────┤
+│                    [ Review Buffered ]                            │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
----
+## Test Coverage Summary
 
-## TDD Agent Team Instructions
+| Package | Suite | Tests |
+|---|---|---|
+| `character` | `CharacterStateSuite` | String representations, distinct values |
+| `character` | `CharacterRegistrySuite` | Register/Create, error on unknown, Available |
+| `character` | `NoOpCharacterSuite` | Name, transitions, state tracking, widget |
+| `character` | `FairyCharacterSuite` | Name, initial state, transitions, widget, registry |
+| `presenter` | `CharacterPresenterSuite` | Working/notifying/error events, decay, start/stop |
+| `config` | `ConfigSuite` | Character field parse, default value |
 
-### Test Designer (RED Phase)
+## TDD Agent Stats
 
-Write failing tests for:
-
-1. **CharacterState** (`internal/ui/character/`)
-   - All states have correct string representations
-   - States are distinct values
-
-2. **Registry** (`internal/ui/character/`)
-   - Register and create a character by name
-   - Create returns error for unregistered name
-   - Available() lists all registered names
-   - `"none"` is always registered
-
-3. **NoOpCharacter** (`internal/ui/character/`)
-   - Name() returns `"none"`
-   - TransitionTo() accepts all states without error
-   - CurrentState() returns the last transitioned state
-   - Widget() returns a non-nil CanvasObject
-
-4. **CharacterPresenter** (`internal/ui/presenter/`)
-   - Maps "working" activity events to `Working` state
-   - Maps "notifying" activity events to `Notifying` state
-   - Maps "error" activity events to `Error` state
-   - State decays back to `Idle` after timeout
-   - Start/Stop lifecycle works correctly
-   - Works with any `Character` implementation (use NoOp in tests)
-
-5. **Config** (`internal/config/`)
-   - `gui.character` field parses from TOML
-   - Defaults to `"none"` when not specified
-   - Accepts any string value (validation happens at character creation time, not config load)
-
-```bash
-# Confirm tests fail
-go test -count=1 -v -run TestCharacterState ./internal/ui/character/
-go test -count=1 -v -run TestCharacterRegistry ./internal/ui/character/
-go test -count=1 -v -run TestNoOpCharacter ./internal/ui/character/
-go test -count=1 -v -run TestCharacterPresenter ./internal/ui/presenter/
-go test -count=1 -v -run TestConfig ./internal/config/
-```
-
-Commit: `test(character): failing tests for character animation system`
-
-### Implementer (GREEN Phase)
-
-Read the failing tests. Implement minimal code to pass them:
-
-1. `state.go` — CharacterState type and constants
-2. `character.go` — Character interface, registry with Register/Create/Available
-3. `noop.go` — NoOpCharacter
-4. `character_presenter.go` — CharacterPresenter with event mapping and decay timers
-5. Update `config.go` — add `Character` field to `GUIConfig`
-6. Do NOT implement the fairy character yet — that's a separate step after the abstraction is proven
-7. Do NOT wire into `main.go` yet
-
-```bash
-# Confirm all tests pass
-just fmt && go test ./...
-```
-
-Commit: `feat(character): implement character animation abstraction [tests pass]`
-
-### Refactorer (REFACTOR Phase)
-
-- Clean up any duplication in registry or presenter
-- Ensure interface is minimal and consumer-focused
-- Verify no circular dependencies introduced
-- All tests stay green
-
-```bash
-just fmt && just lint && just tidy && just test
-```
-
-Commit: `refactor(character): clean up character system`
-
-### Follow-Up: Fairy Implementation (Separate TDD Cycle)
-
-After the abstraction is proven with NoOp + tests:
-
-1. Test Designer: write tests for `FairyCharacter` — each state returns a distinct widget, transitions update visual
-2. Implementer: implement `fairy.go` with state-specific Fyne canvas objects
-3. Refactorer: clean up
-4. Wire into `main.go`: create character from config, pass to main window, connect event stream
-
-### Follow-Up: Docs Commit
-
-After all implementation is complete:
-1. Update `docs/UI-SPEC.md` with character widget placement
-2. Create `docs/Feature-14-Character-System.md` design doc (overwrite this prompt file)
-3. Update `docs/agent-log.md` with TDD phase stats
-4. Update `CHANGELOG.md` and `README.md`
-
----
-
-## Constraints
-
-- No CGO dependencies for the character system (Fyne canvas primitives or image loading are fine)
-- Character logic must never import from `decisionengine`, `repository`, or `watcher` — it only observes events
-- The `Character` interface must be narrow enough that a new character can be implemented in a single file
-- Default config (`"none"`) must not change any existing behavior — zero visual or behavioral difference from current state
-- All tests use testify `suite.Suite` in `_test` package suffix
+| TDD Cycle | Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|---|
+| Abstraction | RED | Test Designer | 367s | 39,912 | fb7c866 |
+| Abstraction | GREEN | Implementer | 68s | 38,749 | 7bdd483 |
+| Abstraction | REFACTOR | Refactorer | 126s | 39,603 | 700827c |
+| Fairy | RED | Test Designer | 34s | 21,119 | ea0e3c4 |
+| Fairy | GREEN | Implementer | 131s | 36,123 | 4e86ad7 |
+| Fairy | REFACTOR | Refactorer | 199s | 33,056 | 67a9de8 |

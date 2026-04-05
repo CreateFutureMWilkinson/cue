@@ -23,12 +23,15 @@ This document is the authoritative design specification for Cue's Fyne desktop G
 │   [Src] Sender | Chan |   │                                      │
 │         Message Preview   │                                      │
 │                           │                                      │
+│                           ├──────────────────────────────────────┤
+│                           │   [Character Widget] (opt-in)        │
 ├───────────────────────────┴──────────────────────────────────────┤
 │                    [ Review Buffered ]                            │
 └──────────────────────────────────────────────────────────────────┘
 
   Split: 50/50 horizontal (HSplit)
   Window default: 1200w × 800h (from config.toml)
+  Character widget: below activity log (right pane), visible when gui.character != "none"
 ```
 
 ---

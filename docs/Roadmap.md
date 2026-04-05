@@ -41,6 +41,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 022C | Todo list view + task detail modal | Done | [Feature-022C](features/phase-2/Feature-022C-Todo-List-View.md) |
 | 022D | Day planner wizard steps 1-4 | Done | [Feature-022D](features/phase-2/Feature-022D-Wizard-Steps.md) |
 | 022E | Timer tick loop + presenter/view binding | Done | [Feature-022E](features/phase-2/Feature-022E-Timer-Wiring.md) |
+| 022F | Gosec G104/G404 security fixes | Done | [Feature-022F](features/phase-2/Feature-022F-Gosec-Security-Fixes.md) |
 | 023 | Planner audio alerts (timer sounds, volume) | Done | [Feature-023](features/phase-2/Feature-023-Planner-Audio-Alerts.md) |
 
 ## Phase 3 — Animations

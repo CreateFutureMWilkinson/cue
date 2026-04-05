@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/CreateFutureMWilkinson/cue/internal/config"
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/google/uuid"
 )
+
+// SlackWatcherConfig holds the configuration needed by SlackWatcher.
+type SlackWatcherConfig struct {
+	WorkspaceID string
+}
 
 // Constants for Slack message types and status values
 const (
@@ -53,7 +57,7 @@ type SlackWatcher struct {
 
 // NewSlackWatcher creates a new SlackWatcher with the given API client and configuration.
 // Returns an error if api is nil or if the workspace ID is empty.
-func NewSlackWatcher(api SlackAPI, cfg config.SlackConfig) (*SlackWatcher, error) {
+func NewSlackWatcher(api SlackAPI, cfg SlackWatcherConfig) (*SlackWatcher, error) {
 	if api == nil {
 		return nil, fmt.Errorf("api must not be nil")
 	}

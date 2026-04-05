@@ -6,10 +6,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CreateFutureMWilkinson/cue/internal/config"
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/google/uuid"
 )
+
+// EmailWatcherConfig holds the configuration needed by EmailWatcher.
+type EmailWatcherConfig struct {
+	Username string
+}
 
 const (
 	SourceEmail        = "email"
@@ -42,7 +46,7 @@ type EmailWatcher struct {
 }
 
 // NewEmailWatcher creates a new EmailWatcher with the given API client and configuration.
-func NewEmailWatcher(api EmailAPI, cfg config.EmailConfig) (*EmailWatcher, error) {
+func NewEmailWatcher(api EmailAPI, cfg EmailWatcherConfig) (*EmailWatcher, error) {
 	if api == nil {
 		return nil, fmt.Errorf("api must not be nil")
 	}

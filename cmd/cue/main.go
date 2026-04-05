@@ -71,11 +71,11 @@ func run() error {
 	}
 
 	// Create watchers with placeholder API clients.
-	slackWatcher, err := watcher.NewSlackWatcher(&placeholderSlackAPI{}, cfg.Slack)
+	slackWatcher, err := watcher.NewSlackWatcher(&placeholderSlackAPI{}, watcher.SlackWatcherConfig{WorkspaceID: cfg.Slack.WorkspaceID})
 	if err != nil {
 		return fmt.Errorf("creating slack watcher: %w", err)
 	}
-	emailWatcher, err := watcher.NewEmailWatcher(&placeholderEmailAPI{}, cfg.Email)
+	emailWatcher, err := watcher.NewEmailWatcher(&placeholderEmailAPI{}, watcher.EmailWatcherConfig{Username: cfg.Email.Username})
 	if err != nil {
 		return fmt.Errorf("creating email watcher: %w", err)
 	}

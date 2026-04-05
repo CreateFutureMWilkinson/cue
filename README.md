@@ -34,7 +34,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | # | Component | Status |
 |---|---|---|
 | 15 | Todo list (CRUD, categories, SQLite) | Done |
-| 20 | Calendar adapter (ICS-over-HTTP) | Planned |
+| 20 | Calendar adapter (ICS-over-HTTP) | Done |
 | 21 | Day planner (scheduling engine, Pomodoro model) | Planned |
 | 22 | Planner UI (wizard pane, Countdown timer) | Planned |
 | 23 | Planner audio alerts (timer sounds, volume control) | Planned |
@@ -90,6 +90,7 @@ Cue uses TOML configuration at `~/.cue/config.toml`. A default config is created
   - **Buffered** (importance >= 7, confidence < 0.8) — silent queue for manual review in feedback buffer
   - **Ignored** (importance < 7) — logged to database, available for manual review
 - **Orchestrator** (`internal/service/orchestrator/`) — Coordinates watchers, router, and repository in batch polling loops (poll → route → store) with per-source goroutines and activity event emission
+- **Calendar** (`internal/service/calendar/`) — Provider-agnostic calendar integration; ICS-over-HTTP adapter for Google Calendar secret links
 - **Watchers** (`internal/service/watcher/`) — Slack and Email polling
 - **Alert** (`internal/alert/`) — Configurable audio alerts with real file playback via gopxl/beep (MP3/WAV/OGG), beeep fallback, configurable cooldown and volume
 - **UI** (`internal/ui/`) — Fyne desktop GUI with presenter/view architecture (notification queue, activity log, feedback review, character animation)

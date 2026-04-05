@@ -1,7 +1,7 @@
 # Feature 020: Calendar Adapter
 
 **Phase:** Phase-2-Feature-020
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/service/calendar/`
 
 ---
@@ -96,6 +96,6 @@ timeout_seconds = 30
 
 | TDD Cycle | Phase | Agent | Duration | Tokens | Commit |
 |---|---|---|---|---|---|
-| ICS Provider | RED | Test Designer | — | — | — |
-| ICS Provider | GREEN | Implementer | — | — | — |
-| ICS Provider | REFACTOR | Refactorer | — | — | — |
+| ICS Provider | RED | Test Designer | 101s | 24,815 | 90d5fa4 |
+| ICS Provider | GREEN | Implementer | 47s | 25,804 | 6057282 |
+| ICS Provider | REFACTOR | Refactorer | 153s | 41,576 | 33dabf7 |

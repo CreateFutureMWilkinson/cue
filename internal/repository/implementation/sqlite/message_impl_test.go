@@ -602,3 +602,94 @@ func (s *MessageRepoSuite) TestUpsertByMessageID() {
 	s.Require().Len(results, 1, "upsert should prevent duplicate MessageIDs")
 	s.Equal("updated", results[0].RawContent, "content should be updated to the latest insert")
 }
+
+// --- Feature 047: MessageType Persistence ---
+
+func (s *MessageRepoSuite) TestMessageTypePersisted() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	msg := makeTestMessage("slack", "Notified", now)
+	msg.MessageType = "channel_join"
+	s.Require().NoError(repo.Insert(ctx, msg))
+
+	got, err := repo.QueryByID(ctx, msg.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+	s.Equal("channel_join", got.MessageType, "MessageType should round-trip through insert and query")
+}
+
+func (s *MessageRepoSuite) TestMessageTypeEmptyStringPersisted() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	msg := makeTestMessage("email", "Buffered", now)
+	// MessageType is not set — defaults to empty string.
+	s.Require().NoError(repo.Insert(ctx, msg))
+
+	got, err := repo.QueryByID(ctx, msg.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+	s.Equal("", got.MessageType, "MessageType should be empty string when not set")
+}
+
+func (s *MessageRepoSuite) TestMessageTypeUpdated() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	msg := makeTestMessage("slack", "Buffered", now)
+	msg.MessageType = "message"
+	s.Require().NoError(repo.Insert(ctx, msg))
+
+	// Update MessageType to channel_join.
+	msg.MessageType = "channel_join"
+	msg.UpdatedAt = time.Now().Truncate(time.Second)
+	err = repo.Update(ctx, msg)
+	s.Require().NoError(err)
+
+	got, err := repo.QueryByID(ctx, msg.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+	s.Equal("channel_join", got.MessageType, "MessageType should reflect the updated value")
+}
+
+func (s *MessageRepoSuite) TestMessageTypeMigrationIdempotent() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	// Open the repo once to create the schema.
+	repo1, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	s.Require().NoError(err)
+	_ = repo1
+
+	// Open the repo a second time on the same database — migration should be idempotent.
+	repo2, err := sqlite.NewSQLiteMessageRepository(dbPath)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	msg := makeTestMessage("slack", "Notified", now)
+	msg.MessageType = "channel_join"
+	s.Require().NoError(repo2.Insert(ctx, msg))
+
+	got, err := repo2.QueryByID(ctx, msg.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+	s.Equal("channel_join", got.MessageType, "MessageType should round-trip after idempotent migration")
+}

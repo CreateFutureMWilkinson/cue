@@ -34,9 +34,11 @@ type NotificationDetail struct {
 }
 
 type NotificationPresenter struct {
-	querier  MessageQuerier
-	updater  MessageUpdater
-	messages []*repository.Message
+	querier          MessageQuerier
+	updater          MessageUpdater
+	messages         []*repository.Message
+	expanded         bool
+	onExpandedChange func(bool)
 }
 
 func NewNotificationPresenter(querier MessageQuerier, updater MessageUpdater) (*NotificationPresenter, error) {
@@ -107,6 +109,42 @@ func (p *NotificationPresenter) Resolve(ctx context.Context, id uuid.UUID) error
 		msg.Status = statusNotified
 		msg.ResolvedAt = nil
 		return fmt.Errorf("resolve: %w", err)
+	}
+
+	p.messages = slices.Delete(p.messages, idx, idx+1)
+	return nil
+}
+
+func (p *NotificationPresenter) IsExpanded() bool {
+	return p.expanded
+}
+
+func (p *NotificationPresenter) ToggleExpanded() {
+	p.expanded = !p.expanded
+	if p.onExpandedChange != nil {
+		p.onExpandedChange(p.expanded)
+	}
+}
+
+func (p *NotificationPresenter) SetOnExpandedChange(fn func(bool)) {
+	p.onExpandedChange = fn
+}
+
+func (p *NotificationPresenter) DismissMessage(ctx context.Context, id uuid.UUID) error {
+	idx := slices.IndexFunc(p.messages, func(m *repository.Message) bool { return m.ID == id })
+	if idx == -1 {
+		return fmt.Errorf("dismiss: message %s not found", id)
+	}
+
+	msg := p.messages[idx]
+	now := time.Now()
+	msg.Status = statusResolved
+	msg.ResolvedAt = &now
+
+	if err := p.updater.Update(ctx, msg); err != nil {
+		msg.Status = statusNotified
+		msg.ResolvedAt = nil
+		return fmt.Errorf("dismiss: %w", err)
 	}
 
 	p.messages = slices.Delete(p.messages, idx, idx+1)

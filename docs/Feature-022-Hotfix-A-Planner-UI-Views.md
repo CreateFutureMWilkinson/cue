@@ -1,7 +1,7 @@
 # Feature 022-Hotfix-A: Center View Router Wiring
 
 **Phase:** Phase-2-Feature-022-Hotfix-A
-**Status:** Planned
+**Status:** Done
 **Package:** `internal/ui/`
 **Parent:** Feature 022 (Planner UI)
 
@@ -9,64 +9,72 @@
 
 ## Overview
 
-Feature 022 delivered the presenter layer (PlannerPresenter, TimerPresenter) with full test coverage and the state machine logic. The center view router exists with ViewCharacter/ViewPlan/ViewWizard states, but `window.go` never swaps the center pane content when the router navigates. This hotfix wires the router so the center column actually switches content.
+Feature 022 delivered the presenter layer (PlannerPresenter, TimerPresenter) with full test coverage and the state machine logic. The center view router existed with ViewCharacter/ViewPlan/ViewWizard states, but `window.go` never swapped the center pane content when the router navigated. This hotfix wires the router so the center column actually switches content.
 
 This is the **critical foundation** for hotfixes 022-B through 022-E — none of the plan view, wizard, or timer wiring can function without center view switching.
 
-## Issue
+## Design Decisions
 
-### Center View Router Not Wired in Window
+### Multi-listener Router Pattern
 
-**Location:** `window.go:62-72`
+The `CenterViewRouter` originally supported a single callback via `SetOnViewChange`. FocusRail uses this to toggle Plan/Back button visibility. Adding a second `SetOnViewChange` call in `window.go` would overwrite FocusRail's callback.
+
+**Solution:** Added `AddOnViewChange(fn)` which appends to a separate `listeners` slice. `SetOnViewChange` continues to set a single primary callback (backward compatible). `NavigateTo` fires the primary callback first, then all additional listeners. This allows FocusRail and window.go to coexist without interference.
+
+### View Content Map
+
+A `map[CenterView]fyne.CanvasObject` maps each view state to its content widget. This avoids switch statements and makes it trivial to add new views later (022-B through 022-E just replace the placeholder labels with real content).
+
+### container.NewStack for Content Swapping
+
+The center pane uses a Fyne `Stack` container with a single child. On navigation, the stack's `Objects` slice is replaced and refreshed. This is the lightest-weight approach — no custom layout, no show/hide complexity.
+
+### CenterContent() Derives from Router State
+
+Rather than maintaining a separate `centerContent` field that could drift out of sync, `CenterContent()` reads `viewRouter.CurrentView()` and looks up the corresponding content in the view map. Single source of truth.
+
+## API
+
+### CenterViewRouter (modified)
 
 ```go
-// Currently shows character widget + activity log drawer; later will route between
-// ViewCharacter, ViewPlan, and ViewWizard.
-var centerPane fyne.CanvasObject
-if ap != nil {
-    drawer := NewActivityLogDrawer(ap)
-    centerPane = drawer.ContainerWithCharacter(characterWidget)
-} else if characterWidget != nil {
-    centerPane = characterWidget
-} else {
-    centerPane = widget.NewLabel("")
-}
+// AddOnViewChange appends a listener without replacing the primary callback.
+func (r *CenterViewRouter) AddOnViewChange(fn func(CenterView))
 ```
 
-The comment says "later will route" — but it was never done. Clicking the Plan button in the focus rail calls `router.NavigateTo(ViewPlan)` which updates the router state, but the center pane never changes.
-
-**Fix:** Use a `container.NewStack` (or similar) for the center pane. Register a `viewRouter.SetOnViewChange` callback that swaps the visible content:
+### MainWindow (modified)
 
 ```go
-characterContent := drawer.ContainerWithCharacter(characterWidget)
-planContent := planView.Container()
-wizardContent := wizardView.Container()
-
-centerStack := container.NewStack(characterContent)
-
-viewRouter.SetOnViewChange(func(view CenterView) {
-    centerStack.Objects = []fyne.CanvasObject{viewForState(view)}
-    centerStack.Refresh()
-})
+// CenterContent returns the canvas object currently displayed in the center column.
+func (m *MainWindow) CenterContent() fyne.CanvasObject
 ```
 
-Plan and wizard content will be placeholder containers until 022-B/C/D implement the real views. The key deliverable is that `NavigateTo()` actually swaps what's visible.
+## Error Handling
 
-## Files
+- Nil `viewRouter`: `CenterContent()` returns nil; no listener registered.
+- Unknown view in map lookup: no-op (content unchanged).
+
+## Files Changed
 
 | File | Action |
 |---|---|
-| `internal/ui/window.go` | Modify — wire center view router to swap center pane content |
-| `internal/ui/window_layout_test.go` | Modify — tests for center view switching |
-
-## Dependencies
-
-- None — this is the foundation hotfix
+| `internal/ui/center_view_router.go` | Added `listeners` field and `AddOnViewChange` method |
+| `internal/ui/window.go` | Wired center view router, added `CenterContent()`, `switchCenterView()` |
+| `internal/ui/window_layout_test.go` | 4 new tests for center view switching |
 
 ## Test Coverage
 
-- NavigateTo(ViewPlan) swaps center content to plan view placeholder
-- NavigateTo(ViewCharacter) swaps back to character content
-- NavigateTo(ViewWizard) shows wizard content placeholder
-- Default state shows character content on startup
-- FocusRail Plan/Back buttons trigger correct router navigation (existing tests)
+| Test | What it verifies |
+|---|---|
+| `TestCenterViewDefaultsToCharacterContent` | Center pane shows character content on startup |
+| `TestNavigateToPlanSwapsCenterContent` | NavigateTo(ViewPlan) swaps to plan placeholder |
+| `TestNavigateToWizardSwapsCenterContent` | NavigateTo(ViewWizard) swaps to wizard placeholder |
+| `TestNavigateBackToCharacterRestoresContent` | Round-trip navigation restores character content |
+
+## TDD Agent Stats
+
+| Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | Test Designer | 46s | 23,628 | f4d05ef |
+| GREEN | Implementer | 84s | 27,795 | 522313f |
+| REFACTOR | Refactorer | 112s | 27,922 | 6174019 |

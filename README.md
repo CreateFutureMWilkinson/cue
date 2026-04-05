@@ -85,7 +85,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 014-B | Fairy animator integration (graduated glow, shutdown, thread safety) | Done |
 | 017-A | Countdown timer renderer (45-segment ring drawing) | Done |
 | 018-A | Notification card visual rendering (styled cards with presenter colors) | Done |
-| 022-A | Center view router wiring | Planned |
+| 022-A | Center view router wiring | Done |
 | 022-B | Plan view (schedule tree + no-plan state) | Planned |
 | 022-C | Todo list view + task detail modal | Planned |
 | 022-D | Day planner wizard steps 1-4 | Planned |

@@ -32,6 +32,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **Center view router wiring** — `CenterViewRouter.NavigateTo()` now actually swaps the center pane content in the main window. Added `AddOnViewChange()` for multi-listener support (coexists with FocusRail's `SetOnViewChange`), `CenterContent()` accessor, and `switchCenterView()` method. Plan and wizard views show placeholders until 022-B/C/D. Foundation for all remaining 022 hotfixes (Phase-2-Feature-022-Hotfix-A)
 - **Notification card presenter API** — Added `Cards()` method to `NotificationPresenter` exposing `[]NotificationCard` view models with color-coded backgrounds, badge colors, opacity, and relative timestamps. Added `Reasoning` field to `NotificationDetail` for detail dialog display. Unified duplicate preview length constants. 8 new tests (Phase-1-Feature-018-Hotfix-A)
 - **Countdown timer ring rendering** — Replaced stub renderer with real 45-line ring drawing using `canvas.Line` objects, trigonometric positioning, proportional scaling, future/elapsed coloring, cardinal/diagonal stroke widths (3.0/2.0), and `SetFlashVisible` for 1Hz flash animation. 13 new renderer tests (Phase-1-Feature-017-Hotfix-A)
 - **Graduated glow layer alphas** — Glow layers now use graduated base alphas (128 inner → 16 outer) instead of flat alpha=30 for all layers, producing realistic inner-bright/outer-dim breathing effects. `SetGlowIntensity()` multiplies each layer's base alpha by intensity. (Phase-3-Feature-014-Hotfix-B)

@@ -1,7 +1,7 @@
 # Feature 018-Hotfix-A: Notification Card Visual Rendering
 
 **Phase:** Phase-1-Feature-018-Hotfix-A
-**Status:** Planned
+**Status:** Done
 **Package:** `internal/ui/`
 **Parent:** Feature 018 (Notification Panel Redesign)
 
@@ -88,10 +88,24 @@ Each expanded card should show:
 
 ## Test Coverage
 
-- Collapsed card shows IS badge with correct background color for IS>=9 (red)
-- Collapsed card shows IS badge with correct background color for IS>=8 (orange)
-- Collapsed card shows IS badge with correct background color for IS<8 (blue)
-- Expanded card shows all fields (score, source, channel, sender, time, dismiss)
-- Dismiss button calls presenter.DismissMessage
-- Card click opens detail dialog
-- Detail dialog shows full content, IS, CS, reasoning, resolve button
+### Presenter Cards Suite (`notification_presenter_test.go`)
+- `TestCardsReturnsNotificationCards` — Cards() returns correct count and content
+- `TestCardsHasCorrectColors` — IS>=9 gets red (#ffc9c9/#ef4444), IS<8 gets blue (#dbe4ff/#4a9eed)
+- `TestCardsHasRelativeTime` — Cards have non-empty RelativeTime strings
+- `TestSelectReturnsReasoning` — Select() populates Reasoning from repository message
+
+### Notification Pane Suite (`notification_pane_test.go`)
+- `TestCollapsedCardShowsBadgeText` — Collapsed cards expose IS and channel via Cards()
+- `TestExpandedCardShowsFullScore` — Expanded cards expose IS, source, sender via Cards()
+- `TestExpandedCardShowsDismissAction` — Dismiss by card ID removes card from list
+- `TestDetailDialogShowsReasoning` — Select() detail includes reasoning text
+
+**Total new tests: 8**
+
+## TDD Agent Stats
+
+| TDD Cycle | Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|---|
+| Cards + Reasoning | RED | Test Designer | 252s | 35,591 | 0305024 |
+| Cards + Reasoning | GREEN | Implementer | 48s | 23,302 | 738e36f |
+| Cards + Reasoning | REFACTOR | Refactorer | 195s | 30,732 | 4667be4 |

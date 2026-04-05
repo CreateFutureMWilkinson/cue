@@ -3,6 +3,8 @@ package ui_test
 import (
 	"testing"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/test"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
@@ -22,12 +24,15 @@ func TestThreeColumnLayout(t *testing.T) {
 
 // newTestMainWindow is a helper that creates a MainWindow with a given
 // CenterViewRouter and nil presenters (sufficient for layout tests).
-func newTestMainWindow(router *ui.CenterViewRouter) *ui.MainWindow {
+// The fyne.App is passed as the first argument to NewMainWindow, replacing
+// the old package-level factory pattern.
+func newTestMainWindow(fyneApp fyne.App, router *ui.CenterViewRouter) *ui.MainWindow {
 	cfg := config.GUIConfig{
 		WindowWidth:  1200,
 		WindowHeight: 800,
 	}
 	return ui.NewMainWindow(
+		fyneApp,
 		cfg,
 		(*presenter.NotificationPresenter)(nil),
 		(*presenter.ActivityPresenter)(nil),
@@ -41,22 +46,34 @@ func newTestMainWindow(router *ui.CenterViewRouter) *ui.MainWindow {
 	)
 }
 
+// TestNewMainWindowAcceptsFyneApp verifies that NewMainWindow accepts a
+// fyne.App as its first parameter, allowing callers to inject the application
+// instance instead of relying on a package-level factory variable.
+func (s *ThreeColumnLayoutSuite) TestNewMainWindowAcceptsFyneApp() {
+	fyneApp := test.NewApp()
+	router := ui.NewCenterViewRouter()
+	mw := newTestMainWindow(fyneApp, router)
+	s.NotNil(mw, "NewMainWindow should return a non-nil *MainWindow when given an injected fyne.App")
+}
+
 func (s *ThreeColumnLayoutSuite) TestNewMainWindowAcceptsCenterViewRouter() {
 	// This test verifies the NewMainWindow signature accepts a *CenterViewRouter.
-	// It is a compile-time contract test — if the parameter is missing, this
+	// It is a compile-time contract test -- if the parameter is missing, this
 	// file will not compile.
 	//
 	// We pass nil for all presenter dependencies because we are only testing
 	// that the function signature is correct, not that it produces a working
 	// window. The function should still return a non-nil *MainWindow.
+	fyneApp := test.NewApp()
 	router := ui.NewCenterViewRouter()
-	mw := newTestMainWindow(router)
+	mw := newTestMainWindow(fyneApp, router)
 	s.NotNil(mw, "NewMainWindow should return a non-nil *MainWindow")
 }
 
 func (s *ThreeColumnLayoutSuite) TestCenterViewDefaultsToCharacterContent() {
+	fyneApp := test.NewApp()
 	router := ui.NewCenterViewRouter()
-	mw := newTestMainWindow(router)
+	mw := newTestMainWindow(fyneApp, router)
 
 	content := mw.CenterContent()
 	s.NotNil(content, "CenterContent should return a non-nil canvas object on startup")
@@ -67,8 +84,9 @@ func (s *ThreeColumnLayoutSuite) TestCenterViewDefaultsToCharacterContent() {
 }
 
 func (s *ThreeColumnLayoutSuite) TestNavigateToPlanSwapsCenterContent() {
+	fyneApp := test.NewApp()
 	router := ui.NewCenterViewRouter()
-	mw := newTestMainWindow(router)
+	mw := newTestMainWindow(fyneApp, router)
 
 	originalContent := mw.CenterContent()
 	s.NotNil(originalContent)
@@ -82,8 +100,9 @@ func (s *ThreeColumnLayoutSuite) TestNavigateToPlanSwapsCenterContent() {
 }
 
 func (s *ThreeColumnLayoutSuite) TestNavigateToWizardSwapsCenterContent() {
+	fyneApp := test.NewApp()
 	router := ui.NewCenterViewRouter()
-	mw := newTestMainWindow(router)
+	mw := newTestMainWindow(fyneApp, router)
 
 	originalContent := mw.CenterContent()
 	s.NotNil(originalContent)
@@ -97,8 +116,9 @@ func (s *ThreeColumnLayoutSuite) TestNavigateToWizardSwapsCenterContent() {
 }
 
 func (s *ThreeColumnLayoutSuite) TestNavigateToSettingsSwapsCenterContent() {
+	fyneApp := test.NewApp()
 	router := ui.NewCenterViewRouter()
-	mw := newTestMainWindow(router)
+	mw := newTestMainWindow(fyneApp, router)
 
 	originalContent := mw.CenterContent()
 	s.NotNil(originalContent)
@@ -112,8 +132,9 @@ func (s *ThreeColumnLayoutSuite) TestNavigateToSettingsSwapsCenterContent() {
 }
 
 func (s *ThreeColumnLayoutSuite) TestNavigateBackToCharacterRestoresContent() {
+	fyneApp := test.NewApp()
 	router := ui.NewCenterViewRouter()
-	mw := newTestMainWindow(router)
+	mw := newTestMainWindow(fyneApp, router)
 
 	characterContent := mw.CenterContent()
 	s.NotNil(characterContent)

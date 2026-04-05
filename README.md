@@ -47,7 +47,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 24 | Character UAT harness | Done |
 | 25 | Jar rendering (SVG layers, fairy body/glow) | Done |
 | 26 | Fairy idle state (breathing glow) | Done |
-| 27 | Fairy working state (pseudo-random drift) | Planned |
+| 27 | Fairy working state (pseudo-random drift) | Done |
 | 28 | Fairy notification state (erratic dart) | Planned |
 | 29 | Fairy error state (centered vibrate) | Planned |
 | 30 | Fairy lifecycle states (startup/shutdown) | Planned |

@@ -1,7 +1,7 @@
 # Feature 027: Fairy Working State
 
 **Phase:** Phase-3-Feature-027
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/character/`
 
 ---
@@ -125,6 +125,6 @@ func (a *WorkingAnimator) State() CharacterState  // returns StateWorking
 
 | TDD Cycle | Phase | Agent | Duration | Tokens | Commit |
 |---|---|---|---|---|---|
-| Working Animator | RED | Test Designer | — | — | — |
-| Working Animator | GREEN | Implementer | — | — | — |
-| Working Animator | REFACTOR | Refactorer | — | — | — |
+| Working Animator | RED | Test Designer | 77s | 30,220 | bf85198 |
+| Working Animator | GREEN | Implementer | 76s | 41,617 | b7bed72 |
+| Working Animator | REFACTOR | Refactorer | 129s | 45,148 | 0235a82 |

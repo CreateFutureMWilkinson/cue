@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/test"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
@@ -12,6 +13,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/uitest"
 )
 
 // --- Local mocks (ui_test cannot reuse presenter_test mocks) ---
@@ -247,4 +249,22 @@ func (s *NotificationPaneSuite) TestDetailDialogShowsReasoning() {
 
 	s.Equal("Server outage detected with high urgency keywords", detail.Reasoning,
 		"detail dialog should include reasoning text from the message")
+}
+
+func (s *NotificationPaneSuite) TestCardRenderingUsesColoredElements() {
+	np := s.newPresenter()
+	win := test.NewWindow(nil)
+	defer win.Close()
+
+	panel := ui.NewNotificationPanel(np, win)
+
+	// RenderCard should return a non-nil card widget for the first notification.
+	card := panel.RenderCard(0)
+	s.Require().NotNil(card, "RenderCard(0) must return a non-nil canvas object")
+
+	// The rendered card must contain a canvas.Rectangle for the colored background.
+	_, found := uitest.FindWidget[*canvas.Rectangle](card, func(r *canvas.Rectangle) bool {
+		return true
+	})
+	s.True(found, "rendered card should contain a canvas.Rectangle for the colored background")
 }

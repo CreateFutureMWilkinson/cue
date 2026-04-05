@@ -90,3 +90,8 @@ func (p *NotificationPanel) ToggleExpand() {
 func (p *NotificationPanel) Container() fyne.CanvasObject {
 	return p.root
 }
+
+// RenderCard returns the rendered card widget for the notification at the given index.
+func (p *NotificationPanel) RenderCard(index int) fyne.CanvasObject {
+	return nil // stub — not implemented
+}

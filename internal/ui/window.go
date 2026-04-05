@@ -87,10 +87,19 @@ func NewMainWindow(
 		settingsContent = widget.NewLabel("Settings")
 	}
 
+	// Build planner view content.
+	var planContent fyne.CanvasObject
+	if plannerVM != nil && timerVM != nil {
+		pv := NewPlannerView(plannerVM, timerVM, viewRouter)
+		planContent = pv.Container()
+	} else {
+		planContent = widget.NewLabel("Plan")
+	}
+
 	// Map views to their content for lookup during navigation.
 	viewContents := map[CenterView]fyne.CanvasObject{
 		ViewCharacter: characterContent,
-		ViewPlan:      widget.NewLabel("Plan"),
+		ViewPlan:      planContent,
 		ViewWizard:    widget.NewLabel("Wizard"),
 		ViewSettings:  settingsContent,
 	}

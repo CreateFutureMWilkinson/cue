@@ -120,3 +120,12 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-2-Feature-021 (repo) | RED | orchestrator | — | — | 2cc95ca |
 | Phase-2-Feature-021 (repo) | GREEN | orchestrator | — | — | 1a1ba8a |
 | Phase-2-Feature-021 | REFACTOR | Refactorer | 262s | 49,987 | 2e1316e |
+| Phase-2-Feature-022 (presenter) | RED | Test Designer | 430s | 43,627 | bcdbf5d |
+| Phase-2-Feature-022 (presenter) | GREEN | Implementer | 118s | 51,842 | 9da51be |
+| Phase-2-Feature-022 (presenter) | REFACTOR | Refactorer | 175s | 58,853 | 9b21936 |
+| Phase-2-Feature-022 (timer) | RED | Test Designer | 95s | 41,532 | f77f2a3 |
+| Phase-2-Feature-022 (timer) | GREEN | Implementer | 10,499s | 37,359 | 3f81206 |
+| Phase-2-Feature-022 (timer) | REFACTOR | Refactorer | 80s | 33,241 | 2433b69 |
+| Phase-2-Feature-022 (view) | RED | Test Designer | 80s | 38,986 | bcdace1 |
+| Phase-2-Feature-022 (view) | GREEN | Implementer | 51s | 39,040 | 5a377b3 |
+| Phase-2-Feature-022 (view) | REFACTOR | Refactorer | 91s | 34,554 | 86fcf4a |

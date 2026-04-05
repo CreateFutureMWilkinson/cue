@@ -1,7 +1,7 @@
 # Feature 022: Planner UI
 
 **Phase:** Phase-2-Feature-022
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/presenter/`, `internal/ui/`
 
 ---
@@ -249,12 +249,12 @@ The planner pane replaces or sits alongside the existing layout. Suggested place
 
 | TDD Cycle | Phase | Agent | Duration | Tokens | Commit |
 |---|---|---|---|---|---|
-| Planner Presenter | RED | Test Designer | — | — | — |
-| Planner Presenter | GREEN | Implementer | — | — | — |
-| Planner Presenter | REFACTOR | Refactorer | — | — | — |
-| Timer Presenter | RED | Test Designer | — | — | — |
-| Timer Presenter | GREEN | Implementer | — | — | — |
-| Timer Presenter | REFACTOR | Refactorer | — | — | — |
-| Planner View | RED | Test Designer | — | — | — |
-| Planner View | GREEN | Implementer | — | — | — |
-| Planner View | REFACTOR | Refactorer | — | — | — |
+| Planner Presenter | RED | Test Designer | 430s | 43,627 | bcdbf5d |
+| Planner Presenter | GREEN | Implementer | 118s | 51,842 | 9da51be |
+| Planner Presenter | REFACTOR | Refactorer | 175s | 58,853 | 9b21936 |
+| Timer Presenter | RED | Test Designer | 95s | 41,532 | f77f2a3 |
+| Timer Presenter | GREEN | Implementer | 10,499s | 37,359 | 3f81206 |
+| Timer Presenter | REFACTOR | Refactorer | 80s | 33,241 | 2433b69 |
+| Planner View | RED | Test Designer | 80s | 38,986 | bcdace1 |
+| Planner View | GREEN | Implementer | 51s | 39,040 | 5a377b3 |
+| Planner View | REFACTOR | Refactorer | 91s | 34,554 | 86fcf4a |

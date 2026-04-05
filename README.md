@@ -36,7 +36,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 15 | Todo list (CRUD, categories, SQLite) | Done |
 | 20 | Calendar adapter (ICS-over-HTTP) | Done |
 | 21 | Day planner (scheduling engine, Pomodoro model) | Done |
-| 22 | Planner UI (wizard pane, Countdown timer) | Planned |
+| 22 | Planner UI (wizard pane, Countdown timer) | Done |
 | 23 | Planner audio alerts (timer sounds, volume control) | Planned |
 
 **Phase 3** — Animations

@@ -2,11 +2,13 @@ package ui_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 
@@ -267,4 +269,19 @@ func (s *NotificationPaneSuite) TestCardRenderingUsesColoredElements() {
 		return true
 	})
 	s.True(found, "rendered card should contain a canvas.Rectangle for the colored background")
+}
+
+func (s *NotificationPaneSuite) TestPanelContainsExpandToggleButton() {
+	np := s.newPresenter()
+	win := test.NewWindow(nil)
+	defer win.Close()
+
+	panel := ui.NewNotificationPanel(np, win)
+	root := panel.Container()
+
+	btn, found := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
+		return strings.Contains(strings.ToLower(b.Text), "expand")
+	})
+	s.Require().True(found, "panel should contain a button with 'expand' in its text")
+	s.Contains(strings.ToLower(btn.Text), "expand")
 }

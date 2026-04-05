@@ -16,9 +16,9 @@ const (
 // center 60% column of the three-column layout. It manages transitions between
 // character area, day planner, and wizard views.
 type CenterViewRouter struct {
-	currentView           CenterView
-	onViewChange          func(CenterView)
-	onViewChangeListeners []func(CenterView)
+	currentView  CenterView
+	onViewChange func(CenterView)
+	listeners    []func(CenterView)
 }
 
 // NewCenterViewRouter returns a router defaulting to ViewCharacter.
@@ -33,19 +33,20 @@ func (r *CenterViewRouter) CurrentView() CenterView {
 	return r.currentView
 }
 
-// NavigateTo changes the active view and fires the onViewChange callback if set,
-// followed by any additional listeners registered via AddOnViewChange.
+// NavigateTo changes the active view and notifies all registered listeners.
 func (r *CenterViewRouter) NavigateTo(view CenterView) {
 	r.currentView = view
 	if r.onViewChange != nil {
 		r.onViewChange(view)
 	}
-	for _, fn := range r.onViewChangeListeners {
+	for _, fn := range r.listeners {
 		fn(view)
 	}
 }
 
 // SetOnViewChange registers a callback invoked whenever NavigateTo is called.
+// Replaces any previous callback set via SetOnViewChange but does not affect
+// listeners added via AddOnViewChange.
 func (r *CenterViewRouter) SetOnViewChange(fn func(CenterView)) {
 	r.onViewChange = fn
 }
@@ -53,5 +54,5 @@ func (r *CenterViewRouter) SetOnViewChange(fn func(CenterView)) {
 // AddOnViewChange appends an additional listener invoked whenever NavigateTo is
 // called. Unlike SetOnViewChange, this does not replace existing callbacks.
 func (r *CenterViewRouter) AddOnViewChange(fn func(CenterView)) {
-	r.onViewChangeListeners = append(r.onViewChangeListeners, fn)
+	r.listeners = append(r.listeners, fn)
 }

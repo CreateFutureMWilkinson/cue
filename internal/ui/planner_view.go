@@ -48,7 +48,7 @@ type PlannerView struct {
 }
 
 // NewPlannerView creates a new PlannerView bound to the given view models.
-func NewPlannerView(plannerModel PlannerViewModel, timerModel TimerViewModel) *PlannerView {
+func NewPlannerView(plannerModel PlannerViewModel, timerModel TimerViewModel, router *CenterViewRouter) *PlannerView {
 	v := &PlannerView{
 		plannerModel: plannerModel,
 		timerModel:   timerModel,
@@ -96,6 +96,17 @@ func (v *PlannerView) CompleteTaskButton() *widget.Button { return v.completeTas
 
 // AbandonButton returns the "Abandon Plan" button for cancelling the active schedule.
 func (v *PlannerView) AbandonButton() *widget.Button { return v.abandonBtn }
+
+// PlaceholderText returns the placeholder message shown when there is no active plan.
+// Returns empty string when there is an active plan.
+func (v *PlannerView) PlaceholderText() string {
+	return "" // TODO: implement in GREEN phase
+}
+
+// ScheduleTree returns the schedule tree widget, or nil when there is no active plan.
+func (v *PlannerView) ScheduleTree() *ScheduleTree {
+	return nil // TODO: implement in GREEN phase
+}
 
 // SetPlannerModel replaces the planner view model and updates button visibility.
 func (v *PlannerView) SetPlannerModel(model PlannerViewModel) {

@@ -52,12 +52,13 @@ type SegmentInfo struct {
 // timer with 45 line segments at 8-degree intervals.
 type CountdownTimer struct {
 	widget.BaseWidget
-	progress float64
+	progress     float64
+	flashVisible bool
 }
 
 // NewCountdownTimer creates a new countdown timer widget with zero progress.
 func NewCountdownTimer() *CountdownTimer {
-	t := &CountdownTimer{}
+	t := &CountdownTimer{flashVisible: true}
 	t.ExtendBaseWidget(t)
 	t.Hide()
 	return t
@@ -108,8 +109,8 @@ func (t *CountdownTimer) Reset() {
 
 // SetFlashVisible controls visibility of the current (first non-elapsed) segment
 // for the 1Hz flash animation. When false, the current segment is hidden.
-func (t *CountdownTimer) SetFlashVisible(_ bool) {
-	// TODO: implement flash visibility
+func (t *CountdownTimer) SetFlashVisible(visible bool) {
+	t.flashVisible = visible
 }
 
 // MinSize returns the minimum size for the countdown timer widget.
@@ -117,9 +118,21 @@ func (t *CountdownTimer) MinSize() fyne.Size {
 	return fyne.NewSize(timerMinSize, timerMinSize)
 }
 
-// CreateRenderer returns a minimal renderer for the countdown timer.
+// CreateRenderer returns a renderer that draws 45 line segments in a ring.
 func (t *CountdownTimer) CreateRenderer() fyne.WidgetRenderer {
-	return &countdownTimerRenderer{timer: t}
+	r := &countdownTimerRenderer{timer: t}
+	segments := t.Segments()
+	for i := range segmentCount {
+		line := canvas.NewLine(segments[i].Color)
+		seg := segments[i]
+		if seg.Length == longLength || seg.Length == mediumLength {
+			line.StrokeWidth = 3.0
+		} else {
+			line.StrokeWidth = 2.0
+		}
+		r.lines[i] = line
+	}
+	return r
 }
 
 // segmentLength returns the line length for a segment at the given angle.
@@ -134,15 +147,73 @@ func segmentLength(angle float64) float64 {
 	return shortLength
 }
 
-// countdownTimerRenderer is a minimal renderer satisfying fyne.WidgetRenderer.
+const canonicalRadius = 120.0
+
+// countdownTimerRenderer draws the 45 line segments of the countdown timer ring.
 type countdownTimerRenderer struct {
 	timer *CountdownTimer
+	lines [segmentCount]*canvas.Line
 }
 
-func (r *countdownTimerRenderer) Layout(_ fyne.Size) {}
-func (r *countdownTimerRenderer) MinSize() fyne.Size { return r.timer.MinSize() }
-func (r *countdownTimerRenderer) Refresh()           {}
-func (r *countdownTimerRenderer) Destroy()           {}
+func (r *countdownTimerRenderer) Layout(size fyne.Size) {
+	if size.Width <= 0 || size.Height <= 0 {
+		return
+	}
+
+	centerX := float64(size.Width / 2)
+	centerY := float64(size.Height / 2)
+	radius := float64(min(size.Width, size.Height)) / 2 * 0.9
+	scale := radius / canonicalRadius
+
+	segments := r.timer.Segments()
+	for i, seg := range segments {
+		angleRad := seg.AngleDeg * math.Pi / 180.0
+
+		outerX := centerX + radius*math.Sin(angleRad)
+		outerY := centerY - radius*math.Cos(angleRad)
+		innerX := centerX + (radius-seg.Length*scale)*math.Sin(angleRad)
+		innerY := centerY - (radius-seg.Length*scale)*math.Cos(angleRad)
+
+		r.lines[i].Position1 = fyne.NewPos(float32(outerX), float32(outerY))
+		r.lines[i].Position2 = fyne.NewPos(float32(innerX), float32(innerY))
+	}
+}
+
+func (r *countdownTimerRenderer) MinSize() fyne.Size {
+	return r.timer.MinSize()
+}
+
+func (r *countdownTimerRenderer) Refresh() {
+	segments := r.timer.Segments()
+
+	// Find the first non-elapsed segment index for flash logic.
+	currentIdx := -1
+	for i, seg := range segments {
+		if seg.State != SegmentElapsed {
+			currentIdx = i
+			break
+		}
+	}
+
+	for i, seg := range segments {
+		r.lines[i].StrokeColor = seg.Color
+		r.lines[i].Hidden = false
+
+		// Flash logic: hide current segment when flash is not visible.
+		if i == currentIdx && !r.timer.flashVisible {
+			r.lines[i].Hidden = true
+		}
+
+		r.lines[i].Refresh()
+	}
+}
+
+func (r *countdownTimerRenderer) Destroy() {}
+
 func (r *countdownTimerRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{canvas.NewRectangle(color.Transparent)}
+	objects := make([]fyne.CanvasObject, segmentCount)
+	for i, line := range r.lines {
+		objects[i] = line
+	}
+	return objects
 }

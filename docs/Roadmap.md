@@ -72,7 +72,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 033 | Watcher config decoupling | Done | — | [Feature-033](features/phase-4/Feature-033-Watcher-Config-Decoupling.md) |
 | 034 | Dynamic watcher management | Done | — | [Feature-034](features/phase-4/Feature-034-Dynamic-Watcher-Management.md) |
 | 035 | TOML config slimming | Done | 033 | [Feature-035](features/phase-4/Feature-035-TOML-Config-Slimming.md) |
-| 036 | Settings presenter expansion | Planned | 031, 032, 034 | [Feature-036](features/phase-4/Feature-036-Settings-Presenter.md) |
+| 036 | Settings presenter expansion | Done | 031, 032, 034 | [Feature-036](features/phase-4/Feature-036-Settings-Presenter.md) |
 | 037 | Settings UI expansion | Planned | 036 | [Feature-037](features/phase-4/Feature-037-Settings-UI.md) |
 | 038 | Main wiring update | Planned | 031–037 | [Feature-038](features/phase-4/Feature-038-Main-Wiring.md) |
 | 039 | Ollama model validation on startup | Planned | — | [Feature-039](features/phase-4/Feature-039-Ollama-Model-Validation.md) |

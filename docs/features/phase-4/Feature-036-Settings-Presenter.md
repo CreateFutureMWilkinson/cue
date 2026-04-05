@@ -1,7 +1,7 @@
 # Feature 036: Settings Presenter Expansion
 
 **Phase:** Phase-4-Feature-036
-**Status:** Planned
+**Status:** Done
 **Package:** `internal/ui/presenter/`
 **Depends on:** Features 031, 032, 034
 
@@ -129,3 +129,11 @@ Full mock-based test suite (mock repository, mock WatcherManager, mock factory):
 |---|---|
 | `internal/ui/presenter/service_settings_presenter.go` | **New** — service account CRUD + watcher lifecycle |
 | `internal/ui/presenter/service_settings_presenter_test.go` | **New** — full mock-based test suite |
+
+## TDD Agent Stats
+
+| Implementation Phase | TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|---|
+| Phase-4-Feature-036 | Red | test-designer | ~2m | ~32k | `6e46fee` |
+| Phase-4-Feature-036 | Green | implementer | ~1m | ~35k | `76c3fd5` |
+| Phase-4-Feature-036 | Refactor | refactorer | manual | — | `1bd4b00` |

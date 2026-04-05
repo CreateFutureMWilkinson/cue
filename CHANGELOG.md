@@ -43,6 +43,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Service settings presenter** — Service settings presenter for Slack/Email account CRUD and watcher lifecycle (Phase-4-Feature-036)
 - **ServiceConfig repository interface** — `SlackAccount` and `EmailAccount` domain types with `ServiceConfigRepository` interface for multi-account database-backed service configuration (Phase-4-Feature-031)
 - **SQLite ServiceConfig implementation** — Full CRUD for `slack_accounts` and `email_accounts` tables with upsert semantics, UNIQUE constraints on natural keys, and idempotent deletes (Phase-4-Feature-032)
 - **Timer tick loop + presenter ↔ view binding** — `TimerLoop` drives 1Hz timer updates (progress, flash, task label) via `TickableTimer`/`TimerWidget`/`TaskUpdater` interfaces. `AppBinder` wires `PlannerPresenter.SetOnStepChange` to wizard/plan view refreshes, focus rail activation, and view router navigation. `AutoLoad` restores active plan state on startup. `FocusRail.Container()` provides VBox layout for window integration. 24 new tests (Phase-2-Feature-022-Hotfix-E)

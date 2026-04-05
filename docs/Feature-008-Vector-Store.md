@@ -83,9 +83,9 @@ Aligns with CLAUDE.md Section 12: chromem-go embedding failure → store message
 
 ## Integration Points
 
-- **Router orchestration** (Feature 7): After routing a message, the orchestrator can call `StoreEmbedding` to persist the vector for future similarity lookups
-- **Feedback buffer** (Feature 9): When a user rates a buffered message, the rating + vector can be used to improve future scoring
-- **Message repository** (Feature 2): `Message.VectorID` field links to the vector store entry
+- **Router orchestration** (Feature 007): After routing a message, the orchestrator can call `StoreEmbedding` to persist the vector for future similarity lookups
+- **Feedback buffer** (Feature 009): When a user rates a buffered message, the rating + vector can be used to improve future scoring
+- **Message repository** (Feature 002): `Message.VectorID` field links to the vector store entry
 
 ## Test Coverage
 

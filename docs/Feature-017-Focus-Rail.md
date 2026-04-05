@@ -1,131 +1,98 @@
-# Feature 017: Focus Rail
-
-**Phase:** Phase-1-Feature-017
-**Status:** Planned
-**Packages:** `internal/ui/`, `internal/ui/presenter/`
-
----
+# Feature 017 — Focus Rail + Countdown Timer
 
 ## Overview
 
-Persistent left column (10% width) showing a countdown timer ring placeholder, current task name, and navigation buttons. The focus rail is always visible regardless of center area state. Button visibility changes based on application state: Plan/Back buttons are mutually exclusive, Review button only appears when notifications are expanded. The timer ring and task name are only visible when an active plan exists. Full timer mechanics are implemented in Feature 022 (Planner UI); this feature creates the widget shell and visibility logic.
+Implements the persistent left column (focus rail) of the three-column layout and a custom countdown timer ring widget. The focus rail provides navigation buttons that respond to the CenterViewRouter state, a task label and Done button that appear when a plan is active, and a Review button visible only when notifications are expanded. The countdown timer is a custom Fyne widget with 45 line segments at 8-degree intervals, supporting progress tracking with distinct visual states for future, current, and elapsed segments.
 
 ## Design Decisions
 
-- **Timer ring is a placeholder in this feature** — the visual ring widget is created with static geometry (45 lines at 8° intervals, correct tiers) but no countdown logic. Full timer state management (flashing, depletion, block tracking) comes with Feature 022.
-- **Visibility rules driven by presenter state** — `FocusRailPresenter` tracks which controls are visible based on: active plan existence, center view state, and notification expansion state. The view layer binds to these signals.
-- **Back and Plan are mutually exclusive** — Plan button navigates to Plan view, Back button returns to character view. Only one is visible at a time, determined by the current center view.
-- **Review button appears only in expanded notification state** — ties into the notification panel's expanded/collapsed toggle (Feature 018).
-- **Timer ring scales to fit rail width** — approximately 40–50px radius at 1200w window. The `timer-ring-radius` design token (120px) applies to the full-size spec; this version scales proportionally.
+| Decision | Rationale |
+|---|---|
+| 45 segments at 8-degree intervals | Matches UI-SPEC.md countdown timer spec; 45 * 8 = 360 degrees gives full ring coverage |
+| Cardinal lines 3x, diagonal 2x, regular 1x | Visual hierarchy — cardinals (0/90/180/270) are most prominent at 36px, diagonals at 24px, regular at 12px |
+| Timer hidden by default | UI-SPEC requires timer hidden until an active plan exists; `SetActivePlan(true)` reveals it |
+| FocusRail listens to CenterViewRouter | Plan button visible in Character view, Back button visible in Plan/Wizard — driven by `SetOnViewChange` callback |
+| Review button decoupled from view state | Review visibility is controlled separately via `SetNotificationsExpanded`, not by CenterViewRouter |
+| Callback-based Done/Review | `SetOnDone` and `SetOnReview` allow parent code to wire behavior without the rail knowing about external systems |
+| Progress clamped to [0.0, 1.0] | Prevents invalid rendering state from out-of-range progress values |
+| Minimal renderer (placeholder) | Timer rendering logic is a shell; full rendering with canvas lines deferred to Feature 022 (Planner UI) when the timer is actively used |
+| Yellow #FFCE1B for future segments | Matches UI-SPEC.md design token for timer color |
+| Elapsed segments use alpha=64 | Dimmed appearance clearly distinguishes past from future without a second color |
 
 ## API
 
-### FocusRailPresenter
+### CountdownTimer
 
 ```go
-type FocusRailPresenter struct {
-    viewRouter    *CenterViewRouter
-    onStateChange func()
+type SegmentState int  // SegmentFuture, SegmentCurrent, SegmentElapsed
+
+type SegmentInfo struct {
+    AngleDeg float64
+    Length   float64
+    State    SegmentState
+    Color    color.NRGBA
 }
 
-func NewFocusRailPresenter(
-    viewRouter *CenterViewRouter,
-) (*FocusRailPresenter, error)
-
-// Visibility
-func (p *FocusRailPresenter) TimerVisible() bool          // true when active plan exists
-func (p *FocusRailPresenter) TaskNameVisible() bool        // true when active plan exists
-func (p *FocusRailPresenter) DoneVisible() bool            // true when active plan exists
-func (p *FocusRailPresenter) BackVisible() bool            // true when center is Plan or Wizard
-func (p *FocusRailPresenter) PlanVisible() bool            // true when center is Character
-func (p *FocusRailPresenter) ReviewVisible() bool          // true when notifications expanded
-
-// State
-func (p *FocusRailPresenter) CurrentTaskName() string
-func (p *FocusRailPresenter) SetActivePlan(active bool)
-func (p *FocusRailPresenter) SetNotificationsExpanded(expanded bool)
-func (p *FocusRailPresenter) SetOnStateChange(fn func())
-
-// Actions
-func (p *FocusRailPresenter) OnDone()                      // marks current task done
-func (p *FocusRailPresenter) OnBack()                      // navigates to character view
-func (p *FocusRailPresenter) OnPlan()                      // navigates to plan view
-func (p *FocusRailPresenter) OnReview()                    // opens feedback review
+func NewCountdownTimer() *CountdownTimer
+func (t *CountdownTimer) Segments() []SegmentInfo
+func (t *CountdownTimer) SetProgress(p float64)
+func (t *CountdownTimer) Reset()
+func (t *CountdownTimer) MinSize() fyne.Size
+func (t *CountdownTimer) CreateRenderer() fyne.WidgetRenderer
 ```
 
-### Timer Ring Widget (Static Shell)
+### FocusRail
 
 ```go
-type TimerRingWidget struct {
-    widget.BaseWidget
-    radius      float32
-    segments    int          // 45
-    lineShort   float32      // scaled from design token
-}
-
-func NewTimerRingWidget() *TimerRingWidget
-func (w *TimerRingWidget) CreateRenderer() fyne.WidgetRenderer
+func NewFocusRail(router *CenterViewRouter) *FocusRail
+func (r *FocusRail) PlanButton() *widget.Button
+func (r *FocusRail) BackButton() *widget.Button
+func (r *FocusRail) DoneButton() *widget.Button
+func (r *FocusRail) ReviewButton() *widget.Button
+func (r *FocusRail) TaskLabel() *widget.Label
+func (r *FocusRail) Timer() *CountdownTimer
+func (r *FocusRail) SetActivePlan(active bool)
+func (r *FocusRail) SetCurrentTask(task string)
+func (r *FocusRail) SetNotificationsExpanded(expanded bool)
+func (r *FocusRail) SetOnDone(fn func())
+func (r *FocusRail) SetOnReview(fn func())
 ```
-
-## Layout
-
-```
-┌──────┐
-│      │
-│  ◯   │  ← Timer ring (static, 45 lines)
-│      │
-│      │
-│ Task │  ← Current task name (word-wrapped)
-│ name │
-│      │
-│[Done]│  ← Marks task done
-│      │
-│      │
-│[Back]│  ← Returns to character view (mutually exclusive with Plan)
-│[Plan]│  ← Opens Plan view (mutually exclusive with Back)
-│[Review]│ ← Only when notifications expanded
-└──────┘
-```
-
-### Control Visibility
-
-| Control | Visible when |
-|---|---|
-| Timer ring | Active plan exists |
-| Task name | Active plan exists |
-| Done | Active plan exists |
-| Back | Center area showing Plan view or Wizard |
-| Plan | Center area showing Character |
-| Review | Notifications expanded |
 
 ## Error Handling
 
-| Scenario | Behavior |
-|---|---|
-| No active plan | Timer ring, task name, and Done hidden; only Plan button visible |
-| View router nil | Constructor returns validation error |
+- Progress values outside [0.0, 1.0] are clamped silently — no error, no panic
+- Done and Review button taps with nil callbacks are no-ops
+- CenterViewRouter nil callback is tolerated (inherited from Feature 016)
 
 ## Integration Points
 
-- **Three-Column Layout (Feature 016):** Focus rail occupies the left 10% column created by the layout.
-- **CenterViewRouter (Feature 016):** Back/Plan button visibility driven by current center view state.
-- **Notification Panel (Feature 018):** Review button visibility driven by notification expanded state.
-- **Planner UI (Feature 022):** Timer ring populated with countdown logic; task name driven by planner state; Done button wired to task completion.
+| Feature | Dependency |
+|---|---|
+| Feature 016 (Three-Column Layout) | FocusRail occupies the left column placeholder; reads CenterViewRouter for navigation |
+| Feature 018 (Notification Redesign) | `SetNotificationsExpanded` controls Review button visibility based on notification panel state |
+| Feature 022 (Planner UI) | `SetActivePlan` / `SetCurrentTask` driven by planner; timer progress updated by Pomodoro engine |
+| Feature 023 (Planner Audio) | Timer completion triggers audio alert through Done callback chain |
 
-## Test Coverage Plan
+## Test Coverage
 
-| Package | Suite | Expected Tests |
+| Suite | Tests | Coverage |
 |---|---|---|
-| `presenter` | `FocusRailPresenterSuite` | Constructor validation, default visibility (no plan: timer/task/done hidden, plan visible), with active plan (timer/task/done visible), back/plan mutual exclusivity, review visible only when expanded, state change callback fires, action delegates (done/back/plan/review) |
-| `ui` | `TimerRingWidgetSuite` | Creates 45 line objects, cardinal lines 3x length, diagonal lines 2x length, standard lines 1x length, ring scales with size |
+| CountdownTimerSuite | 14 | Segment count, interval spacing, cardinal/diagonal/regular lengths, future/elapsed colors, progress states (0%, 50%, 100%), clamping, reset, MinSize, renderer, SegmentInfo fields |
+| FocusRailSuite | 19 | Initial visibility, Plan/Back toggling on view change, Done/Review callbacks, task label, timer access, SetActivePlan show/hide, SetNotificationsExpanded, nil callback safety, multi-navigation |
+
+## Files Changed
+
+| File | Change |
+|---|---|
+| `internal/ui/countdown_timer.go` | New — custom Fyne widget with 45-segment ring |
+| `internal/ui/countdown_timer_test.go` | New — 14 tests |
+| `internal/ui/focus_rail.go` | New — persistent left column component |
+| `internal/ui/focus_rail_test.go` | New — 19 tests |
 
 ## TDD Agent Stats
 
-| TDD Cycle | Phase | Agent | Duration | Tokens | Commit |
-|---|---|---|---|---|---|
-| FocusRailPresenter | RED | Test Designer | — | — | — |
-| FocusRailPresenter | GREEN | Implementer | — | — | — |
-| FocusRailPresenter | REFACTOR | Refactorer | — | — | — |
-| TimerRingWidget | RED | Test Designer | — | — | — |
-| TimerRingWidget | GREEN | Implementer | — | — | — |
-| TimerRingWidget | REFACTOR | Refactorer | — | — | — |
+| Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | Test Designer | — | — | cccd027 |
+| GREEN | Implementer | — | — | d3d1341 |
+| REFACTOR | Refactorer | — | — | a0c481b |

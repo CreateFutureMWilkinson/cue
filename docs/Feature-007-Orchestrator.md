@@ -112,10 +112,10 @@ Store failures are silent — no event emitted.
 
 ## Integration Points
 
-- **Watchers** (Features 5, 6): Consumed via the Watcher interface
-- **Router** (Feature 3): Consumed via the BatchRouter interface
-- **Repository** (Feature 2): Consumed via MessageRepository for persistence
-- **GUI** (Feature 11): Activity events consumed by the activity log pane
+- **Watchers** (Features 005, 006): Consumed via the Watcher interface
+- **Router** (Feature 003): Consumed via the BatchRouter interface
+- **Repository** (Feature 002): Consumed via MessageRepository for persistence
+- **GUI** (Feature 011): Activity events consumed by the activity log pane
 
 ## Test Coverage
 

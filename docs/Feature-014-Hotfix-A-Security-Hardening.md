@@ -1,6 +1,6 @@
 # Feature 014 Hotfix A: Security Hardening
 
-**Phase:** Hotfix-A (security)
+**Phase:** Phase-3-Feature-014-Hotfix-A (security)
 **Status:** Done
 **Packages:** `internal/alert/`, `cmd/cue/`
 

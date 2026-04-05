@@ -91,8 +91,8 @@ Respond ONLY with valid JSON. Do not include any other text.
 
 ## Integration Points
 
-- **Router** (Feature 3): Consumes OllamaClient via the Scorer interface for non-deterministic messages
-- **Config** (Feature 1): baseURL constructed from `ollama.host` + `ollama.port`, model from `ollama.inference_model`, timeout from `ollama.timeout_seconds`
+- **Router** (Feature 003): Consumes OllamaClient via the Scorer interface for non-deterministic messages
+- **Config** (Feature 001): baseURL constructed from `ollama.host` + `ollama.port`, model from `ollama.inference_model`, timeout from `ollama.timeout_seconds`
 
 ## Test Coverage
 

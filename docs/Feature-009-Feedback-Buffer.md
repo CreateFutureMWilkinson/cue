@@ -8,7 +8,7 @@
 
 ## Overview
 
-Service layer that manages the feedback review workflow for BUFFERED messages (importance >= 7, confidence < 0.8). Sits between the SQLite repository (Feature 2) and the future GUI (Feature 11). Users review buffered messages oldest-first, rate them 0-10, optionally add notes, and can delete unwanted messages. Rated messages are optionally embedded via the vector store (Feature 8) for future learning.
+Service layer that manages the feedback review workflow for BUFFERED messages (importance >= 7, confidence < 0.8). Sits between the SQLite repository (Feature 002) and the future GUI (Feature 011). Users review buffered messages oldest-first, rate them 0-10, optionally add notes, and can delete unwanted messages. Rated messages are optionally embedded via the vector store (Feature 008) for future learning.
 
 ## Design Decisions
 
@@ -27,7 +27,7 @@ The `VectorEmbedder` dependency is nullable. When nil, the service skips embeddi
 
 ### Fetch-All-Scan for Message Lookup
 
-`SaveRating` and `DeleteMessage` need to find a specific message by ID. Rather than adding `QueryByID` to the repository interface (which would require updating all implementations and mocks), the service fetches all buffered messages and scans linearly. With max 200 messages (100 per source), this is negligible overhead and keeps Feature 9 self-contained.
+`SaveRating` and `DeleteMessage` need to find a specific message by ID. Rather than adding `QueryByID` to the repository interface (which would require updating all implementations and mocks), the service fetches all buffered messages and scans linearly. With max 200 messages (100 per source), this is negligible overhead and keeps Feature 009 self-contained.
 
 ### Skip is GUI-Only
 
@@ -73,10 +73,10 @@ func (bs *BufferService) DeleteMessage(ctx context.Context, messageID uuid.UUID)
 
 ## Integration Points
 
-- **Repository (Feature 2):** Uses `QueryByStatus("Buffered")` and `Update` — both existing methods, no changes needed
-- **Vector Store (Feature 8):** Calls `StoreEmbedding` after successful rating save to embed message for future similarity lookups
-- **Router (Feature 3):** Creates buffered messages (IS >= 7, CS < 0.8) — no code change needed
-- **GUI (Feature 11, future):** Will instantiate `BufferService` and use its methods for the Feedback Buffer Review pane
+- **Repository (Feature 002):** Uses `QueryByStatus("Buffered")` and `Update` — both existing methods, no changes needed
+- **Vector Store (Feature 008):** Calls `StoreEmbedding` after successful rating save to embed message for future similarity lookups
+- **Router (Feature 003):** Creates buffered messages (IS >= 7, CS < 0.8) — no code change needed
+- **GUI (Feature 011, future):** Will instantiate `BufferService` and use its methods for the Feedback Buffer Review pane
 
 ## Test Coverage
 

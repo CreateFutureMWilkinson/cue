@@ -408,6 +408,21 @@ Create one commit per phase. **Run `just fmt` as the last step before every comm
 
 Keep each commit **tightly scoped to one phase**. Do not mix phases.
 
+### Numbering Convention
+
+All feature and phase references use **3-digit zero-padded numbers** everywhere: filenames, agent log, CHANGELOG, cross-references in prose.
+
+| Context | Format | Example |
+|---|---|---|
+| Feature doc filename | `Feature-NNN-Name.md` | `Feature-014-Character-System.md` |
+| Hotfix doc filename | `Feature-NNN-Hotfix-X-Name.md` | `Feature-014-Hotfix-A-Security-Hardening.md` |
+| Agent log phase | `Phase-P-Feature-NNN` | `Phase-1-Feature-003` |
+| Agent log hotfix phase | `Phase-P-Feature-NNN-Hotfix-X` | `Phase-3-Feature-014-Hotfix-A` |
+| CHANGELOG/prose reference | `Phase-P-Feature-NNN` | `Phase-1-Feature-012` |
+| Inline cross-reference | `Feature NNN` | `Feature 017` |
+
+`X` is an incrementing uppercase letter (A, B, C…) for multiple hotfixes on the same feature. The phase number matches the parent feature's phase.
+
 ---
 
 ## 14. Go Conventions

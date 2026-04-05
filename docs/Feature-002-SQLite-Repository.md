@@ -96,9 +96,9 @@ All errors use `fmt.Errorf("context: %w", err)` for wrapping.
 
 ## Integration Points
 
-- **Orchestrator** (Feature 7): Calls `Insert()` after routing each message batch
-- **GUI** (Feature 11): Calls `QueryByStatus("Notified")` for notification queue, `QueryOldestToNewest()` for feedback buffer
-- **Feedback buffer** (Feature 9): Calls `Update()` to save user ratings and feedback
+- **Orchestrator** (Feature 007): Calls `Insert()` after routing each message batch
+- **GUI** (Feature 011): Calls `QueryByStatus("Notified")` for notification queue, `QueryOldestToNewest()` for feedback buffer
+- **Feedback buffer** (Feature 009): Calls `Update()` to save user ratings and feedback
 
 ## Test Coverage
 

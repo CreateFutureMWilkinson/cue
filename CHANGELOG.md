@@ -11,6 +11,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Security
+
+- **Path traversal protection** — `filterSupportedAudioFiles` rejects filenames resolving outside `AudioDir`; `BeepPlayer` uses `os.OpenRoot` (Go 1.24+) for kernel-level path scoping (gosec G304, Feature-014-hotfix-A)
+- **Cryptographic RNG for audio selection** — Replaced `math/rand/v2` with `crypto/rand` in audio file selection (gosec G404, Feature-014-hotfix-A)
+- **Dependency bumps** — `golang.org/x/image` v0.24.0→v0.38.0 (GO-2026-4815 TIFF OOM), `golang.org/x/net` v0.35.0→v0.45.0 (GO-2026-4441, GO-2026-4440, GO-2025-3595, GO-2025-3503) (Feature-014-hotfix-A)
+
 ### Breaking
 
 - **Alert service API change** — `NewAlertService` now takes 4 args (cfg, beeper, filesystem, player); `PlayStartup` and `PlayShutdown` removed (Phase-1-Feature-12)

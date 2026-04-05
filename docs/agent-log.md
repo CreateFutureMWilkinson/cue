@@ -75,3 +75,9 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-3-Feature-14 (fairy) | RED | Test Designer | 34s | 21,119 | ea0e3c4 |
 | Phase-3-Feature-14 (fairy) | GREEN | Implementer | 131s | 36,123 | 4e86ad7 |
 | Phase-3-Feature-14 (fairy) | REFACTOR | Refactorer | 199s | 33,056 | 67a9de8 |
+| Feature-014-hotfix-A (alert) | RED | Test Designer | 53s | 28,453 | 62a513b |
+| Feature-014-hotfix-A (alert) | GREEN | Implementer | 44s | 30,561 | 64fdca1 |
+| Feature-014-hotfix-A (alert) | REFACTOR | Refactorer | 97s | 37,520 | 9bdc35f |
+| Feature-014-hotfix-A (beep) | RED | Test Designer | 45s | 29,222 | db981ea |
+| Feature-014-hotfix-A (beep) | GREEN | Implementer | 85s | 43,746 | 47506be |
+| Feature-014-hotfix-A (beep) | REFACTOR | Refactorer | 108s | 45,715 | 2e19ed0 |

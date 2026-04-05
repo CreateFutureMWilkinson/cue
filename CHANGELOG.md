@@ -25,6 +25,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **AppPresenter API change** — `NewAppPresenter` now takes 3 args (removed alerter parameter); presenter `Alerter` interface removed (Phase-1-Feature-012)
 - **NewMainWindow API change** — Now accepts `*CenterViewRouter` as 8th argument; layout changed from two-pane HSplit to three-column (10%/60%/30%); "Review Buffered" button removed from bottom border (Phase-1-Feature-016, Phase-1-Feature-012, Phase-3-Feature-014)
 
+### Fixed
+
+- **Wayland thread-safety in UAT harness** — Extracted `FPSLoop` type with injectable callback; FPS label updates now go through `fyne.Do()` instead of direct `SetText` from a background goroutine. Fixes `Error in Fyne call thread` on Wayland (Phase-3-Feature-024-Hotfix-A)
+
 ### Added
 
 - **Fairy lifecycle states** — Startup and shutdown one-shot animations for the fairy character. Startup: fairy wakes from dormant (#004900, glow 0.1) to idle (#006100, glow 0.5) over 1.5s with Hermite smoothstep easing. Shutdown: captures current state and interpolates to dormant (#004900, glow 0.15) over 1.5s with done-channel completion signaling for graceful app close. `EaseInOut` function, `StartupAnimator` with onComplete callback, `ShutdownAnimator` with `Done()` channel. 29 tests across 3 suites (Phase-3-Feature-030)

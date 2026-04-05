@@ -24,8 +24,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - **ShutdownAnimator deadlock on concurrent transitions** — `NewShutdownAnimator` eagerly created a `done` channel that was never closed unless `Start()` was called; `Stop()` would block forever if called before `Start()`. Changed to lazy allocation matching `StartupAnimator` pattern. Fixes `TestConcurrentTransitions` 10-minute timeout (Phase-3-Feature-030-Hotfix-B)
 
+### Changed
+
+- **Character package restructure** — Fairy character moved to `internal/ui/character/fairy/` sub-package with co-located assets and `go:embed` PNGs (replacing runtime-loaded SVGs). `StateAnimator` interface made fairy-local (unexported). `"none"` character now visible in UAT harness dropdown. Registration uses `fairy.NewFairyCharacter()` from new package (Phase-4-Feature-041)
+
 ### Breaking
 
+- **Fairy character import path change** — `character.NewFairyCharacter()` moved to `fairy.NewFairyCharacter()` in `internal/ui/character/fairy`; `character.StateAnimator` removed from parent package (now unexported `stateAnimator` in fairy); `character.EaseInOut`, `character.IdleBodyColor`, `character.IdleOriginX/Y` moved to fairy package (Phase-4-Feature-041)
 - **NewMainWindow API change** — Now accepts `*ServiceSettingsPresenter` and `config.OllamaConfig` parameters; Settings menu navigates to center-column `SettingsView` instead of opening a popup dialog (Phase-4-Feature-038)
 - **Alert service API change** — `NewAlertService` now takes 4 args (cfg, beeper, filesystem, player); `PlayStartup` and `PlayShutdown` removed (Phase-1-Feature-012)
 - **AppPresenter API change** — `NewAppPresenter` now takes 3 args (removed alerter parameter); presenter `Alerter` interface removed (Phase-1-Feature-012)

@@ -1,7 +1,7 @@
 # Feature 041: Character Package Restructure
 
 **Phase:** Phase-3-Feature-041
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/character/`, `internal/ui/character/fairy/`, `cmd/cue/`, `cmd/cue-uat/`
 
 ---
@@ -222,6 +222,6 @@ go test -race -count=1 ./internal/ui/character/fairy/...
 
 | TDD Phase | Agent | Duration | Tokens | Commit |
 |---|---|---|---|---|
-| RED | Test Designer | — | — | — |
-| GREEN | Implementer | — | — | — |
-| REFACTOR | Refactorer | — | — | — |
+| RED | Test Designer | ~148s | ~45,200 | e4096c0 |
+| GREEN | Implementer | ~384s | ~92,500 | 9ee8fda |
+| REFACTOR | Refactorer | ~125s | ~34,700 | 2501894 |

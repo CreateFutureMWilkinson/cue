@@ -75,6 +75,26 @@ func (s *SettingsInteractionSuite) TestSettingsViewTabContentContainsLabel() {
 	s.Equal("Slack Accounts", lbl.Text)
 }
 
+func (s *SettingsInteractionSuite) TestAudioTabContainsVolumeSlider() {
+	root := s.sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	s.Require().Greater(len(tabs.Items), 2, "should have at least 3 tabs (Audio is index 2)")
+	audioContent := tabs.Items[2].Content
+
+	slider, found := uitest.FindWidget[*widget.Slider](audioContent, func(sl *widget.Slider) bool {
+		return true
+	})
+
+	s.Require().True(found, "Audio tab content should contain a widget.Slider")
+	s.Equal(float64(0), slider.Min, "slider Min should be 0")
+	s.Equal(float64(100), slider.Max, "slider Max should be 100")
+	s.Equal(float64(1), slider.Step, "slider Step should be 1")
+}
+
 func (s *SettingsInteractionSuite) TestSettingsViewEachTabHasContent() {
 	root := s.sv.Container()
 

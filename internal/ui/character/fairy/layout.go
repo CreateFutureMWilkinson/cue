@@ -57,6 +57,13 @@ func (l *fairyJarLayout) positionFairyCircles(containerWidth, containerHeight fl
 	}
 }
 
+// jarRenderedRect computes the position and size of the jar image as actually
+// rendered inside the container, accounting for ImageFillContain letterboxing.
+// imgAspect is the jar image's width/height ratio.
+func jarRenderedRect(containerW, containerH, imgAspect float32) (x, y, w, h float32) {
+	return 0, 0, 0, 0
+}
+
 // positionCircle positions and resizes a circle at the fairy's current position.
 func (l *fairyJarLayout) positionCircle(circle *canvas.Circle, diameter, containerWidth, containerHeight float32) {
 	circle.Resize(fyne.NewSize(diameter, diameter))

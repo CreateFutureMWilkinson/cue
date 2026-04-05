@@ -1,7 +1,7 @@
 # Feature 034: Dynamic Watcher Management
 
 **Phase:** Phase-4-Feature-034
-**Status:** Planned
+**Status:** Done
 **Package:** `internal/service/orchestrator/`
 **Depends on:** None (parallel with Features 031-033)
 
@@ -9,32 +9,25 @@
 
 ## Overview
 
-Modify the orchestrator to support dynamic watcher addition and removal at runtime. Currently, the orchestrator requires at least one watcher at construction time and the watcher set is immutable. This change allows the app to start with zero watchers and add/remove them as users configure accounts through the Settings UI.
+Modify the orchestrator to support dynamic watcher addition and removal at runtime. Previously, the orchestrator required at least one watcher at construction time and the watcher set was immutable. This change allows the app to start with zero watchers and add/remove them as users configure accounts through the Settings UI.
 
 ## Design Decisions
 
 ### Remove Zero-Watchers Guard
 
-Current code at `orchestrator.go:63`:
-```go
-if len(watchers) == 0 {
-    return nil, fmt.Errorf("watchers must not be empty")
-}
-```
-
-This guard is removed. The constructor accepts `nil` or empty watcher maps. `PollOnce` with zero watchers is a no-op that emits an informational activity event.
+The constructor guard `if len(watchers) == 0 { return error }` was removed. The constructor accepts `nil` or empty watcher maps. `nil` maps are initialized to an empty map internally.
 
 ### RWMutex for Watcher Map
 
-The `o.watchers` map is currently accessed only during `PollOnce` (which runs sequentially in a goroutine). With dynamic add/remove from the UI thread, concurrent access is possible. Solution:
+A dedicated `sync.RWMutex` (`watcherMu`) protects the watcher map, separate from the existing `o.mu` which guards `stopped`:
 
-- `PollOnce` takes a read lock to snapshot the watcher map
+- `PollOnce` takes a read lock to snapshot the watcher map, then releases before doing work
 - `AddWatcher`/`RemoveWatcher` take a write lock
-- Use `sync.RWMutex` (separate from existing `o.mu` which guards `stopped`)
+- Snapshot-then-release pattern prevents blocking `AddWatcher` during long poll cycles
 
 ### WatcherManager Interface
 
-Extract an interface so the presenter layer can manage watchers without importing the full orchestrator:
+Extracted an interface so the presenter layer can manage watchers without importing the full orchestrator:
 
 ```go
 type WatcherManager interface {
@@ -44,71 +37,69 @@ type WatcherManager interface {
 }
 ```
 
-The `Orchestrator` struct satisfies this interface. The presenter depends on the interface, not the concrete type.
+The `Orchestrator` struct satisfies this interface (compile-time check in tests).
+
+### Non-blocking emitEvent
+
+Changed `emitEvent` to use `select`/`default` to drop events if the channel is full. This prevents deadlock when concurrent goroutines emit events during the race-safety test.
 
 ## API
 
 ### New Methods on Orchestrator
 
 ```go
-// AddWatcher registers a named watcher. If a watcher with the same name exists, it is replaced.
 func (o *Orchestrator) AddWatcher(name string, w Watcher)
-
-// RemoveWatcher removes a named watcher. No-op if name doesn't exist.
 func (o *Orchestrator) RemoveWatcher(name string)
-
-// ListWatcherNames returns the names of all registered watchers.
 func (o *Orchestrator) ListWatcherNames() []string
 ```
 
 ### Constructor Change
 
-```go
-// Before
-func NewOrchestrator(cfg OrchestratorConfig, router BatchRouter, repo MessageRepository,
-    watchers map[string]Watcher, eventCh chan<- ActivityEvent, alerter Alerter) (*Orchestrator, error)
+Same signature, but `nil`/empty watcher maps are accepted. `nil` is promoted to an empty map.
 
-// After — watchers parameter becomes optional (nil/empty allowed)
-func NewOrchestrator(cfg OrchestratorConfig, router BatchRouter, repo MessageRepository,
-    watchers map[string]Watcher, eventCh chan<- ActivityEvent, alerter Alerter) (*Orchestrator, error)
-```
+### PollOnce with Zero Watchers
 
-Same signature, but the `len(watchers) == 0` check is removed.
-
-### PollOnce Behavior with Zero Watchers
-
-When `len(o.watchers) == 0`, `PollOnce` emits an activity event: `"No watchers configured"` and returns without error. This is not an error condition — the user simply hasn't configured any accounts yet.
+Emits an activity event `"No watchers configured"` (source: `"system"`, non-error) and returns immediately.
 
 ## Error Handling
 
 | Scenario | Behavior |
 |---|---|
-| `AddWatcher` with nil watcher | No-op or panic (defensive — callers must validate) |
+| `AddWatcher` with nil watcher | Stores nil — callers must validate |
 | `RemoveWatcher` unknown name | No-op, no error |
 | `PollOnce` with zero watchers | Informational activity event, return nil |
 
 ## Integration Points
 
-- **Feature 036** (Settings Presenter): Calls `AddWatcher`/`RemoveWatcher` via `WatcherManager` interface when user adds/removes accounts
-- **Feature 038** (Main Wiring): Creates orchestrator with zero watchers, then adds watchers from DB accounts
+- **Feature 036** (Settings Presenter): Calls `AddWatcher`/`RemoveWatcher` via `WatcherManager` interface
+- **Feature 038** (Main Wiring): Creates orchestrator with zero watchers, then adds from DB accounts
 
 ## Test Coverage
 
-New test cases added to existing orchestrator test suite:
+| Test Case | Description |
+|---|---|
+| `TestNewOrchestratorRequiresWatchers` | nil/empty watchers accepted (updated from error assertion) |
+| `TestConstructorAcceptsNilWatchers` | nil watchers map → succeeds |
+| `TestConstructorAcceptsEmptyWatchers` | empty watchers map → succeeds |
+| `TestPollOnceZeroWatchersEmitsEvent` | Emits "No watchers configured", no error |
+| `TestAddWatcherThenPoll` | Dynamically added watcher gets polled |
+| `TestAddWatcherDuplicateReplaces` | Second AddWatcher replaces first |
+| `TestRemoveWatcherThenPoll` | Removed watcher not polled |
+| `TestRemoveWatcherUnknownNoOp` | No panic on unknown name |
+| `TestListWatcherNames` | Returns sorted names, updates after add/remove |
+| `TestConcurrentAddAndPoll` | Race-safe concurrent access (50 iterations, `-race`) |
 
-- Construct orchestrator with nil watchers map — succeeds
-- Construct orchestrator with empty watchers map — succeeds
-- `PollOnce` with zero watchers — no error, emits activity event
-- `AddWatcher` then `PollOnce` — watcher gets polled
-- `AddWatcher` with duplicate name — replaces existing
-- `RemoveWatcher` then `PollOnce` — removed watcher not polled
-- `RemoveWatcher` unknown name — no-op
-- `ListWatcherNames` — returns current names
-- Concurrent `AddWatcher`/`PollOnce` — no data race (run with `-race`)
+### TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | Test Designer | 80s | 33,087 | 39fe00a |
+| GREEN | Implementer | 153s | 36,640 | 635f1df |
+| REFACTOR | Refactorer | 93s | 36,203 | 5e71a54 |
 
 ## Files
 
 | File | Action |
 |---|---|
-| `internal/service/orchestrator/orchestrator.go` | Modify — remove guard, add RWMutex, add AddWatcher/RemoveWatcher/ListWatcherNames |
-| `internal/service/orchestrator/orchestrator_test.go` | Modify — update existing tests, add new dynamic management tests |
+| `internal/service/orchestrator/orchestrator.go` | Modified — removed guard, added RWMutex, WatcherManager interface, AddWatcher/RemoveWatcher/ListWatcherNames, non-blocking emitEvent, maps.Copy |
+| `internal/service/orchestrator/orchestrator_test.go` | Modified — updated existing test, added 9 new test cases, compile-time interface check, mustNewOrchestrator helper |

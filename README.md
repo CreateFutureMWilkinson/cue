@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–3 complete. Phase 4 (Dynamic Service Config + Settings UI) in progress — Features 031–033 (ServiceConfig interface + SQLite implementation + watcher config decoupling) done. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–3 complete. Phase 4 (Dynamic Service Config + Settings UI) in progress — Features 031–034 (ServiceConfig interface + SQLite implementation + watcher config decoupling + dynamic watcher management) done. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 

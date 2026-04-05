@@ -34,6 +34,8 @@ func newTestMainWindow(router *ui.CenterViewRouter) *ui.MainWindow {
 		(*presenter.FeedbackPresenter)(nil),
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
+		(*presenter.ServiceSettingsPresenter)(nil),
+		config.OllamaConfig{},
 		nil, // characterWidget
 		router,
 	)

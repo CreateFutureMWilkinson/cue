@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/CreateFutureMWilkinson/cue/internal/alert"
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
@@ -57,6 +59,12 @@ func run() error {
 		return fmt.Errorf("opening database: %w", err)
 	}
 
+	// Create service config repository (shares the same DB connection).
+	serviceConfigRepo, err := sqlite.NewSQLiteServiceConfigRepository(repo.DB())
+	if err != nil {
+		return fmt.Errorf("creating service config repository: %w", err)
+	}
+
 	// Create router with placeholder scorer.
 	router, err := decisionengine.NewRouter(
 		&placeholderScorer{},
@@ -68,20 +76,6 @@ func run() error {
 	)
 	if err != nil {
 		return fmt.Errorf("creating router: %w", err)
-	}
-
-	// Create watchers with placeholder API clients.
-	slackWatcher, err := watcher.NewSlackWatcher(&placeholderSlackAPI{}, watcher.SlackWatcherConfig{WorkspaceID: cfg.Slack.WorkspaceID})
-	if err != nil {
-		return fmt.Errorf("creating slack watcher: %w", err)
-	}
-	emailWatcher, err := watcher.NewEmailWatcher(&placeholderEmailAPI{}, watcher.EmailWatcherConfig{Username: cfg.Email.Username})
-	if err != nil {
-		return fmt.Errorf("creating email watcher: %w", err)
-	}
-	watchers := map[string]orchestrator.Watcher{
-		"slack": slackWatcher,
-		"email": emailWatcher,
 	}
 
 	// Create buffer service.
@@ -111,20 +105,24 @@ func run() error {
 	// Activity event channel bridges orchestrator -> presenter.
 	orchEventCh := make(chan orchestrator.ActivityEvent, eventChannelBuffer)
 
-	// Create orchestrator.
+	// Create orchestrator with zero watchers (populated dynamically from DB).
 	orch, err := orchestrator.NewOrchestrator(
 		orchestrator.OrchestratorConfig{
-			PollIntervalSeconds: cfg.Slack.PollIntervalSeconds,
+			PollIntervalSeconds: cfg.Orchestrator.PollIntervalSeconds,
 		},
 		router,
 		repo,
-		watchers,
+		nil,
 		orchEventCh,
 		alertSvc,
 	)
 	if err != nil {
 		return fmt.Errorf("creating orchestrator: %w", err)
 	}
+
+	// Build watchers from enabled service accounts in the DB.
+	ctx := context.Background()
+	buildWatchersFromDB(ctx, serviceConfigRepo, orch)
 
 	// Bridge channel: convert orchestrator events to presenter events (fan-out).
 	presenterEventCh := make(chan presenter.ActivityEvent, eventChannelBuffer)
@@ -162,6 +160,38 @@ func run() error {
 		return fmt.Errorf("creating settings presenter: %w", err)
 	}
 
+	// Create watcher factory for runtime account management via Settings UI.
+	watcherFactory := func(accountType string, accountID uuid.UUID) error {
+		switch accountType {
+		case "slack":
+			acct, err := serviceConfigRepo.GetSlackAccount(ctx, accountID)
+			if err != nil {
+				return fmt.Errorf("querying slack account: %w", err)
+			}
+			sw, err := watcher.NewSlackWatcher(&placeholderSlackAPI{}, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID})
+			if err != nil {
+				return fmt.Errorf("creating slack watcher: %w", err)
+			}
+			orch.AddWatcher("slack:"+acct.WorkspaceID, sw)
+		case "email":
+			acct, err := serviceConfigRepo.GetEmailAccount(ctx, accountID)
+			if err != nil {
+				return fmt.Errorf("querying email account: %w", err)
+			}
+			ew, err := watcher.NewEmailWatcher(&placeholderEmailAPI{}, watcher.EmailWatcherConfig{Username: acct.Username})
+			if err != nil {
+				return fmt.Errorf("creating email watcher: %w", err)
+			}
+			orch.AddWatcher("email:"+acct.Username, ew)
+		default:
+			return fmt.Errorf("unknown account type: %s", accountType)
+		}
+		return nil
+	}
+
+	// Create service settings presenter.
+	serviceSettingsPresenter := presenter.NewServiceSettingsPresenter(serviceConfigRepo, orch, watcherFactory)
+
 	// Create character from config, with fallback to "none".
 	character.Register("fairy", func() character.Character {
 		return character.NewFairyCharacter()
@@ -182,7 +212,6 @@ func run() error {
 	}
 
 	// Start orchestrator.
-	ctx := context.Background()
 	if err := orch.Start(ctx); err != nil {
 		return fmt.Errorf("starting orchestrator: %w", err)
 	}
@@ -202,7 +231,7 @@ func run() error {
 	viewRouter := ui.NewCenterViewRouter()
 
 	// Create and run the Fyne window (blocks until quit).
-	mainWindow := ui.NewMainWindow(cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, char.Widget(), viewRouter)
+	mainWindow := ui.NewMainWindow(cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, serviceSettingsPresenter, cfg.Ollama, char.Widget(), viewRouter)
 	mainWindow.Run()
 
 	// Graceful shutdown: play shutdown animation if character supports it.
@@ -246,6 +275,44 @@ type channelActivitySource struct {
 
 func (s *channelActivitySource) Events() <-chan presenter.ActivityEvent {
 	return s.ch
+}
+
+// buildWatchersFromDB queries enabled service accounts and registers watchers
+// with the orchestrator. Errors are logged but do not prevent startup.
+func buildWatchersFromDB(ctx context.Context, repo repository.ServiceConfigRepository, orch *orchestrator.Orchestrator) {
+	slackAccounts, err := repo.ListSlackAccounts(ctx)
+	if err != nil {
+		log.Printf("warning: failed to query slack accounts: %v", err)
+	} else {
+		for _, acct := range slackAccounts {
+			if !acct.Enabled {
+				continue
+			}
+			sw, err := watcher.NewSlackWatcher(&placeholderSlackAPI{}, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID})
+			if err != nil {
+				log.Printf("warning: failed to create slack watcher for %s: %v", acct.WorkspaceID, err)
+				continue
+			}
+			orch.AddWatcher("slack:"+acct.WorkspaceID, sw)
+		}
+	}
+
+	emailAccounts, err := repo.ListEmailAccounts(ctx)
+	if err != nil {
+		log.Printf("warning: failed to query email accounts: %v", err)
+	} else {
+		for _, acct := range emailAccounts {
+			if !acct.Enabled {
+				continue
+			}
+			ew, err := watcher.NewEmailWatcher(&placeholderEmailAPI{}, watcher.EmailWatcherConfig{Username: acct.Username})
+			if err != nil {
+				log.Printf("warning: failed to create email watcher for %s: %v", acct.Username, err)
+				continue
+			}
+			orch.AddWatcher("email:"+acct.Username, ew)
+		}
+	}
 }
 
 // --- Placeholder implementations for APIs not yet built ---

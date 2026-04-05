@@ -50,6 +50,8 @@ func NewMainWindow(
 	fp *presenter.FeedbackPresenter,
 	appP *presenter.AppPresenter,
 	sp *presenter.SettingsPresenter,
+	ssp *presenter.ServiceSettingsPresenter,
+	ollamaCfg config.OllamaConfig,
 	characterWidget fyne.CanvasObject,
 	viewRouter *CenterViewRouter,
 ) *MainWindow {
@@ -72,12 +74,21 @@ func NewMainWindow(
 		characterContent = widget.NewLabel("")
 	}
 
+	// Build settings view content.
+	var settingsContent fyne.CanvasObject
+	if sp != nil && ssp != nil {
+		sv := NewSettingsView(sp, ssp, ollamaCfg)
+		settingsContent = sv.Container()
+	} else {
+		settingsContent = widget.NewLabel("Settings")
+	}
+
 	// Map views to their content for lookup during navigation.
 	viewContents := map[CenterView]fyne.CanvasObject{
 		ViewCharacter: characterContent,
 		ViewPlan:      widget.NewLabel("Plan"),
 		ViewWizard:    widget.NewLabel("Wizard"),
-		ViewSettings:  widget.NewLabel("Settings"),
+		ViewSettings:  settingsContent,
 	}
 
 	// Start with the character view.
@@ -104,9 +115,9 @@ func NewMainWindow(
 
 	// Menu bar — dynamically built based on available presenters.
 	menuItems := make([]*fyne.MenuItem, 0, 3)
-	if sp != nil {
+	if sp != nil && viewRouter != nil {
 		menuItems = append(menuItems, fyne.NewMenuItem("Settings", func() {
-			showSettings(sp, fyneApp)
+			viewRouter.NavigateTo(ViewSettings)
 		}))
 	}
 	menuItems = append(menuItems, fyne.NewMenuItem("About", func() {

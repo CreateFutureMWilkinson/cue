@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
@@ -23,7 +25,19 @@ func NewSettingsView(
 ) *SettingsView {
 	slackTab := container.NewTabItem("Slack", widget.NewLabel("Slack Accounts"))
 	emailTab := container.NewTabItem("Email", widget.NewLabel("Email Accounts"))
-	audioTab := container.NewTabItem("Audio", widget.NewLabel("Audio Settings"))
+	volumeSlider := &widget.Slider{
+		Min:   0,
+		Max:   100,
+		Step:  1,
+		Value: float64(sp.Volume()),
+	}
+	volumeLabel := widget.NewLabel(fmt.Sprintf("Notification Volume: %d%%", sp.Volume()))
+	audioContent := container.NewVBox(
+		widget.NewLabel("Audio Settings"),
+		volumeLabel,
+		volumeSlider,
+	)
+	audioTab := container.NewTabItem("Audio", audioContent)
 	ollamaTab := container.NewTabItem("Ollama", widget.NewLabel("Ollama Settings"))
 
 	tabs := container.NewAppTabs(slackTab, emailTab, audioTab, ollamaTab)

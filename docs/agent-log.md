@@ -81,3 +81,9 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Feature-014-hotfix-A (beep) | RED | Test Designer | 45s | 29,222 | db981ea |
 | Feature-014-hotfix-A (beep) | GREEN | Implementer | 85s | 43,746 | 47506be |
 | Feature-014-hotfix-A (beep) | REFACTOR | Refactorer | 108s | 45,715 | 2e19ed0 |
+| Phase-2-Feature-15 (category) | RED | Test Designer | — | — | 30a33fb |
+| Phase-2-Feature-15 (category) | GREEN | Implementer | — | — | d2dd0e8 |
+| Phase-2-Feature-15 (category) | REFACTOR | Refactorer | — | — | 698c587 |
+| Phase-2-Feature-15 (todo) | RED | Test Designer | — | — | cf5a27f |
+| Phase-2-Feature-15 (todo) | GREEN | Implementer | — | — | 9fce09e |
+| Phase-2-Feature-15 (todo) | REFACTOR | Refactorer | 82s | 29,376 | effa192 |

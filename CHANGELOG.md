@@ -25,6 +25,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Todo list** — CRUD operations for todos with user-defined categories, many-to-many category associations via junction table, priority ordering, optional due dates, markdown descriptions, completion tracking. TodoRepository and CategoryRepository interfaces with SQLite implementations using WAL mode and cascade deletes (Phase-2-Feature-15)
 - **Character animation system** — Pluggable character abstraction with state machine (Idle/Starting/Working/Notifying/Error/ShuttingDown), registry pattern, NoOp and Fairy implementations, CharacterPresenter consuming activity events with auto-decay, configurable via `gui.character` in config.toml (Phase-3-Feature-14)
 - **gopxl/beep audio player** — Real AudioPlayer implementation using gopxl/beep/v2 for MP3/WAV/OGG playback with lazy speaker init, automatic resampling, and logarithmic volume mapping (Phase-1-Feature-13)
 - **Configurable audio alerts** — Random file playback from user-configured directory (MP3/WAV/OGG), async playback, beeep fallback when no files available, configurable cooldown and fallback tone, runtime volume control via settings panel (Phase-1-Feature-12)

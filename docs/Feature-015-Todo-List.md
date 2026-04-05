@@ -1,7 +1,7 @@
 # Feature 015: Todo List
 
 **Phase:** Phase-2-Feature-015
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/repository/`, `internal/repository/implementation/sqlite/`
 
 ---
@@ -142,9 +142,9 @@ func NewSQLiteCategoryRepository(dbPath string) (*SQLiteCategoryRepository, erro
 
 | TDD Cycle | Phase | Agent | Duration | Tokens | Commit |
 |---|---|---|---|---|---|
-| Todo Repo | RED | Test Designer | — | — | — |
-| Todo Repo | GREEN | Implementer | — | — | — |
-| Todo Repo | REFACTOR | Refactorer | — | — | — |
-| Category Repo | RED | Test Designer | — | — | — |
-| Category Repo | GREEN | Implementer | — | — | — |
-| Category Repo | REFACTOR | Refactorer | — | — | — |
+| Category Repo | RED | Test Designer | — | — | 30a33fb |
+| Category Repo | GREEN | Implementer | — | — | d2dd0e8 |
+| Category Repo | REFACTOR | Refactorer | — | — | 698c587 |
+| Todo Repo | RED | Test Designer | — | — | cf5a27f |
+| Todo Repo | GREEN | Implementer | — | — | 9fce09e |
+| Todo Repo | REFACTOR | Refactorer | 82s | 29,376 | effa192 |

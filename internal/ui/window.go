@@ -197,6 +197,9 @@ func (m *MainWindow) switchCenterView(view CenterView) {
 	}
 }
 
+// FocusRail returns the focus rail component for testing wiring.
+func (m *MainWindow) FocusRail() *FocusRail { return nil }
+
 // Run shows the window and starts the Fyne event loop. Blocks until quit.
 func (m *MainWindow) Run() {
 	// Periodic notification refresh.

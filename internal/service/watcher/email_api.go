@@ -105,7 +105,6 @@ func (c *IMAPClient) FetchNewMessages(ctx context.Context, lastUID uint32) ([]Em
 	}
 
 	fetchCmd := imapClient.Fetch(fetchSet, fetchOptions)
-	defer fetchCmd.Close()
 
 	var messages []EmailMessage
 	for {
@@ -116,15 +115,15 @@ func (c *IMAPClient) FetchNewMessages(ctx context.Context, lastUID uint32) ([]Em
 
 		buf, err := msg.Collect()
 		if err != nil {
-			return messages, fmt.Errorf("collecting FETCH data: %w", err)
+			fetchCmd.Close() //nolint:errcheck
+			return nil, fmt.Errorf("collecting FETCH data: %w", err)
 		}
 
-		email := emailMessageFromBuffer(buf)
-		messages = append(messages, email)
+		messages = append(messages, emailMessageFromBuffer(buf))
 	}
 
 	if err := fetchCmd.Close(); err != nil {
-		return messages, fmt.Errorf("closing FETCH command: %w", err)
+		return nil, fmt.Errorf("closing FETCH command: %w", err)
 	}
 
 	return messages, nil

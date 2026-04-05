@@ -260,7 +260,11 @@ func run() error {
 			if err != nil {
 				return fmt.Errorf("querying email account: %w", err)
 			}
-			ew, err := watcher.NewEmailWatcher(&placeholderEmailAPI{}, watcher.EmailWatcherConfig{Username: acct.Username})
+			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.PasswordEnv)
+			if err != nil {
+				return fmt.Errorf("creating IMAP client: %w", err)
+			}
+			ew, err := watcher.NewEmailWatcher(emailAPI, watcher.EmailWatcherConfig{Username: acct.Username})
 			if err != nil {
 				return fmt.Errorf("creating email watcher: %w", err)
 			}
@@ -392,7 +396,12 @@ func buildWatchersFromDB(ctx context.Context, repo repository.ServiceConfigRepos
 			if !acct.Enabled {
 				continue
 			}
-			ew, err := watcher.NewEmailWatcher(&placeholderEmailAPI{}, watcher.EmailWatcherConfig{Username: acct.Username})
+			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.PasswordEnv)
+			if err != nil {
+				log.Printf("warning: failed to create IMAP client for %s: %v", acct.Username, err)
+				continue
+			}
+			ew, err := watcher.NewEmailWatcher(emailAPI, watcher.EmailWatcherConfig{Username: acct.Username})
 			if err != nil {
 				log.Printf("warning: failed to create email watcher for %s: %v", acct.Username, err)
 				continue
@@ -402,17 +411,9 @@ func buildWatchersFromDB(ctx context.Context, repo repository.ServiceConfigRepos
 	}
 }
 
-// --- Placeholder implementations for APIs not yet built ---
-
 // osFileSystem implements alert.FileSystem using the real OS.
 type osFileSystem struct{}
 
 func (o *osFileSystem) ReadDir(path string) ([]fs.DirEntry, error) {
 	return os.ReadDir(path)
-}
-
-type placeholderEmailAPI struct{}
-
-func (p *placeholderEmailAPI) FetchNewMessages(_ context.Context, _ uint32) ([]watcher.EmailMessage, error) {
-	return nil, nil
 }

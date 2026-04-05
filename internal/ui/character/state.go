@@ -23,7 +23,7 @@ var stateNames = [...]string{
 
 // String returns the human-readable name of the state.
 func (s CharacterState) String() string {
-	if int(s) < len(stateNames) {
+	if int(s) >= 0 && int(s) < len(stateNames) {
 		return stateNames[s]
 	}
 	return "Unknown"

@@ -16,7 +16,7 @@ func NewNoOpCharacter() *NoOpCharacter {
 }
 
 func (c *NoOpCharacter) Name() string {
-	return "none"
+	return NoneCharacterName
 }
 
 func (c *NoOpCharacter) TransitionTo(state CharacterState) {

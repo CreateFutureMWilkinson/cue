@@ -9,6 +9,10 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
 )
 
+const (
+	notifiedKeyword = "NOTIFIED"
+)
+
 // CharacterPresenter maps activity events to character state transitions.
 type CharacterPresenter struct {
 	char          character.Character
@@ -67,7 +71,7 @@ func (p *CharacterPresenter) mapEventToState(event ActivityEvent) character.Char
 	if event.IsError {
 		return character.StateError
 	}
-	if strings.Contains(event.Message, "NOTIFIED") {
+	if strings.Contains(event.Message, notifiedKeyword) {
 		return character.StateNotifying
 	}
 	return character.StateWorking
@@ -76,9 +80,11 @@ func (p *CharacterPresenter) mapEventToState(event ActivityEvent) character.Char
 func (p *CharacterPresenter) resetDecayTimer() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	if p.decayTimer != nil {
 		p.decayTimer.Stop()
 	}
+
 	p.decayTimer = time.AfterFunc(p.decayDuration, func() {
 		p.char.TransitionTo(character.StateIdle)
 	})

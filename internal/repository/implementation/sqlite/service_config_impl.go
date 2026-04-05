@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -36,6 +37,9 @@ CREATE TABLE IF NOT EXISTS email_accounts (
     updated_at TEXT NOT NULL
 );
 `
+
+const slackAccountColumns = "id, enabled, bot_token, workspace_id, poll_interval_seconds, created_at, updated_at"
+const emailAccountColumns = "id, enabled, imap_host, imap_port, username, password_env, poll_interval_seconds, created_at, updated_at"
 
 // SQLiteServiceConfigRepository implements repository.ServiceConfigRepository using SQLite.
 type SQLiteServiceConfigRepository struct {
@@ -88,44 +92,19 @@ func (r *SQLiteServiceConfigRepository) UpsertSlackAccount(ctx context.Context, 
 // GetSlackAccount retrieves a Slack account by ID. Returns ErrNotFound if not found.
 func (r *SQLiteServiceConfigRepository) GetSlackAccount(ctx context.Context, id uuid.UUID) (*repository.SlackAccount, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, enabled, bot_token, workspace_id, poll_interval_seconds, created_at, updated_at
+		SELECT `+slackAccountColumns+`
 		FROM slack_accounts WHERE id = ?
 	`, id.String())
 
-	var (
-		acct         repository.SlackAccount
-		idStr        string
-		enabled      int
-		createdAtStr string
-		updatedAtStr string
-	)
-
-	err := row.Scan(&idStr, &enabled, &acct.BotToken, &acct.WorkspaceID, &acct.PollIntervalSeconds, &createdAtStr, &updatedAtStr)
-	if err == sql.ErrNoRows {
+	acct, err := scanSlackAccount(row)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("slack account %s: %w", id, repository.ErrNotFound)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get slack account: %w", err)
 	}
 
-	acct.ID, err = uuid.Parse(idStr)
-	if err != nil {
-		return nil, fmt.Errorf("parse slack account ID: %w", err)
-	}
-
-	acct.Enabled = enabled != 0
-
-	acct.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
-	if err != nil {
-		return nil, fmt.Errorf("parse created_at: %w", err)
-	}
-
-	acct.UpdatedAt, err = time.Parse(time.RFC3339, updatedAtStr)
-	if err != nil {
-		return nil, fmt.Errorf("parse updated_at: %w", err)
-	}
-
-	return &acct, nil
+	return acct, nil
 }
 
 // DeleteSlackAccount deletes a Slack account by ID. Returns nil if not found (idempotent).
@@ -140,7 +119,7 @@ func (r *SQLiteServiceConfigRepository) DeleteSlackAccount(ctx context.Context, 
 // ListSlackAccounts returns all Slack accounts. Returns an empty non-nil slice if none exist.
 func (r *SQLiteServiceConfigRepository) ListSlackAccounts(ctx context.Context) ([]*repository.SlackAccount, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, enabled, bot_token, workspace_id, poll_interval_seconds, created_at, updated_at
+		SELECT `+slackAccountColumns+`
 		FROM slack_accounts
 	`)
 	if err != nil {
@@ -150,37 +129,11 @@ func (r *SQLiteServiceConfigRepository) ListSlackAccounts(ctx context.Context) (
 
 	accounts := make([]*repository.SlackAccount, 0)
 	for rows.Next() {
-		var (
-			acct         repository.SlackAccount
-			idStr        string
-			enabled      int
-			createdAtStr string
-			updatedAtStr string
-		)
-
-		err := rows.Scan(&idStr, &enabled, &acct.BotToken, &acct.WorkspaceID, &acct.PollIntervalSeconds, &createdAtStr, &updatedAtStr)
+		acct, err := scanSlackAccount(rows)
 		if err != nil {
 			return nil, fmt.Errorf("scan slack account: %w", err)
 		}
-
-		acct.ID, err = uuid.Parse(idStr)
-		if err != nil {
-			return nil, fmt.Errorf("parse slack account ID: %w", err)
-		}
-
-		acct.Enabled = enabled != 0
-
-		acct.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
-		if err != nil {
-			return nil, fmt.Errorf("parse created_at: %w", err)
-		}
-
-		acct.UpdatedAt, err = time.Parse(time.RFC3339, updatedAtStr)
-		if err != nil {
-			return nil, fmt.Errorf("parse updated_at: %w", err)
-		}
-
-		accounts = append(accounts, &acct)
+		accounts = append(accounts, acct)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate slack accounts: %w", err)
@@ -225,10 +178,107 @@ func (r *SQLiteServiceConfigRepository) UpsertEmailAccount(ctx context.Context, 
 // GetEmailAccount retrieves an email account by ID. Returns ErrNotFound if not found.
 func (r *SQLiteServiceConfigRepository) GetEmailAccount(ctx context.Context, id uuid.UUID) (*repository.EmailAccount, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, enabled, imap_host, imap_port, username, password_env, poll_interval_seconds, created_at, updated_at
+		SELECT `+emailAccountColumns+`
 		FROM email_accounts WHERE id = ?
 	`, id.String())
 
+	acct, err := scanEmailAccount(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("email account %s: %w", id, repository.ErrNotFound)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get email account: %w", err)
+	}
+
+	return acct, nil
+}
+
+// DeleteEmailAccount deletes an email account by ID. Returns nil if not found (idempotent).
+func (r *SQLiteServiceConfigRepository) DeleteEmailAccount(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, "DELETE FROM email_accounts WHERE id = ?", id.String())
+	if err != nil {
+		return fmt.Errorf("delete email account: %w", err)
+	}
+	return nil
+}
+
+// ListEmailAccounts returns all email accounts. Returns an empty non-nil slice if none exist.
+func (r *SQLiteServiceConfigRepository) ListEmailAccounts(ctx context.Context) ([]*repository.EmailAccount, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT `+emailAccountColumns+`
+		FROM email_accounts
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("list email accounts: %w", err)
+	}
+	defer rows.Close()
+
+	accounts := make([]*repository.EmailAccount, 0)
+	for rows.Next() {
+		acct, err := scanEmailAccount(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan email account: %w", err)
+		}
+		accounts = append(accounts, acct)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate email accounts: %w", err)
+	}
+
+	return accounts, nil
+}
+
+// boolToInt converts a bool to an integer (0 or 1) for SQLite storage.
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// scanSlackAccount scans a database row into a SlackAccount struct.
+// It can be used with both QueryRow and Rows.Scan.
+func scanSlackAccount(scanner interface {
+	Scan(dest ...any) error
+}) (*repository.SlackAccount, error) {
+	var (
+		acct         repository.SlackAccount
+		idStr        string
+		enabled      int
+		createdAtStr string
+		updatedAtStr string
+	)
+
+	err := scanner.Scan(&idStr, &enabled, &acct.BotToken, &acct.WorkspaceID, &acct.PollIntervalSeconds, &createdAtStr, &updatedAtStr)
+	if err != nil {
+		return nil, err
+	}
+
+	acct.ID, err = uuid.Parse(idStr)
+	if err != nil {
+		return nil, fmt.Errorf("parse slack account ID: %w", err)
+	}
+
+	acct.Enabled = enabled != 0
+
+	acct.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
+	if err != nil {
+		return nil, fmt.Errorf("parse created_at: %w", err)
+	}
+
+	acct.UpdatedAt, err = time.Parse(time.RFC3339, updatedAtStr)
+	if err != nil {
+		return nil, fmt.Errorf("parse updated_at: %w", err)
+	}
+
+	return &acct, nil
+}
+
+// scanEmailAccount scans a database row into an EmailAccount struct.
+// It can be used with both QueryRow and Rows.Scan.
+func scanEmailAccount(scanner interface {
+	Scan(dest ...any) error
+}) (*repository.EmailAccount, error) {
 	var (
 		acct         repository.EmailAccount
 		idStr        string
@@ -237,12 +287,9 @@ func (r *SQLiteServiceConfigRepository) GetEmailAccount(ctx context.Context, id 
 		updatedAtStr string
 	)
 
-	err := row.Scan(&idStr, &enabled, &acct.IMAPHost, &acct.IMAPPort, &acct.Username, &acct.PasswordEnv, &acct.PollIntervalSeconds, &createdAtStr, &updatedAtStr)
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("email account %s: %w", id, repository.ErrNotFound)
-	}
+	err := scanner.Scan(&idStr, &enabled, &acct.IMAPHost, &acct.IMAPPort, &acct.Username, &acct.PasswordEnv, &acct.PollIntervalSeconds, &createdAtStr, &updatedAtStr)
 	if err != nil {
-		return nil, fmt.Errorf("get email account: %w", err)
+		return nil, err
 	}
 
 	acct.ID, err = uuid.Parse(idStr)
@@ -263,73 +310,4 @@ func (r *SQLiteServiceConfigRepository) GetEmailAccount(ctx context.Context, id 
 	}
 
 	return &acct, nil
-}
-
-// DeleteEmailAccount deletes an email account by ID. Returns nil if not found (idempotent).
-func (r *SQLiteServiceConfigRepository) DeleteEmailAccount(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM email_accounts WHERE id = ?", id.String())
-	if err != nil {
-		return fmt.Errorf("delete email account: %w", err)
-	}
-	return nil
-}
-
-// ListEmailAccounts returns all email accounts. Returns an empty non-nil slice if none exist.
-func (r *SQLiteServiceConfigRepository) ListEmailAccounts(ctx context.Context) ([]*repository.EmailAccount, error) {
-	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, enabled, imap_host, imap_port, username, password_env, poll_interval_seconds, created_at, updated_at
-		FROM email_accounts
-	`)
-	if err != nil {
-		return nil, fmt.Errorf("list email accounts: %w", err)
-	}
-	defer rows.Close()
-
-	accounts := make([]*repository.EmailAccount, 0)
-	for rows.Next() {
-		var (
-			acct         repository.EmailAccount
-			idStr        string
-			enabled      int
-			createdAtStr string
-			updatedAtStr string
-		)
-
-		err := rows.Scan(&idStr, &enabled, &acct.IMAPHost, &acct.IMAPPort, &acct.Username, &acct.PasswordEnv, &acct.PollIntervalSeconds, &createdAtStr, &updatedAtStr)
-		if err != nil {
-			return nil, fmt.Errorf("scan email account: %w", err)
-		}
-
-		acct.ID, err = uuid.Parse(idStr)
-		if err != nil {
-			return nil, fmt.Errorf("parse email account ID: %w", err)
-		}
-
-		acct.Enabled = enabled != 0
-
-		acct.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
-		if err != nil {
-			return nil, fmt.Errorf("parse created_at: %w", err)
-		}
-
-		acct.UpdatedAt, err = time.Parse(time.RFC3339, updatedAtStr)
-		if err != nil {
-			return nil, fmt.Errorf("parse updated_at: %w", err)
-		}
-
-		accounts = append(accounts, &acct)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate email accounts: %w", err)
-	}
-
-	return accounts, nil
-}
-
-// boolToInt converts a bool to an integer (0 or 1) for SQLite storage.
-func boolToInt(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
 }

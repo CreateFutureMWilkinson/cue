@@ -31,10 +31,12 @@ func newAccountTab(title string, onAdd func()) *container.TabItem {
 }
 
 // NewSettingsView creates a SettingsView with tabs for Slack, Email, Audio, and Ollama.
+// The onClose callback is invoked when the user taps the Done button to exit settings.
 func NewSettingsView(
 	sp *presenter.SettingsPresenter,
 	ssp *presenter.ServiceSettingsPresenter,
 	ollamaCfg config.OllamaConfig,
+	onClose func(),
 ) *SettingsView {
 	slackTab := newAccountTab("Slack", func() {})
 	emailTab := newAccountTab("Email", func() {})

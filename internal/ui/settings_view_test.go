@@ -90,13 +90,13 @@ func (s *SettingsViewSuite) SetupTest() {
 }
 
 func (s *SettingsViewSuite) TestNewSettingsViewReturnsNonNil() {
-	sv := ui.NewSettingsView(s.sp, s.ssp, s.ollamaCfg)
+	sv := ui.NewSettingsView(s.sp, s.ssp, s.ollamaCfg, func() {})
 
 	s.NotNil(sv, "NewSettingsView should return a non-nil SettingsView")
 }
 
 func (s *SettingsViewSuite) TestSettingsViewContainerReturnsNonNil() {
-	sv := ui.NewSettingsView(s.sp, s.ssp, s.ollamaCfg)
+	sv := ui.NewSettingsView(s.sp, s.ssp, s.ollamaCfg, func() {})
 
 	container := sv.Container()
 
@@ -104,7 +104,7 @@ func (s *SettingsViewSuite) TestSettingsViewContainerReturnsNonNil() {
 }
 
 func (s *SettingsViewSuite) TestSettingsViewHasFourTabs() {
-	sv := ui.NewSettingsView(s.sp, s.ssp, s.ollamaCfg)
+	sv := ui.NewSettingsView(s.sp, s.ssp, s.ollamaCfg, func() {})
 
 	tabs := sv.TabCount()
 
@@ -112,7 +112,7 @@ func (s *SettingsViewSuite) TestSettingsViewHasFourTabs() {
 }
 
 func (s *SettingsViewSuite) TestSettingsViewTabNames() {
-	sv := ui.NewSettingsView(s.sp, s.ssp, s.ollamaCfg)
+	sv := ui.NewSettingsView(s.sp, s.ssp, s.ollamaCfg, func() {})
 
 	expected := []string{"Slack", "Email", "Audio", "Ollama"}
 	names := sv.TabNames()

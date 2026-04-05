@@ -44,7 +44,7 @@ func (s *SettingsInteractionSuite) SetupTest() {
 		InferenceModel: "neural-chat",
 		EmbeddingModel: "nomic-embed-text",
 		TimeoutSeconds: 10,
-	})
+	}, func() {})
 }
 
 func (s *SettingsInteractionSuite) TestSettingsViewContainsAppTabs() {
@@ -191,6 +191,34 @@ func (s *SettingsInteractionSuite) TestEmailTabContainsAddButton() {
 	})
 
 	s.True(found, "Email tab should contain an 'Add Account' button")
+}
+
+func (s *SettingsInteractionSuite) TestSettingsViewContainsDoneButton() {
+	root := s.sv.Container()
+
+	_, found := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
+		return b.Text == "Done"
+	})
+
+	s.True(found, "settings view should contain a 'Done' button")
+}
+
+func (s *SettingsInteractionSuite) TestDoneButtonCallsOnClose() {
+	closeCalled := false
+	sv := ui.NewSettingsView(s.sp,
+		presenter.NewServiceSettingsPresenter(&stubServiceConfigRepo{}, &stubWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil }),
+		config.OllamaConfig{},
+		func() { closeCalled = true },
+	)
+	root := sv.Container()
+
+	btn := uitest.RequireWidget[*widget.Button](s.T(), root, func(b *widget.Button) bool {
+		return b.Text == "Done"
+	})
+
+	btn.OnTapped()
+
+	s.True(closeCalled, "tapping Done button should invoke onClose callback")
 }
 
 func (s *SettingsInteractionSuite) TestAudioSliderOnChangedCallsPresenterSetVolume() {

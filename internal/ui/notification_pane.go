@@ -59,3 +59,38 @@ func newNotificationPane(np *presenter.NotificationPresenter, win fyne.Window) *
 
 	return list
 }
+
+// NotificationPanel is the redesigned notification panel widget.
+type NotificationPanel struct {
+	presenter *presenter.NotificationPresenter
+	window    fyne.Window
+	root      fyne.CanvasObject
+}
+
+// NewNotificationPanel creates a new notification panel.
+func NewNotificationPanel(np *presenter.NotificationPresenter, win fyne.Window) *NotificationPanel {
+	list := newNotificationPane(np, win)
+	header := widget.NewLabel("Notifications")
+	root := container.NewBorder(header, nil, nil, nil, list)
+
+	return &NotificationPanel{
+		presenter: np,
+		window:    win,
+		root:      root,
+	}
+}
+
+// IsExpanded delegates to the presenter's IsExpanded.
+func (p *NotificationPanel) IsExpanded() bool {
+	return p.presenter.IsExpanded()
+}
+
+// ToggleExpand delegates to the presenter's ToggleExpanded.
+func (p *NotificationPanel) ToggleExpand() {
+	p.presenter.ToggleExpanded()
+}
+
+// Container returns the root canvas object for embedding in layouts.
+func (p *NotificationPanel) Container() fyne.CanvasObject {
+	return p.root
+}

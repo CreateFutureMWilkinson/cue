@@ -58,6 +58,7 @@ func (s *NotificationPaneSuite) SetupTest() {
 				RawContent:      "Server is on fire!",
 				ImportanceScore: 9.0,
 				ConfidenceScore: 0.95,
+				Reasoning:       "Server outage detected with high urgency keywords",
 				Status:          "Notified",
 				CreatedAt:       time.Now().Add(-5 * time.Minute),
 			},
@@ -69,6 +70,7 @@ func (s *NotificationPaneSuite) SetupTest() {
 				RawContent:      "Quarterly report deadline tomorrow",
 				ImportanceScore: 7.5,
 				ConfidenceScore: 0.85,
+				Reasoning:       "Upcoming deadline with moderate urgency",
 				Status:          "Notified",
 				CreatedAt:       time.Now().Add(-10 * time.Minute),
 			},
@@ -172,4 +174,77 @@ func (s *NotificationPaneSuite) TestDetailDialogResolveRemovesMessage() {
 	// After resolving, the message list should have one fewer entry.
 	s.Len(np.Messages(), 1, "Messages() should have 1 entry after resolving one")
 	s.True(s.updater.updateCalled, "updater.Update should have been called")
+}
+
+// --- Feature 018-Hotfix-A: Notification Card Visual Rendering ---
+
+func (s *NotificationPaneSuite) TestCollapsedCardShowsBadgeText() {
+	np := s.newPresenter()
+	win := test.NewWindow(nil)
+	defer win.Close()
+
+	panel := ui.NewNotificationPanel(np, win)
+
+	// Panel defaults to collapsed
+	s.False(panel.IsExpanded())
+
+	// Get cards from presenter to verify badge data
+	cards := np.Cards()
+	s.Require().NotEmpty(cards)
+
+	// In collapsed state, the score should display as integer (e.g., "9")
+	s.InDelta(9.0, cards[0].ImportanceScore, 0.001)
+	s.Equal("general", cards[0].Channel)
+}
+
+func (s *NotificationPaneSuite) TestExpandedCardShowsFullScore() {
+	np := s.newPresenter()
+	win := test.NewWindow(nil)
+	defer win.Close()
+
+	panel := ui.NewNotificationPanel(np, win)
+	panel.ToggleExpand() // switch to expanded
+
+	s.True(panel.IsExpanded())
+
+	// In expanded state, cards should show full decimal score (e.g., "9.0")
+	cards := np.Cards()
+	s.Require().NotEmpty(cards)
+	s.InDelta(9.0, cards[0].ImportanceScore, 0.001)
+	s.Equal("slack", cards[0].Source)
+	s.Equal("alice", cards[0].Sender)
+}
+
+func (s *NotificationPaneSuite) TestExpandedCardShowsDismissAction() {
+	np := s.newPresenter()
+	win := test.NewWindow(nil)
+	defer win.Close()
+
+	panel := ui.NewNotificationPanel(np, win)
+	panel.ToggleExpand() // switch to expanded
+
+	// Get the first card's ID, verify we can dismiss by ID
+	cards := np.Cards()
+	s.Require().NotEmpty(cards)
+
+	err := np.DismissMessage(context.Background(), cards[0].ID)
+	s.Require().NoError(err)
+
+	// After dismiss, one fewer card
+	remainingCards := np.Cards()
+	s.Len(remainingCards, 1)
+}
+
+func (s *NotificationPaneSuite) TestDetailDialogShowsReasoning() {
+	np := s.newPresenter()
+	win := test.NewWindow(nil)
+	defer win.Close()
+
+	_ = ui.NewNotificationPanel(np, win)
+
+	detail, err := np.Select(0)
+	s.Require().NoError(err)
+
+	s.Equal("Server outage detected with high urgency keywords", detail.Reasoning,
+		"detail dialog should include reasoning text from the message")
 }

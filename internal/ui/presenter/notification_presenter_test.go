@@ -3,6 +3,7 @@ package presenter_test
 import (
 	"context"
 	"errors"
+	"image/color"
 	"strings"
 	"testing"
 	"time"
@@ -511,4 +512,104 @@ func (s *NotificationPresenterExpandSuite) TestDismissUpdaterErrorPropagates() {
 	err = s.presenter.DismissMessage(context.Background(), msgID)
 	s.Error(err)
 	s.Contains(err.Error(), "dismiss update failed")
+}
+
+// --- Cards() method tests (Feature 018-Hotfix-A) ---
+
+type NotificationPresenterCardsSuite struct {
+	suite.Suite
+	querier   *mockMessageQuerier
+	updater   *mockMessageUpdater
+	presenter *presenter.NotificationPresenter
+}
+
+func TestNotificationPresenterCards(t *testing.T) {
+	suite.Run(t, new(NotificationPresenterCardsSuite))
+}
+
+func (s *NotificationPresenterCardsSuite) SetupTest() {
+	now := time.Now()
+	s.querier = &mockMessageQuerier{
+		messages: []*repository.Message{
+			{
+				ID:              uuid.New(),
+				Source:          "slack",
+				Sender:          "alice",
+				Channel:         "general",
+				RawContent:      "Server is on fire!",
+				ImportanceScore: 9.0,
+				ConfidenceScore: 0.95,
+				Reasoning:       "Server outage detected with high urgency keywords",
+				Status:          "Notified",
+				CreatedAt:       now.Add(-5 * time.Minute),
+			},
+			{
+				ID:              uuid.New(),
+				Source:          "email",
+				Sender:          "bob@example.com",
+				Channel:         "inbox",
+				RawContent:      "Quarterly report deadline tomorrow",
+				ImportanceScore: 7.5,
+				ConfidenceScore: 0.85,
+				Reasoning:       "Upcoming deadline with moderate urgency",
+				Status:          "Notified",
+				CreatedAt:       now.Add(-10 * time.Minute),
+			},
+		},
+	}
+	s.updater = &mockMessageUpdater{}
+	p, err := presenter.NewNotificationPresenter(s.querier, s.updater)
+	s.Require().NoError(err)
+	err = p.Refresh(context.Background())
+	s.Require().NoError(err)
+	s.presenter = p
+}
+
+func (s *NotificationPresenterCardsSuite) TestCardsReturnsNotificationCards() {
+	s.T().Helper()
+
+	cards := s.presenter.Cards()
+
+	s.Require().Len(cards, 2, "Cards() should return one card per message")
+	s.Equal("Server is on fire!", cards[0].FullContent)
+	s.Equal("Quarterly report deadline tomorrow", cards[1].FullContent)
+}
+
+func (s *NotificationPresenterCardsSuite) TestCardsHasCorrectColors() {
+	s.T().Helper()
+
+	cards := s.presenter.Cards()
+	s.Require().Len(cards, 2)
+
+	// IS=9.0 -> red tier
+	expectedHighCard := color.NRGBA{R: 0xff, G: 0xc9, B: 0xc9, A: 0xff}
+	expectedHighBadge := color.NRGBA{R: 0xef, G: 0x44, B: 0x44, A: 0xff}
+	s.Equal(expectedHighCard, cards[0].CardColor, "IS=9.0 card should have red background")
+	s.Equal(expectedHighBadge, cards[0].BadgeColor, "IS=9.0 badge should be red")
+
+	// IS=7.5 -> blue tier
+	expectedLowCard := color.NRGBA{R: 0xdb, G: 0xe4, B: 0xff, A: 0xff}
+	expectedLowBadge := color.NRGBA{R: 0x4a, G: 0x9e, B: 0xed, A: 0xff}
+	s.Equal(expectedLowCard, cards[1].CardColor, "IS=7.5 card should have blue background")
+	s.Equal(expectedLowBadge, cards[1].BadgeColor, "IS=7.5 badge should be blue")
+}
+
+func (s *NotificationPresenterCardsSuite) TestCardsHasRelativeTime() {
+	s.T().Helper()
+
+	cards := s.presenter.Cards()
+	s.Require().Len(cards, 2)
+
+	s.NotEmpty(cards[0].RelativeTime, "first card should have non-empty RelativeTime")
+	s.NotEmpty(cards[1].RelativeTime, "second card should have non-empty RelativeTime")
+}
+
+func (s *NotificationPresenterCardsSuite) TestSelectReturnsReasoning() {
+	s.T().Helper()
+
+	detail, err := s.presenter.Select(0)
+	s.Require().NoError(err)
+
+	s.Equal("Server outage detected with high urgency keywords", detail.Reasoning,
+		"Select() should return Reasoning from the underlying message")
 }

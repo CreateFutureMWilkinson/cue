@@ -103,6 +103,24 @@ func (s *RouterSuite) TestRoute_AtMention_SetsNotified() {
 	s.Contains(result.Reasoning, "mention")
 }
 
+func (s *RouterSuite) TestRoute_EmailMentionMessageType_SetsNotified() {
+	r, err := decisionengine.NewRouter(&panicScorer{}, []string{"alice"}, defaultConfig(), nil)
+	s.Require().NoError(err)
+
+	msg := &repository.Message{
+		Source:      "email",
+		MessageType: "mention",
+		RawContent:  "Meeting notes from yesterday's standup",
+	}
+
+	result, err := r.Route(context.Background(), msg)
+	s.NoError(err)
+	s.Equal(8.0, result.ImportanceScore)
+	s.Equal(1.0, result.ConfidenceScore)
+	s.Equal("Notified", result.Status)
+	s.Contains(result.Reasoning, "mention")
+}
+
 func (s *RouterSuite) TestRoute_AtMention_CaseInsensitive() {
 	r, err := decisionengine.NewRouter(&panicScorer{}, []string{"alice"}, defaultConfig(), nil)
 	s.Require().NoError(err)

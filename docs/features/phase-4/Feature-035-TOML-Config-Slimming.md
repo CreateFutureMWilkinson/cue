@@ -1,7 +1,7 @@
 # Feature 035: TOML Config Slimming
 
 **Phase:** Phase-4-Feature-035
-**Status:** Planned
+**Status:** Done
 **Package:** `internal/config/`
 **Depends on:** Feature 033 (watchers no longer import config types)
 
@@ -130,3 +130,11 @@ Updates to existing `config_test.go` suite:
 |---|---|
 | `internal/config/config.go` | Modify — remove SlackConfig, EmailConfig structs and fields; update defaultConfig(), Validate(), generateDefaultTOML() |
 | `internal/config/config_test.go` | Modify — update test fixtures and assertions |
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | Test Designer | 114s | 32,649 | 2fd1bba |
+| GREEN | Implementer | 71s | 27,213 | fffc137 |
+| REFACTOR | Refactorer | 38s | 27,545 | — (no changes) |

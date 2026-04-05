@@ -37,6 +37,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **TOML config slimming** — Removed `SlackConfig` and `EmailConfig` structs from the TOML config; `[slack]` and `[email]` sections no longer generated in default config. Old config files with these sections are silently ignored (Phase-4-Feature-035)
 - **Watcher config decoupling** — Replaced `config.SlackConfig`/`config.EmailConfig` parameters in watcher constructors with local `SlackWatcherConfig` and `EmailWatcherConfig` structs, removing watcher package dependency on `internal/config` (Phase-4-Feature-033)
 - **Dynamic watcher management** — Orchestrator now supports runtime `AddWatcher`/`RemoveWatcher`/`ListWatcherNames` via `WatcherManager` interface; constructor accepts zero watchers; `PollOnce` with no watchers is a no-op emitting an informational event (Phase-4-Feature-034)
 

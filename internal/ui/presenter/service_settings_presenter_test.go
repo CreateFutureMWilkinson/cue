@@ -65,7 +65,7 @@ type mockWatcherManager struct {
 	names       []string
 }
 
-func (m *mockWatcherManager) AddWatcher(name string, w interface{}) {
+func (m *mockWatcherManager) AddWatcher(name string, w any) {
 	m.addCalls = append(m.addCalls, struct{ name string }{name: name})
 }
 

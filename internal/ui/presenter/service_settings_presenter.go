@@ -76,7 +76,7 @@ func (p *ServiceSettingsPresenter) EditSlackAccount(ctx context.Context, acct *r
 	if err := p.repo.UpsertSlackAccount(ctx, acct); err != nil {
 		return fmt.Errorf("updating slack account: %w", err)
 	}
-	p.mgr.RemoveWatcher("slack:" + oldWorkspaceID)
+	p.mgr.RemoveWatcher(slackWatcherName(oldWorkspaceID))
 	if err := p.factory("slack", acct.ID); err != nil {
 		return fmt.Errorf("creating slack watcher: %w", err)
 	}
@@ -88,7 +88,7 @@ func (p *ServiceSettingsPresenter) EditEmailAccount(ctx context.Context, acct *r
 	if err := p.repo.UpsertEmailAccount(ctx, acct); err != nil {
 		return fmt.Errorf("updating email account: %w", err)
 	}
-	p.mgr.RemoveWatcher("email:" + oldUsername)
+	p.mgr.RemoveWatcher(emailWatcherName(oldUsername))
 	if err := p.factory("email", acct.ID); err != nil {
 		return fmt.Errorf("creating email watcher: %w", err)
 	}
@@ -101,7 +101,7 @@ func (p *ServiceSettingsPresenter) DeleteSlackAccount(ctx context.Context, id uu
 	if err != nil {
 		return fmt.Errorf("getting slack account for delete: %w", err)
 	}
-	p.mgr.RemoveWatcher("slack:" + acct.WorkspaceID)
+	p.mgr.RemoveWatcher(slackWatcherName(acct.WorkspaceID))
 	if err := p.repo.DeleteSlackAccount(ctx, id); err != nil {
 		return fmt.Errorf("deleting slack account: %w", err)
 	}
@@ -114,7 +114,7 @@ func (p *ServiceSettingsPresenter) DeleteEmailAccount(ctx context.Context, id uu
 	if err != nil {
 		return fmt.Errorf("getting email account for delete: %w", err)
 	}
-	p.mgr.RemoveWatcher("email:" + acct.Username)
+	p.mgr.RemoveWatcher(emailWatcherName(acct.Username))
 	if err := p.repo.DeleteEmailAccount(ctx, id); err != nil {
 		return fmt.Errorf("deleting email account: %w", err)
 	}
@@ -136,7 +136,7 @@ func (p *ServiceSettingsPresenter) ToggleSlackAccount(ctx context.Context, id uu
 			return fmt.Errorf("creating slack watcher: %w", err)
 		}
 	} else {
-		p.mgr.RemoveWatcher("slack:" + acct.WorkspaceID)
+		p.mgr.RemoveWatcher(slackWatcherName(acct.WorkspaceID))
 	}
 	return nil
 }
@@ -156,10 +156,13 @@ func (p *ServiceSettingsPresenter) ToggleEmailAccount(ctx context.Context, id uu
 			return fmt.Errorf("creating email watcher: %w", err)
 		}
 	} else {
-		p.mgr.RemoveWatcher("email:" + acct.Username)
+		p.mgr.RemoveWatcher(emailWatcherName(acct.Username))
 	}
 	return nil
 }
+
+func slackWatcherName(workspaceID string) string { return "slack:" + workspaceID }
+func emailWatcherName(username string) string    { return "email:" + username }
 
 func validateSlackAccount(acct *repository.SlackAccount) error {
 	if acct.BotToken == "" {

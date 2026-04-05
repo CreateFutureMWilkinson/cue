@@ -47,7 +47,8 @@ type DatabaseConfig struct {
 }
 
 type OrchestratorConfig struct {
-	Router RouterConfig `toml:"router"`
+	Router              RouterConfig `toml:"router"`
+	PollIntervalSeconds int          `toml:"poll_interval_seconds"`
 }
 
 type RouterConfig struct {
@@ -107,6 +108,7 @@ func defaultConfig() *Config {
 				ConfidenceThreshold: 0.8,
 				BufferSizePerSource: 100,
 			},
+			PollIntervalSeconds: 600,
 		},
 		Ollama: OllamaConfig{
 			Host:           "localhost",
@@ -182,10 +184,12 @@ func Load(path string) (*Config, error) {
 	}
 
 	cfg := &Config{}
-	if _, err := toml.DecodeFile(path, cfg); err != nil {
+	md, err := toml.DecodeFile(path, cfg)
+	if err != nil {
 		return nil, err
 	}
 
+	applyDefaults(cfg, md)
 	expandPaths(cfg)
 	return cfg, nil
 }
@@ -207,6 +211,15 @@ func expandTilde(path, home string) string {
 		return filepath.Join(home, path[2:])
 	}
 	return path
+}
+
+// applyDefaults fills in default values for fields that were not explicitly
+// set in the TOML file. This prevents validation failures for optional sections.
+func applyDefaults(cfg *Config, md toml.MetaData) {
+	defaults := defaultConfig()
+	if !md.IsDefined("orchestrator", "poll_interval_seconds") {
+		cfg.Orchestrator.PollIntervalSeconds = defaults.Orchestrator.PollIntervalSeconds
+	}
 }
 
 // validationRule represents a single validation rule.
@@ -258,6 +271,7 @@ func (c *Config) Validate() error {
 			func(cfg *Config) bool { return cfg.Notification.notificationAudioConfigured() },
 			func(cfg *Config) bool { return cfg.Notification.FallbackDurationMs > 0 },
 			"notification.fallback_duration_ms must be greater than 0"),
+		{func(cfg *Config) bool { return cfg.Orchestrator.PollIntervalSeconds > 0 }, "orchestrator.poll_interval_seconds must be greater than 0"},
 		conditionalRule(guiConfigured, func(cfg *Config) bool { return cfg.GUI.WindowWidth > 0 }, "gui.window_width must be greater than 0"),
 		conditionalRule(guiConfigured, func(cfg *Config) bool { return cfg.GUI.WindowHeight > 0 }, "gui.window_height must be greater than 0"),
 		conditionalRule(

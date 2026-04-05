@@ -84,6 +84,11 @@ func NewSQLiteMessageRepository(dbPath string) (*SQLiteMessageRepository, error)
 	return &SQLiteMessageRepository{db: db}, nil
 }
 
+// DB returns the underlying *sql.DB connection.
+func (r *SQLiteMessageRepository) DB() *sql.DB {
+	return r.db
+}
+
 // Insert inserts a message into the database. If a message with the same MessageID
 // already exists, it updates the existing row (upsert). Before inserting, it enforces
 // FIFO eviction: if the source already has >= 100 messages, the oldest is deleted.

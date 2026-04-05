@@ -27,6 +27,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **First-run database crash** — `config.Load()` now calls `expandPaths()` on the default config, expanding `~/` to the user's home directory before SQLite opens the database. Previously, first-run users hit error 14 (SQLITE_CANTOPEN) because the literal `~/.cue/messages.db` path was passed to SQLite (Phase-1-Feature-001-Hotfix-A)
 - **Wayland thread-safety in UAT harness** — Extracted `FPSLoop` type with injectable callback; FPS label updates now go through `fyne.Do()` instead of direct `SetText` from a background goroutine. Fixes `Error in Fyne call thread` on Wayland (Phase-3-Feature-024-Hotfix-A)
 
 ### Added

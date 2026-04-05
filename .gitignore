@@ -1,3 +1,4 @@
 _build/*
+cue
 .remember/*
 .claude/settings.local.json

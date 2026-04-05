@@ -111,7 +111,12 @@ func (l *fairyJarLayout) positionCircle(circle *canvas.Circle, diameter, imgAspe
 		return
 	}
 
-	pixelX := jarX + (jarInteriorLeft+posX*(jarInteriorRight-jarInteriorLeft))*jarW - diameter/2
-	pixelY := jarY + (jarInteriorTop+posY*(jarInteriorBottom-jarInteriorTop))*jarH - diameter/2
+	intLeft := jarX + jarInteriorLeft*jarW
+	intRight := jarX + jarInteriorRight*jarW
+	intTop := jarY + jarInteriorTop*jarH
+	intBottom := jarY + jarInteriorBottom*jarH
+
+	pixelX := intLeft + posX*(intRight-intLeft-diameter)
+	pixelY := intTop + posY*(intBottom-intTop-diameter)
 	circle.Move(fyne.NewPos(pixelX, pixelY))
 }

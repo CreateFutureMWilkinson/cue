@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–4 complete. Phase 5 (Wiring — Scaffold Completion + Real API Clients) in progress — Features 042 (vector-assisted routing), 043 (chromem-go persistent vector database), 044 (Ollama scorer wiring), 045 (Slack Web API client), and 046 (IMAP email client) done. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–4 complete. Phase 5 (Wiring — Scaffold Completion + Real API Clients) in progress — Features 042 (vector-assisted routing), 043 (chromem-go persistent vector database), 044 (Ollama scorer wiring), 045 (Slack Web API client), 046 (IMAP email client), and 047 (MessageType SQLite persistence) done. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 

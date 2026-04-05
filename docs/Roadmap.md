@@ -61,6 +61,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 028 | Fairy notification state (erratic dart) | Done | [Feature-028](features/phase-3/Feature-028-Fairy-Notification-State.md) |
 | 029 | Fairy error state (centered vibrate) | Done | [Feature-029](features/phase-3/Feature-029-Fairy-Error-State.md) |
 | 030 | Fairy lifecycle states (startup/shutdown) | Done | [Feature-030](features/phase-3/Feature-030-Fairy-Lifecycle-States.md) |
+| 030B | Shutdown animator deadlock fix | Done | [Feature-030B](features/phase-3/Feature-030B-Shutdown-Deadlock-Fix.md) |
 
 ## Phase 4 — Dynamic Service Config + Settings UI
 

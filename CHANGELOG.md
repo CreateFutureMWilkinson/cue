@@ -20,6 +20,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Safe integer conversion in color capture** — Added `& 0xFF` bitmask to `uint32→uint8` color channel conversion in `ShutdownAnimator.captureFairyState`, resolving 4 gosec G115 (CWE-190) integer overflow findings (Phase-3-Feature-030-Hotfix-A)
 - **Gosec G104/G404 fixes in Planner UI** — Fixed unhandled `CompleteCurrentTask` error in Done callback (G104) and replaced incorrect `//nolint:gosec` with proper `#nosec G404` annotation (Phase-2-Feature-022-Hotfix-F)
 
+### Fixed
+
+- **ShutdownAnimator deadlock on concurrent transitions** — `NewShutdownAnimator` eagerly created a `done` channel that was never closed unless `Start()` was called; `Stop()` would block forever if called before `Start()`. Changed to lazy allocation matching `StartupAnimator` pattern. Fixes `TestConcurrentTransitions` 10-minute timeout (Phase-3-Feature-030-Hotfix-B)
+
 ### Breaking
 
 - **Alert service API change** — `NewAlertService` now takes 4 args (cfg, beeper, filesystem, player); `PlayStartup` and `PlayShutdown` removed (Phase-1-Feature-012)

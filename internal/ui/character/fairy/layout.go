@@ -76,6 +76,8 @@ func jarRenderedRect(containerW, containerH, imgAspect float32) (x, y, w, h floa
 
 // positionFairyCircles positions the body circle and glow layers within the
 // jar's interior region, computing the jar rendered rect once for all circles.
+// All circles share the same center (computed from the body diameter) so that
+// glow layers remain concentric with the body.
 func (l *fairyJarLayout) positionFairyCircles(containerWidth, containerHeight float32) {
 	jarAspect := l.fairy.jarBack.Aspect()
 	var jarRect jarRenderInfo
@@ -84,13 +86,17 @@ func (l *fairyJarLayout) positionFairyCircles(containerWidth, containerHeight fl
 	}
 
 	bodyDiameter := containerWidth * bodyRatio
-	l.positionCircle(l.fairy.bodyCircle, bodyDiameter, jarRect, containerWidth, containerHeight)
+
+	// Compute the body center once — all circles will share this center.
+	centerX, centerY := l.circleCenter(bodyDiameter, jarRect, containerWidth, containerHeight)
+
+	l.positionCircleAtCenter(l.fairy.bodyCircle, bodyDiameter, centerX, centerY)
 
 	glowDiameter := containerWidth * glowRatio
 	for i, glowLayer := range l.fairy.glowLayers {
 		interpolation := float32(i+1) / float32(fairyGlowLayerCount)
 		diameter := bodyDiameter + (glowDiameter-bodyDiameter)*interpolation
-		l.positionCircle(glowLayer, diameter, jarRect, containerWidth, containerHeight)
+		l.positionCircleAtCenter(glowLayer, diameter, centerX, centerY)
 	}
 }
 
@@ -99,21 +105,16 @@ type jarRenderInfo struct {
 	x, y, width, height float32
 }
 
-// positionCircle positions and resizes a circle at the fairy's current position,
-// mapping normalized 0.0–1.0 coordinates into the jar's interior region.
-func (l *fairyJarLayout) positionCircle(circle *canvas.Circle, diameter float32, jar jarRenderInfo, containerWidth, containerHeight float32) {
-	circle.Resize(fyne.NewSize(diameter, diameter))
-
+// circleCenter computes the center point for a circle of the given diameter
+// at the fairy's current position, mapping normalized 0.0–1.0 coordinates
+// into the jar's interior region (or full container if no jar is loaded).
+func (l *fairyJarLayout) circleCenter(diameter float32, jar jarRenderInfo, containerWidth, containerHeight float32) (float32, float32) {
 	fairyPosX := float32(l.fairy.posX)
 	fairyPosY := float32(l.fairy.posY)
 
 	// No jar loaded - use full container positioning
 	if jar.width == 0 || jar.height == 0 {
-		circle.Move(fyne.NewPos(
-			fairyPosX*containerWidth-diameter/2,
-			fairyPosY*containerHeight-diameter/2,
-		))
-		return
+		return fairyPosX * containerWidth, fairyPosY * containerHeight
 	}
 
 	// Calculate jar interior bounds in pixel coordinates
@@ -126,7 +127,15 @@ func (l *fairyJarLayout) positionCircle(circle *canvas.Circle, diameter float32,
 	availableWidth := interiorRight - interiorLeft - diameter
 	availableHeight := interiorBottom - interiorTop - diameter
 
-	pixelX := interiorLeft + fairyPosX*availableWidth
-	pixelY := interiorTop + fairyPosY*availableHeight
-	circle.Move(fyne.NewPos(pixelX, pixelY))
+	// Center = top-left + diameter/2
+	centerX := interiorLeft + fairyPosX*availableWidth + diameter/2
+	centerY := interiorTop + fairyPosY*availableHeight + diameter/2
+	return centerX, centerY
+}
+
+// positionCircleAtCenter resizes a circle and positions it so its center
+// is at the given (centerX, centerY) point.
+func (l *fairyJarLayout) positionCircleAtCenter(circle *canvas.Circle, diameter, centerX, centerY float32) {
+	circle.Resize(fyne.NewSize(diameter, diameter))
+	circle.Move(fyne.NewPos(centerX-diameter/2, centerY-diameter/2))
 }

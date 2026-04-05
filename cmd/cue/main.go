@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/urfave/cli/v3"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/alert"
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
@@ -33,8 +34,50 @@ const (
 )
 
 func main() {
-	if err := run(); err != nil {
+	app := &cli.Command{
+		Name:  "cue",
+		Usage: "ADHD-friendly productivity assistant",
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			return run()
+		},
+		Commands: []*cli.Command{
+			configCommand(),
+		},
+	}
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatalf("cue: %v", err)
+	}
+}
+
+func configCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "config",
+		Usage: "Configuration management",
+		Commands: []*cli.Command{
+			{
+				Name:  "example",
+				Usage: "Print an annotated example config.toml",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "output",
+						Aliases: []string{"o"},
+						Usage:   "Write to file instead of stdout",
+					},
+					&cli.BoolFlag{
+						Name:  "force",
+						Usage: "Overwrite existing file",
+					},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					output := cmd.String("output")
+					if output == "" {
+						fmt.Print(config.ExampleTOML())
+						return nil
+					}
+					return config.WriteExampleConfig(output, cmd.Bool("force"))
+				},
+			},
+		},
 	}
 }
 

@@ -10,6 +10,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gopxl/beep/v2 v2.1.1
 	github.com/stretchr/testify v1.11.1
+	github.com/urfave/cli/v3 v3.8.0
 	modernc.org/sqlite v1.47.0
 )
 

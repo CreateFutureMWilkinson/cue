@@ -87,11 +87,27 @@ func jarRenderedRect(containerW, containerH, imgAspect float32) (x, y, w, h floa
 	return x, y, w, h
 }
 
-// positionCircle positions and resizes a circle at the fairy's current position.
+// positionCircle positions and resizes a circle at the fairy's current position,
+// mapping normalized 0.0–1.0 coordinates into the jar's interior region.
 func (l *fairyJarLayout) positionCircle(circle *canvas.Circle, diameter, containerWidth, containerHeight float32) {
 	circle.Resize(fyne.NewSize(diameter, diameter))
-	circle.Move(fyne.NewPos(
-		float32(l.fairy.posX)*containerWidth-diameter/2,
-		float32(l.fairy.posY)*containerHeight-diameter/2,
-	))
+
+	imgAspect := l.fairy.jarBack.Aspect()
+	if imgAspect == 0 {
+		// No image loaded — fall back to full-container positioning.
+		circle.Move(fyne.NewPos(
+			float32(l.fairy.posX)*containerWidth-diameter/2,
+			float32(l.fairy.posY)*containerHeight-diameter/2,
+		))
+		return
+	}
+
+	jarX, jarY, jarW, jarH := jarRenderedRect(containerWidth, containerHeight, imgAspect)
+
+	posX := float32(l.fairy.posX)
+	posY := float32(l.fairy.posY)
+	pixelX := jarX + (jarInteriorLeft+posX*(jarInteriorRight-jarInteriorLeft))*jarW - diameter/2
+	pixelY := jarY + (jarInteriorTop+posY*(jarInteriorBottom-jarInteriorTop))*jarH - diameter/2
+
+	circle.Move(fyne.NewPos(pixelX, pixelY))
 }

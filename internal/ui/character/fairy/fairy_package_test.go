@@ -120,8 +120,8 @@ func (s *FairyPackageSuite) TestFairyNameReturnsFairy() {
 	s.Equal("fairy", fc.Name(), "fairy character Name() should return 'fairy'")
 }
 
-func (s *FairyPackageSuite) TestFairyStartsInIdleState() {
+func (s *FairyPackageSuite) TestFairyStartsInStartingState() {
 	fc := fairy.NewFairyCharacter()
-	s.Equal(character.StateIdle, fc.CurrentState(),
-		"newly created fairy should start in StateIdle")
+	s.Equal(character.StateStarting, fc.CurrentState(),
+		"newly created fairy should start in StateStarting")
 }

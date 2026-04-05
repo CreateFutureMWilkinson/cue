@@ -39,11 +39,11 @@ func (s *NoOpCharacterSuite) TestTransitionToAcceptsAllStatesWithoutPanicking() 
 	}
 }
 
-func (s *NoOpCharacterSuite) TestCurrentStateReturnsIdleInitiallyThenLastTransitioned() {
+func (s *NoOpCharacterSuite) TestCurrentStateReturnsStartingInitiallyThenLastTransitioned() {
 	c := character.NewNoOpCharacter()
 
-	// Initially idle
-	s.Equal(character.StateIdle, c.CurrentState())
+	// Initially starting
+	s.Equal(character.StateStarting, c.CurrentState())
 
 	// After transition, returns last state
 	c.TransitionTo(character.StateWorking)

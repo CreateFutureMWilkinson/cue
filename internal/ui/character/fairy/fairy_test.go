@@ -31,9 +31,9 @@ func (s *FairyCharacterSuite) TestNameReturnsFairy() {
 	s.Equal("fairy", c.Name())
 }
 
-func (s *FairyCharacterSuite) TestInitialStateIsIdle() {
+func (s *FairyCharacterSuite) TestInitialStateIsStarting() {
 	c := fairy.NewFairyCharacter()
-	s.Equal(character.StateIdle, c.CurrentState())
+	s.Equal(character.StateStarting, c.CurrentState())
 }
 
 func (s *FairyCharacterSuite) TestTransitionToAllStates() {

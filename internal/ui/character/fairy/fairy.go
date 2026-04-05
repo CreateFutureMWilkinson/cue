@@ -75,12 +75,12 @@ type FairyCharacter struct {
 	refreshFunc func()
 }
 
-// NewFairyCharacter creates a new FairyCharacter in the Idle state with jar
+// NewFairyCharacter creates a new FairyCharacter in the Starting state with jar
 // rendering. The fairy starts at the bottom-center position (0.5, 1.0) with
 // bright green body color (#00FF00). Jar images are loaded from embedded PNGs.
 func NewFairyCharacter() *FairyCharacter {
 	// State indicator (hidden but maintained for TransitionTo method compatibility).
-	indicator := canvas.NewCircle(stateColor(character.StateIdle))
+	indicator := canvas.NewCircle(stateColor(character.StateStarting))
 	indicator.Resize(fyne.NewSize(fairyIndicatorSize, fairyIndicatorSize))
 	indicator.Hide()
 
@@ -101,7 +101,7 @@ func NewFairyCharacter() *FairyCharacter {
 	}
 
 	f := &FairyCharacter{
-		state:         character.StateIdle,
+		state:         character.StateStarting,
 		indicator:     indicator,
 		jarBack:       jarBack,
 		jarFront:      jarFront,

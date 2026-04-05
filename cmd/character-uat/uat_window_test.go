@@ -38,11 +38,11 @@ func (s *UATWindowSuite) TestCreateCharacterReturnsValidCharacter() {
 	s.Equal("fairy", ch.Name(), "character Name() should match registered name")
 }
 
-func (s *UATWindowSuite) TestCreatedCharacterStartsIdle() {
+func (s *UATWindowSuite) TestCreatedCharacterStartsInStartingState() {
 	ch, err := character.Create("fairy")
 	s.Require().NoError(err)
-	s.Equal(character.StateIdle, ch.CurrentState(),
-		"newly created character should start in StateIdle")
+	s.Equal(character.StateStarting, ch.CurrentState(),
+		"newly created character should start in StateStarting")
 }
 
 func (s *UATWindowSuite) TestTriggerStateUpdatesCharacter() {
@@ -85,8 +85,8 @@ func (s *UATWindowSuite) TestCharacterSwapResetsToInitialState() {
 	// Create a second character (simulating a swap in the UAT window).
 	ch2, err := character.Create("fairy")
 	s.Require().NoError(err)
-	s.Equal(character.StateIdle, ch2.CurrentState(),
-		"newly created character after swap should start in StateIdle")
+	s.Equal(character.StateStarting, ch2.CurrentState(),
+		"newly created character after swap should start in StateStarting")
 }
 
 func (s *UATWindowSuite) TestCharacterPanelFillsSpace() {

@@ -10,9 +10,9 @@ type NoOpCharacter struct {
 	state CharacterState
 }
 
-// NewNoOpCharacter creates a new NoOpCharacter in the Idle state.
+// NewNoOpCharacter creates a new NoOpCharacter in the Starting state.
 func NewNoOpCharacter() *NoOpCharacter {
-	return &NoOpCharacter{state: StateIdle}
+	return &NoOpCharacter{state: StateStarting}
 }
 
 func (c *NoOpCharacter) Name() string {

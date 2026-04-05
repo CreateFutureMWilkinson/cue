@@ -39,18 +39,7 @@ func (a *ShutdownAnimator) Start(fairy *FairyCharacter) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	// Capture current fairy state.
-	startX, startY := fairy.Position()
-	startGlow := fairy.GlowIntensity()
-
-	fc := fairy.BodyCircle().FillColor
-	r, g, b, al := fc.RGBA()
-	startColor := color.RGBA{
-		R: uint8(r >> 8),
-		G: uint8(g >> 8),
-		B: uint8(b >> 8),
-		A: uint8(al >> 8),
-	}
+	startX, startY, startColor, startGlow := a.captureFairyState(fairy)
 
 	startTime := a.clock.Now()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -113,12 +102,31 @@ func (a *ShutdownAnimator) runAnimationLoop(
 	}
 }
 
+// captureFairyState extracts the current position, body color, and glow intensity from the fairy.
+func (a *ShutdownAnimator) captureFairyState(fairy *FairyCharacter) (float64, float64, color.RGBA, float64) {
+	x, y := fairy.Position()
+	glow := fairy.GlowIntensity()
+
+	fc := fairy.BodyCircle().FillColor
+	r, g, b, al := fc.RGBA()
+	bodyColor := color.RGBA{
+		R: uint8(r >> 8),
+		G: uint8(g >> 8),
+		B: uint8(b >> 8),
+		A: uint8(al >> 8),
+	}
+
+	return x, y, bodyColor, glow
+}
+
 // Stop cancels the animation goroutine and waits for it to exit. It is safe
 // to call without a prior Start, or to call multiple times.
 func (a *ShutdownAnimator) Stop() {
 	a.mu.Lock()
 	cancel := a.cancel
 	done := a.done
+	a.cancel = nil
+	a.done = nil
 	a.mu.Unlock()
 
 	if cancel != nil {
@@ -129,14 +137,14 @@ func (a *ShutdownAnimator) Stop() {
 	}
 }
 
+// State returns StateShuttingDown.
+func (a *ShutdownAnimator) State() CharacterState {
+	return StateShuttingDown
+}
+
 // Done returns a channel that is closed when the animation completes.
 func (a *ShutdownAnimator) Done() <-chan struct{} {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.done
-}
-
-// State returns StateShuttingDown.
-func (a *ShutdownAnimator) State() CharacterState {
-	return StateShuttingDown
 }

@@ -80,8 +80,9 @@ func (n NotificationConfig) notificationAudioConfigured() bool {
 }
 
 type GUIConfig struct {
-	WindowWidth  int `toml:"window_width"`
-	WindowHeight int `toml:"window_height"`
+	WindowWidth  int    `toml:"window_width"`
+	WindowHeight int    `toml:"window_height"`
+	Character    string `toml:"character"`
 }
 
 type LoggingConfig struct {
@@ -132,6 +133,7 @@ func defaultConfig() *Config {
 		GUI: GUIConfig{
 			WindowWidth:  1200,
 			WindowHeight: 800,
+			Character:    "none",
 		},
 		Logging: LoggingConfig{
 			LogLevel: "info",

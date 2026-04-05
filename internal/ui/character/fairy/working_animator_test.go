@@ -65,8 +65,8 @@ func (s *WorkingAnimatorSuite) TestBodyColorIsWorkingGreen() {
 	s.clock.Advance(600 * time.Millisecond)
 
 	// Send a tick to let the animator process.
-	// After entry completes, body color must be #009200.
-	expected := color.RGBA{R: 0x00, G: 0x92, B: 0x00, A: 0xFF}
+	// After entry completes, body color must be #00DD00.
+	expected := color.RGBA{R: 0x00, G: 0xDD, B: 0x00, A: 0xFF}
 	time.Sleep(5 * time.Millisecond) // Allow goroutine to process
 
 	bodyCircle := f.BodyCircle()
@@ -75,7 +75,7 @@ func (s *WorkingAnimatorSuite) TestBodyColorIsWorkingGreen() {
 	r1, g1, b1, a1 := bodyCircle.FillColor.RGBA()
 	r2, g2, b2, a2 := expected.RGBA()
 	s.Equal(r2, r1, "body red channel should be 0x00")
-	s.Equal(g2, g1, "body green channel should be 0x92")
+	s.Equal(g2, g1, "body green channel should be 0xDD")
 	s.Equal(b2, b1, "body blue channel should be 0x00")
 	s.Equal(a2, a1, "body alpha channel should be 0xFF")
 }
@@ -159,15 +159,15 @@ func (s *WorkingAnimatorSuite) TestEntryTransitionInterpolatesColor() {
 	s.Equal(b2, b1, "at t=0 blue should be 0x00")
 	s.Equal(a2, a1, "at t=0 alpha should be 0xFF")
 
-	// After entry (>0.5s), body color should be working green (#009200).
+	// After entry (>0.5s), body color should be working green (#00DD00).
 	s.clock.Advance(600 * time.Millisecond)
 	time.Sleep(5 * time.Millisecond)
 
-	workingGreen := color.RGBA{R: 0x00, G: 0x92, B: 0x00, A: 0xFF}
+	workingGreen := color.RGBA{R: 0x00, G: 0xDD, B: 0x00, A: 0xFF}
 	r3, g3, b3, a3 := bodyCircle.FillColor.RGBA()
 	r4, g4, b4, a4 := workingGreen.RGBA()
 	s.Equal(r4, r3, "after entry red should be 0x00")
-	s.Equal(g4, g3, "after entry green should be 0x92")
+	s.Equal(g4, g3, "after entry green should be 0xDD")
 	s.Equal(b4, b3, "after entry blue should be 0x00")
 	s.Equal(a4, a3, "after entry alpha should be 0xFF")
 }
@@ -244,7 +244,7 @@ func (s *WorkingAnimatorSuite) TestWorkingAnimationConstants() {
 	s.Equal(0.5, fairy.WorkingEntryDurationSec,
 		"working entry duration must be 0.5 seconds")
 
-	expectedColor := color.RGBA{R: 0x00, G: 0x92, B: 0x00, A: 0xFF}
+	expectedColor := color.RGBA{R: 0x00, G: 0xDD, B: 0x00, A: 0xFF}
 	s.Equal(expectedColor, fairy.WorkingBodyColor,
-		"working body color must be #009200")
+		"working body color must be #00DD00")
 }

@@ -128,12 +128,12 @@ func (s *NotifyAnimatorSuite) TestStartSetsBodyColorToBrightGreen() {
 	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
 
-	expected := color.RGBA{R: 0x00, G: 0xC3, B: 0x00, A: 0xFF}
+	expected := color.RGBA{R: 0x00, G: 0xFF, B: 0x88, A: 0xFF}
 	r1, g1, b1, a1 := bodyCircle.FillColor.RGBA()
 	r2, g2, b2, a2 := expected.RGBA()
 	s.Equal(r2, r1, "body red channel should be 0x00")
-	s.Equal(g2, g1, "body green channel should be 0xC3")
-	s.Equal(b2, b1, "body blue channel should be 0x00")
+	s.Equal(g2, g1, "body green channel should be 0xFF")
+	s.Equal(b2, b1, "body blue channel should be 0x88")
 	s.Equal(a2, a1, "body alpha channel should be 0xFF")
 }
 
@@ -319,7 +319,7 @@ func (s *NotifyAnimatorSuite) TestNotifyAnimationConstants() {
 	s.Equal(0.9, fairy.NotifyGlowMax,
 		"notify glow maximum must be 0.9")
 
-	expectedColor := color.RGBA{R: 0x00, G: 0xC3, B: 0x00, A: 0xFF}
+	expectedColor := color.RGBA{R: 0x00, G: 0xFF, B: 0x88, A: 0xFF}
 	s.Equal(expectedColor, fairy.NotifyBodyColor,
-		"notify body color must be #00C300")
+		"notify body color must be #00FF88")
 }

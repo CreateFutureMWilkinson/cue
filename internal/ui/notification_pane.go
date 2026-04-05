@@ -128,13 +128,21 @@ func (p *NotificationPanel) Container() fyne.CanvasObject {
 	return p.root
 }
 
-// RenderCard returns the rendered card widget for the notification at the given index.
-func (p *NotificationPanel) RenderCard(index int) fyne.CanvasObject {
+// cardAt returns the notification card at the given index, or nil if out of range.
+func (p *NotificationPanel) cardAt(index int) *presenter.NotificationCard {
 	cards := p.presenter.Cards()
 	if index < 0 || index >= len(cards) {
 		return nil
 	}
-	card := cards[index]
+	return &cards[index]
+}
+
+// RenderCard returns the rendered collapsed card widget for the notification at the given index.
+func (p *NotificationPanel) RenderCard(index int) fyne.CanvasObject {
+	card := p.cardAt(index)
+	if card == nil {
+		return nil
+	}
 	bg := canvas.NewRectangle(card.CardColor)
 	badge := canvas.NewRectangle(card.BadgeColor)
 	badge.SetMinSize(fyne.NewSize(8, 8))
@@ -153,12 +161,10 @@ func (p *NotificationPanel) RenderCard(index int) fyne.CanvasObject {
 
 // RenderExpandedCard returns the rendered expanded card widget for the notification at the given index.
 func (p *NotificationPanel) RenderExpandedCard(index int) fyne.CanvasObject {
-	cards := p.presenter.Cards()
-	if index < 0 || index >= len(cards) {
+	card := p.cardAt(index)
+	if card == nil {
 		return nil
 	}
-	card := cards[index]
-
 	bg := canvas.NewRectangle(card.CardColor)
 	badgeLabel := widget.NewLabel(fmt.Sprintf("[%.1f]", card.ImportanceScore))
 	sourceLabel := widget.NewLabel(card.Source)
@@ -168,10 +174,8 @@ func (p *NotificationPanel) RenderExpandedCard(index int) fyne.CanvasObject {
 	dismissBtn := widget.NewButton("Dismiss", func() {
 		_ = p.presenter.DismissMessage(context.Background(), card.ID)
 	})
-
 	previewLabel := widget.NewLabel(card.FullContent)
 	previewLabel.Wrapping = fyne.TextWrapWord
-
 	row1 := container.NewHBox(badgeLabel, sourceLabel, channelLabel, senderLabel, timeLabel, dismissBtn)
 	content := container.NewVBox(row1, previewLabel)
 	return container.NewStack(bg, content)

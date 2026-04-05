@@ -3,7 +3,7 @@ package presenter
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -57,8 +57,8 @@ func (p *NotificationPresenter) Refresh(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("refresh: %w", err)
 	}
-	sort.Slice(msgs, func(i, j int) bool {
-		return msgs[i].CreatedAt.After(msgs[j].CreatedAt)
+	slices.SortFunc(msgs, func(a, b *repository.Message) int {
+		return b.CreatedAt.Compare(a.CreatedAt)
 	})
 	p.messages = msgs
 	return nil
@@ -92,13 +92,7 @@ func (p *NotificationPresenter) Select(index int) (*NotificationDetail, error) {
 }
 
 func (p *NotificationPresenter) Resolve(ctx context.Context, id uuid.UUID) error {
-	idx := -1
-	for i, m := range p.messages {
-		if m.ID == id {
-			idx = i
-			break
-		}
-	}
+	idx := slices.IndexFunc(p.messages, func(m *repository.Message) bool { return m.ID == id })
 	if idx == -1 {
 		return fmt.Errorf("resolve: message %s not found", id)
 	}
@@ -115,7 +109,7 @@ func (p *NotificationPresenter) Resolve(ctx context.Context, id uuid.UUID) error
 		return fmt.Errorf("resolve: %w", err)
 	}
 
-	p.messages = append(p.messages[:idx], p.messages[idx+1:]...)
+	p.messages = slices.Delete(p.messages, idx, idx+1)
 	return nil
 }
 

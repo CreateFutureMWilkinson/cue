@@ -28,7 +28,6 @@ func NewActivityPresenter(source ActivitySource, maxEntries int) (*ActivityPrese
 	return &ActivityPresenter{
 		source:     source,
 		maxEntries: maxEntries,
-		entries:    make([]ActivityEntry, 0),
 	}, nil
 }
 
@@ -53,9 +52,10 @@ func (p *ActivityPresenter) Entries() []ActivityEntry {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	result := make([]ActivityEntry, len(p.entries))
-	for i, e := range p.entries {
-		result[len(p.entries)-1-i] = e
+	n := len(p.entries)
+	result := make([]ActivityEntry, n)
+	for i := range n {
+		result[n-1-i] = p.entries[i]
 	}
 	return result
 }

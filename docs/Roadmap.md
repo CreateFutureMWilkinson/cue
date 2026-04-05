@@ -106,7 +106,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 053 | Email mention detection never triggers IS=8 | Bugfix | Critical | Done | — | [Feature-053](features/phase-6/Feature-053-Email-Mention-Detection.md) |
 | 054 | Audio alerts never fire on NOTIFIED | Bugfix | Critical | Done | — | [Feature-054](features/phase-6/Feature-054-Audio-Alert-Wiring.md) |
 | 055 | Focus rail is placeholder label | Bugfix | High | Planned | 052 | [Feature-055](features/phase-6/Feature-055-Focus-Rail-Wiring.md) |
-| 056 | Plan/Wizard views are placeholder labels | Bugfix | High | Planned | 052 | [Feature-056](features/phase-6/Feature-056-Plan-Wizard-Wiring.md) |
+| 056 | Plan/Wizard views are placeholder labels | Bugfix | High | Done | 052 | [Feature-056](features/phase-6/Feature-056-Plan-Wizard-Wiring.md) |
 | 057 | Notification panel ignores color-coded cards | Bugfix | High | Planned | 052 | [Feature-057](features/phase-6/Feature-057-Notification-Card-Rendering.md) |
 | 058 | Vector score advisor not wired in main.go | Bugfix | Medium | Planned | — | [Feature-058](features/phase-6/Feature-058-Vector-Advisor-Wiring.md) |
 | 059 | Feedback review modal never callable | Bugfix | Medium | Planned | 055 | [Feature-059](features/phase-6/Feature-059-Feedback-Review-Wiring.md) |

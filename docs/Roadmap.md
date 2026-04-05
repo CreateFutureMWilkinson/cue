@@ -96,3 +96,19 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 049 | MessageRepository QueryByID | Done | — | [Feature-049](features/phase-5/Feature-049-MessageRepository-QueryByID.md) |
 | 050 | Resize refresh | Done | — | [Feature-050](features/phase-5/Feature-050-Resize-Refresh.md) |
 | 051 | Fairy interior bounds | Done | — | [Feature-051](features/phase-5/Feature-051-Fairy-Interior-Bounds.md) |
+
+## Phase 6 — The Big Clean (Bugfixes + Test Infrastructure)
+
+| # | Component | Type | Severity | Status | Depends on | Doc |
+|---|---|---|---|---|---|---|
+| 052 | Automated UI testing framework | Enhancement | — | Planned | — | [Feature-052](features/phase-6/Feature-052-Automated-UI-Testing.md) |
+| 053 | Email mention detection never triggers IS=8 | Bugfix | Critical | Planned | — | [Feature-053](features/phase-6/Feature-053-Email-Mention-Detection.md) |
+| 054 | Audio alerts never fire on NOTIFIED | Bugfix | Critical | Planned | — | [Feature-054](features/phase-6/Feature-054-Audio-Alert-Wiring.md) |
+| 055 | Focus rail is placeholder label | Bugfix | High | Planned | 052 | [Feature-055](features/phase-6/Feature-055-Focus-Rail-Wiring.md) |
+| 056 | Plan/Wizard views are placeholder labels | Bugfix | High | Planned | 052 | [Feature-056](features/phase-6/Feature-056-Plan-Wizard-Wiring.md) |
+| 057 | Notification panel ignores color-coded cards | Bugfix | High | Planned | 052 | [Feature-057](features/phase-6/Feature-057-Notification-Card-Rendering.md) |
+| 058 | Vector score advisor not wired in main.go | Bugfix | Medium | Planned | — | [Feature-058](features/phase-6/Feature-058-Vector-Advisor-Wiring.md) |
+| 059 | Feedback review modal never callable | Bugfix | Medium | Planned | 055 | [Feature-059](features/phase-6/Feature-059-Feedback-Review-Wiring.md) |
+| 060 | Settings view tabs are all stubs | Bugfix | Medium | Planned | 052 | [Feature-060](features/phase-6/Feature-060-Settings-View-Implementation.md) |
+| 061 | Database insert errors silently swallowed | Bugfix | Low | Planned | — | [Feature-061](features/phase-6/Feature-061-Insert-Error-Logging.md) |
+| 062 | Notification list not refreshed after resolve | Bugfix | Low | Planned | — | [Feature-062](features/phase-6/Feature-062-Notification-Refresh-After-Resolve.md) |

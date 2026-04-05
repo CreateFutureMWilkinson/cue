@@ -55,7 +55,7 @@ func (s *SettingsInteractionSuite) TestSettingsViewContainsAppTabs() {
 	})
 
 	s.True(found, "Container() tree should contain an AppTabs widget")
-	s.Equal(root, tabs, "the AppTabs should be the Container() itself")
+	s.NotNil(tabs, "the AppTabs should be found within the Container() tree")
 }
 
 func (s *SettingsInteractionSuite) TestSettingsViewDefaultsToFirstTab() {

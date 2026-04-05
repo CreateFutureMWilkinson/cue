@@ -70,9 +70,11 @@ func NewSettingsView(
 
 	tabs := container.NewAppTabs(slackTab, emailTab, audioTab, ollamaTab)
 
+	doneBtn := widget.NewButton("Done", onClose)
+
 	sv := &SettingsView{
 		tabs:      tabs,
-		container: tabs,
+		container: container.NewBorder(nil, doneBtn, nil, nil, tabs),
 	}
 	return sv
 }

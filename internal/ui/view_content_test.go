@@ -11,6 +11,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/uitest"
 )
 
 // ViewContentSuite verifies that each center view (Character, Plan, Wizard,
@@ -127,8 +128,10 @@ func (s *ViewContentSuite) TestSettingsViewWithPresentersContainsTabs() {
 	content := mw.CenterContent()
 	s.Require().NotNil(content, "CenterContent() for ViewSettings with presenters should not be nil")
 
-	tabs, ok := content.(*container.AppTabs)
-	s.Require().True(ok, "ViewSettings content with presenters should be *container.AppTabs, got %T", content)
+	tabs, found := uitest.FindWidget[*container.AppTabs](content, func(_ *container.AppTabs) bool {
+		return true
+	})
+	s.Require().True(found, "ViewSettings content should contain *container.AppTabs, got %T", content)
 	s.Equal(4, len(tabs.Items), "SettingsView should have 4 tabs")
 
 	expectedNames := []string{"Slack", "Email", "Audio", "Ollama"}

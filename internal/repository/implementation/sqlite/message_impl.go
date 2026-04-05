@@ -41,6 +41,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_message_id ON messages(message_id
 
 const maxMessagesPerSource = 100
 
+const (
+	queryCountBySource        = "SELECT COUNT(*) FROM messages WHERE source = ?"
+	queryDeleteOldestBySource = "DELETE FROM messages WHERE id = (SELECT id FROM messages WHERE source = ? ORDER BY created_at ASC LIMIT 1)"
+	querySelectByStatus       = "SELECT " + messageColumnsStr + " FROM messages WHERE status = ?"
+	querySelectAll            = "SELECT " + messageColumnsStr + " FROM messages"
+	querySelectOldestLimit    = "SELECT " + messageColumnsStr + " FROM messages ORDER BY created_at ASC LIMIT ?"
+)
+
+const messageColumnsStr = "id, source, source_account, channel, sender, message_id, " +
+	"raw_content, importance_score, confidence_score, status, reasoning, " +
+	"user_rating, user_feedback, vector_id, created_at, updated_at, resolved_at"
+
 // SQLiteMessageRepository implements repository.MessageRepository using SQLite.
 type SQLiteMessageRepository struct {
 	db *sql.DB
@@ -77,21 +89,8 @@ func (r *SQLiteMessageRepository) Insert(ctx context.Context, msg *repository.Me
 	}
 	defer tx.Rollback()
 
-	// FIFO eviction: count messages for this source and delete oldest if at capacity.
-	var count int
-	err = tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM messages WHERE source = ?", msg.Source).Scan(&count)
-	if err != nil {
-		return fmt.Errorf("count messages by source: %w", err)
-	}
-
-	if count >= maxMessagesPerSource {
-		_, err = tx.ExecContext(ctx,
-			"DELETE FROM messages WHERE id = (SELECT id FROM messages WHERE source = ? ORDER BY created_at ASC LIMIT 1)",
-			msg.Source,
-		)
-		if err != nil {
-			return fmt.Errorf("evict oldest message: %w", err)
-		}
+	if err := r.evictOldestIfNeeded(ctx, tx, msg.Source); err != nil {
+		return err
 	}
 
 	// Upsert the message.
@@ -130,8 +129,8 @@ func (r *SQLiteMessageRepository) Insert(ctx context.Context, msg *repository.Me
 		msg.ConfidenceScore,
 		msg.Status,
 		msg.Reasoning,
-		nullableInt(msg.UserRating),
-		nullableString(msg.UserFeedback),
+		nullable(msg.UserRating),
+		nullable(msg.UserFeedback),
 		nullableUUID(msg.VectorID),
 		msg.CreatedAt.Format(time.RFC3339),
 		msg.UpdatedAt.Format(time.RFC3339),
@@ -175,8 +174,8 @@ func (r *SQLiteMessageRepository) Update(ctx context.Context, msg *repository.Me
 		msg.ConfidenceScore,
 		msg.Status,
 		msg.Reasoning,
-		nullableInt(msg.UserRating),
-		nullableString(msg.UserFeedback),
+		nullable(msg.UserRating),
+		nullable(msg.UserFeedback),
 		nullableUUID(msg.VectorID),
 		msg.UpdatedAt.Format(time.RFC3339),
 		nullableTime(msg.ResolvedAt),
@@ -190,7 +189,7 @@ func (r *SQLiteMessageRepository) Update(ctx context.Context, msg *repository.Me
 
 // QueryByStatus returns all messages with the given status.
 func (r *SQLiteMessageRepository) QueryByStatus(ctx context.Context, status string) ([]*repository.Message, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT "+messageColumns()+" FROM messages WHERE status = ?", status)
+	rows, err := r.db.QueryContext(ctx, querySelectByStatus, status)
 	if err != nil {
 		return nil, fmt.Errorf("query by status: %w", err)
 	}
@@ -200,7 +199,7 @@ func (r *SQLiteMessageRepository) QueryByStatus(ctx context.Context, status stri
 
 // QueryAll returns all messages in the database.
 func (r *SQLiteMessageRepository) QueryAll(ctx context.Context) ([]*repository.Message, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT "+messageColumns()+" FROM messages")
+	rows, err := r.db.QueryContext(ctx, querySelectAll)
 	if err != nil {
 		return nil, fmt.Errorf("query all: %w", err)
 	}
@@ -210,7 +209,7 @@ func (r *SQLiteMessageRepository) QueryAll(ctx context.Context) ([]*repository.M
 
 // QueryOldestToNewest returns up to limit messages ordered by created_at ascending.
 func (r *SQLiteMessageRepository) QueryOldestToNewest(ctx context.Context, limit int) ([]*repository.Message, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT "+messageColumns()+" FROM messages ORDER BY created_at ASC LIMIT ?", limit)
+	rows, err := r.db.QueryContext(ctx, querySelectOldestLimit, limit)
 	if err != nil {
 		return nil, fmt.Errorf("query oldest to newest: %w", err)
 	}
@@ -221,18 +220,28 @@ func (r *SQLiteMessageRepository) QueryOldestToNewest(ctx context.Context, limit
 // CountBySource returns the number of messages for the given source.
 func (r *SQLiteMessageRepository) CountBySource(ctx context.Context, source string) (int, error) {
 	var count int
-	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM messages WHERE source = ?", source).Scan(&count)
+	err := r.db.QueryRowContext(ctx, queryCountBySource, source).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("count by source: %w", err)
 	}
 	return count, nil
 }
 
-// messageColumns returns the column list for SELECT queries.
-func messageColumns() string {
-	return `id, source, source_account, channel, sender, message_id,
-		raw_content, importance_score, confidence_score, status, reasoning,
-		user_rating, user_feedback, vector_id, created_at, updated_at, resolved_at`
+// evictOldestIfNeeded performs FIFO eviction for the given source if at capacity.
+func (r *SQLiteMessageRepository) evictOldestIfNeeded(ctx context.Context, tx *sql.Tx, source string) error {
+	var count int
+	err := tx.QueryRowContext(ctx, queryCountBySource, source).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("count messages by source: %w", err)
+	}
+
+	if count >= maxMessagesPerSource {
+		_, err = tx.ExecContext(ctx, queryDeleteOldestBySource, source)
+		if err != nil {
+			return fmt.Errorf("evict oldest message: %w", err)
+		}
+	}
+	return nil
 }
 
 // scanMessages scans rows into a slice of Message pointers.
@@ -330,16 +339,10 @@ func scanMessage(rows *sql.Rows) (*repository.Message, error) {
 	return &msg, nil
 }
 
-// nullableInt converts *int to a value suitable for SQL (nil becomes NULL).
-func nullableInt(v *int) interface{} {
-	if v == nil {
-		return nil
-	}
-	return *v
-}
-
-// nullableString converts *string to a value suitable for SQL (nil becomes NULL).
-func nullableString(v *string) interface{} {
+// nullable converts a pointer to a value suitable for SQL (nil becomes NULL).
+// For non-string types, it returns the dereferenced value directly.
+// For special types, it applies the appropriate converter function.
+func nullable[T any](v *T) any {
 	if v == nil {
 		return nil
 	}
@@ -347,7 +350,7 @@ func nullableString(v *string) interface{} {
 }
 
 // nullableUUID converts *uuid.UUID to a value suitable for SQL (nil becomes NULL).
-func nullableUUID(v *uuid.UUID) interface{} {
+func nullableUUID(v *uuid.UUID) any {
 	if v == nil {
 		return nil
 	}
@@ -355,7 +358,7 @@ func nullableUUID(v *uuid.UUID) interface{} {
 }
 
 // nullableTime converts *time.Time to a value suitable for SQL (nil becomes NULL).
-func nullableTime(v *time.Time) interface{} {
+func nullableTime(v *time.Time) any {
 	if v == nil {
 		return nil
 	}

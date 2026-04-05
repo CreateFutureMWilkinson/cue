@@ -121,6 +121,11 @@ func NewFairyCharacter() *FairyCharacter {
 	objects = append(objects, indicator)
 
 	f.container = container.New(&fairyJarLayout{fairy: f}, objects...)
+	f.refreshFunc = func() {
+		if fyne.CurrentApp() != nil {
+			fyne.Do(func() { f.container.Refresh() })
+		}
+	}
 
 	return f
 }
@@ -197,6 +202,9 @@ func (f *FairyCharacter) SetClock(c character.Clock) { f.clock = c }
 
 // DisableRefresh replaces the refresh function with a no-op (used for testing).
 func (f *FairyCharacter) DisableRefresh() { f.refreshFunc = func() {} }
+
+// SetRefreshHook replaces the refresh function with a caller-provided function (for test observability).
+func (f *FairyCharacter) SetRefreshHook(fn func()) { f.refreshFunc = fn }
 
 // Close stops the current animator without changing the character state.
 func (f *FairyCharacter) Close() {

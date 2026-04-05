@@ -27,7 +27,7 @@ type KeyFileEncryptor struct {
 // must contain exactly 32 bytes. Paths containing ".." traversal components are rejected.
 func NewKeyFileEncryptor(keyPath string) (*KeyFileEncryptor, error) {
 	// Reject paths containing ".." components to prevent path traversal (G304).
-	for _, part := range strings.Split(filepath.ToSlash(keyPath), "/") {
+	for part := range strings.SplitSeq(filepath.ToSlash(keyPath), "/") {
 		if part == ".." {
 			return nil, fmt.Errorf("key path must not contain path traversal (..): %s", keyPath)
 		}

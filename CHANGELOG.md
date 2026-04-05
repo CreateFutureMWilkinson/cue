@@ -31,6 +31,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **Countdown timer ring rendering** — Replaced stub renderer with real 45-line ring drawing using `canvas.Line` objects, trigonometric positioning, proportional scaling, future/elapsed coloring, cardinal/diagonal stroke widths (3.0/2.0), and `SetFlashVisible` for 1Hz flash animation. 13 new renderer tests (Phase-1-Feature-017-Hotfix-A)
 - **Graduated glow layer alphas** — Glow layers now use graduated base alphas (128 inner → 16 outer) instead of flat alpha=30 for all layers, producing realistic inner-bright/outer-dim breathing effects. `SetGlowIntensity()` multiplies each layer's base alpha by intensity. (Phase-3-Feature-014-Hotfix-B)
 - **Shutdown animation on app close** — Added `Shutdown() <-chan struct{}` to `FairyCharacter`; `main.go` now waits for the 1.5s shutdown fade before exiting. Startup animation also now triggered on app launch via `TransitionTo(StateStarting)`. (Phase-3-Feature-014-Hotfix-B)
 - **Thread safety for fairy mutations** — `SetPosition`, `SetBodyColor`, `SetGlowIntensity`, `Position`, `GlowIntensity` now use mutex protection. `TransitionTo`/`Close`/`Shutdown` unlock before calling `animator.Stop()` to prevent deadlock with animator goroutines. (Phase-3-Feature-014-Hotfix-B)

@@ -1,7 +1,7 @@
 # Feature 017-Hotfix-A: Countdown Timer Renderer
 
 **Phase:** Phase-1-Feature-017-Hotfix-A
-**Status:** Planned
+**Status:** Done
 **Package:** `internal/ui/`
 **Parent:** Feature 017 (Focus Rail + Countdown Timer)
 

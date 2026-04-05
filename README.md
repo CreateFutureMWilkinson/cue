@@ -18,7 +18,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 5 | Slack watcher | Done |
 | 6 | Email watcher | Done |
 | 7 | Router orchestration | Done |
-| 8 | Vector integration (chromem-go) | Planned |
+| 8 | Vector integration (chromem-go) | Done |
 | 9 | Feedback buffer | Planned |
 | 10 | Audio alerts | Planned |
 | 11 | Fyne GUI | Planned |

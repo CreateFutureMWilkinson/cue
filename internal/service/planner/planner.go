@@ -99,17 +99,17 @@ func validatePlannerConfig(cfg config.PlannerConfig) error {
 	if cfg.LongBreakAfterCycles <= 0 {
 		return fmt.Errorf("long_break_after_cycles must be greater than 0")
 	}
-	if _, err := time.Parse("15:04", cfg.WorkdayStart); err != nil {
+	if err := validateTimeFormat(cfg.WorkdayStart); err != nil {
 		return fmt.Errorf("workday_start must be a valid HH:MM time: %w", err)
 	}
-	if _, err := time.Parse("15:04", cfg.WorkdayEnd); err != nil {
+	if err := validateTimeFormat(cfg.WorkdayEnd); err != nil {
 		return fmt.Errorf("workday_end must be a valid HH:MM time: %w", err)
 	}
-	if _, err := time.Parse("15:04", cfg.PlanningCutoff); err != nil {
+	if err := validateTimeFormat(cfg.PlanningCutoff); err != nil {
 		return fmt.Errorf("planning_cutoff must be a valid HH:MM time: %w", err)
 	}
-	ws, _ := time.Parse("15:04", cfg.WorkdayStart)
-	we, _ := time.Parse("15:04", cfg.WorkdayEnd)
+	ws, _ := parseTimeFormat(cfg.WorkdayStart)
+	we, _ := parseTimeFormat(cfg.WorkdayEnd)
 	if !we.After(ws) {
 		return fmt.Errorf("workday_end must be after workday_start")
 	}
@@ -120,7 +120,7 @@ func validatePlannerConfig(cfg config.PlannerConfig) error {
 // If now is before the planning cutoff on a weekday, returns today.
 // If now is at or after the cutoff, or on a weekend, returns the next working day.
 func (p *Planner) TargetDate(now time.Time) time.Time {
-	cutoff, _ := time.Parse("15:04", p.cfg.PlanningCutoff)
+	cutoff, _ := parseTimeFormat(p.cfg.PlanningCutoff)
 	cutoffToday := time.Date(now.Year(), now.Month(), now.Day(),
 		cutoff.Hour(), cutoff.Minute(), 0, 0, now.Location())
 
@@ -143,4 +143,13 @@ func nextWorkingDay(date time.Time) time.Time {
 		next = next.AddDate(0, 0, 1)
 	}
 	return next
+}
+
+func validateTimeFormat(timeStr string) error {
+	_, err := time.Parse("15:04", timeStr)
+	return err
+}
+
+func parseTimeFormat(timeStr string) (time.Time, error) {
+	return time.Parse("15:04", timeStr)
 }

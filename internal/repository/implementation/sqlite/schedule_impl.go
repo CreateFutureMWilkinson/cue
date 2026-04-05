@@ -133,10 +133,10 @@ func (r *SQLiteScheduleRepository) LoadByDate(ctx context.Context, date time.Tim
 		&idStr, &dateStr, &sched.Strategy, &createdAtStr,
 	)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("load schedule by date: %w", repository.ErrNotFound)
+		return nil, fmt.Errorf("schedule not found for date %s: %w", dateStr, repository.ErrNotFound)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("load schedule by date: %w", err)
+		return nil, fmt.Errorf("query schedule for date %s: %w", dateStr, err)
 	}
 
 	sched.ID, err = uuid.Parse(idStr)

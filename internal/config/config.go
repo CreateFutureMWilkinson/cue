@@ -38,12 +38,8 @@ type PlannerConfig struct {
 
 // isConfigured returns true if any planner field has been explicitly set.
 func (p PlannerConfig) isConfigured() bool {
-	return p.WorkdayStart != "" ||
-		p.WorkdayEnd != "" ||
-		p.PomodoroMinutes != 0 ||
-		p.ShortBreakMinutes != 0 ||
-		p.LongBreakMinutes != 0 ||
-		p.LongBreakAfterCycles != 0
+	defaultCfg := PlannerConfig{}
+	return p != defaultCfg
 }
 
 type DatabaseConfig struct {
@@ -242,8 +238,24 @@ type validationRule struct {
 	errorMsg string
 }
 
+func conditionalRule(condition func(*Config) bool, check func(*Config) bool, msg string) validationRule {
+	return validationRule{
+		check: func(cfg *Config) bool {
+			if !condition(cfg) {
+				return true
+			}
+			return check(cfg)
+		},
+		errorMsg: msg,
+	}
+}
+
 // Validate checks that required configuration fields are set correctly.
 func (c *Config) Validate() error {
+	guiConfigured := func(cfg *Config) bool {
+		return cfg.GUI.WindowWidth != 0 || cfg.GUI.WindowHeight != 0
+	}
+
 	rules := []validationRule{
 		{func(cfg *Config) bool { return cfg.Database.Path != "" }, "database.path must not be empty"},
 		{func(cfg *Config) bool { return cfg.Ollama.Host != "" }, "ollama.host must not be empty"},
@@ -263,114 +275,78 @@ func (c *Config) Validate() error {
 		{func(cfg *Config) bool {
 			return cfg.Notification.AudioVolume >= 0 && cfg.Notification.AudioVolume <= 100
 		}, "notification.audio_volume must be between 0 and 100"},
-		{func(cfg *Config) bool {
-			if !cfg.Notification.notificationAudioConfigured() {
-				return true
-			}
-			return cfg.Notification.FallbackFrequency > 0
-		}, "notification.fallback_frequency must be greater than 0"},
-		{func(cfg *Config) bool {
-			if !cfg.Notification.notificationAudioConfigured() {
-				return true
-			}
-			return cfg.Notification.FallbackDurationMs > 0
-		}, "notification.fallback_duration_ms must be greater than 0"},
-		{func(cfg *Config) bool {
-			// Skip validation only if both are zero (unconfigured GUI)
-			if cfg.GUI.WindowWidth == 0 && cfg.GUI.WindowHeight == 0 {
-				return true
-			}
-			return cfg.GUI.WindowWidth > 0
-		}, "gui.window_width must be greater than 0"},
-		{func(cfg *Config) bool {
-			// Skip validation only if both are zero (unconfigured GUI)
-			if cfg.GUI.WindowWidth == 0 && cfg.GUI.WindowHeight == 0 {
-				return true
-			}
-			return cfg.GUI.WindowHeight > 0
-		}, "gui.window_height must be greater than 0"},
-		{func(cfg *Config) bool {
-			if !cfg.Planner.isConfigured() {
-				return true
-			}
-			return cfg.Planner.PomodoroMinutes > 0
-		}, "planner.pomodoro_minutes must be greater than 0"},
-		{func(cfg *Config) bool {
-			if !cfg.Planner.isConfigured() {
-				return true
-			}
-			return cfg.Planner.ShortBreakMinutes > 0
-		}, "planner.short_break_minutes must be greater than 0"},
-		{func(cfg *Config) bool {
-			if !cfg.Planner.isConfigured() {
-				return true
-			}
-			return cfg.Planner.LongBreakMinutes > 0
-		}, "planner.long_break_minutes must be greater than 0"},
-		{func(cfg *Config) bool {
-			if !cfg.Planner.isConfigured() {
-				return true
-			}
-			return cfg.Planner.LongBreakAfterCycles > 0
-		}, "planner.long_break_after_cycles must be greater than 0"},
-		{func(cfg *Config) bool {
-			if !cfg.Planner.isConfigured() {
-				return true
-			}
-			return cfg.Planner.MeetingMergeGapMinutes > 0
-		}, "planner.meeting_merge_gap_minutes must be greater than 0"},
-		{func(cfg *Config) bool {
-			if !cfg.Planner.isConfigured() {
-				return true
-			}
-			return isValidTimeOfDay(cfg.Planner.WorkdayStart)
-		}, "planner.workday_start must be a valid HH:MM time"},
-		{func(cfg *Config) bool {
-			if !cfg.Planner.isConfigured() {
-				return true
-			}
-			return isValidTimeOfDay(cfg.Planner.WorkdayEnd)
-		}, "planner.workday_end must be a valid HH:MM time"},
-		{func(cfg *Config) bool {
-			if !cfg.Planner.isConfigured() {
-				return true
-			}
-			return isValidTimeOfDay(cfg.Planner.PlanningCutoff)
-		}, "planner.planning_cutoff must be a valid HH:MM time"},
-		{func(cfg *Config) bool {
-			if !cfg.Planner.isConfigured() {
-				return true
-			}
-			return isValidTimeOfDay(cfg.Planner.LunchWindowStart)
-		}, "planner.lunch_window_start must be a valid HH:MM time"},
-		{func(cfg *Config) bool {
-			if !cfg.Planner.isConfigured() {
-				return true
-			}
-			return isValidTimeOfDay(cfg.Planner.LunchWindowEnd)
-		}, "planner.lunch_window_end must be a valid HH:MM time"},
-		{func(cfg *Config) bool {
-			if !cfg.Planner.isConfigured() {
-				return true
-			}
-			s, sErr := parseTimeOfDay(cfg.Planner.WorkdayStart)
-			e, eErr := parseTimeOfDay(cfg.Planner.WorkdayEnd)
-			if sErr != nil || eErr != nil {
-				return true
-			}
-			return e.After(s)
-		}, "planner.workday_end must be after planner.workday_start"},
-		{func(cfg *Config) bool {
-			if !cfg.Planner.isConfigured() {
-				return true
-			}
-			s, sErr := parseTimeOfDay(cfg.Planner.LunchWindowStart)
-			e, eErr := parseTimeOfDay(cfg.Planner.LunchWindowEnd)
-			if sErr != nil || eErr != nil {
-				return true
-			}
-			return e.After(s)
-		}, "planner.lunch_window_end must be after planner.lunch_window_start"},
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Notification.notificationAudioConfigured() },
+			func(cfg *Config) bool { return cfg.Notification.FallbackFrequency > 0 },
+			"notification.fallback_frequency must be greater than 0"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Notification.notificationAudioConfigured() },
+			func(cfg *Config) bool { return cfg.Notification.FallbackDurationMs > 0 },
+			"notification.fallback_duration_ms must be greater than 0"),
+		conditionalRule(guiConfigured, func(cfg *Config) bool { return cfg.GUI.WindowWidth > 0 }, "gui.window_width must be greater than 0"),
+		conditionalRule(guiConfigured, func(cfg *Config) bool { return cfg.GUI.WindowHeight > 0 }, "gui.window_height must be greater than 0"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Planner.isConfigured() },
+			func(cfg *Config) bool { return cfg.Planner.PomodoroMinutes > 0 },
+			"planner.pomodoro_minutes must be greater than 0"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Planner.isConfigured() },
+			func(cfg *Config) bool { return cfg.Planner.ShortBreakMinutes > 0 },
+			"planner.short_break_minutes must be greater than 0"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Planner.isConfigured() },
+			func(cfg *Config) bool { return cfg.Planner.LongBreakMinutes > 0 },
+			"planner.long_break_minutes must be greater than 0"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Planner.isConfigured() },
+			func(cfg *Config) bool { return cfg.Planner.LongBreakAfterCycles > 0 },
+			"planner.long_break_after_cycles must be greater than 0"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Planner.isConfigured() },
+			func(cfg *Config) bool { return cfg.Planner.MeetingMergeGapMinutes > 0 },
+			"planner.meeting_merge_gap_minutes must be greater than 0"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Planner.isConfigured() },
+			func(cfg *Config) bool { return isValidTimeOfDay(cfg.Planner.WorkdayStart) },
+			"planner.workday_start must be a valid HH:MM time"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Planner.isConfigured() },
+			func(cfg *Config) bool { return isValidTimeOfDay(cfg.Planner.WorkdayEnd) },
+			"planner.workday_end must be a valid HH:MM time"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Planner.isConfigured() },
+			func(cfg *Config) bool { return isValidTimeOfDay(cfg.Planner.PlanningCutoff) },
+			"planner.planning_cutoff must be a valid HH:MM time"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Planner.isConfigured() },
+			func(cfg *Config) bool { return isValidTimeOfDay(cfg.Planner.LunchWindowStart) },
+			"planner.lunch_window_start must be a valid HH:MM time"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Planner.isConfigured() },
+			func(cfg *Config) bool { return isValidTimeOfDay(cfg.Planner.LunchWindowEnd) },
+			"planner.lunch_window_end must be a valid HH:MM time"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Planner.isConfigured() },
+			func(cfg *Config) bool {
+				s, sErr := parseTimeOfDay(cfg.Planner.WorkdayStart)
+				e, eErr := parseTimeOfDay(cfg.Planner.WorkdayEnd)
+				if sErr != nil || eErr != nil {
+					return true
+				}
+				return e.After(s)
+			},
+			"planner.workday_end must be after planner.workday_start"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Planner.isConfigured() },
+			func(cfg *Config) bool {
+				s, sErr := parseTimeOfDay(cfg.Planner.LunchWindowStart)
+				e, eErr := parseTimeOfDay(cfg.Planner.LunchWindowEnd)
+				if sErr != nil || eErr != nil {
+					return true
+				}
+				return e.After(s)
+			},
+			"planner.lunch_window_end must be after planner.lunch_window_start"),
 	}
 
 	for _, rule := range rules {

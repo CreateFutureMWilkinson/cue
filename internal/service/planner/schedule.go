@@ -48,7 +48,7 @@ func (p *Planner) GenerateSchedules(
 }
 
 func (p *Planner) parseTime(hhmm string, date time.Time) time.Time {
-	t, _ := time.Parse("15:04", hhmm)
+	t, _ := parseTimeFormat(hhmm)
 	return time.Date(date.Year(), date.Month(), date.Day(),
 		t.Hour(), t.Minute(), 0, 0, date.Location())
 }
@@ -93,17 +93,18 @@ func (p *Planner) mergeMeetings(meetings []TimeBlock) []TimeBlock {
 	merged := []TimeBlock{meetings[0]}
 
 	for i := 1; i < len(meetings); i++ {
-		last := &merged[len(merged)-1]
-		gap := meetings[i].Start.Sub(last.End)
+		lastMeeting := &merged[len(merged)-1]
+		currentMeeting := meetings[i]
+		gap := currentMeeting.Start.Sub(lastMeeting.End)
 
 		if gap < gapThreshold {
 			// Merge: extend last meeting to cover this one
-			if meetings[i].End.After(last.End) {
-				last.End = meetings[i].End
+			if currentMeeting.End.After(lastMeeting.End) {
+				lastMeeting.End = currentMeeting.End
 			}
-			last.TaskName = last.TaskName + " + " + meetings[i].TaskName
+			lastMeeting.TaskName = lastMeeting.TaskName + " + " + currentMeeting.TaskName
 		} else {
-			merged = append(merged, meetings[i])
+			merged = append(merged, currentMeeting)
 		}
 	}
 	return merged
@@ -130,7 +131,7 @@ func (p *Planner) generateFocusMaximized(meetings []TimeBlock, ws, we time.Time)
 
 	for _, gap := range gaps {
 		cursor := gap.start
-		for cursor.Add(pomoDur).Before(gap.end) || cursor.Add(pomoDur).Equal(gap.end) {
+		for p.fitsInGap(cursor, gap.end, pomoDur) {
 			// Focus block
 			blocks = append(blocks, TimeBlock{
 				Start: cursor,
@@ -143,7 +144,7 @@ func (p *Planner) generateFocusMaximized(meetings []TimeBlock, ws, we time.Time)
 			// Check if we need a long break (place at lunch window if possible)
 			if totalFocus%cycleLen == 0 && !longBreakPlaced &&
 				!cursor.Before(lunchStart) && cursor.Before(lunchEnd) &&
-				cursor.Add(longDur).Before(gap.end) || cursor.Add(longDur).Equal(gap.end) {
+				p.fitsInGap(cursor, gap.end, longDur) {
 				blocks = append(blocks, TimeBlock{
 					Start: cursor,
 					End:   cursor.Add(longDur),
@@ -151,10 +152,9 @@ func (p *Planner) generateFocusMaximized(meetings []TimeBlock, ws, we time.Time)
 				})
 				cursor = cursor.Add(longDur)
 				longBreakPlaced = true
-			} else if cursor.Add(pomoDur).Before(gap.end) || cursor.Add(pomoDur).Equal(gap.end) {
+			} else if p.fitsInGap(cursor, gap.end, pomoDur) {
 				// Short break only if another focus block fits after it
-				if cursor.Add(shortDur).Add(pomoDur).Before(gap.end) ||
-					cursor.Add(shortDur).Add(pomoDur).Equal(gap.end) {
+				if p.fitsInGap(cursor, gap.end, shortDur+pomoDur) {
 					blocks = append(blocks, TimeBlock{
 						Start: cursor,
 						End:   cursor.Add(shortDur),
@@ -187,37 +187,37 @@ func (p *Planner) generateRecoveryBalanced(meetings []TimeBlock, ws, we time.Tim
 		after    time.Time
 		duration time.Duration
 	}
-	var pmBreaks []postMeetingBreak
-	for _, m := range meetings {
-		meetingLen := m.End.Sub(m.Start)
-		if meetingLen <= 30*time.Minute {
-			pmBreaks = append(pmBreaks, postMeetingBreak{after: m.End, duration: shortDur})
+	var postMeetingBreaks []postMeetingBreak
+	for _, meeting := range meetings {
+		meetingLength := meeting.End.Sub(meeting.Start)
+		if meetingLength <= 30*time.Minute {
+			postMeetingBreaks = append(postMeetingBreaks, postMeetingBreak{after: meeting.End, duration: shortDur})
 		} else {
-			pmBreaks = append(pmBreaks, postMeetingBreak{after: m.End, duration: longDur})
+			postMeetingBreaks = append(postMeetingBreaks, postMeetingBreak{after: meeting.End, duration: longDur})
 		}
 	}
 
 	gaps := p.findGaps(meetings, ws, we)
 	focusCount := 0
 
-	for gi, gap := range gaps {
+	for _, gap := range gaps {
 		cursor := gap.start
 
 		// Check if this gap starts right after a meeting — place post-meeting break
-		for _, pmb := range pmBreaks {
-			if pmb.after.Equal(cursor) && cursor.Add(pmb.duration).Before(gap.end) {
+		for _, pmBreak := range postMeetingBreaks {
+			if pmBreak.after.Equal(cursor) && p.fitsInGap(cursor, gap.end, pmBreak.duration) {
 				blocks = append(blocks, TimeBlock{
 					Start: cursor,
-					End:   cursor.Add(pmb.duration),
-					Type:  breakTypeForDuration(pmb.duration, shortDur),
+					End:   cursor.Add(pmBreak.duration),
+					Type:  breakTypeForDuration(pmBreak.duration, shortDur),
 				})
-				cursor = cursor.Add(pmb.duration)
+				cursor = cursor.Add(pmBreak.duration)
 				break
 			}
 		}
 
 		// Fill with pomodoro cycles
-		for cursor.Add(pomoDur).Before(gap.end) || cursor.Add(pomoDur).Equal(gap.end) {
+		for p.fitsInGap(cursor, gap.end, pomoDur) {
 			blocks = append(blocks, TimeBlock{
 				Start: cursor,
 				End:   cursor.Add(pomoDur),
@@ -228,7 +228,7 @@ func (p *Planner) generateRecoveryBalanced(meetings []TimeBlock, ws, we time.Tim
 
 			// After N focus blocks, place a long break
 			if focusCount%cycleLen == 0 {
-				if cursor.Add(longDur).Before(gap.end) || cursor.Add(longDur).Equal(gap.end) {
+				if p.fitsInGap(cursor, gap.end, longDur) {
 					blocks = append(blocks, TimeBlock{
 						Start: cursor,
 						End:   cursor.Add(longDur),
@@ -236,10 +236,9 @@ func (p *Planner) generateRecoveryBalanced(meetings []TimeBlock, ws, we time.Tim
 					})
 					cursor = cursor.Add(longDur)
 				}
-			} else if cursor.Add(pomoDur).Before(gap.end) || cursor.Add(pomoDur).Equal(gap.end) {
+			} else if p.fitsInGap(cursor, gap.end, pomoDur) {
 				// Short break if another focus fits
-				if cursor.Add(shortDur).Add(pomoDur).Before(gap.end) ||
-					cursor.Add(shortDur).Add(pomoDur).Equal(gap.end) {
+				if p.fitsInGap(cursor, gap.end, shortDur+pomoDur) {
 					blocks = append(blocks, TimeBlock{
 						Start: cursor,
 						End:   cursor.Add(shortDur),
@@ -249,7 +248,6 @@ func (p *Planner) generateRecoveryBalanced(meetings []TimeBlock, ws, we time.Tim
 				}
 			}
 		}
-		_ = gi
 	}
 
 	sort.Slice(blocks, func(i, j int) bool {
@@ -291,6 +289,10 @@ func (p *Planner) findGaps(meetings []TimeBlock, ws, we time.Time) []timeGap {
 		gaps = append(gaps, timeGap{start: cursor, end: we})
 	}
 	return gaps
+}
+
+func (p *Planner) fitsInGap(cursor, gapEnd time.Time, duration time.Duration) bool {
+	return !cursor.Add(duration).After(gapEnd)
 }
 
 // assignTasks assigns tasks to focus blocks in priority order.

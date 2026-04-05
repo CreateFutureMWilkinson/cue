@@ -6,38 +6,83 @@ This document is the authoritative design specification for Cue's Fyne desktop G
 
 ## Overall Layout
 
-The main window uses a tab bar at the bottom to switch between Notifications view (Phase 1) and Day Planner view (Phase 2). The top split (notification queue + activity log) is always visible; the bottom area switches content.
+The main window uses a three-column layout. No tab bar — navigation is handled by buttons in the Focus rail and contextual controls on each pane.
+
+### Default State (Collapsed Notifications)
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │  Cue  [Settings] [About] [Quit]                        Menu Bar │
-├───────────────────────────┬──────────────────────────────────────┤
-│                           │                                      │
-│   Notification Queue      │         Activity Log                 │
-│   (scrollable list)       │         (scrollable list)            │
-│                           │                                      │
-│   [Src] Sender | Chan |   │   [HH:MM:SS] Source: Message         │
-│         Message Preview   │   [HH:MM:SS] Source: Message         │
-│   ─────────────────────   │   [HH:MM:SS] Source: Error!    (red) │
-│   [Src] Sender | Chan |   │   [HH:MM:SS] Source: Message         │
-│         Message Preview   │                                      │
-│   ─────────────────────   │                                      │
-│   [Src] Sender | Chan |   │                                      │
-│         Message Preview   │                                      │
-│                           │                                      │
-│                           ├──────────────────────────────────────┤
-│                           │   [Character Widget] (opt-in)        │
-├───────────────────────────┴──────────────────────────────────────┤
-│  [Notifications] [Day Planner] [Review Buffered]    ← tab bar   │
-├──────────────────────────────────────────────────────────────────┤
-│  Tab content area (see pane specs below)                         │
-└──────────────────────────────────────────────────────────────────┘
+├──────┬───────────────────────────────────────────┬───────────────┤
+│      │                                           │  Notifs (4)   │
+│  ◯   │                                           │───────────────│
+│ 18m  │                                           │ [9] #alerts   │
+│      │         Character Area                    │  Added to...  │
+│ Write│         (fairy, Phase 3)                  │───────────────│
+│ report│                                          │ [8.5] Inbox   │
+│      │                                           │  Server down  │
+│[Done]│                                           │───────────────│
+│      │                                           │ [8] #general  │
+│      │                                           │  @user deploy │
+│      │                                           │───────────────│
+│[Plan]│                                           │ [7.2] #team   │
+│      │      [ Activity Log (drawer) ]            │  Review Q1... │
+│      │                                           │  [◀ expand]   │
+├──────┴───────────────────────────────────────────┴───────────────┤
 
-  Split: 50/50 horizontal (HSplit) for top area
+  Focus rail: 10% width
+  Character area: 60% width
+  Notifications: 30% width
   Window default: 1200w × 800h (from config.toml)
-  Character widget: below activity log (right pane), visible when gui.character != "none"
-  Tab bar: bottom of window, switches between Notifications (default), Day Planner, Review Buffered
 ```
+
+### Expanded Notifications State
+
+Triggered by the expand toggle on the notification panel. Character area is temporarily hidden; notifications take its space.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Cue  [Settings] [About] [Quit]                        Menu Bar │
+├──────┬───────────────────────────────────────────────────────────┤
+│      │  Notifications (4)                          [collapse ▶] │
+│  ◯   │─────────────────────────────────────────────────────────│
+│ 18m  │  [9.0]  slack  #alerts   bot         2m ago   [Dismiss] │
+│      │         You were added to #alerts                        │
+│ Write│─────────────────────────────────────────────────────────│
+│ report│ [8.5]  email  Inbox     alice@ex    5m ago   [Dismiss] │
+│      │         URGENT: Server down, need immediate action       │
+│[Done]│─────────────────────────────────────────────────────────│
+│      │  [8.0]  slack  #general  JohnDoe    12m ago   [Dismiss] │
+│      │         Hey @user, the deploy is failing again           │
+│      │─────────────────────────────────────────────────────────│
+│[Plan]│  [7.2]  slack  #team     manager    20m ago   [Dismiss] │
+│[Review]│       Please review the Q1 budget proposal             │
+├──────┴───────────────────────────────────────────────────────────┤
+
+  Focus rail: 10% width (unchanged)
+  Expanded notifications: 90% width (replaces character area)
+  Review button: visible only in expanded state
+```
+
+### Column Definitions
+
+| Column | Width | Contents | Always visible |
+|---|---|---|---|
+| Focus rail | 10% | Timer ring, task name, Done, Plan | Yes |
+| Character area | 60% | Fairy (Phase 3), activity log drawer | When notifications collapsed |
+| Notifications | 30% (collapsed) / 90% (expanded) | Compact or full notification cards | Yes |
+
+### Center Area Views
+
+The center 60% column displays different content depending on state:
+
+| View | Trigger | Contents |
+|---|---|---|
+| Character (default) | App startup / collapse notifications / "Back" from Plan view | Fairy character, activity log drawer |
+| Plan | "Plan" button in focus rail | Plan overview + todo list (see Plan View spec) |
+| Wizard | "Plan My Day" from plan view | Day planner wizard steps 1–4 (see Day Planner spec) |
+
+Only one center view is active at a time. The focus rail and notification column remain unchanged across all center views. There is no separate "Active Schedule" view — the Plan view tree serves as the active schedule when a plan exists.
 
 ---
 
@@ -57,7 +102,9 @@ The main window uses a tab bar at the bottom to switch between Notifications vie
 | `block-short-break`| `RGBA(144, 202, 249, 200)`  | Timeline short break block   |
 | `block-long-break` | `RGBA(100, 181, 246, 200)`  | Timeline long break block    |
 | `block-meeting`    | `RGBA(255, 183, 77, 200)`   | Timeline meeting block       |
-| `block-current`    | `RGBA(255, 255, 255, 40)`   | Current block highlight      |
+| `notif-card-high`  | `#ffc9c9`                   | Notification card IS ≥ 9     |
+| `notif-card-mid`   | `#ffd8a8`                   | Notification card IS ≥ 8     |
+| `notif-card-low`   | `#dbe4ff`                   | Notification card IS < 8     |
 | `overload-warning` | `RGBA(255, 152, 0, 255)`    | Overload warning text        |
 | `category-badge`   | Per-category color           | Task category badges         |
 
@@ -73,10 +120,8 @@ The main window uses a tab bar at the bottom to switch between Notifications vie
 
 | Token                    | Value    | Usage                                  |
 |--------------------------|----------|----------------------------------------|
-| `truncate-source`        | 15 chars | Notification row source column         |
-| `truncate-sender`        | 15 chars | Notification row sender column         |
-| `truncate-channel`       | 15 chars | Notification row channel column        |
-| `truncate-preview`       | 80 chars | Notification row message preview       |
+| `task-detail-width`      | 500      | Task detail modal width                |
+| `task-detail-height`     | 450      | Task detail modal height               |
 | `activity-max-entries`   | 500      | Activity log circular buffer           |
 | `feedback-window-width`  | 600      | Feedback review modal width            |
 | `feedback-window-height` | 400      | Feedback review modal height           |
@@ -93,50 +138,97 @@ The main window uses a tab bar at the bottom to switch between Notifications vie
 
 ---
 
-## Pane 1: Notification Queue (Top-Left)
+## Notification Panel (Right Column)
 
 ### Purpose
 
-Displays NOTIFIED messages sorted newest-first. Each row is a summary; clicking expands to a detail dialog.
+Displays NOTIFIED messages sorted newest-first. Has two states: collapsed (compact cards in 30% column) and expanded (full cards replacing character area at 90%).
 
-### Layout
-
-```
-┌─────────────────────────────────────────┐
-│  Notification Queue                      │
-│                                          │
-│  [slack___] JohnDoe_______ | #general__ |│
-│            Hey @user, the deploy is...   │
-│  ─────────────────────────────────────── │
-│  [email__] alice@exam_____ | Inbox_____ |│
-│            URGENT: Server down, need...  │
-│  ─────────────────────────────────────── │
-│  [slack___] bot____________ | #alerts__ |│
-│            You were added to #alerts     │
-│                                          │
-└─────────────────────────────────────────┘
-```
-
-### Widget
-
-`widget.List` with `widget.Label` item template.
-
-### Row Format
+### Collapsed State (30% width, default)
 
 ```
-[{Source, 15ch}] {Sender, 15ch} | {Channel, 15ch} | {Preview, 80ch}
+┌───────────────┐
+│ Notifs (4)    │
+│───────────────│
+│ [9] #alerts   │
+│  Added to...  │
+│  bot  2m ago  │
+│───────────────│
+│ [8.5] Inbox   │
+│  Server down  │
+│  alice  5m    │
+│───────────────│
+│ [8] #general  │
+│  @user deploy │
+│  JohnDoe 12m  │
+│───────────────│
+│ [7.2] #team   │
+│  Review Q1... │
+│  manager 20m  │
+│               │
+│  [◀ expand]   │
+└───────────────┘
 ```
 
-All fields independently truncated to their max width.
+#### Compact Card Format
+
+Each card shows:
+- **Row 1:** Importance score badge (color-coded) + channel name
+- **Row 2:** Message preview (truncated to fit)
+- **Row 3:** Sender + relative time
+
+Card background opacity fades with lower importance score (IS 9 = 40%, IS 7 = 20%).
+
+#### Card Color by Importance
+
+| Importance | Card Background | Badge Color |
+|---|---|---|
+| IS ≥ 9 | `#ffc9c9` (light red) | `#ef4444` (red) |
+| IS ≥ 8 | `#ffd8a8` (light orange) | `#f59e0b` (amber) |
+| IS < 8 | `#dbe4ff` (light blue) | `#4a9eed` (blue) |
+
+### Expanded State (90% width)
+
+Triggered by expand toggle. Character area is hidden. Review button appears in focus rail.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Notifications (4)                               [collapse ▶]│
+│─────────────────────────────────────────────────────────────│
+│  [9.0]  slack  #alerts   bot         2m ago       [Dismiss] │
+│         You were added to #alerts                            │
+│─────────────────────────────────────────────────────────────│
+│  [8.5]  email  Inbox     alice@ex    5m ago       [Dismiss] │
+│         URGENT: Server down, need immediate action           │
+│─────────────────────────────────────────────────────────────│
+│  [8.0]  slack  #general  JohnDoe    12m ago       [Dismiss] │
+│         Hey @user, the deploy is failing again               │
+│─────────────────────────────────────────────────────────────│
+│  [7.2]  slack  #team     manager    20m ago       [Dismiss] │
+│         Please review the Q1 budget proposal                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Expanded Card Format
+
+```
+[{IS badge}] {Source}  {Channel}  {Sender}  {Relative time}  [Dismiss]
+             {Full message preview, word-wrapped}
+```
 
 ### Interactions
 
-| Action          | Behavior                                                |
-|-----------------|---------------------------------------------------------|
-| Click row       | Open detail dialog (see below)                          |
-| List refresh    | Triggered by 30s canvas tick or manual action           |
+| Action | State | Behavior |
+|---|---|---|
+| Click expand toggle | Collapsed | Expand to 90%, hide character, show Review in focus rail |
+| Click collapse toggle | Expanded | Collapse to 30%, restore character, hide Review |
+| Click compact card | Collapsed | Open detail dialog modal (see below) |
+| Click expanded card | Expanded | Open detail dialog modal (same dialog) |
+| Click Dismiss | Expanded | Mark message as Resolved, remove from list |
+| Click Review | Expanded | Open feedback review for buffered messages |
+| List refresh | Either | Triggered by 30s canvas tick or manual action |
 
-### Detail Dialog
+### Detail Dialog (Modal, from card click in either state)
 
 ```
 ┌──────────────────────────────────────┐
@@ -161,26 +253,33 @@ All fields independently truncated to their max width.
 
 ---
 
-## Pane 2: Activity Log (Top-Right)
+## Activity Log (Drawer in Character Area)
 
 ### Purpose
 
-Real-time feed of system events. Errors render in red; everything else in white.
+Real-time feed of system events. Hidden by default — accessible via a pull-up drawer button at the bottom of the character area. Only visible when the character view is active (not during expanded notifications, Plan view, or Wizard). Events continue to accumulate in the buffer while the drawer is hidden; opening it shows the latest state.
 
 ### Layout
 
 ```
-┌─────────────────────────────────────────┐
-│  Activity Log                            │
-│                                          │
-│  [14:32:05] Slack: Fetched 12 messages   │
-│  [14:32:06] Router: 8 NOTIFIED, 3 BUF..│
-│  [14:32:06] Ollama: inference took 250ms │
-│  [14:32:15] Email: connection error...   │  ← red
-│  [14:32:20] Email: reconnected           │
-│                                          │
-└─────────────────────────────────────────┘
+┌───────────────────────────────────────────┐
+│                                           │
+│         Character Area (fairy)            │
+│                                           │
+├───────────────────────────────────────────┤
+│  Activity Log                    [close ▼]│
+│                                           │
+│  [14:32:05] Slack: Fetched 12 messages    │
+│  [14:32:06] Router: 8 NOTIFIED, 3 BUF.. │
+│  [14:32:06] Ollama: inference took 250ms  │
+│  [14:32:15] Email: connection error...    │  ← red
+│  [14:32:20] Email: reconnected            │
+│                                           │
+│      [ Activity Log (drawer) ]            │
+└───────────────────────────────────────────┘
 ```
+
+When closed, only the drawer toggle button is visible at the bottom of the character area. When open, the log slides up and shares space with the character.
 
 ### Widget
 
@@ -204,10 +303,328 @@ Real-time feed of system events. Errors render in red; everything else in white.
 - Maximum 500 entries (circular buffer, oldest evicted)
 - Updates arrive via channel from orchestrator → presenter
 - Callback-driven refresh (`SetOnUpdate`)
+- Drawer occupies bottom ~40% of character area when open
 
 ---
 
-## Pane 3: Feedback Review (Modal)
+## Focus Rail (Left Column, 10%)
+
+### Purpose
+
+Persistent left column showing the countdown timer, current task, and navigation. Always visible regardless of center area state.
+
+### Layout
+
+```
+┌──────┐
+│      │
+│  ◯   │  ← Countdown timer ring (see below)
+│ 18m  │
+│      │
+│ Write│  ← Current task name
+│ report│
+│      │
+│[Done]│  ← Completes current task
+│      │
+│      │
+│      │
+│[Back]│  ← Returns to character view (only in Plan/Wizard)
+│[Plan]│  ← Opens Plan view in center area
+│[Review]│ ← Only visible when notifications expanded
+└──────┘
+```
+
+### Widgets
+
+| Widget | Type | Notes |
+|---|---|---|
+| Timer ring | Custom `fyne.Widget` | Miniature countdown timer ring (see spec below) |
+| Task name | `widget.Label` | Current highest-priority task, word-wrapped |
+| Done | `widget.Button` | Marks task done, rolls in next incomplete task |
+| Back | `widget.Button` | Returns center area to character view |
+| Plan | `widget.Button` | Switches center area to Plan view |
+| Review | `widget.Button` | Opens feedback review; only visible in expanded notification state |
+
+### Control Visibility
+
+| Control | Visible when |
+|---|---|
+| Timer ring | Active plan exists |
+| Task name | Active plan exists |
+| Done | Active plan exists |
+| Back | Center area showing Plan view or Wizard (not character) |
+| Plan | Center area showing character (not Plan/Wizard) |
+| Review | Notifications expanded |
+
+When no active plan and character is showing, the focus rail shows only the Plan button. Back and Plan are mutually exclusive — one navigates into Plan view, the other returns to character.
+
+### Focus Rail Timer Ring
+
+A miniature version of the Countdown Timer Widget, sized to fit the 10% rail width. Same mechanics as the full-size timer:
+
+- 45 lines at 8° intervals, radiating inward from outer edge
+- Cardinal lines (0°, 90°, 180°, 270°): 3× short length
+- Diagonal lines (45°, 135°, 225°, 315°): 2× short length
+- All other lines: 1× short length
+- Future segments: solid yellow `#FFCE1B`
+- Current segment: flashing at 1 Hz (500ms on/off)
+- Elapsed segments: dimmed `RGBA(255, 206, 27, 64)` or hidden
+- Segments deplete clockwise, 12 o'clock is last
+- Timer resets at the start of each new block
+
+The ring radius scales to fit the rail width (approximately 40–50px radius at 1200w window). Design token `timer-ring-radius` (120px) applies to the full-size spec; the focus rail version scales proportionally.
+
+---
+
+## Plan View (Center Area)
+
+### Purpose
+
+Intermediate view between the default character view and the full day planner wizard. Occupies the center 60% column, split 50/50 horizontally into a Plan Overview (left) and Todo List (right). Shown when the user clicks "Plan" in the focus rail.
+
+### Layout (Active Plan)
+
+Elapsed blocks (end time in the past) are removed from the tree. The first visible entry is always the current block. Bars auto-scale so the longest remaining block fills the available panel width.
+
+```
+┌─────────────────────────────┬─────────────────────────────┐
+│  Today's Plan               │  Todo List                  │
+│                             │                             │
+│  Cycle 1/3                  │  ☐ Write quarterly report   │
+│  ├─ Focus                   │     P:1  [work]  Due: Mar 30│
+│  │  09:30 ██████████ 25m ██ │  ☐ Review PR #423           │
+│  ├─ Short break             │     P:2  [code]             │
+│  │  09:55 ██ 5m             │  ☑ Reply to client email    │
+│  ├─ Focus                   │     P:4  [work]             │
+│  │  10:00 ██████████ 25m ██ │  ☐ Update documentation     │
+│  └─ Long break              │     P:5  [docs]             │
+│     10:25 ██████ 15m ██     │  ☐ Clean up test fixtures   │
+│                             │     P:3  [code] [cleanup]   │
+│  Cycle 2/3                  │                             │
+│  ├─ Focus                   │  ┌─────────────────────┐   │
+│  │  10:40 ██████████ 25m ██ │  │ New task: [_______]  │   │
+│  ├─ Short break             │  │ P:[_]  [ Add ]       │   │
+│  │  11:05 ██ 5m             │  └─────────────────────┘   │
+│  ├─ Meeting: Standup        │                             │
+│  │  11:10 ████████████ 30m █│                             │
+│  └─ Short break             │                             │
+│     11:40 ██ 5m             │                             │
+│                             │                             │
+│  Cycle 3/3                  │                             │
+│  ├─ ...                     │                             │
+│                             │                             │
+│         [ Abandon Plan ]    │                             │
+└─────────────────────────────┴─────────────────────────────┘
+
+  Duration text overlays the bar (centered within it).
+  Top entry is always the current block (elapsed blocks removed).
+  Bar widths auto-scale: longest remaining block = full panel width.
+```
+
+### Layout (No Plan)
+
+```
+┌─────────────────────────────┬─────────────────────────────┐
+│  Today's Plan               │  Todo List                  │
+│                             │                             │
+│                             │  ☐ Write quarterly report   │
+│                             │     P:1  [work]  Due: Mar 30│
+│                             │  ☐ Review PR #423           │
+│     "Who even knows"        │     P:2  [code]             │
+│                             │  ☐ Reply to client email    │
+│            or               │     P:4  [work]             │
+│                             │  ☐ Update documentation     │
+│  "Its your time you're      │     P:5  [docs]             │
+│        wasting"             │                             │
+│                             │  ┌─────────────────────┐   │
+│            or               │  │ New task: [_______]  │   │
+│                             │  │ P:[_]  [ Add ]       │   │
+│  "A goal without a plan     │  └─────────────────────┘   │
+│   is just a wish"           │                             │
+│                             │                             │
+│                             │                             │
+│        [ Plan My Day ]      │                             │
+└─────────────────────────────┴─────────────────────────────┘
+```
+
+### Plan Overview (Left Half)
+
+Displays the current day's schedule as a tree view, organized by Pomodoro cycle.
+
+#### Tree Structure
+
+```
+Cycle {N}/{Total}
+├─ {Block type}                    ← Focus/Short break/Long break (no task name)
+│  {HH:MM} ████ {duration} ████   ← Start time, bar with duration overlaid
+├─ Meeting: {Event title}          ← Meetings keep their name in the title
+│  {HH:MM} ██████ {duration} ████
+...
+└─ {Block type}
+   {HH:MM} ██ {duration}
+```
+
+- Focus blocks do NOT show the assigned task name — the task is tracked in the focus rail. Only meetings display a name in the tree title.
+- Duration text is rendered centered **on top of** the bar, not beside it.
+- Elapsed blocks (end time < now) are pruned from the tree. The first visible block is always the current one.
+- If an entire cycle has elapsed, that cycle heading is also removed.
+
+#### Block Types and Bars
+
+Bars are horizontal `canvas.Rectangle` elements with widths proportional to duration relative to the longest block in the plan.
+
+| Block Type | Bar Color | Example Duration |
+|---|---|---|
+| Focus | `block-focus` `RGBA(76, 175, 80, 200)` | 25m |
+| Short break | `block-short-break` `RGBA(144, 202, 249, 200)` | 5m |
+| Long break | `block-long-break` `RGBA(100, 181, 246, 200)` | 15–30m |
+| Meeting | `block-meeting` `RGBA(255, 183, 77, 200)` | Variable |
+
+Bar width formula: `(block_duration / max_remaining_block_duration) * available_width`
+
+The scale is defined by the longest **remaining** (non-elapsed) block. As blocks elapse and are pruned, the bars rescale so the new longest block fills the full width. Duration text is rendered centered on the bar using contrasting color for readability.
+
+The first block (current) has no special highlight — its position at the top of the tree is sufficient indication.
+
+#### No-Plan Placeholder Text
+
+When no plan exists for the current day, display one of the following randomly selected messages centered in the plan panel, styled in `normal-text` color with a larger font:
+
+- "Who even knows"
+- "It's your time you're wasting"
+- "A goal without a plan is just a wish"
+- "Winging it, are we?"
+- "The plan is there is no plan"
+- "Chaos is also a strategy, I suppose"
+- "Bold of you to go planless"
+
+Selected once on view load (not rotating).
+
+#### Bottom Controls
+
+| Plan State | Control | Behavior |
+|---|---|---|
+| No plan | **Plan My Day** | Launches the day planner wizard in center area |
+| Active plan | **Abandon Plan** | Deletes current plan from SQLite, returns to no-plan state with placeholder |
+
+### Todo List (Right Half)
+
+Displays all incomplete tasks from the todo repository, plus completed tasks for the current day. Provides inline task creation and per-task detail editing via a modal dialog.
+
+#### Layout
+
+```
+┌─────────────────────────────┐
+│  Todo List                  │
+│                             │
+│  ☐ Write quarterly report   │
+│     P:1  [work]  Due: Mar 30│
+│     [details]               │
+│  ───────────────────────────│
+│  ☐ Review PR #423           │
+│     P:2  [code]             │
+│     [details]               │
+│  ───────────────────────────│
+│  ☑ Reply to client email    │
+│     P:4  [work]             │
+│     [details]               │
+│  ───────────────────────────│
+│                             │
+│  ┌─────────────────────┐   │
+│  │ New task: [_______]  │   │
+│  │ P:[_]  [ Add ]       │   │
+│  └─────────────────────┘   │
+└─────────────────────────────┘
+```
+
+Scrollable list of tasks, each showing:
+- **Row 1:** Checkbox + task title
+- **Row 2:** Priority (`P:{N}`), category badges (colored), optional due date
+- **Row 3:** `[details]` link — opens the Task Detail Modal
+
+Completed tasks shown with strikethrough text and reduced opacity.
+
+#### Task Detail Modal
+
+A modal dialog (blocks main window interaction until closed). Opens when user clicks `[details]` on any task.
+
+```
+┌──────────────────────────────────────────┐
+│  Task Detail                      [Close]│
+│                                          │
+│  Title                                   │
+│  ┌──────────────────────────────────┐   │
+│  │ Write quarterly report            │   │
+│  └──────────────────────────────────┘   │
+│                                          │
+│  Priority        Category                │
+│  ┌──────┐       ┌──────────────────┐   │
+│  │ 1    │       │ work             │   │
+│  └──────┘       └──────────────────┘   │
+│                                          │
+│  Due Date                                │
+│  ┌──────────────────────────────────┐   │
+│  │ 2026-03-30                        │   │
+│  └──────────────────────────────────┘   │
+│                                          │
+│  Notes                                   │
+│  ┌──────────────────────────────────┐   │
+│  │ Need to include Q4 actuals and    │   │
+│  │ projections for Q2. Check with    │   │
+│  │ finance for latest numbers.       │   │
+│  └──────────────────────────────────┘   │
+│                                          │
+│           [ Save ]    [ Cancel ]         │
+└──────────────────────────────────────────┘
+```
+
+#### Task Detail Modal Widgets
+
+| Widget | Type | Notes |
+|---|---|---|
+| Title | `widget.Entry` | Editable, pre-filled |
+| Priority | `widget.Entry` | Integer input |
+| Category | `widget.Entry` | Free-text, maps to badge color |
+| Due Date | `widget.Entry` | ISO date format `YYYY-MM-DD`, optional |
+| Notes | `widget.MultiLineEntry` | Free-text, optional |
+| Save | `widget.Button` | Persist changes to todo repo, close modal |
+| Cancel | `widget.Button` | Discard changes, close modal |
+| Close (X) | `widget.Button` | Same as Cancel |
+
+#### Task Detail Modal Behavior
+
+| Property | Value |
+|---|---|
+| Window type | Modal — main window does not accept input while open |
+| Size | 500w × 450h |
+| Pre-fill | All fields populated from existing task data |
+| New fields | Notes field is new (not shown in list view) |
+
+#### Inline Task Creation
+
+Input row pinned at bottom of the todo list:
+- Task title entry field
+- Priority number entry field
+- Add button — writes to todo repository, adds to list
+
+#### Interactions
+
+| Action | Behavior |
+|---|---|
+| Toggle checkbox | Mark task complete/incomplete in todo repo |
+| Click `[details]` | Open Task Detail Modal for that task |
+| Save in modal | Persist all field changes to todo repo, close modal, refresh list |
+| Cancel in modal | Discard changes, close modal |
+| Add task | Create in todo repo with title + priority, appear in list |
+| Scroll | Vertical scroll for long lists |
+
+#### Sort Order
+
+Tasks sorted by: incomplete first, then by priority (ascending P:1 before P:2), then by creation date.
+
+---
+
+## Feedback Review (Modal)
 
 ### Purpose
 
@@ -264,26 +681,13 @@ Review BUFFERED messages one at a time. Rate them 0–10 with optional notes. Tr
 
 ---
 
-## Pane 4: Day Planner (Tab)
+## Day Planner (Center Area — Wizard)
 
 ### Purpose
 
-Wizard-driven day planning with Pomodoro scheduling and a Countdown-style timer. The pane transitions through wizard steps, then displays an active schedule with burndown timer.
+Wizard-driven day planning with Pomodoro scheduling and a Countdown-style timer. Replaces the character area when launched from the Plan view. Transitions through wizard steps, then displays an active schedule with burndown timer.
 
-### Idle State (No Active Plan)
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  Day Planner                                                     │
-│                                                                  │
-│                                                                  │
-│                                                                  │
-│                     [ Plan My Day ]                              │
-│                                                                  │
-│                                                                  │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
-```
+The wizard has no idle state of its own — the Plan View's no-plan state handles the "Plan My Day" entry point. The wizard only contains Steps 1–4.
 
 ### Step 1: Task Selection
 
@@ -323,7 +727,7 @@ Wizard-driven day planning with Pomodoro scheduling and a Countdown-style timer.
 |---------------------|-------------------------------------------------------|
 | Toggle checkbox     | Select/deselect task for planning                     |
 | Add task            | Create in todo repo, add to list as selected          |
-| Cancel              | Return to idle state                                  |
+| Cancel              | Return to Plan view                                   |
 | Next                | Proceed to estimates (requires ≥1 task selected)      |
 
 ### Step 2: Time Estimates
@@ -432,52 +836,10 @@ Overloaded state:
 
 | Action              | Behavior                                              |
 |---------------------|-------------------------------------------------------|
-| Select A / B        | Persist schedule to SQLite, transition to active view |
+| Select A / B        | Persist schedule to SQLite, return to Plan view (which now shows the schedule tree) |
 | Back                | Return to priority ordering                           |
 
-### Step 5: Active Schedule View
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  Day Planner — Active                                            │
-│                                                                  │
-│  ┌─────────────────┐  ┌──────────────────────────────────┐      │
-│  │                  │  │  Schedule                         │      │
-│  │    ╱╲            │  │                                   │      │
-│  │   ╱  ╲           │  │  09:00 ██████ Focus: Write report │      │
-│  │  │    │          │  │  09:25 ░░░░░░ Short break         │      │
-│  │  │    │          │  │  09:30 ██████ Focus: Write report │  ←   │
-│  │  │    │          │  │  09:55 ░░░░░░ Short break         │      │
-│  │  │    │          │  │  10:00 ▓▓▓▓▓▓ Meeting: Standup   │      │
-│  │   ╲  ╱           │  │  10:15 ░░░░░░ Short break         │      │
-│  │    ╲╱            │  │  10:20 ██████ Focus: Write report │      │
-│  │                  │  │  10:45 ░░░░░░ Short break         │      │
-│  │  Write report    │  │  10:50 ██████ Focus: Review PR    │      │
-│  │                  │  │  11:15 ░░░░░░░░░░ Long break     │      │
-│  │ [Complete Task]  │  │  11:35 ██████ Focus: Review PR    │      │
-│  │ [Abandon Plan]   │  │  ...                              │      │
-│  └─────────────────┘  └──────────────────────────────────┘      │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
-
-  ← arrow indicates current block (highlighted row)
-  Timer ring: see Countdown Timer Widget spec below
-```
-
-| Widget              | Type                    | Notes                           |
-|---------------------|-------------------------|---------------------------------|
-| Timer ring          | Custom `fyne.Widget`    | See Countdown Timer spec below  |
-| Task name           | `widget.Label`          | Current highest-priority task   |
-| Complete Task       | `widget.Button`         | Marks task done, rolls next in  |
-| Abandon Plan        | `widget.Button`         | Clears schedule, returns idle   |
-| Timeline            | `widget.List`           | Scrollable, current highlighted |
-| Block rows          | `canvas.Rectangle` + label | Colored by block type        |
-
-| Action              | Behavior                                              |
-|---------------------|-------------------------------------------------------|
-| Complete Task       | Mark task done in todo repo, next incomplete task fills remaining focus blocks |
-| Abandon Plan        | Delete schedule from SQLite, return to idle state     |
-| Timeline scroll     | Scrollable; auto-scrolls to keep current block visible |
+There is no separate Active Schedule view. When the wizard completes (Step 4), the user returns to the Plan view, which now displays the schedule as a tree of cycles and blocks. The timer ring in the focus rail tracks the current block. "Done" in the focus rail completes the current task. "Abandon Plan" in the Plan view deletes the schedule.
 
 ---
 
@@ -485,7 +847,7 @@ Overloaded state:
 
 ### Purpose
 
-Custom Fyne canvas widget displaying a circular burndown timer inspired by the Countdown TV show clock. 45 lines radiate inward from the outer edge of a ring, depleting clockwise as time elapses.
+Custom Fyne canvas widget displaying a circular burndown timer inspired by the Countdown TV show clock. 45 lines radiate inward from the outer edge of a ring, depleting clockwise as time elapses. The full-size spec below defines the canonical geometry; the focus rail uses a scaled-down version (see Focus Rail Timer Ring).
 
 ### Geometry
 
@@ -622,48 +984,81 @@ Cue
 ## Data Flow
 
 ```
-Orchestrator ──event──→ Bridge goroutine ──→ ActivityPresenter ──→ Activity Log
+Orchestrator ──event──→ Bridge goroutine ──→ ActivityPresenter ──→ Activity Log Drawer
                                                                      (callback)
 
-Repository ──query──→ NotificationPresenter ──→ Notification Queue
+Repository ──query──→ NotificationPresenter ──→ Notification Panel (right column)
                                                      (30s refresh)
 
 BufferService ──load──→ FeedbackPresenter ──→ Feedback Review Modal
-                                                   (on-demand)
+                                                   (on-demand, from expanded view)
 
 AlertService ──volume──→ SettingsPresenter ──→ Settings Modal
 
-TodoRepo ─────query───→ PlannerPresenter ──→ Day Planner Pane (wizard)
+TodoRepo ─────query───→ PlannerPresenter ──→ Plan View / Wizard (center area)
 CalendarProvider ─fetch─╯     │                    │
 Planner ──schedules───────────╯                    │
 ScheduleRepo ──persist────────────────────────────╯
 
-TimerPresenter ──tick──→ Countdown Timer Widget
+TimerPresenter ──tick──→ Countdown Timer Widget (focus rail)
     │                         (1Hz refresh)
     ├──block-end──→ TimerAlertService ──→ sound / missed alert
-    └──task-name──→ Task Label
+    └──task-name──→ Task Label (focus rail)
+
+CenterViewRouter ──state──→ Character | Plan View | Wizard
+    (manages which view occupies the center 60% column)
 ```
 
 ---
 
 ## Acceptance Criteria (for testing)
 
-### Notification Queue
-- [ ] Displays only messages with status NOTIFIED
-- [ ] Rows sorted newest-first
-- [ ] Source, Sender, Channel truncated to 15 chars independently
-- [ ] Preview truncated to 80 chars
-- [ ] Clicking a row opens detail dialog with IS, CS, timestamp, full content
-- [ ] Resolve button marks message as Resolved and removes from list
+### Three-Column Layout
+- [ ] Focus rail occupies 10% width, always visible
+- [ ] Character area occupies 60% width (center column)
+- [ ] Notification panel occupies 30% width (right column)
+- [ ] No tab bar — navigation via focus rail buttons and contextual controls
 
-### Activity Log
+### Focus Rail
+- [ ] Timer ring visible when active plan exists (miniature countdown timer)
+- [ ] Timer ring has same mechanics as full spec: 45 lines, 8° intervals, color/flash behavior
+- [ ] Timer ring scales to fit rail width (~40–50px radius)
+- [ ] Current task name displayed below timer
+- [ ] Done button marks task complete and rolls next task in
+- [ ] Back button visible when center area is Plan view or Wizard (returns to character)
+- [ ] Plan button visible when center area is character (switches to Plan view)
+- [ ] Back and Plan are mutually exclusive
+- [ ] Review button only visible when notifications are expanded
+
+### Notification Panel (Collapsed)
+- [ ] Displays only messages with status NOTIFIED
+- [ ] Cards sorted newest-first
+- [ ] Each card shows: IS badge (color-coded), channel, message preview, sender, relative time
+- [ ] Card background opacity fades with lower importance score
+- [ ] Clicking a card opens detail dialog modal with IS, CS, timestamp, full content
+- [ ] Expand toggle at bottom expands to 90% width
+- [ ] Resolve button in detail dialog marks message as Resolved
+
+### Notification Panel (Expanded)
+- [ ] Takes over character area (90% width), character hidden
+- [ ] Full-width cards with source, channel, sender, relative time, message preview
+- [ ] Clicking a card opens detail dialog modal (same as collapsed)
+- [ ] Per-card Dismiss button marks as Resolved and removes from list
+- [ ] Collapse toggle returns to 30% width and restores character
+- [ ] Review button appears in focus rail
+
+### Activity Log (Drawer)
+- [ ] Hidden by default, toggle button at bottom of character area
 - [ ] Entries formatted as `[HH:MM:SS] Source: Message`
 - [ ] Error entries render in red (`RGBA(255, 80, 80, 255)`)
 - [ ] Normal entries render in white
 - [ ] Maximum 500 entries with FIFO eviction
 - [ ] Updates arrive in real-time via channel
+- [ ] Only accessible when character area is visible (not during expanded notifications)
+- [ ] Drawer occupies bottom ~40% of character area when open
 
 ### Feedback Review
+- [ ] Triggered from Review button in focus rail (expanded notifications state)
 - [ ] Counter shows `"X of Y buffered messages reviewed"` (1-indexed)
 - [ ] Shows Source, Sender, Channel, IS, CS for current message
 - [ ] Full message content displayed word-wrapped
@@ -681,9 +1076,54 @@ TimerPresenter ──tick──→ Countdown Timer Widget
 - [ ] Timer volume clamped to [0, 100]
 - [ ] Both sliders operate independently
 
-### Day Planner — Wizard
-- [ ] Idle state shows "Plan My Day" button when no active plan
-- [ ] Existing plan auto-loaded from SQLite on startup
+### Plan View — Layout
+- [ ] Displayed in center area (60%) when Plan button clicked in focus rail
+- [ ] Split 50/50 horizontally: Plan Overview (left) + Todo List (right)
+
+### Plan View — Plan Overview (Active Plan)
+- [ ] Tree view organized by Pomodoro cycle (Cycle 1/N, Cycle 2/N, etc.)
+- [ ] Elapsed blocks (end time in past) pruned — first entry is current block
+- [ ] Fully elapsed cycles also pruned
+- [ ] Each cycle shows nested blocks: Focus, Short break, Long break, Meeting
+- [ ] Blocks displayed with colored bars, width proportional to duration
+- [ ] Bar scale: longest remaining block = full panel width, others proportional
+- [ ] Duration text overlays the bar (centered on it)
+- [ ] Each bar row prefixed with start time (HH:MM)
+- [ ] Focus bars green, short break light blue, long break blue, meeting amber
+- [ ] No current block highlight — position at top is sufficient indication
+- [ ] Focus blocks titled "Focus" only (no task name — task shown in focus rail)
+- [ ] Meeting blocks titled "Meeting: {event name}"
+- [ ] "Abandon Plan" button at bottom — deletes plan, shows placeholder
+
+### Plan View — No Plan State
+- [ ] Random humorous/passive-aggressive placeholder text displayed centered
+- [ ] Text selected once on view load (not rotating)
+- [ ] "Plan My Day" button at bottom — launches wizard
+
+### Plan View — Todo List
+- [ ] Displays incomplete tasks + current day's completed tasks
+- [ ] Each task shows: checkbox, title, priority, category badges, optional due date
+- [ ] Each task has a `[details]` link below metadata
+- [ ] Completed tasks shown with strikethrough and reduced opacity
+- [ ] Sorted: incomplete first, then by priority (ascending), then creation date
+- [ ] Inline task creation at bottom: title field, priority field, Add button
+- [ ] Toggle checkbox marks task complete/incomplete in todo repo
+- [ ] Add button writes new task to todo repo
+
+### Plan View — Task Detail Modal
+- [ ] Opens when `[details]` clicked on any task
+- [ ] Modal blocks main window input until closed
+- [ ] Pre-fills all fields from existing task data
+- [ ] Editable fields: Title, Priority, Category, Due Date, Notes
+- [ ] Save persists changes to todo repo and closes modal
+- [ ] Cancel discards changes and closes modal
+- [ ] Close (X) button behaves same as Cancel
+- [ ] Modal size: 500w × 450h
+
+### Day Planner — Wizard (Steps 1–4)
+- [ ] Launched from "Plan My Day" in Plan view, replaces center area
+- [ ] No idle state — Plan view handles "Plan My Day" entry point
+- [ ] Existing plan auto-loaded from SQLite on startup (goes straight to Plan view)
 - [ ] Step 1: displays incomplete todos with checkboxes, categories as colored badges
 - [ ] Step 1: new tasks can be added inline and are written to todo repo
 - [ ] Step 1: "Next" requires at least one task selected
@@ -694,18 +1134,11 @@ TimerPresenter ──tick──→ Countdown Timer Widget
 - [ ] Step 3: reordering updates todo repo priority field
 - [ ] Step 4: two schedule cards side-by-side with stats and mini-timeline
 - [ ] Step 4: no computed ranking — tradeoff descriptions only
-- [ ] Step 4: selecting a schedule persists to SQLite and transitions to active view
-- [ ] All steps: "Back" returns to previous step; "Cancel" returns to idle
+- [ ] Step 4: selecting a schedule persists to SQLite and returns to Plan view
+- [ ] All steps: "Back" returns to previous step; "Cancel" returns to Plan view
 - [ ] Calendar fetch failure degrades gracefully (planning proceeds without meetings)
 
-### Day Planner — Active Schedule
-- [ ] Vertical timeline shows all blocks with time, colored bar, and label
-- [ ] Current block highlighted with distinct background
-- [ ] Auto-scrolls to keep current block visible
-- [ ] Focus blocks show assigned task name
-- [ ] Meeting blocks show calendar event title
-
-### Day Planner — Countdown Timer
+### Countdown Timer (Focus Rail)
 - [ ] 45 lines arranged in a ring at 8° intervals
 - [ ] Lines radiate inward from the outer edge
 - [ ] Cardinal lines (0°, 90°, 180°, 270°) are 3× short length
@@ -717,9 +1150,10 @@ TimerPresenter ──tick──→ Countdown Timer Widget
 - [ ] 12 o'clock (0°) is the last segment
 - [ ] Elapsed segments dimmed or hidden
 - [ ] Timer resets at start of each new block
-- [ ] Current task name displayed below the timer ring
-- [ ] "Complete Task" marks task done and rolls in next highest-priority incomplete task
-- [ ] "Abandon Plan" clears schedule from SQLite and returns to idle
+- [ ] Ring scales to fit focus rail width (~40–50px radius)
+- [ ] Current task name displayed below the timer ring in focus rail
+- [ ] "Done" in focus rail marks task done and rolls in next highest-priority incomplete task
+- [ ] "Abandon Plan" in Plan view clears schedule from SQLite and returns to no-plan state
 
 ### Day Planner — Audio
 - [ ] Timer-end sound plays at end of focus/break blocks

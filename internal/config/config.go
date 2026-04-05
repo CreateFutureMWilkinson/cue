@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -19,6 +20,30 @@ type Config struct {
 	Notification NotificationConfig `toml:"notification"`
 	GUI          GUIConfig          `toml:"gui"`
 	Logging      LoggingConfig      `toml:"logging"`
+	Planner      PlannerConfig      `toml:"planner"`
+}
+
+type PlannerConfig struct {
+	WorkdayStart           string `toml:"workday_start"`
+	WorkdayEnd             string `toml:"workday_end"`
+	PlanningCutoff         string `toml:"planning_cutoff"`
+	PomodoroMinutes        int    `toml:"pomodoro_minutes"`
+	ShortBreakMinutes      int    `toml:"short_break_minutes"`
+	LongBreakMinutes       int    `toml:"long_break_minutes"`
+	LongBreakAfterCycles   int    `toml:"long_break_after_cycles"`
+	MeetingMergeGapMinutes int    `toml:"meeting_merge_gap_minutes"`
+	LunchWindowStart       string `toml:"lunch_window_start"`
+	LunchWindowEnd         string `toml:"lunch_window_end"`
+}
+
+// isConfigured returns true if any planner field has been explicitly set.
+func (p PlannerConfig) isConfigured() bool {
+	return p.WorkdayStart != "" ||
+		p.WorkdayEnd != "" ||
+		p.PomodoroMinutes != 0 ||
+		p.ShortBreakMinutes != 0 ||
+		p.LongBreakMinutes != 0 ||
+		p.LongBreakAfterCycles != 0
 }
 
 type DatabaseConfig struct {
@@ -138,6 +163,18 @@ func defaultConfig() *Config {
 		Logging: LoggingConfig{
 			LogLevel: "info",
 		},
+		Planner: PlannerConfig{
+			WorkdayStart:           "09:00",
+			WorkdayEnd:             "17:00",
+			PlanningCutoff:         "16:00",
+			PomodoroMinutes:        25,
+			ShortBreakMinutes:      5,
+			LongBreakMinutes:       20,
+			LongBreakAfterCycles:   4,
+			MeetingMergeGapMinutes: 5,
+			LunchWindowStart:       "12:00",
+			LunchWindowEnd:         "14:00",
+		},
 	}
 }
 
@@ -252,6 +289,88 @@ func (c *Config) Validate() error {
 			}
 			return cfg.GUI.WindowHeight > 0
 		}, "gui.window_height must be greater than 0"},
+		{func(cfg *Config) bool {
+			if !cfg.Planner.isConfigured() {
+				return true
+			}
+			return cfg.Planner.PomodoroMinutes > 0
+		}, "planner.pomodoro_minutes must be greater than 0"},
+		{func(cfg *Config) bool {
+			if !cfg.Planner.isConfigured() {
+				return true
+			}
+			return cfg.Planner.ShortBreakMinutes > 0
+		}, "planner.short_break_minutes must be greater than 0"},
+		{func(cfg *Config) bool {
+			if !cfg.Planner.isConfigured() {
+				return true
+			}
+			return cfg.Planner.LongBreakMinutes > 0
+		}, "planner.long_break_minutes must be greater than 0"},
+		{func(cfg *Config) bool {
+			if !cfg.Planner.isConfigured() {
+				return true
+			}
+			return cfg.Planner.LongBreakAfterCycles > 0
+		}, "planner.long_break_after_cycles must be greater than 0"},
+		{func(cfg *Config) bool {
+			if !cfg.Planner.isConfigured() {
+				return true
+			}
+			return cfg.Planner.MeetingMergeGapMinutes > 0
+		}, "planner.meeting_merge_gap_minutes must be greater than 0"},
+		{func(cfg *Config) bool {
+			if !cfg.Planner.isConfigured() {
+				return true
+			}
+			return isValidTimeOfDay(cfg.Planner.WorkdayStart)
+		}, "planner.workday_start must be a valid HH:MM time"},
+		{func(cfg *Config) bool {
+			if !cfg.Planner.isConfigured() {
+				return true
+			}
+			return isValidTimeOfDay(cfg.Planner.WorkdayEnd)
+		}, "planner.workday_end must be a valid HH:MM time"},
+		{func(cfg *Config) bool {
+			if !cfg.Planner.isConfigured() {
+				return true
+			}
+			return isValidTimeOfDay(cfg.Planner.PlanningCutoff)
+		}, "planner.planning_cutoff must be a valid HH:MM time"},
+		{func(cfg *Config) bool {
+			if !cfg.Planner.isConfigured() {
+				return true
+			}
+			return isValidTimeOfDay(cfg.Planner.LunchWindowStart)
+		}, "planner.lunch_window_start must be a valid HH:MM time"},
+		{func(cfg *Config) bool {
+			if !cfg.Planner.isConfigured() {
+				return true
+			}
+			return isValidTimeOfDay(cfg.Planner.LunchWindowEnd)
+		}, "planner.lunch_window_end must be a valid HH:MM time"},
+		{func(cfg *Config) bool {
+			if !cfg.Planner.isConfigured() {
+				return true
+			}
+			s, sErr := parseTimeOfDay(cfg.Planner.WorkdayStart)
+			e, eErr := parseTimeOfDay(cfg.Planner.WorkdayEnd)
+			if sErr != nil || eErr != nil {
+				return true
+			}
+			return e.After(s)
+		}, "planner.workday_end must be after planner.workday_start"},
+		{func(cfg *Config) bool {
+			if !cfg.Planner.isConfigured() {
+				return true
+			}
+			s, sErr := parseTimeOfDay(cfg.Planner.LunchWindowStart)
+			e, eErr := parseTimeOfDay(cfg.Planner.LunchWindowEnd)
+			if sErr != nil || eErr != nil {
+				return true
+			}
+			return e.After(s)
+		}, "planner.lunch_window_end must be after planner.lunch_window_start"},
 	}
 
 	for _, rule := range rules {
@@ -260,4 +379,15 @@ func (c *Config) Validate() error {
 		}
 	}
 	return nil
+}
+
+// isValidTimeOfDay checks if a string is a valid HH:MM time format.
+func isValidTimeOfDay(s string) bool {
+	_, err := parseTimeOfDay(s)
+	return err == nil
+}
+
+// parseTimeOfDay parses a "HH:MM" string into a time.Time on the zero date.
+func parseTimeOfDay(s string) (time.Time, error) {
+	return time.Parse("15:04", s)
 }

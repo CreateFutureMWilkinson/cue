@@ -894,3 +894,190 @@ func (s *ConfigSuite) TestGUICharacterDefaultsToNone() {
 
 	s.Equal("none", cfg.GUI.Character)
 }
+
+// ---------------------------------------------------------------------------
+// 18. TestPlannerConfigDefaults — default config has planner defaults populated
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestPlannerConfigDefaults() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "nonexistent", "config.toml")
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	s.Equal("09:00", cfg.Planner.WorkdayStart)
+	s.Equal("17:00", cfg.Planner.WorkdayEnd)
+	s.Equal("16:00", cfg.Planner.PlanningCutoff)
+	s.Equal(25, cfg.Planner.PomodoroMinutes)
+	s.Equal(5, cfg.Planner.ShortBreakMinutes)
+	s.Equal(20, cfg.Planner.LongBreakMinutes)
+	s.Equal(4, cfg.Planner.LongBreakAfterCycles)
+	s.Equal(5, cfg.Planner.MeetingMergeGapMinutes)
+	s.Equal("12:00", cfg.Planner.LunchWindowStart)
+	s.Equal("14:00", cfg.Planner.LunchWindowEnd)
+}
+
+// ---------------------------------------------------------------------------
+// 19. TestPlannerConfigParses — TOML with [planner] section parses correctly
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestPlannerConfigParses() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[planner]
+workday_start = "08:00"
+workday_end = "16:00"
+planning_cutoff = "15:00"
+pomodoro_minutes = 30
+short_break_minutes = 10
+long_break_minutes = 25
+long_break_after_cycles = 3
+meeting_merge_gap_minutes = 10
+lunch_window_start = "11:30"
+lunch_window_end = "13:30"
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	s.Equal("08:00", cfg.Planner.WorkdayStart)
+	s.Equal("16:00", cfg.Planner.WorkdayEnd)
+	s.Equal("15:00", cfg.Planner.PlanningCutoff)
+	s.Equal(30, cfg.Planner.PomodoroMinutes)
+	s.Equal(10, cfg.Planner.ShortBreakMinutes)
+	s.Equal(25, cfg.Planner.LongBreakMinutes)
+	s.Equal(3, cfg.Planner.LongBreakAfterCycles)
+	s.Equal(10, cfg.Planner.MeetingMergeGapMinutes)
+	s.Equal("11:30", cfg.Planner.LunchWindowStart)
+	s.Equal("13:30", cfg.Planner.LunchWindowEnd)
+}
+
+// ---------------------------------------------------------------------------
+// 20. TestPlannerConfigValidation — invalid planner config fails validation
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestPlannerConfigValidation() {
+	tests := []struct {
+		name   string
+		toml   string
+		errMsg string
+	}{
+		{
+			name: "workday_end before workday_start",
+			toml: `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[planner]
+workday_start = "17:00"
+workday_end = "09:00"
+planning_cutoff = "16:00"
+pomodoro_minutes = 25
+short_break_minutes = 5
+long_break_minutes = 20
+long_break_after_cycles = 4
+meeting_merge_gap_minutes = 5
+lunch_window_start = "12:00"
+lunch_window_end = "14:00"
+`,
+			errMsg: "planner.workday_end must be after",
+		},
+		{
+			name: "zero pomodoro_minutes",
+			toml: `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[planner]
+workday_start = "09:00"
+workday_end = "17:00"
+planning_cutoff = "16:00"
+pomodoro_minutes = 0
+short_break_minutes = 5
+long_break_minutes = 20
+long_break_after_cycles = 4
+meeting_merge_gap_minutes = 5
+lunch_window_start = "12:00"
+lunch_window_end = "14:00"
+`,
+			errMsg: "planner.pomodoro_minutes",
+		},
+		{
+			name: "invalid workday_start format",
+			toml: `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[planner]
+workday_start = "nine"
+workday_end = "17:00"
+planning_cutoff = "16:00"
+pomodoro_minutes = 25
+short_break_minutes = 5
+long_break_minutes = 20
+long_break_after_cycles = 4
+meeting_merge_gap_minutes = 5
+lunch_window_start = "12:00"
+lunch_window_end = "14:00"
+`,
+			errMsg: "planner.workday_start",
+		},
+	}
+
+	for _, tc := range tests {
+		s.Run(tc.name, func() {
+			dir := s.T().TempDir()
+			cfgPath := filepath.Join(dir, "config.toml")
+			err := os.WriteFile(cfgPath, []byte(tc.toml), 0644)
+			s.Require().NoError(err)
+
+			cfg, err := config.Load(cfgPath)
+			if err != nil {
+				s.Contains(err.Error(), tc.errMsg)
+				return
+			}
+
+			err = cfg.Validate()
+			s.Require().Error(err, "expected validation error for: %s", tc.name)
+			s.Contains(err.Error(), tc.errMsg)
+		})
+	}
+}

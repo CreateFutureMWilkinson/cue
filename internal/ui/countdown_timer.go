@@ -25,9 +25,10 @@ const (
 	segmentCount    = 45
 	segmentInterval = 8 // degrees
 
-	shortLength  = 12.0
-	mediumLength = 24.0
-	longLength   = 36.0
+	shortLength     = 12.0
+	mediumLength    = 24.0
+	longLength      = 36.0
+	canonicalRadius = 120.0
 
 	timerMinSize = 120.0
 
@@ -122,15 +123,15 @@ func (t *CountdownTimer) MinSize() fyne.Size {
 func (t *CountdownTimer) CreateRenderer() fyne.WidgetRenderer {
 	r := &countdownTimerRenderer{timer: t}
 	segments := t.Segments()
+
+	// Create lines and populate cached objects slice
+	r.objects = make([]fyne.CanvasObject, segmentCount)
 	for i := range segmentCount {
-		line := canvas.NewLine(segments[i].Color)
 		seg := segments[i]
-		if seg.Length == longLength || seg.Length == mediumLength {
-			line.StrokeWidth = 3.0
-		} else {
-			line.StrokeWidth = 2.0
-		}
+		line := canvas.NewLine(seg.Color)
+		line.StrokeWidth = strokeWidthForSegment(seg)
 		r.lines[i] = line
+		r.objects[i] = line
 	}
 	return r
 }
@@ -147,12 +148,19 @@ func segmentLength(angle float64) float64 {
 	return shortLength
 }
 
-const canonicalRadius = 120.0
+// strokeWidthForSegment returns the stroke width based on segment length.
+func strokeWidthForSegment(seg SegmentInfo) float32 {
+	if seg.Length == longLength || seg.Length == mediumLength {
+		return 3.0
+	}
+	return 2.0
+}
 
 // countdownTimerRenderer draws the 45 line segments of the countdown timer ring.
 type countdownTimerRenderer struct {
-	timer *CountdownTimer
-	lines [segmentCount]*canvas.Line
+	timer   *CountdownTimer
+	lines   [segmentCount]*canvas.Line
+	objects []fyne.CanvasObject // cached objects slice
 }
 
 func (r *countdownTimerRenderer) Layout(size fyne.Size) {
@@ -211,9 +219,5 @@ func (r *countdownTimerRenderer) Refresh() {
 func (r *countdownTimerRenderer) Destroy() {}
 
 func (r *countdownTimerRenderer) Objects() []fyne.CanvasObject {
-	objects := make([]fyne.CanvasObject, segmentCount)
-	for i, line := range r.lines {
-		objects[i] = line
-	}
-	return objects
+	return r.objects
 }

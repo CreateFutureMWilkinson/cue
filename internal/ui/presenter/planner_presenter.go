@@ -93,6 +93,7 @@ type ActiveScheduleState struct {
 
 // PlannerPresenter manages the day planner wizard state and view models.
 type PlannerPresenter struct {
+	// Dependencies
 	todos     TodoQuerier
 	cats      CategoryQuerier
 	cal       calendar.CalendarProvider
@@ -101,14 +102,17 @@ type PlannerPresenter struct {
 	schedRepo repository.ScheduleRepository
 	clock     planner.Clock
 
+	// Wizard state
 	step         WizardStep
 	tasks        []TodoRow
 	descriptions map[uuid.UUID]string // todo ID -> description
 	estimates    []TaskEstimateRow
 
+	// Generated schedules
 	focusSchedule    *planner.DaySchedule
 	recoverySchedule *planner.DaySchedule
 
+	// Active schedule state
 	activeScheduleID uuid.UUID
 	activeBlocks     []TimeBlockPreview
 	activeIndex      int
@@ -157,6 +161,8 @@ func NewPlannerPresenter(
 	}, nil
 }
 
+// === Wizard Navigation ===
+
 // CurrentStep returns the current wizard step.
 func (p *PlannerPresenter) CurrentStep() WizardStep {
 	return p.step
@@ -178,6 +184,8 @@ func (p *PlannerPresenter) StartPlanning(ctx context.Context) error {
 	return nil
 }
 
+// === Task Management ===
+
 // AvailableTasks returns the current list of todo rows for selection.
 func (p *PlannerPresenter) AvailableTasks() []TodoRow {
 	result := make([]TodoRow, len(p.tasks))
@@ -187,11 +195,8 @@ func (p *PlannerPresenter) AvailableTasks() []TodoRow {
 
 // SelectTask sets the selection state of a task by ID.
 func (p *PlannerPresenter) SelectTask(id uuid.UUID, selected bool) {
-	for i := range p.tasks {
-		if p.tasks[i].ID == id {
-			p.tasks[i].Selected = selected
-			return
-		}
+	if taskIndex := p.findTaskIndex(id); taskIndex >= 0 {
+		p.tasks[taskIndex].Selected = selected
 	}
 }
 
@@ -209,6 +214,8 @@ func (p *PlannerPresenter) AddTask(ctx context.Context, title string, priority i
 	p.tasks = append(p.tasks, todoToRow(todo))
 	return nil
 }
+
+// === Estimation Management ===
 
 // NextStep advances the wizard to the next step.
 func (p *PlannerPresenter) NextStep(ctx context.Context) error {
@@ -250,13 +257,10 @@ func (p *PlannerPresenter) Estimates() []TaskEstimateRow {
 
 // OverrideEstimate sets a user override for a task's pomodoro estimate.
 func (p *PlannerPresenter) OverrideEstimate(todoID uuid.UUID, pomos int) {
-	for i := range p.estimates {
-		if p.estimates[i].TodoID == todoID {
-			override := pomos
-			p.estimates[i].UserOverride = &override
-			p.estimates[i].EffectivePomos = pomos
-			return
-		}
+	if estimateIndex := p.findEstimateIndex(todoID); estimateIndex >= 0 {
+		override := pomos
+		p.estimates[estimateIndex].UserOverride = &override
+		p.estimates[estimateIndex].EffectivePomos = pomos
 	}
 }
 
@@ -278,7 +282,7 @@ func (p *PlannerPresenter) EstimateSummary() EstimateSummary {
 
 // ReorderTask moves a task estimate from one index to another.
 func (p *PlannerPresenter) ReorderTask(from, to int) {
-	if from < 0 || from >= len(p.estimates) || to < 0 || to >= len(p.estimates) {
+	if !p.isValidEstimateIndex(from) || !p.isValidEstimateIndex(to) {
 		return
 	}
 	item := p.estimates[from]
@@ -287,6 +291,8 @@ func (p *PlannerPresenter) ReorderTask(from, to int) {
 	// Insert at new position
 	p.estimates = append(p.estimates[:to], append([]TaskEstimateRow{item}, p.estimates[to:]...)...)
 }
+
+// === Schedule Management ===
 
 // FocusSchedule returns the focus-maximized schedule preview.
 func (p *PlannerPresenter) FocusSchedule() *SchedulePreview {
@@ -321,7 +327,7 @@ func (p *PlannerPresenter) SelectSchedule(ctx context.Context, strategy string) 
 
 	repoSchedule := &repository.Schedule{
 		ID:        chosen.ID,
-		Date:      time.Date(p.clock.Now().Year(), p.clock.Now().Month(), p.clock.Now().Day(), 0, 0, 0, 0, p.clock.Now().Location()),
+		Date:      p.todayDate(),
 		Strategy:  strategy,
 		Blocks:    timeBlocksToRepoBlocks(chosen.Blocks),
 		CreatedAt: p.clock.Now(),
@@ -336,6 +342,8 @@ func (p *PlannerPresenter) SelectSchedule(ctx context.Context, strategy string) 
 	p.step = StepActive
 	return nil
 }
+
+// === Active Plan Management ===
 
 // ActiveSchedule returns the current active schedule state.
 func (p *PlannerPresenter) ActiveSchedule() *ActiveScheduleState {
@@ -358,18 +366,18 @@ func (p *PlannerPresenter) CompleteCurrentTask(ctx context.Context) error {
 	if p.step != StepActive {
 		return fmt.Errorf("no active plan")
 	}
-	if p.activeIndex < 0 || p.activeIndex >= len(p.activeBlocks) {
+	if !p.isValidActiveIndex() {
 		return fmt.Errorf("no current block")
 	}
+
 	block := p.activeBlocks[p.activeIndex]
-	// Find the task ID from estimates
-	for _, e := range p.estimates {
-		if e.Title == block.TaskName {
-			if err := p.todos.Complete(ctx, e.TodoID, p.clock.Now()); err != nil {
-				return fmt.Errorf("completing task: %w", err)
-			}
-			return nil
-		}
+	todoID := p.findTodoIDByTaskName(block.TaskName)
+	if todoID == uuid.Nil {
+		return nil // Task not found, silently continue
+	}
+
+	if err := p.todos.Complete(ctx, todoID, p.clock.Now()); err != nil {
+		return fmt.Errorf("completing task: %w", err)
 	}
 	return nil
 }
@@ -393,8 +401,7 @@ func (p *PlannerPresenter) HasActivePlan() bool {
 
 // LoadExistingPlan loads a schedule for today from the repository.
 func (p *PlannerPresenter) LoadExistingPlan(ctx context.Context) error {
-	now := p.clock.Now()
-	date := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	date := p.todayDate()
 
 	schedule, err := p.schedRepo.LoadByDate(ctx, date)
 	if err != nil {
@@ -411,7 +418,38 @@ func (p *PlannerPresenter) LoadExistingPlan(ctx context.Context) error {
 	return nil
 }
 
-// --- internal helpers ---
+// === Internal Helpers ===
+
+// Task index helpers
+func (p *PlannerPresenter) findTaskIndex(id uuid.UUID) int {
+	for i := range p.tasks {
+		if p.tasks[i].ID == id {
+			return i
+		}
+	}
+	return -1
+}
+
+func (p *PlannerPresenter) findEstimateIndex(todoID uuid.UUID) int {
+	for i := range p.estimates {
+		if p.estimates[i].TodoID == todoID {
+			return i
+		}
+	}
+	return -1
+}
+
+func (p *PlannerPresenter) isValidEstimateIndex(index int) bool {
+	return index >= 0 && index < len(p.estimates)
+}
+
+// Date helpers
+func (p *PlannerPresenter) todayDate() time.Time {
+	now := p.clock.Now()
+	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+}
+
+// Wizard step transition helpers
 
 func (p *PlannerPresenter) nextFromTaskSelect(ctx context.Context) error {
 	selected := p.selectedTasks()
@@ -440,25 +478,13 @@ func (p *PlannerPresenter) nextFromTaskSelect(ctx context.Context) error {
 }
 
 func (p *PlannerPresenter) nextFromPriority(ctx context.Context) error {
-	now := p.clock.Now()
-	date := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	date := p.todayDate()
 
 	// Fetch calendar events, gracefully handling failures
-	events, err := p.cal.FetchEvents(ctx, date)
-	if err != nil {
-		events = []calendar.CalendarEvent{}
-	}
+	events := p.fetchCalendarEventsOrEmpty(ctx, date)
 
 	// Build task estimates for the generator
-	tasks := make([]planner.TaskEstimate, len(p.estimates))
-	for i, e := range p.estimates {
-		tasks[i] = planner.TaskEstimate{
-			TodoID:         e.TodoID,
-			Title:          e.Title,
-			EstimatedPomos: e.EstimatedPomos,
-			UserOverride:   e.UserOverride,
-		}
-	}
+	tasks := p.buildTaskEstimates()
 
 	focus, recovery, err := p.generator.GenerateSchedules(ctx, tasks, events, date)
 	if err != nil {
@@ -480,6 +506,43 @@ func (p *PlannerPresenter) selectedTasks() []TodoRow {
 	}
 	return selected
 }
+
+// Additional helper methods
+func (p *PlannerPresenter) isValidActiveIndex() bool {
+	return p.activeIndex >= 0 && p.activeIndex < len(p.activeBlocks)
+}
+
+func (p *PlannerPresenter) findTodoIDByTaskName(taskName string) uuid.UUID {
+	for _, e := range p.estimates {
+		if e.Title == taskName {
+			return e.TodoID
+		}
+	}
+	return uuid.Nil
+}
+
+func (p *PlannerPresenter) fetchCalendarEventsOrEmpty(ctx context.Context, date time.Time) []calendar.CalendarEvent {
+	events, err := p.cal.FetchEvents(ctx, date)
+	if err != nil {
+		return []calendar.CalendarEvent{}
+	}
+	return events
+}
+
+func (p *PlannerPresenter) buildTaskEstimates() []planner.TaskEstimate {
+	tasks := make([]planner.TaskEstimate, len(p.estimates))
+	for i, e := range p.estimates {
+		tasks[i] = planner.TaskEstimate{
+			TodoID:         e.TodoID,
+			Title:          e.Title,
+			EstimatedPomos: e.EstimatedPomos,
+			UserOverride:   e.UserOverride,
+		}
+	}
+	return tasks
+}
+
+// Model conversion helpers
 
 func todoToRow(t *repository.Todo) TodoRow {
 	return TodoRow{

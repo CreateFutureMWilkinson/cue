@@ -26,7 +26,7 @@ func (s *UitestSuite) TestFindWidgetFindsButtonByTextInFlatContainer() {
 		widget.NewLabel("Footer"),
 	)
 
-	found, ok := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
+	found, ok := uitest.FindWidget(root, func(b *widget.Button) bool {
 		return b.Text == "Save"
 	})
 
@@ -41,7 +41,7 @@ func (s *UitestSuite) TestFindWidgetReturnsFalseWhenNotFound() {
 		widget.NewLabel("Subtitle"),
 	)
 
-	found, ok := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
+	found, ok := uitest.FindWidget(root, func(b *widget.Button) bool {
 		return b.Text == "Missing"
 	})
 
@@ -58,7 +58,7 @@ func (s *UitestSuite) TestFindWidgetFindsNestedWidgetInContainerWithinContainer(
 		inner,
 	)
 
-	found, ok := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
+	found, ok := uitest.FindWidget(root, func(b *widget.Button) bool {
 		return b.Text == "Nested"
 	})
 
@@ -75,7 +75,7 @@ func (s *UitestSuite) TestFindAllReturnsAllMatchingWidgets() {
 		widget.NewButton("C", nil),
 	)
 
-	results := uitest.FindAll[*widget.Button](root, func(b *widget.Button) bool {
+	results := uitest.FindAll(root, func(b *widget.Button) bool {
 		return true
 	})
 
@@ -88,7 +88,7 @@ func (s *UitestSuite) TestFindAllReturnsEmptySliceWhenNoneMatch() {
 		widget.NewLabel("Nothing else"),
 	)
 
-	results := uitest.FindAll[*widget.Button](root, func(b *widget.Button) bool {
+	results := uitest.FindAll(root, func(b *widget.Button) bool {
 		return true
 	})
 
@@ -99,7 +99,7 @@ func (s *UitestSuite) TestRequireWidgetReturnsFoundWidget() {
 	btn := widget.NewButton("OK", nil)
 	root := container.NewVBox(btn)
 
-	found := uitest.RequireWidget[*widget.Button](s.T(), root, func(b *widget.Button) bool {
+	found := uitest.RequireWidget(s.T(), root, func(b *widget.Button) bool {
 		return b.Text == "OK"
 	})
 
@@ -108,7 +108,7 @@ func (s *UitestSuite) TestRequireWidgetReturnsFoundWidget() {
 }
 
 func (s *UitestSuite) TestFindWidgetWithNilRootReturnsZeroValueAndFalse() {
-	found, ok := uitest.FindWidget[*widget.Button](nil, func(b *widget.Button) bool {
+	found, ok := uitest.FindWidget(nil, func(b *widget.Button) bool {
 		return true
 	})
 

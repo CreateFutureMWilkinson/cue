@@ -18,7 +18,18 @@ var ErrNotImplemented = errors.New("not implemented")
 // ReadKeyFromFile reads exactly 32 bytes from rc and closes it,
 // returning an error if either the read or the close fails.
 func ReadKeyFromFile(rc io.ReadCloser) ([]byte, error) {
-	return nil, ErrNotImplemented
+	key, readErr := io.ReadAll(rc)
+	closeErr := rc.Close()
+	if readErr != nil {
+		return nil, fmt.Errorf("reading key file: %w", readErr)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("closing key file: %w", closeErr)
+	}
+	if len(key) != 32 {
+		return nil, fmt.Errorf("key file must be exactly 32 bytes, got %d", len(key))
+	}
+	return key, nil
 }
 
 // Encryptor defines the contract for symmetric encryption/decryption.
@@ -77,13 +88,9 @@ func NewKeyFileEncryptor(keyPath string) (*KeyFileEncryptor, error) {
 		if err != nil {
 			return nil, fmt.Errorf("reading key file: %w", err)
 		}
-		key, err = io.ReadAll(f)
-		f.Close()
+		key, err = ReadKeyFromFile(f)
 		if err != nil {
-			return nil, fmt.Errorf("reading key file: %w", err)
-		}
-		if len(key) != 32 {
-			return nil, fmt.Errorf("key file must be exactly 32 bytes, got %d", len(key))
+			return nil, err
 		}
 	}
 

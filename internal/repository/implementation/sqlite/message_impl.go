@@ -104,7 +104,7 @@ func (r *SQLiteMessageRepository) DB() *sql.DB {
 
 // Insert inserts a message into the database. If a message with the same MessageID
 // already exists, it updates the existing row (upsert). Before inserting, it enforces
-// FIFO eviction: if the source already has >= 100 messages, the oldest is deleted.
+// FIFO eviction: if the source already has >= maxMessagesPerSource messages, the oldest is deleted.
 func (r *SQLiteMessageRepository) Insert(ctx context.Context, msg *repository.Message) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {

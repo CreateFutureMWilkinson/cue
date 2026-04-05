@@ -508,7 +508,7 @@ func (s *MessageRepoSuite) TestQueryByID_UnknownID_ReturnsNil() {
 	ctx := context.Background()
 
 	got, err := repo.QueryByID(ctx, uuid.New())
-	s.NoError(err)
+	s.ErrorIs(err, repository.ErrNotFound)
 	s.Nil(got, "QueryByID should return nil for unknown ID")
 }
 

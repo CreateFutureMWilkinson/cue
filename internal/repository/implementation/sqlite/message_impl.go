@@ -214,7 +214,7 @@ func (r *SQLiteMessageRepository) Update(ctx context.Context, msg *repository.Me
 	return nil
 }
 
-// QueryByID returns a single message by its UUID, or nil if not found.
+// QueryByID returns a single message by its UUID, or repository.ErrNotFound if not found.
 func (r *SQLiteMessageRepository) QueryByID(ctx context.Context, id uuid.UUID) (*repository.Message, error) {
 	rows, err := r.db.QueryContext(ctx, querySelectByID, id.String())
 	if err != nil {
@@ -227,7 +227,7 @@ func (r *SQLiteMessageRepository) QueryByID(ctx context.Context, id uuid.UUID) (
 		return nil, err
 	}
 	if len(msgs) == 0 {
-		return nil, nil
+		return nil, repository.ErrNotFound
 	}
 	return msgs[0], nil
 }

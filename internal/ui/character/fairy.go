@@ -26,9 +26,6 @@ const (
 	// glowRatio is the outermost glow circle diameter as a fraction of jar width.
 	glowRatio = 0.25
 
-	// glowAlpha is the alpha channel value for glow circles.
-	glowAlpha = 30
-
 	// Idle position coordinates.
 	IdleOriginX = 0.5
 	IdleOriginY = 1.0
@@ -48,6 +45,10 @@ var (
 	colorNotifying    = color.RGBA{R: 255, G: 200, B: 100, A: 255} // Orange
 	colorError        = color.RGBA{R: 255, G: 100, B: 100, A: 255} // Light red
 	colorShuttingDown = color.RGBA{R: 150, G: 150, B: 150, A: 255} // Gray
+
+	// glowBaseAlphas stores the per-layer graduated base alpha values,
+	// from innermost (brightest) to outermost (dimmest).
+	glowBaseAlphas = [fairyGlowLayerCount]uint8{128, 112, 96, 80, 64, 48, 32, 16}
 )
 
 // FairyCharacter is a character implementation that renders a fairy inside a
@@ -105,9 +106,10 @@ func NewFairyCharacter() *FairyCharacter {
 	bodyCircle := canvas.NewCircle(initialFairyColor)
 
 	// Glow layers — 8 concentric circles from innermost to outermost.
+	// Initial glow intensity is 0.0, so all alphas start at 0.
 	glowLayers := make([]*canvas.Circle, fairyGlowLayerCount)
 	for i := range glowLayers {
-		glowLayers[i] = newGlowCircle()
+		glowLayers[i] = newGlowCircle(0)
 	}
 
 	f := &FairyCharacter{
@@ -147,18 +149,24 @@ func (f *FairyCharacter) Name() string { return "fairy" }
 // creates a new animator for the target state, and starts it.
 func (f *FairyCharacter) TransitionTo(state CharacterState) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
+	prev := f.currentAnimator
+	f.currentAnimator = nil
+	f.mu.Unlock()
 
-	if f.currentAnimator != nil {
-		f.currentAnimator.Stop()
+	// Stop outside the lock — animator goroutines call Set* methods that lock mu.
+	if prev != nil {
+		prev.Stop()
 	}
 
+	f.mu.Lock()
 	f.state = state
 	f.indicator.FillColor = stateColor(state)
 	f.indicator.Refresh()
 
 	animator := f.createAnimatorForState(state)
 	f.currentAnimator = animator
+	f.mu.Unlock()
+
 	if animator != nil {
 		animator.Start(f)
 	}
@@ -204,54 +212,93 @@ func (f *FairyCharacter) DisableRefresh() { f.refreshFunc = func() {} }
 // Close stops the current animator and nils it out.
 func (f *FairyCharacter) Close() {
 	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.currentAnimator != nil {
-		f.currentAnimator.Stop()
-		f.currentAnimator = nil
+	prev := f.currentAnimator
+	f.currentAnimator = nil
+	f.mu.Unlock()
+
+	if prev != nil {
+		prev.Stop()
 	}
+}
+
+// Shutdown stops the current animator, transitions to StateShuttingDown, starts
+// a ShutdownAnimator, and returns a channel that closes when the animation completes.
+func (f *FairyCharacter) Shutdown() <-chan struct{} {
+	f.mu.Lock()
+	prev := f.currentAnimator
+	f.currentAnimator = nil
+	f.mu.Unlock()
+
+	if prev != nil {
+		prev.Stop()
+	}
+
+	f.mu.Lock()
+	f.state = StateShuttingDown
+	f.indicator.FillColor = stateColor(StateShuttingDown)
+	f.indicator.Refresh()
+
+	animator := NewShutdownAnimator(f.clock)
+	f.currentAnimator = animator
+	f.mu.Unlock()
+
+	animator.Start(f)
+
+	return animator.Done()
 }
 
 // Widget returns the jar container as a canvas object.
 func (f *FairyCharacter) Widget() fyne.CanvasObject { return f.container }
 
 // SetPosition sets the fairy's position in normalized coordinates (0.0-1.0).
-// Values are clamped to the valid range.
+// Values are clamped to the valid range. Thread-safe.
 func (f *FairyCharacter) SetPosition(x, y float64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.posX = clamp01(x)
 	f.posY = clamp01(y)
 	f.refreshFunc()
 }
 
-// Position returns the fairy's current normalized position.
+// Position returns the fairy's current normalized position. Thread-safe.
 func (f *FairyCharacter) Position() (x, y float64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return f.posX, f.posY
 }
 
-// SetBodyColor changes the fill color of the body circle.
+// SetBodyColor changes the fill color of the body circle. Thread-safe.
 func (f *FairyCharacter) SetBodyColor(c color.Color) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.bodyCircle.FillColor = c
 	f.bodyCircle.Refresh()
 	f.refreshFunc()
 }
 
 // SetGlowIntensity sets the glow intensity (0.0-1.0). Values are clamped.
-// It also updates the alpha channel of all glow layers based on the intensity.
+// It also updates the alpha channel of all glow layers based on the intensity,
+// using per-layer graduated base alphas (inner = brightest, outer = dimmest).
 func (f *FairyCharacter) SetGlowIntensity(intensity float64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.glowIntensity = clamp01(intensity)
-	for _, gl := range f.glowLayers {
+	for i, gl := range f.glowLayers {
 		r, g, b, _ := gl.FillColor.RGBA()
 		gl.FillColor = color.RGBA{
 			R: uint8((r >> 8) & 0xFF),
 			G: uint8((g >> 8) & 0xFF),
 			B: uint8((b >> 8) & 0xFF),
-			A: uint8(float64(glowAlpha) * f.glowIntensity),
+			A: uint8(float64(glowBaseAlphas[i]) * f.glowIntensity),
 		}
 	}
 	f.refreshFunc()
 }
 
-// GlowIntensity returns the current glow intensity.
+// GlowIntensity returns the current glow intensity. Thread-safe.
 func (f *FairyCharacter) GlowIntensity() float64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	return f.glowIntensity
 }
 
@@ -273,9 +320,9 @@ func (f *FairyCharacter) GlowLayers() []*canvas.Circle {
 	return f.glowLayers
 }
 
-// newGlowCircle creates a new glow circle with the default idle color.
-func newGlowCircle() *canvas.Circle {
-	return canvas.NewCircle(color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: glowAlpha})
+// newGlowCircle creates a new glow circle with the default idle color and given alpha.
+func newGlowCircle(alpha uint8) *canvas.Circle {
+	return canvas.NewCircle(color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: alpha})
 }
 
 // clamp01 clamps a value to the range [0.0, 1.0].

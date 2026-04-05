@@ -24,5 +24,8 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-1-Feature-3 | RED | orchestrator | — | — | 226cc71 |
 | Phase-1-Feature-3 | GREEN | Implementer | 118s | 24,324 | 3eee015 |
 | Phase-1-Feature-3 | REFACTOR | Refactorer | 93s | 33,577 | 21b9f14 |
+| Phase-1-Feature-4 | RED | orchestrator | — | — | ad31a75 |
+| Phase-1-Feature-4 | GREEN | Implementer | 496s | 26,271 | 9c7113a |
+| Phase-1-Feature-4 | REFACTOR | Refactorer | 150s | 38,042 | ce1de93 |
 
 > Features 1-2 were implemented before agent team logging was introduced. Duration and token data is unavailable.

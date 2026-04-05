@@ -32,7 +32,15 @@ func NewSettingsView(
 		container.NewVScroll(slackAccountList),
 	)
 	slackTab := container.NewTabItem("Slack", slackContent)
-	emailTab := container.NewTabItem("Email", widget.NewLabel("Email Accounts"))
+	emailAccountList := container.NewVBox()
+	addEmailBtn := widget.NewButton("Add Account", func() {})
+	emailContent := container.NewBorder(
+		widget.NewLabel("Email Accounts"),
+		addEmailBtn,
+		nil, nil,
+		container.NewVScroll(emailAccountList),
+	)
+	emailTab := container.NewTabItem("Email", emailContent)
 	volumeLabel := widget.NewLabel(fmt.Sprintf("Notification Volume: %d%%", sp.Volume()))
 	volumeSlider := &widget.Slider{
 		Min:   0,

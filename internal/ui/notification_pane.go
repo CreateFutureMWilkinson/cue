@@ -99,7 +99,11 @@ func NewNotificationPanel(np *presenter.NotificationPresenter, win fyne.Window) 
 		list.UnselectAll()
 	}
 
-	header := widget.NewLabel("Notifications")
+	headerLabel := widget.NewLabel("Notifications")
+	expandBtn := widget.NewButton("◀ expand", func() {
+		np.ToggleExpanded()
+	})
+	header := container.NewHBox(headerLabel, expandBtn)
 	root := container.NewBorder(header, nil, nil, nil, list)
 
 	return &NotificationPanel{

@@ -285,3 +285,20 @@ func (s *NotificationPaneSuite) TestPanelContainsExpandToggleButton() {
 	s.Require().True(found, "panel should contain a button with 'expand' in its text")
 	s.Contains(strings.ToLower(btn.Text), "expand")
 }
+
+func (s *NotificationPaneSuite) TestExpandedCardContainsDismissButton() {
+	np := s.newPresenter()
+	win := test.NewWindow(nil)
+	defer win.Close()
+
+	panel := ui.NewNotificationPanel(np, win)
+	panel.ToggleExpand()
+
+	card := panel.RenderExpandedCard(0)
+	s.Require().NotNil(card, "RenderExpandedCard(0) must return a non-nil canvas object")
+
+	_, found := uitest.FindWidget[*widget.Button](card, func(b *widget.Button) bool {
+		return b.Text == "Dismiss"
+	})
+	s.True(found, "expanded card should contain a Dismiss button")
+}

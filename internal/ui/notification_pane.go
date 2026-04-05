@@ -150,3 +150,8 @@ func (p *NotificationPanel) RenderCard(index int) fyne.CanvasObject {
 	)
 	return container.NewStack(bg, content)
 }
+
+// RenderExpandedCard returns the rendered expanded card widget for the notification at the given index.
+func (p *NotificationPanel) RenderExpandedCard(index int) fyne.CanvasObject {
+	return nil
+}

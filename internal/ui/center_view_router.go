@@ -16,7 +16,7 @@ const (
 
 // CenterViewRouter is a state machine controlling which view occupies the
 // center 60% column of the three-column layout. It manages transitions between
-// character area, day planner, and wizard views.
+// character area, day planner, wizard, and settings views.
 type CenterViewRouter struct {
 	currentView  CenterView
 	onViewChange func(CenterView)

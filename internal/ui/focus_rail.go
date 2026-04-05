@@ -8,7 +8,7 @@ import (
 )
 
 // FocusRail provides the persistent left column with a countdown timer,
-// task information, and navigation buttons (Plan, Back, Done, Review).
+// task information, and navigation buttons (Plan, Back, Done, Review, Settings).
 type FocusRail struct {
 	router      *CenterViewRouter
 	planBtn     *widget.Button

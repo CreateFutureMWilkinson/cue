@@ -44,19 +44,6 @@ func (l *fairyJarLayout) positionJarLayers(size fyne.Size) {
 	l.fairy.layoutRefreshCount++
 }
 
-// positionFairyCircles positions the body circle and glow layers.
-func (l *fairyJarLayout) positionFairyCircles(containerWidth, containerHeight float32) {
-	bodyDiam := containerWidth * bodyRatio
-	l.positionCircle(l.fairy.bodyCircle, bodyDiam, containerWidth, containerHeight)
-
-	glowDiam := containerWidth * glowRatio
-	for i, gl := range l.fairy.glowLayers {
-		t := float32(i+1) / float32(fairyGlowLayerCount)
-		d := bodyDiam + (glowDiam-bodyDiam)*t
-		l.positionCircle(gl, d, containerWidth, containerHeight)
-	}
-}
-
 // Interior bounds constants — proportions of the rendered jar image defining
 // where the fairy can move (inside the glass walls, below the lid, above the base).
 const (
@@ -87,27 +74,44 @@ func jarRenderedRect(containerW, containerH, imgAspect float32) (x, y, w, h floa
 	return x, y, w, h
 }
 
+// positionFairyCircles positions the body circle and glow layers within the
+// jar's interior region, computing the jar rendered rect once for all circles.
+func (l *fairyJarLayout) positionFairyCircles(containerWidth, containerHeight float32) {
+	imgAspect := l.fairy.jarBack.Aspect()
+	var jarX, jarY, jarW, jarH float32
+	if imgAspect != 0 {
+		jarX, jarY, jarW, jarH = jarRenderedRect(containerWidth, containerHeight, imgAspect)
+	}
+
+	bodyDiam := containerWidth * bodyRatio
+	l.positionCircle(l.fairy.bodyCircle, bodyDiam, imgAspect, jarX, jarY, jarW, jarH, containerWidth, containerHeight)
+
+	glowDiam := containerWidth * glowRatio
+	for i, gl := range l.fairy.glowLayers {
+		t := float32(i+1) / float32(fairyGlowLayerCount)
+		d := bodyDiam + (glowDiam-bodyDiam)*t
+		l.positionCircle(gl, d, imgAspect, jarX, jarY, jarW, jarH, containerWidth, containerHeight)
+	}
+}
+
 // positionCircle positions and resizes a circle at the fairy's current position,
 // mapping normalized 0.0–1.0 coordinates into the jar's interior region.
-func (l *fairyJarLayout) positionCircle(circle *canvas.Circle, diameter, containerWidth, containerHeight float32) {
+func (l *fairyJarLayout) positionCircle(circle *canvas.Circle, diameter, imgAspect, jarX, jarY, jarW, jarH, containerWidth, containerHeight float32) {
 	circle.Resize(fyne.NewSize(diameter, diameter))
 
-	imgAspect := l.fairy.jarBack.Aspect()
+	posX := float32(l.fairy.posX)
+	posY := float32(l.fairy.posY)
+
 	if imgAspect == 0 {
 		// No image loaded — fall back to full-container positioning.
 		circle.Move(fyne.NewPos(
-			float32(l.fairy.posX)*containerWidth-diameter/2,
-			float32(l.fairy.posY)*containerHeight-diameter/2,
+			posX*containerWidth-diameter/2,
+			posY*containerHeight-diameter/2,
 		))
 		return
 	}
 
-	jarX, jarY, jarW, jarH := jarRenderedRect(containerWidth, containerHeight, imgAspect)
-
-	posX := float32(l.fairy.posX)
-	posY := float32(l.fairy.posY)
 	pixelX := jarX + (jarInteriorLeft+posX*(jarInteriorRight-jarInteriorLeft))*jarW - diameter/2
 	pixelY := jarY + (jarInteriorTop+posY*(jarInteriorBottom-jarInteriorTop))*jarH - diameter/2
-
 	circle.Move(fyne.NewPos(pixelX, pixelY))
 }

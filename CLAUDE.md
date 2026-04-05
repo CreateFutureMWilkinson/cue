@@ -108,14 +108,48 @@ Importance is NEVER determined by sender identity.
 
 **All features and bug fixes MUST use agent teams** (test-designer → implementer → refactorer) with context isolation. No exceptions — even simple changes go through the full pipeline. See `.claude/agents/` for role definitions.
 
-One commit per phase. **Run `just fmt` as the last step before every commit** (red, green, and refactor):
-- `test(scope): failing test for ...` — failing tests only
-- `feat(scope): implement ... [tests pass]` — minimal code to pass
+### Stub-First Compilation
+
+The Test Designer creates noop stubs alongside tests so that `go test` **compiles and fails** (not a build error). Stubs return zero values + `ErrNotImplemented` with no logic. The Implementer replaces stubs with real code one test at a time.
+
+### Per-Behavior Micro-Loop
+
+Features are decomposed into atomic behaviors. Each behavior goes through a full RED → GREEN → REFACTOR cycle before moving to the next:
+
+```
+Feature Requirement
+    ↓
+┌─────────────────────────────────────────┐
+│  MICRO-LOOP (repeat per behavior)       │
+│                                         │
+│  1. RED: Test Designer                  │
+│     - Write ONE test + noop stubs       │
+│     - Verify: compiles, test FAILS      │
+│     - Commit: test(scope): ...          │
+│                                         │
+│  2. GREEN: Implementer                  │
+│     - Replace ONE stub with real code   │
+│     - Verify: ALL tests pass            │
+│     - Commit: feat(scope): ...          │
+│                                         │
+│  3. REFACTOR: Refactorer                │
+│     - Clean up, tests stay green        │
+│     - Commit: refactor(scope): ...      │
+│                                         │
+│  ← loop back if more behaviors remain   │
+└─────────────────────────────────────────┘
+    ↓ (all behaviors implemented)
+Documentation commit: docs(scope): ...
+```
+
+One commit per phase per behavior. **Run `just fmt` as the last step before every commit** (red, green, and refactor):
+- `test(scope): failing test for ...` — ONE failing test + stubs
+- `feat(scope): implement ... [tests pass]` — minimal code to pass ONE test
 - `refactor(scope): improve ...` — cleanup, tests stay green
 
 ### Post-Feature Docs Commit (Required)
 
-After the refactor commit, before marking a feature complete, create a single `docs(scope): ...` commit that includes:
+After ALL behaviors are implemented (the micro-loop is complete), before marking a feature complete, create a single `docs(scope): ...` commit that includes:
 
 1. **Per-feature design doc** at `docs/features/phase-P/Feature-NNN-Name.md` (zero-padded to 3 digits) — overview, design decisions, API, error handling, integration points, test coverage summary, and TDD agent stats table. Hotfix docs use `docs/features/phase-P/Feature-NNNX-Name.md`.
 2. **Agent stats log** in `docs/agent-log.md` — table with columns: Implementation Phase, TDD Phase, Agent, Duration, Tokens, Commit. Log all three TDD phases.

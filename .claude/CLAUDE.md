@@ -354,26 +354,64 @@ Red-Green-Refactor is **required** for all feature and bug-fix work.
 
 **All features and bug fixes MUST use Agent Teams** to enforce context isolation. No exceptions — even simple changes (config, utility functions) go through the full pipeline.
 
+### Stub-First Compilation
+
+The Test Designer creates **noop stubs** alongside tests so that `go test` **compiles and fails meaningfully** (assertion failure, not build error). Stubs follow this pattern:
+
+```go
+package newpkg
+
+import "errors"
+
+var ErrNotImplemented = errors.New("not implemented")
+
+type Widget struct{}
+
+func NewWidget() *Widget { return &Widget{} }
+
+func (w *Widget) Process(input string) (string, error) {
+    return "", ErrNotImplemented
+}
 ```
-Feature Requirement (from docs/DESIGN.md)
+
+Stub rules:
+- Every new exported function/method returns zero values + `ErrNotImplemented`
+- Every new exported type is an empty struct (or minimal fields for compilation)
+- NO logic — stubs exist solely to make `go test` compile and FAIL
+- Stubs live in the real package, so the Implementer replaces them in-place
+- Do NOT modify existing implementation code — only append new stubs
+
+### Per-Behavior Micro-Loop
+
+Features are decomposed into atomic behaviors. Each behavior goes through a full RED → GREEN → REFACTOR cycle before moving to the next. Documentation happens only after the entire feature is complete:
+
+```
+Feature Requirement (from docs/ or user specification)
         ↓
-   Test Designer Agent (RED)
-   - Reads requirement, writes failing test
-   - Does NOT access implementation files
-   - Confirms test fails: go test ./...
-        ↓
-   Implementer Agent (GREEN)
-   - Reads failing test as specification
-   - No knowledge of test writer's assumptions
-   - Writes minimal code to pass tests
-   - Confirms all tests green: go test ./...
-        ↓
-   Refactorer Agent (REFACTOR)
-   - Reads passing tests + implementation
-   - Improves code quality
-   - Keeps all tests GREEN
-        ↓
-   Commit checkpoints (one per phase)
+┌─────────────────────────────────────────┐
+│  MICRO-LOOP (repeat per behavior)       │
+│                                         │
+│  1. RED: Test Designer Agent            │
+│     - Write ONE test + noop stubs       │
+│     - Verify: compiles, test FAILS      │
+│     - Commit: test(scope): ...          │
+│                                         │
+│  2. GREEN: Implementer Agent            │
+│     - Replace relevant stub with code   │
+│     - Leave other stubs untouched       │
+│     - Verify: ALL tests pass            │
+│     - Commit: feat(scope): ...          │
+│                                         │
+│  3. REFACTOR: Refactorer Agent          │
+│     - Clean up code from this iteration │
+│     - Do NOT touch remaining stubs      │
+│     - Verify: ALL tests stay GREEN      │
+│     - Commit: refactor(scope): ...      │
+│                                         │
+│  ← loop back if more behaviors remain   │
+└─────────────────────────────────────────┘
+        ↓ (all behaviors implemented)
+   Documentation commit: docs(scope): ...
 ```
 
 ### Invoking Agent Teams
@@ -389,32 +427,28 @@ Enable in `.claude/settings.json`:
 
 Then use natural language:
 ```
-Create an agent team to implement [feature] with TDD:
+Implement [feature] using the TDD micro-loop. Behaviors to implement:
 
-1. Test Designer: Write failing tests for [requirement]
-   - [specific test case]
-   - [specific test case]
-   - Confirm: go test -run TestName -v ./path/to/pkg
+1. [Behavior A description]
+2. [Behavior B description]
+3. [Behavior C description]
 
-2. Implementer: Write minimal code to pass those tests
-   - Only implement what tests require
-   - Confirm: go test ./...
-
-3. Refactorer: Improve code while keeping tests green
-   - Confirm: go test ./...
+For each behavior: test-designer writes ONE failing test + stubs,
+implementer makes it pass, refactorer cleans up. Commit after each phase.
+Document only after all behaviors are complete.
 ```
 
 ### Commit Checkpoints
 
-Create one commit per phase. **Run `just fmt` as the last step before every commit** (red, green, and refactor):
+One commit per phase **per behavior**. **Run `just fmt` as the last step before every commit** (red, green, and refactor):
 
 | Phase | Scope | Message |
 |---|---|---|
-| Red | Failing test(s) only | `test(scope): failing test for ...` |
-| Green | Minimal implementation | `feat(scope): implement ... [tests pass]` |
+| Red | ONE failing test + stubs | `test(scope): failing test for ...` |
+| Green | Minimal implementation for ONE test | `feat(scope): implement ... [tests pass]` |
 | Refactor | Cleanup; tests remain green | `refactor(scope): improve ...` |
 
-Keep each commit **tightly scoped to one phase**. Do not mix phases.
+Keep each commit **tightly scoped to one phase of one behavior**. Do not mix phases or behaviors.
 
 ### Numbering Convention
 

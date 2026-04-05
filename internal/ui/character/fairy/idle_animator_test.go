@@ -179,7 +179,7 @@ func (s *IdleAnimatorSuite) TestStartSetsPositionToBottomCenter() {
 
 // --- Body color is #00FF00 ---
 
-func (s *IdleAnimatorSuite) TestStartSetsBodyColorToDarkGreen() {
+func (s *IdleAnimatorSuite) TestStartSetsBodyColorToBrightGreen() {
 	f := fairy.NewFairyCharacter()
 	// Change body color away from default.
 	f.SetBodyColor(color.RGBA{R: 0xFF, G: 0x00, B: 0x00, A: 0xFF})

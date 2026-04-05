@@ -75,8 +75,8 @@ watch:
     find . -name '*.go' | entr -c just test
 
 # Run the application
-run:
-    go run ./cmd/cue
+run: build
+    ./_build/cue
 
 # Format all Go code
 fmt:
@@ -100,7 +100,7 @@ vulncheck:
     govulncheck ./...
 
 # Build the character UAT harness
-uat:
+build-uat:
     {{ if _check_deps == "missing" { "@ echo 'WARNING: Build dependencies not found. Run just deps to see install instructions.'" } else { "" } }}
     {{ if os == "linux" { if _wayland_build == "missing" { "@ echo 'WARNING: Wayland headers not found — binary will only support X11. Run just deps to install.'" } else { "" } } else { "" } }}
     {{ if os == "linux" { if _x11_build == "missing" { "@ echo 'WARNING: X11 headers not found — binary will only support Wayland. Run just deps to install.'" } else { "" } } else { "" } }}
@@ -108,11 +108,11 @@ uat:
     CGO_ENABLED=1 go build -o _build/character-uat ./cmd/cue-uat
 
 # Build and run the character UAT harness
-run-uat: uat
+run-uat: build-uat
     ./_build/character-uat
 
 # Build both binaries for current platform
-build-all: build uat
+build-all: build build-uat
 
 # Show required system packages for current platform
 deps:

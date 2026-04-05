@@ -543,9 +543,8 @@ Before marking work complete, run in order:
 2. `just lint` — formatting check + go vet
 3. `just tidy` — module hygiene
 4. `just test` — focused tests for changed packages
-5. Broader tests as needed
-6. `just security` — gosec static analysis
-7. `just vulncheck` — vulnerability scan
+5. `just security` — gosec static analysis
+6. `just vulncheck` — vulnerability scan
 
 ---
 

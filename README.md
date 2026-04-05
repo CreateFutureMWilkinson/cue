@@ -59,7 +59,7 @@ Cue uses TOML configuration at `~/.cue/config.toml`. A default config is created
 - **Alert** (`internal/alert/`) — Configurable audio alerts with real file playback via gopxl/beep (MP3/WAV/OGG), beeep fallback, configurable cooldown and volume
 - **UI** (`internal/ui/`) — Fyne desktop GUI with presenter/view architecture (notification queue, activity log, feedback review, character animation)
 - **Entry Point** (`cmd/cue/`) — Composition root wiring all components
-- **Character UAT** (`cmd/character-uat/`, `cmd/cue-uat/`) — Standalone harness for visual character testing (`just uat`)
+- **Character UAT** (`cmd/character-uat/`, `cmd/cue-uat/`) — Standalone harness for visual character testing (`just run-uat`)
 
 ## Development
 

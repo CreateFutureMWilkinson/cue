@@ -106,6 +106,12 @@ func (t *CountdownTimer) Reset() {
 	t.SetProgress(0)
 }
 
+// SetFlashVisible controls visibility of the current (first non-elapsed) segment
+// for the 1Hz flash animation. When false, the current segment is hidden.
+func (t *CountdownTimer) SetFlashVisible(_ bool) {
+	// TODO: implement flash visibility
+}
+
 // MinSize returns the minimum size for the countdown timer widget.
 func (t *CountdownTimer) MinSize() fyne.Size {
 	return fyne.NewSize(timerMinSize, timerMinSize)

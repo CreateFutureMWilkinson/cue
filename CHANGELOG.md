@@ -14,6 +14,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 
 - **Settings exit control** — Settings view now has a "Done" button at the bottom that navigates back to the character view, providing an in-context exit affordance for ADHD users who may miss the Back button in the focus rail. `NewSettingsView` accepts an `onClose` callback. (Phase-6-Feature-060A)
+
+### Fixed
+
+- **Database insert errors silently swallowed** — When `repo.Insert()` failed for a routed message in the orchestrator, the error was silently discarded. Now emits an error `ActivityEvent` with source and error details, consistent with poll and routing error handling. (Phase-6-Feature-061)
 - **Automated UI testing framework** — New `internal/ui/uitest/` package with generic `FindWidget`, `RequireWidget`, `FindAll` helpers for walking Fyne widget trees in tests. New `MainWindow.Content()` method exposes window widget tree for structural assertions. 28 new tests across 6 test files covering Tier 1 (structural/widget tree) and Tier 2 (simulated interaction) verification. Foundation for all Phase 6 bugfix test coverage. (Phase-6-Feature-052)
 
 ### Changed

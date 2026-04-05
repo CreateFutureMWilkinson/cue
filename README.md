@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–5 complete. Phase 6 (The Big Clean — bugfixes + test infrastructure) in progress. Recent: Feature 060A Settings exit control (Done button for in-context navigation back to character view). See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–5 complete. Phase 6 (The Big Clean — bugfixes + test infrastructure) in progress. Recent: Feature 061 database insert error logging (emits error events on insert failure instead of silently swallowing). See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 

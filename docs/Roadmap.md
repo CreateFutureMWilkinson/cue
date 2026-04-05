@@ -112,5 +112,5 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 059 | Feedback review modal never callable | Bugfix | Medium | Done | 055 | [Feature-059](features/phase-6/Feature-059-Feedback-Review-Wiring.md) |
 | 060 | Settings view tabs are all stubs | Bugfix | Medium | Done | 052 | [Feature-060](features/phase-6/Feature-060-Settings-View-Implementation.md) |
 | 060A | Settings view missing exit control | Enhancement | Low | Done | 060 | [Feature-060A](features/phase-6/Feature-060A-Settings-Exit-Control.md) |
-| 061 | Database insert errors silently swallowed | Bugfix | Low | Planned | — | [Feature-061](features/phase-6/Feature-061-Insert-Error-Logging.md) |
+| 061 | Database insert errors silently swallowed | Bugfix | Low | Done | — | [Feature-061](features/phase-6/Feature-061-Insert-Error-Logging.md) |
 | 062 | Notification list not refreshed after resolve | Bugfix | Low | Planned | — | [Feature-062](features/phase-6/Feature-062-Notification-Refresh-After-Resolve.md) |

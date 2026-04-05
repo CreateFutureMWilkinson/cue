@@ -3,7 +3,7 @@
 **Phase:** Phase-6-Feature-061
 **Type:** Bugfix
 **Severity:** Low
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/service/orchestrator/`
 **Related:** Feature 007 (Orchestrator)
 
@@ -15,39 +15,34 @@ When `repo.Insert()` fails for a routed message, the error is silently discarded
 
 ## Expected Behavior
 
-Failed inserts should emit a warning event to the activity log (consistent with how poll errors and routing errors are already handled in the orchestrator) so users and operators can see that messages are being lost.
-
-## Actual Behavior
-
-`orchestrator.go:155-159`:
-```go
-for _, msg := range routed {
-    if err := o.repo.Insert(ctx, msg); err != nil {
-        continue  // Silent failure
-    }
-}
-```
+Failed inserts should emit an error event to the activity log (consistent with how poll errors and routing errors are already handled in the orchestrator) so users and operators can see that messages are being lost.
 
 ## Root Cause
 
 Error handling for the insert loop was not implemented — likely an oversight during initial Feature 007 implementation.
 
-## Proposed Fix
+## Fix
 
-Emit an activity event on insert failure, consistent with existing error event patterns in the orchestrator:
+Added `emitEvent` call on insert failure, consistent with existing error event patterns in the orchestrator:
 
 ```go
 if err := o.repo.Insert(ctx, msg); err != nil {
-    o.emitEvent(ActivityEvent{
-        Type:    "error",
-        Message: fmt.Sprintf("failed to store %s message: %v", msg.Source, err),
-    })
+    o.emitEvent(name, fmt.Sprintf("failed to store %s message: %v", msg.Source, err), true)
     continue
 }
 ```
 
-## Test Strategy
+The event uses `IsError: true` and includes the message source and error text, matching the pattern used for poll errors (line 142) and routing errors (line 150).
 
-- RED: Test that a failing repository emits an error activity event during the insert loop
-- GREEN: Add the event emission
-- REFACTOR: Clean up if needed
+## Test Coverage
+
+- `TestStoreErrorEmitsErrorEvent` — verifies that a failing `repo.Insert()` emits an `ActivityEvent` with `IsError: true`, source matching the watcher name, and message containing "failed to store" and the error text. Also verifies remaining messages in the batch are still stored.
+- `TestStoreErrorDoesNotAbortBatch` — pre-existing test verifying batch continuation on insert failure.
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | Test Designer | ~56s | ~25,500 | c6a8f0a |
+| GREEN | Implementer | ~27s | ~20,400 | 07ad261 |
+| REFACTOR | Refactorer | ~24s | ~32,900 | (no changes) |

@@ -246,7 +246,11 @@ func run() error {
 			if err != nil {
 				return fmt.Errorf("querying slack account: %w", err)
 			}
-			sw, err := watcher.NewSlackWatcher(&placeholderSlackAPI{}, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID})
+			slackAPI, err := watcher.NewSlackWebClient(acct.Token)
+			if err != nil {
+				return fmt.Errorf("creating slack API client: %w", err)
+			}
+			sw, err := watcher.NewSlackWatcher(slackAPI, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID})
 			if err != nil {
 				return fmt.Errorf("creating slack watcher: %w", err)
 			}
@@ -366,7 +370,12 @@ func buildWatchersFromDB(ctx context.Context, repo repository.ServiceConfigRepos
 			if !acct.Enabled {
 				continue
 			}
-			sw, err := watcher.NewSlackWatcher(&placeholderSlackAPI{}, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID})
+			slackAPI, err := watcher.NewSlackWebClient(acct.Token)
+			if err != nil {
+				log.Printf("warning: failed to create slack API client for %s: %v", acct.WorkspaceID, err)
+				continue
+			}
+			sw, err := watcher.NewSlackWatcher(slackAPI, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID})
 			if err != nil {
 				log.Printf("warning: failed to create slack watcher for %s: %v", acct.WorkspaceID, err)
 				continue
@@ -394,20 +403,6 @@ func buildWatchersFromDB(ctx context.Context, repo repository.ServiceConfigRepos
 }
 
 // --- Placeholder implementations for APIs not yet built ---
-
-type placeholderSlackAPI struct{}
-
-func (p *placeholderSlackAPI) GetUserChannels(_ context.Context) ([]watcher.SlackChannel, error) {
-	return nil, nil
-}
-
-func (p *placeholderSlackAPI) GetChannelMessages(_ context.Context, _ string, _ string) ([]watcher.SlackMessage, error) {
-	return nil, nil
-}
-
-func (p *placeholderSlackAPI) GetThreadReplies(_ context.Context, _ string, _ string) ([]watcher.SlackMessage, error) {
-	return nil, nil
-}
 
 // osFileSystem implements alert.FileSystem using the real OS.
 type osFileSystem struct{}

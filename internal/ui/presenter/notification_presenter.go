@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	truncateLen    = 15
-	previewLen     = 80
-	statusNotified = "Notified"
-	statusResolved = "Resolved"
+	truncateLen       = 15
+	messagePreviewLen = 80
+	statusNotified    = "Notified"
+	statusResolved    = "Resolved"
 )
 
 type NotificationRow struct {
@@ -74,12 +74,14 @@ func (p *NotificationPresenter) Messages() []NotificationRow {
 			Source:  truncate(m.Source, truncateLen),
 			Sender:  truncate(m.Sender, truncateLen),
 			Channel: truncate(m.Channel, truncateLen),
-			Preview: truncate(m.RawContent, previewLen),
+			Preview: truncate(m.RawContent, messagePreviewLen),
 		}
 	}
 	return rows
 }
 
+// Cards returns the presenter's messages formatted as notification cards for display.
+// Each card includes color coding, relative timestamps, and preview text with ellipsis truncation.
 func (p *NotificationPresenter) Cards() []NotificationCard {
 	return BuildNotificationCards(p.messages, time.Now())
 }

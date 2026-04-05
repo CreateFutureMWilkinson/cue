@@ -11,8 +11,6 @@ import (
 )
 
 const (
-	// Message preview length for notification cards
-	cardPreviewLen = 80
 	// Magic numbers for opacity calculation
 	minOpacity    = 0.2
 	maxOpacity    = 0.4
@@ -68,7 +66,7 @@ func BuildNotificationCards(messages []*repository.Message, now time.Time) []Not
 			FullContent:     msg.RawContent,
 			ConfidenceScore: msg.ConfidenceScore,
 			CreatedAt:       msg.CreatedAt,
-			MessagePreview:  truncateWithEllipsis(msg.RawContent, cardPreviewLen),
+			MessagePreview:  truncateWithEllipsis(msg.RawContent, messagePreviewLen),
 			RelativeTime:    formatRelativeTime(msg.CreatedAt, now),
 		}
 

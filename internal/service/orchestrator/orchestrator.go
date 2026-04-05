@@ -3,12 +3,20 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
 )
+
+// WatcherManager allows dynamic addition and removal of watchers at runtime.
+type WatcherManager interface {
+	AddWatcher(name string, w Watcher)
+	RemoveWatcher(name string)
+	ListWatcherNames() []string
+}
 
 // Watcher polls an external source for new messages.
 type Watcher interface {
@@ -46,10 +54,11 @@ type Orchestrator struct {
 	eventCh  chan<- ActivityEvent
 	alerter  Alerter
 
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
-	mu      sync.Mutex
-	stopped bool
+	cancel    context.CancelFunc
+	wg        sync.WaitGroup
+	mu        sync.Mutex
+	watcherMu sync.RWMutex
+	stopped   bool
 }
 
 // NewOrchestrator creates a new Orchestrator, validating all required dependencies.
@@ -60,8 +69,8 @@ func NewOrchestrator(cfg OrchestratorConfig, router BatchRouter, repo repository
 	if repo == nil {
 		return nil, fmt.Errorf("repo is required")
 	}
-	if len(watchers) == 0 {
-		return nil, fmt.Errorf("watchers must not be empty")
+	if watchers == nil {
+		watchers = make(map[string]Watcher)
 	}
 
 	return &Orchestrator{
@@ -75,17 +84,60 @@ func NewOrchestrator(cfg OrchestratorConfig, router BatchRouter, repo repository
 }
 
 // emitEvent sends an activity event to the event channel.
+// If the channel is full, the event is dropped to prevent blocking.
 func (o *Orchestrator) emitEvent(source, message string, isError bool) {
-	o.eventCh <- ActivityEvent{
+	select {
+	case o.eventCh <- ActivityEvent{
 		Source:  source,
 		Message: message,
 		IsError: isError,
+	}:
+	default:
 	}
+}
+
+// AddWatcher registers a named watcher. Replaces if duplicate name.
+func (o *Orchestrator) AddWatcher(name string, w Watcher) {
+	o.watcherMu.Lock()
+	defer o.watcherMu.Unlock()
+	o.watchers[name] = w
+}
+
+// RemoveWatcher removes a watcher by name. No-op if unknown.
+func (o *Orchestrator) RemoveWatcher(name string) {
+	o.watcherMu.Lock()
+	defer o.watcherMu.Unlock()
+	delete(o.watchers, name)
+}
+
+// ListWatcherNames returns a sorted slice of registered watcher names.
+func (o *Orchestrator) ListWatcherNames() []string {
+	o.watcherMu.RLock()
+	defer o.watcherMu.RUnlock()
+	names := make([]string, 0, len(o.watchers))
+	for name := range o.watchers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // PollOnce executes a single poll cycle across all watchers.
 func (o *Orchestrator) PollOnce(ctx context.Context) {
-	for name, watcher := range o.watchers {
+	// Snapshot watchers under read lock, then release before doing work.
+	o.watcherMu.RLock()
+	if len(o.watchers) == 0 {
+		o.watcherMu.RUnlock()
+		o.emitEvent("system", "No watchers configured", false)
+		return
+	}
+	snapshot := make(map[string]Watcher, len(o.watchers))
+	for name, w := range o.watchers {
+		snapshot[name] = w
+	}
+	o.watcherMu.RUnlock()
+
+	for name, watcher := range snapshot {
 		msgs, err := watcher.Poll(ctx)
 		if err != nil {
 			o.emitEvent(name, fmt.Sprintf("poll error: %s", err.Error()), true)

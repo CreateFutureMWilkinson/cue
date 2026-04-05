@@ -1,7 +1,7 @@
 # Feature 048: Unused Config Field Wiring
 
 **Phase:** Phase-5-Feature-048
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/config/`, `internal/repository/implementation/sqlite/`, `internal/service/orchestrator/`, `cmd/cue/`
 **Depends on:** —
 

@@ -20,7 +20,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **Configurable buffer size per source** — `BufferSizePerSource` config field now controls SQLite FIFO eviction threshold (previously hardcoded to 100). Passed as constructor parameter for testability. (Phase-5-Feature-048)
 - **Ollama scorer wiring** — Wire real `OllamaClient` scorer replacing placeholder in composition root; `placeholderScorer` struct removed from `cmd/cue/main.go` (Phase-5-Feature-044)
+
+### Removed
+
+- **`batch_process` config field** — Removed dead `NotificationConfig.BatchProcess` field from config, defaults, and example TOML. The batch processing model is architectural, not configurable. Old config files with `batch_process` are silently ignored. (Phase-5-Feature-048)
 
 ### Breaking
 

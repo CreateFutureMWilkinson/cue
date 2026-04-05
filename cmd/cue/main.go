@@ -53,6 +53,16 @@ func run() error {
 		return fmt.Errorf("validating config: %w", err)
 	}
 
+	// Validate Ollama models are available locally.
+	ctx := context.Background()
+	ollamaURL := fmt.Sprintf("http://%s:%d", cfg.Ollama.Host, cfg.Ollama.Port)
+	if err := decisionengine.ValidateOllamaModels(ctx, ollamaURL, []string{
+		cfg.Ollama.InferenceModel,
+		cfg.Ollama.EmbeddingModel,
+	}); err != nil {
+		return fmt.Errorf("ollama model validation: %w", err)
+	}
+
 	// Open SQLite database.
 	repo, err := sqlite.NewSQLiteMessageRepository(cfg.Database.Path)
 	if err != nil {
@@ -121,7 +131,6 @@ func run() error {
 	}
 
 	// Build watchers from enabled service accounts in the DB.
-	ctx := context.Background()
 	buildWatchersFromDB(ctx, serviceConfigRepo, orch)
 
 	// Bridge channel: convert orchestrator events to presenter events (fan-out).

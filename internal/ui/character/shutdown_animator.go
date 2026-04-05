@@ -110,10 +110,10 @@ func (a *ShutdownAnimator) captureFairyState(fairy *FairyCharacter) (float64, fl
 	fc := fairy.BodyCircle().FillColor
 	r, g, b, al := fc.RGBA()
 	bodyColor := color.RGBA{
-		R: uint8(r >> 8),
-		G: uint8(g >> 8),
-		B: uint8(b >> 8),
-		A: uint8(al >> 8),
+		R: uint8((r >> 8) & 0xFF),
+		G: uint8((g >> 8) & 0xFF),
+		B: uint8((b >> 8) & 0xFF),
+		A: uint8((al >> 8) & 0xFF),
 	}
 
 	return x, y, bodyColor, glow

@@ -12,8 +12,16 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
 
-// newNotificationPane creates a List widget displaying notification rows.
-func newNotificationPane(np *presenter.NotificationPresenter, win fyne.Window) *widget.List {
+// NotificationPanel is the redesigned notification panel widget.
+type NotificationPanel struct {
+	presenter *presenter.NotificationPresenter
+	window    fyne.Window
+	root      fyne.CanvasObject
+}
+
+// NewNotificationPanel creates a new notification panel.
+func NewNotificationPanel(np *presenter.NotificationPresenter, win fyne.Window) *NotificationPanel {
+	// Create the notification list widget
 	list := widget.NewList(
 		func() int {
 			return len(np.Messages())
@@ -33,6 +41,7 @@ func newNotificationPane(np *presenter.NotificationPresenter, win fyne.Window) *
 		},
 	)
 
+	// Add click handler for detail dialog
 	list.OnSelected = func(id widget.ListItemID) {
 		detail, err := np.Select(id)
 		if err != nil {
@@ -57,19 +66,6 @@ func newNotificationPane(np *presenter.NotificationPresenter, win fyne.Window) *
 		list.UnselectAll()
 	}
 
-	return list
-}
-
-// NotificationPanel is the redesigned notification panel widget.
-type NotificationPanel struct {
-	presenter *presenter.NotificationPresenter
-	window    fyne.Window
-	root      fyne.CanvasObject
-}
-
-// NewNotificationPanel creates a new notification panel.
-func NewNotificationPanel(np *presenter.NotificationPresenter, win fyne.Window) *NotificationPanel {
-	list := newNotificationPane(np, win)
 	header := widget.NewLabel("Notifications")
 	root := container.NewBorder(header, nil, nil, nil, list)
 

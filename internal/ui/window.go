@@ -34,6 +34,7 @@ type MainWindow struct {
 	appP       *presenter.AppPresenter
 	notifP     *presenter.NotificationPresenter
 	viewRouter *CenterViewRouter
+	notifPanel *NotificationPanel
 }
 
 // NewMainWindow creates the main application window with a three-column layout:
@@ -76,8 +77,10 @@ func NewMainWindow(
 
 	// Notification panel (right 30%) — expandable from collapsed state.
 	var notifPane fyne.CanvasObject
+	var notifPanel *NotificationPanel
 	if np != nil {
-		notifPane = newNotificationPane(np, win)
+		notifPanel = NewNotificationPanel(np, win)
+		notifPane = notifPanel.Container()
 	} else {
 		notifPane = widget.NewLabel("")
 	}
@@ -117,6 +120,7 @@ func NewMainWindow(
 		appP:       appP,
 		notifP:     np,
 		viewRouter: viewRouter,
+		notifPanel: notifPanel,
 	}
 }
 

@@ -24,8 +24,8 @@ const (
 	NotifyGlowMax = 0.9
 )
 
-// NotifyBodyColor is the body color used in the notify state (#00C300).
-var NotifyBodyColor = color.RGBA{R: 0x00, G: 0xC3, B: 0x00, A: 0xFF}
+// NotifyBodyColor is the body color used in the notify state (#00FF88).
+var NotifyBodyColor = color.RGBA{R: 0x00, G: 0xFF, B: 0x88, A: 0xFF}
 
 // NotifyGlowIntensity computes the glow intensity at time t.
 func NotifyGlowIntensity(t float64) float64 {

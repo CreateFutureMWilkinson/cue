@@ -27,8 +27,8 @@ const (
 // ErrorVibrateFreqHz is the vibration frequency in Hz.
 var ErrorVibrateFreqHz = 15.0
 
-// ErrorBodyColor is the body color used in the error state (#00B800).
-var ErrorBodyColor = color.RGBA{R: 0x00, G: 0xB8, B: 0x00, A: 0xFF}
+// ErrorBodyColor is the body color used in the error state (#88FF00).
+var ErrorBodyColor = color.RGBA{R: 0x88, G: 0xFF, B: 0x00, A: 0xFF}
 
 // ErrorGlowIntensity computes the glow intensity at time t.
 func ErrorGlowIntensity(t float64) float64 {

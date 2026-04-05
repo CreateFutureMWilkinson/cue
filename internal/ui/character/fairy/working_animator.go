@@ -21,8 +21,8 @@ const (
 	WorkingEntryDurationSec = 0.5
 )
 
-// WorkingBodyColor is the body color used after the entry transition completes.
-var WorkingBodyColor = color.RGBA{R: 0x00, G: 0x92, B: 0x00, A: 0xFF}
+// WorkingBodyColor is the body color used after the entry transition completes (#00DD00).
+var WorkingBodyColor = color.RGBA{R: 0x00, G: 0xDD, B: 0x00, A: 0xFF}
 
 // WorkingPosition computes the drift position at elapsed time t.
 func WorkingPosition(t float64) (x, y float64) {

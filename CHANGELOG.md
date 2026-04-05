@@ -25,12 +25,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Vector store with cosine similarity** — In-memory vector storage with pluggable embedding function, cosine similarity search (topN), message ID association for feedback linking, and zero-denominator handling (Phase-1-Feature-8)
 - **Feedback buffer service** — Review workflow for buffered messages (IS >= 7, CS < 0.8) with oldest-first retrieval, user rating (0-10) with optional notes, message deletion, optional vector embedding on save for learning loop, and graceful embedding failure handling (Phase-1-Feature-9)
 - **Audio alerts** — Cross-platform audio notifications using `beeep` with sharp ping on NOTIFIED messages (1000 Hz), startup chime (600 Hz), shutdown tone (400 Hz), 2-second cooldown to prevent spam, configurable on/off via config, and non-fatal error handling (Phase-1-Feature-10)
+- **Fyne GUI** — Desktop GUI with presenter/view architecture: notification queue (NOTIFIED messages newest-first with 15-char truncation), real-time activity log (ring buffer, error highlighting), feedback buffer review (0-10 rating buttons, skip, delete, counter), app lifecycle management (startup/shutdown alerts), and `cmd/cue/main.go` composition root wiring all Phase 1 components (Phase-1-Feature-11)
 - `MessageType` field on `Message` struct for distinguishing message event types
 - Agent team TDD workflow with test-designer, implementer, and refactorer agents
 - Agent log tracking duration and token usage per TDD phase
 - Validation pipelines
 
 ### Changed
+
+- **GUIConfig** — Replaced web-oriented `Host`/`Port` fields with Fyne-relevant `WindowWidth`/`WindowHeight` (defaults: 1200x800) (Phase-1-Feature-11)
 
 ### Removed
 

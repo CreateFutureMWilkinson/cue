@@ -109,6 +109,6 @@ After the refactor commit, before marking a feature complete, create a single `d
 
 ## Implementation Status
 
-**Done (Phase 1 backend):** config, SQLite repository, router, Ollama client, Slack/Email watchers, orchestrator, feedback buffer, vector store — all with tests.
+**Done (Phase 1):** config, SQLite repository, router, Ollama client, Slack/Email watchers, orchestrator, feedback buffer, vector store, audio alerts, Fyne GUI, `cmd/cue/main.go` entry point — all with tests.
 
-**Not yet implemented:** `cmd/cue/main.go` entry point, Fyne GUI (`internal/ui/`), audio alerts (`internal/alert/audio.go`), real Slack/IMAP API clients.
+**Not yet implemented:** real Slack/IMAP API clients (currently using placeholder implementations).

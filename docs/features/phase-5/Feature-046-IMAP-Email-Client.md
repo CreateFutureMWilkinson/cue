@@ -1,7 +1,7 @@
 # Feature 046: IMAP Email Client
 
 **Phase:** Phase-5-Feature-046
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/service/watcher/`, `cmd/cue/`
 **Depends on:** Feature 038 (Main Wiring — dynamic watcher construction)
 
@@ -87,18 +87,26 @@ func NewIMAPClient(host string, port int, username, passwordEnv string) (*IMAPCl
 
 ## Test Coverage
 
-Testing real IMAP requires a mock server. Use `github.com/emersion/go-imap/v2/imap` test utilities or a lightweight in-process IMAP server for tests:
+8 tests in `IMAPClientSuite`:
 
-- `FetchNewMessages` returns parsed messages from mock server
-- Message extraction: sender, subject, body text, folder
-- @mention detection: user's email in To/CC/BCC fields
-- UID tracking: second poll returns only new messages
-- Connection failure returns descriptive error
-- Authentication failure returns descriptive error
-- Reconnection after connection drop
-- Empty inbox returns empty slice, not error
-- MIME multipart message: text/plain body extracted correctly
-- HTML-only message: basic text extraction or skip
+| Test | What it verifies |
+|---|---|
+| `TestNewIMAPClient_EmptyHost` | Constructor rejects empty host |
+| `TestNewIMAPClient_ZeroPort` | Constructor rejects port ≤ 0 |
+| `TestNewIMAPClient_EmptyUsername` | Constructor rejects empty username |
+| `TestNewIMAPClient_PasswordEnvNotSet` | Constructor rejects unset env var |
+| `TestNewIMAPClient_PasswordEnvEmpty` | Constructor rejects empty env var value |
+| `TestNewIMAPClient_Valid` | Constructor succeeds with valid params |
+| `TestFetchNewMessages_ConnectionRefused` | Returns error on unreachable server |
+| `TestFetchNewMessages_ContextCancelled` | Respects cancelled context |
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | test-designer (sonnet) | ~110s | ~30,000 | 07e328e |
+| GREEN | implementer (sonnet) | ~195s | ~52,000 | 06db320 |
+| REFACTOR | refactorer (sonnet) | ~128s | ~34,000 | 8e61a1b |
 
 ## Files
 

@@ -87,7 +87,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 043 | chromem-go vector database | Done | 044 | [Feature-043](features/phase-5/Feature-043-Chromem-Go-Vector-Database.md) |
 | 044 | Ollama scorer wiring | Done | 039 | [Feature-044](features/phase-5/Feature-044-Ollama-Scorer-Wiring.md) |
 | 045 | Slack API client | Done | 038 | [Feature-045](features/phase-5/Feature-045-Slack-API-Client.md) |
-| 046 | IMAP email client | Planned | 038 | [Feature-046](features/phase-5/Feature-046-IMAP-Email-Client.md) |
+| 046 | IMAP email client | Done | 038 | [Feature-046](features/phase-5/Feature-046-IMAP-Email-Client.md) |
 | 047 | MessageType SQLite persistence | Planned | — | [Feature-047](features/phase-5/Feature-047-MessageType-Persistence.md) |
 | 048 | Unused config field wiring | Planned | — | [Feature-048](features/phase-5/Feature-048-Config-Field-Wiring.md) |
 | 049 | MessageRepository QueryByID | Planned | — | [Feature-049](features/phase-5/Feature-049-MessageRepository-QueryByID.md) |

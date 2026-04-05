@@ -13,6 +13,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **IMAP email client** — Real `IMAPClient` implementing `EmailAPI` interface using `go-imap/v2` (pure Go). Connects to IMAP server, authenticates, fetches messages with UID-based filtering, extracts envelope and body text into `EmailMessage` structs. Replaces inert `placeholderEmailAPI` in `cmd/cue/main.go`. Password read from environment variable at construction time. (Phase-5-Feature-046)
 - **Slack Web API client** — Real `SlackWebClient` implementing `SlackAPI` interface with direct HTTP calls to `conversations.list`, `conversations.history`, and `conversations.replies`. Replaces inert `placeholderSlackAPI` in `cmd/cue/main.go`. Handles rate limiting (429), auth errors (401), network timeouts, and malformed JSON. Uses user token auth (`xoxp-`). (Phase-5-Feature-045)
 - **Vector-assisted routing** — Historical user feedback now influences future routing decisions; after Ollama scoring, the router queries the vector store for similar previously-rated messages and adjusts importance scores (±2.0 max, configurable damping factor). New config fields: `vector_enabled`, `vector_similarity_threshold`, `vector_top_n`, `vector_damping_factor`. Disabled by default. Also adds `MessageRepository.QueryByID` method (Phase-5-Feature-042)
 

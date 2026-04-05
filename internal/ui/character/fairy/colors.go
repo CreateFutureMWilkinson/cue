@@ -14,10 +14,10 @@ const (
 )
 
 var (
-	// IdleBodyColor is the idle state body color (#006100).
-	IdleBodyColor = color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: 0xFF}
+	// IdleBodyColor is the idle state body color (#00FF00).
+	IdleBodyColor = color.RGBA{R: 0x00, G: 0xFF, B: 0x00, A: 0xFF}
 
-	// initialFairyColor is the default body color (#006100).
+	// initialFairyColor is the default body color (#00FF00).
 	initialFairyColor = IdleBodyColor
 
 	// State colors for the fairy character indicator.

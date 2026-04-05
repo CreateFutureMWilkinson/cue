@@ -147,15 +147,15 @@ func (s *WorkingAnimatorSuite) TestEntryTransitionInterpolatesColor() {
 	animator.Start(f)
 	defer animator.Stop()
 
-	// At t=0, body color should be idle green (#006100).
+	// At t=0, body color should be idle green (#00FF00).
 	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
 
-	idleGreen := color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: 0xFF}
+	idleGreen := fairy.IdleBodyColor
 	r1, g1, b1, a1 := bodyCircle.FillColor.RGBA()
 	r2, g2, b2, a2 := idleGreen.RGBA()
 	s.Equal(r2, r1, "at t=0 red should be 0x00")
-	s.Equal(g2, g1, "at t=0 green should be 0x61")
+	s.Equal(g2, g1, "at t=0 green should be 0xFF")
 	s.Equal(b2, b1, "at t=0 blue should be 0x00")
 	s.Equal(a2, a1, "at t=0 alpha should be 0xFF")
 

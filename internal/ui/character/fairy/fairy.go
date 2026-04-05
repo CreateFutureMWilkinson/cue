@@ -22,7 +22,7 @@ const (
 	fairyGlowLayerCount = 8
 
 	// bodyRatio is the body circle diameter as a fraction of jar width.
-	bodyRatio = 0.10
+	bodyRatio = 0.05
 
 	// glowRatio is the outermost glow circle diameter as a fraction of jar width.
 	glowRatio = 0.25
@@ -77,7 +77,7 @@ type FairyCharacter struct {
 
 // NewFairyCharacter creates a new FairyCharacter in the Idle state with jar
 // rendering. The fairy starts at the bottom-center position (0.5, 1.0) with
-// dark green body color (#006100). Jar images are loaded from embedded PNGs.
+// bright green body color (#00FF00). Jar images are loaded from embedded PNGs.
 func NewFairyCharacter() *FairyCharacter {
 	// State indicator (hidden but maintained for TransitionTo method compatibility).
 	indicator := canvas.NewCircle(stateColor(character.StateIdle))
@@ -316,5 +316,5 @@ func (f *FairyCharacter) LayoutRefreshCount() int { return f.layoutRefreshCount 
 
 // newGlowCircle creates a new glow circle with the default idle color and given alpha.
 func newGlowCircle(alpha uint8) *canvas.Circle {
-	return canvas.NewCircle(color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: alpha})
+	return canvas.NewCircle(color.RGBA{R: 0x00, G: 0xFF, B: 0x00, A: alpha})
 }

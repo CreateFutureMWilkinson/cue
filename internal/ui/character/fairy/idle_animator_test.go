@@ -177,7 +177,7 @@ func (s *IdleAnimatorSuite) TestStartSetsPositionToBottomCenter() {
 	s.Equal(1.0, y, "idle position y must be 1.0 (bottom)")
 }
 
-// --- Body color is #006100 ---
+// --- Body color is #00FF00 ---
 
 func (s *IdleAnimatorSuite) TestStartSetsBodyColorToDarkGreen() {
 	f := fairy.NewFairyCharacter()
@@ -191,11 +191,11 @@ func (s *IdleAnimatorSuite) TestStartSetsBodyColorToDarkGreen() {
 	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
 
-	expected := color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: 0xFF}
+	expected := fairy.IdleBodyColor
 	r1, g1, b1, a1 := bodyCircle.FillColor.RGBA()
 	r2, g2, b2, a2 := expected.RGBA()
 	s.Equal(r2, r1, "body red channel should be 0x00")
-	s.Equal(g2, g1, "body green channel should be 0x61")
+	s.Equal(g2, g1, "body green channel should be 0xFF")
 	s.Equal(b2, b1, "body blue channel should be 0x00")
 	s.Equal(a2, a1, "body alpha channel should be 0xFF")
 }

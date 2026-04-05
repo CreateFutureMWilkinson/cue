@@ -157,7 +157,7 @@ func (s *ShutdownAnimatorSuite) TestPositionInterpolationFromCustomStart() {
 
 func (s *ShutdownAnimatorSuite) TestColorInterpolationAtMidpoint() {
 	f := fairy.NewFairyCharacter()
-	// Set body color to idle (#006100) -- a non-dormant color.
+	// Set body color to idle (#00FF00) -- a non-dormant color.
 	f.SetBodyColor(fairy.IdleBodyColor)
 
 	animator := fairy.NewShutdownAnimator(s.clock)
@@ -168,14 +168,14 @@ func (s *ShutdownAnimatorSuite) TestColorInterpolationAtMidpoint() {
 	s.clock.Advance(750 * time.Millisecond)
 	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
 
-	// At midpoint, color should be between idle (#006100) and dormant (#004900).
+	// At midpoint, color should be between idle (#00FF00) and dormant (#004900).
 	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
 	_, g, _, _ := bodyCircle.FillColor.RGBA()
 
-	// Green channel in pre-multiplied 16-bit: dormant=0x4949, idle=0x6161.
+	// Green channel in pre-multiplied 16-bit: dormant=0x4949, idle=0xFFFF.
 	dormantG := uint32(0x49) * 0x101
-	idleG := uint32(0x61) * 0x101
+	idleG := uint32(0xFF) * 0x101
 	s.Greater(g, dormantG, "green channel at midpoint should be above dormant")
 	s.Less(g, idleG, "green channel at midpoint should be below idle")
 }
@@ -206,7 +206,7 @@ func (s *ShutdownAnimatorSuite) TestGlowInterpolationAtMidpoint() {
 
 func (s *ShutdownAnimatorSuite) TestAnimationFromIdleState() {
 	f := fairy.NewFairyCharacter()
-	// Fairy starts at idle defaults: position (0.5, 1.0), color #006100.
+	// Fairy starts at idle defaults: position (0.5, 1.0), color #00FF00.
 	f.SetGlowIntensity(0.5)
 
 	animator := fairy.NewShutdownAnimator(s.clock)

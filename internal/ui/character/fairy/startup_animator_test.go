@@ -87,15 +87,15 @@ func (s *StartupAnimatorSuite) TestFinalStateIsIdle() {
 		s.Fail("onComplete callback was not called within timeout")
 	}
 
-	// Body color should be idle (#006100).
+	// Body color should be idle (#00FF00).
 	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
 
-	expected := color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: 0xFF}
+	expected := fairy.IdleBodyColor
 	r1, g1, b1, a1 := bodyCircle.FillColor.RGBA()
 	r2, g2, b2, a2 := expected.RGBA()
 	s.Equal(r2, r1, "final body red channel should be 0x00")
-	s.Equal(g2, g1, "final body green channel should be 0x61")
+	s.Equal(g2, g1, "final body green channel should be 0xFF")
 	s.Equal(b2, b1, "final body blue channel should be 0x00")
 	s.Equal(a2, a1, "final body alpha channel should be 0xFF")
 
@@ -137,14 +137,14 @@ func (s *StartupAnimatorSuite) TestColorInterpolationAtMidpoint() {
 	s.clock.Advance(750 * time.Millisecond)
 	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
 
-	// At midpoint, color should be between dormant (#004900) and idle (#006100).
+	// At midpoint, color should be between dormant (#004900) and idle (#00FF00).
 	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
 	_, g, _, _ := bodyCircle.FillColor.RGBA()
 
-	// Green channel in pre-multiplied 16-bit: dormant=0x4949, idle=0x6161.
+	// Green channel in pre-multiplied 16-bit: dormant=0x4949, idle=0xFFFF.
 	dormantG := uint32(0x49) * 0x101
-	idleG := uint32(0x61) * 0x101
+	idleG := uint32(0xFF) * 0x101
 	s.Greater(g, dormantG, "green channel at midpoint should be above dormant")
 	s.Less(g, idleG, "green channel at midpoint should be below idle")
 }

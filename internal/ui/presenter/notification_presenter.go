@@ -31,6 +31,7 @@ type NotificationDetail struct {
 	ImportanceScore float64
 	ConfidenceScore float64
 	CreatedAt       time.Time
+	Reasoning       string
 }
 
 type NotificationPresenter struct {
@@ -79,6 +80,10 @@ func (p *NotificationPresenter) Messages() []NotificationRow {
 	return rows
 }
 
+func (p *NotificationPresenter) Cards() []NotificationCard {
+	return BuildNotificationCards(p.messages, time.Now())
+}
+
 func (p *NotificationPresenter) Select(index int) (*NotificationDetail, error) {
 	if index < 0 || index >= len(p.messages) {
 		return nil, fmt.Errorf("select: index %d out of range [0, %d)", index, len(p.messages))
@@ -90,6 +95,7 @@ func (p *NotificationPresenter) Select(index int) (*NotificationDetail, error) {
 		ImportanceScore: m.ImportanceScore,
 		ConfidenceScore: m.ConfidenceScore,
 		CreatedAt:       m.CreatedAt,
+		Reasoning:       m.Reasoning,
 	}, nil
 }
 

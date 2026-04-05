@@ -1,7 +1,7 @@
 # Feature 026: Fairy Idle State
 
 **Phase:** Phase-3-Feature-026
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/character/`
 
 ---
@@ -136,6 +136,6 @@ func (f *FairyCharacter) TransitionTo(state CharacterState)
 
 | TDD Cycle | Phase | Agent | Duration | Tokens | Commit |
 |---|---|---|---|---|---|
-| Idle Animator | RED | Test Designer | — | — | — |
-| Idle Animator | GREEN | Implementer | — | — | — |
-| Idle Animator | REFACTOR | Refactorer | — | — | — |
+| Idle Animator | RED | Test Designer | 125s | 32,418 | 7be13b9 |
+| Idle Animator | GREEN | Implementer | 68s | 34,796 | 3ba7378 |
+| Idle Animator | REFACTOR | Refactorer | 220s | 39,896 | 2cebeec |

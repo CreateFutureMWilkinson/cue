@@ -13,8 +13,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Breaking
 
+- **Alert service API change** — `NewAlertService` now takes 4 args (cfg, beeper, filesystem, player); `PlayStartup` and `PlayShutdown` removed (Phase-1-Feature-12)
+- **AppPresenter API change** — `NewAppPresenter` now takes 3 args (removed alerter parameter); presenter `Alerter` interface removed (Phase-1-Feature-12)
+- **NewMainWindow API change** — Now accepts `SettingsPresenter` as 6th argument (Phase-1-Feature-12)
+
 ### Added
 
+- **Configurable audio alerts** — Random file playback from user-configured directory (MP3/WAV/OGG), async playback, beeep fallback when no files available, configurable cooldown and fallback tone, runtime volume control via settings panel (Phase-1-Feature-12)
+- **Audio config fields** — `audio_dir`, `audio_cooldown_seconds`, `audio_volume`, `fallback_frequency`, `fallback_duration_ms` in `[notification]` section with validation and tilde expansion (Phase-1-Feature-12)
+- **Settings panel** — Standalone Fyne settings window with volume slider (0-100), accessible from menu bar (Phase-1-Feature-12)
+- **SettingsPresenter** — Runtime volume control with VolumeController interface and 0-100 clamping (Phase-1-Feature-12)
 - **Config loading and validation** — TOML-based configuration at `~/.cue/config.toml` with safe defaults, auto-creation on first run, tilde expansion, and table-driven validation (Phase-1-Feature-1)
 - **SQLite message repository** — Pure Go SQLite storage (`modernc.org/sqlite`) with WAL mode, FIFO eviction (100 messages per source), upsert by MessageID, and full CRUD operations (Phase-1-Feature-2)
 - **Deterministic routing rules** — Decision engine router with channel_join (IS=9) and @mention (IS=8) deterministic rules, Scorer interface for LLM evaluation, configurable threshold-based routing (NOTIFIED/BUFFERED/IGNORED), and safe fallback on scorer failure (Phase-1-Feature-3)
@@ -36,5 +44,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **GUIConfig** — Replaced web-oriented `Host`/`Port` fields with Fyne-relevant `WindowWidth`/`WindowHeight` (defaults: 1200x800) (Phase-1-Feature-11)
 
 ### Removed
+
+- **Startup and shutdown sounds** — `PlayStartup` and `PlayShutdown` removed from alert service and presenter Alerter interface (Phase-1-Feature-12)
 
 ### Fixed

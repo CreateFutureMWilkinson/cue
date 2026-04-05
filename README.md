@@ -22,6 +22,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 9 | Feedback buffer | Done |
 | 10 | Audio alerts | Done |
 | 11 | Fyne GUI | Done |
+| 12 | Configurable audio alerts (amendment) | Done |
 
 ## Requirements
 
@@ -55,7 +56,7 @@ Cue uses TOML configuration at `~/.cue/config.toml`. A default config is created
   - **Ignored** (importance < 7) — logged to database, available for manual review
 - **Orchestrator** (`internal/service/orchestrator/`) — Coordinates watchers, router, and repository in batch polling loops (poll → route → store) with per-source goroutines and activity event emission
 - **Watchers** (`internal/service/watcher/`) — Slack and Email polling
-- **Alert** (`internal/alert/`) — Cross-platform audio alerts via `beeep` with cooldown
+- **Alert** (`internal/alert/`) — Configurable audio alerts with random file playback (MP3/WAV/OGG), beeep fallback, configurable cooldown and volume
 - **UI** (`internal/ui/`) — Fyne desktop GUI with presenter/view architecture (notification queue, activity log, feedback review)
 - **Entry Point** (`cmd/cue/`) — Composition root wiring all components
 

@@ -24,16 +24,17 @@ func TestOllamaModels(t *testing.T) {
 
 // helper: create a test server that returns an OllamaTagsResponse with the given model names.
 func (s *OllamaModelsSuite) ollamaTagsServer(models []string) *httptest.Server {
-	type ollamaModel struct {
+	// These structs mirror the ones in ollama_models.go for testing
+	type testOllamaModel struct {
 		Name string `json:"name"`
 	}
-	type ollamaTagsResponse struct {
-		Models []ollamaModel `json:"models"`
+	type testOllamaTagsResponse struct {
+		Models []testOllamaModel `json:"models"`
 	}
 
-	resp := ollamaTagsResponse{}
-	for _, m := range models {
-		resp.Models = append(resp.Models, ollamaModel{Name: m})
+	resp := testOllamaTagsResponse{}
+	for _, modelName := range models {
+		resp.Models = append(resp.Models, testOllamaModel{Name: modelName})
 	}
 
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -47,12 +48,12 @@ func (s *OllamaModelsSuite) ollamaTagsServer(models []string) *httptest.Server {
 // --- Test: Both models present — no error ---
 
 func (s *OllamaModelsSuite) TestBothModelsPresent() {
-	srv := s.ollamaTagsServer([]string{"neural-chat:latest", "nomic-embed-text:latest"})
-	defer srv.Close()
+	server := s.ollamaTagsServer([]string{"neural-chat:latest", "nomic-embed-text:latest"})
+	defer server.Close()
 
 	err := decisionengine.ValidateOllamaModels(
 		context.Background(),
-		srv.URL,
+		server.URL,
 		[]string{"neural-chat:latest", "nomic-embed-text:latest"},
 	)
 	s.Require().NoError(err)
@@ -61,12 +62,12 @@ func (s *OllamaModelsSuite) TestBothModelsPresent() {
 // --- Test: One model missing — error names the missing model ---
 
 func (s *OllamaModelsSuite) TestOneModelMissing() {
-	srv := s.ollamaTagsServer([]string{"neural-chat:latest"})
-	defer srv.Close()
+	server := s.ollamaTagsServer([]string{"neural-chat:latest"})
+	defer server.Close()
 
 	err := decisionengine.ValidateOllamaModels(
 		context.Background(),
-		srv.URL,
+		server.URL,
 		[]string{"neural-chat:latest", "nomic-embed-text:latest"},
 	)
 	s.Require().Error(err)
@@ -78,12 +79,12 @@ func (s *OllamaModelsSuite) TestOneModelMissing() {
 // --- Test: Both models missing — error names both ---
 
 func (s *OllamaModelsSuite) TestBothModelsMissing() {
-	srv := s.ollamaTagsServer([]string{"some-other-model:latest"})
-	defer srv.Close()
+	server := s.ollamaTagsServer([]string{"some-other-model:latest"})
+	defer server.Close()
 
 	err := decisionengine.ValidateOllamaModels(
 		context.Background(),
-		srv.URL,
+		server.URL,
 		[]string{"neural-chat:latest", "nomic-embed-text:latest"},
 	)
 	s.Require().Error(err)
@@ -95,12 +96,12 @@ func (s *OllamaModelsSuite) TestBothModelsMissing() {
 // --- Test: Tag matching — config "neural-chat" matches API "neural-chat:latest" ---
 
 func (s *OllamaModelsSuite) TestImplicitLatestTag() {
-	srv := s.ollamaTagsServer([]string{"neural-chat:latest", "nomic-embed-text:latest"})
-	defer srv.Close()
+	server := s.ollamaTagsServer([]string{"neural-chat:latest", "nomic-embed-text:latest"})
+	defer server.Close()
 
 	err := decisionengine.ValidateOllamaModels(
 		context.Background(),
-		srv.URL,
+		server.URL,
 		[]string{"neural-chat", "nomic-embed-text"},
 	)
 	s.Require().NoError(err)
@@ -109,12 +110,12 @@ func (s *OllamaModelsSuite) TestImplicitLatestTag() {
 // --- Test: Tag matching — config "neural-chat:v2" matches exactly ---
 
 func (s *OllamaModelsSuite) TestExactTagMatch() {
-	srv := s.ollamaTagsServer([]string{"neural-chat:v2", "nomic-embed-text:latest"})
-	defer srv.Close()
+	server := s.ollamaTagsServer([]string{"neural-chat:v2", "nomic-embed-text:latest"})
+	defer server.Close()
 
 	err := decisionengine.ValidateOllamaModels(
 		context.Background(),
-		srv.URL,
+		server.URL,
 		[]string{"neural-chat:v2", "nomic-embed-text"},
 	)
 	s.Require().NoError(err)
@@ -123,12 +124,12 @@ func (s *OllamaModelsSuite) TestExactTagMatch() {
 // --- Test: Exact tag mismatch — config "neural-chat:v2" does NOT match "neural-chat:latest" ---
 
 func (s *OllamaModelsSuite) TestExactTagMismatch() {
-	srv := s.ollamaTagsServer([]string{"neural-chat:latest", "nomic-embed-text:latest"})
-	defer srv.Close()
+	server := s.ollamaTagsServer([]string{"neural-chat:latest", "nomic-embed-text:latest"})
+	defer server.Close()
 
 	err := decisionengine.ValidateOllamaModels(
 		context.Background(),
-		srv.URL,
+		server.URL,
 		[]string{"neural-chat:v2", "nomic-embed-text"},
 	)
 	s.Require().Error(err)
@@ -150,15 +151,15 @@ func (s *OllamaModelsSuite) TestOllamaUnreachable() {
 // --- Test: Ollama returns invalid JSON — no error (warning only) ---
 
 func (s *OllamaModelsSuite) TestInvalidJSON() {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte("not valid json{{{"))
 	}))
-	defer srv.Close()
+	defer server.Close()
 
 	err := decisionengine.ValidateOllamaModels(
 		context.Background(),
-		srv.URL,
+		server.URL,
 		[]string{"neural-chat"},
 	)
 	s.Require().NoError(err, "invalid JSON should return nil (warning only)")
@@ -167,12 +168,12 @@ func (s *OllamaModelsSuite) TestInvalidJSON() {
 // --- Test: Ollama returns empty model list — error for all requested models ---
 
 func (s *OllamaModelsSuite) TestEmptyModelList() {
-	srv := s.ollamaTagsServer([]string{})
-	defer srv.Close()
+	server := s.ollamaTagsServer([]string{})
+	defer server.Close()
 
 	err := decisionengine.ValidateOllamaModels(
 		context.Background(),
-		srv.URL,
+		server.URL,
 		[]string{"neural-chat", "nomic-embed-text"},
 	)
 	s.Require().Error(err)
@@ -184,15 +185,15 @@ func (s *OllamaModelsSuite) TestEmptyModelList() {
 // --- Test: Context cancellation — returns context error ---
 
 func (s *OllamaModelsSuite) TestContextCancellation() {
-	srv := s.ollamaTagsServer([]string{"neural-chat:latest"})
-	defer srv.Close()
+	server := s.ollamaTagsServer([]string{"neural-chat:latest"})
+	defer server.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
 
 	err := decisionengine.ValidateOllamaModels(
 		ctx,
-		srv.URL,
+		server.URL,
 		[]string{"neural-chat"},
 	)
 	s.Require().Error(err)

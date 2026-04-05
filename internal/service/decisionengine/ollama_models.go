@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const ollamaTagsEndpoint = "/api/tags"
+
 type ollamaModel struct {
 	Name string `json:"name"`
 }
@@ -25,7 +27,7 @@ func ValidateOllamaModels(ctx context.Context, baseURL string, models []string) 
 		return nil
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/tags", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+ollamaTagsEndpoint, nil)
 	if err != nil {
 		if ctx.Err() != nil {
 			return fmt.Errorf("validate ollama models: %w", ctx.Err())
@@ -56,11 +58,7 @@ func ValidateOllamaModels(ctx context.Context, baseURL string, models []string) 
 
 	var missing []string
 	for _, model := range models {
-		lookup := model
-		if !strings.Contains(model, ":") {
-			lookup = model + ":latest"
-		}
-		if _, ok := available[lookup]; !ok {
+		if !isModelAvailable(model, available) {
 			missing = append(missing, model)
 		}
 	}
@@ -69,18 +67,38 @@ func ValidateOllamaModels(ctx context.Context, baseURL string, models []string) 
 		return nil
 	}
 
+	return formatMissingModelsError(missing)
+}
+
+// isModelAvailable checks if a model is available in the map of available models,
+// adding ":latest" tag if no tag is specified in the model name.
+func isModelAvailable(model string, available map[string]struct{}) bool {
+	lookupName := model
+	if !strings.Contains(model, ":") {
+		lookupName = model + ":latest"
+	}
+	_, exists := available[lookupName]
+	return exists
+}
+
+// formatMissingModelsError creates a user-friendly error message for missing models
+// with appropriate pull commands.
+func formatMissingModelsError(missing []string) error {
 	pullCmds := make([]string, len(missing))
-	for i, m := range missing {
-		pullCmds[i] = "ollama pull " + m
+	for i, model := range missing {
+		pullCmds[i] = "ollama pull " + model
 	}
 
 	if len(missing) == 1 {
 		return fmt.Errorf("missing Ollama model %q; run: %s", missing[0], pullCmds[0])
 	}
 
-	quoted := make([]string, len(missing))
-	for i, m := range missing {
-		quoted[i] = fmt.Sprintf("%q", m)
+	quotedModels := make([]string, len(missing))
+	for i, model := range missing {
+		quotedModels[i] = fmt.Sprintf("%q", model)
 	}
-	return fmt.Errorf("missing Ollama models: %s; run: %s", strings.Join(quoted, ", "), strings.Join(pullCmds, " && "))
+
+	return fmt.Errorf("missing Ollama models: %s; run: %s",
+		strings.Join(quotedModels, ", "),
+		strings.Join(pullCmds, " && "))
 }

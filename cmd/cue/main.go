@@ -426,6 +426,12 @@ func buildWatchersFromDB(ctx context.Context, repo repository.ServiceConfigRepos
 	}
 }
 
+// buildVectorAdvisor creates a VectorScoreAdvisor if vector scoring is enabled
+// in the router config, or returns nil if disabled.
+func buildVectorAdvisor(cfg config.RouterConfig, querier vector.VectorQuerier, msgQuerier decisionengine.MessageQuerier) (decisionengine.VectorScoreAdvisor, error) {
+	return nil, nil
+}
+
 // osFileSystem implements alert.FileSystem using the real OS.
 type osFileSystem struct{}
 

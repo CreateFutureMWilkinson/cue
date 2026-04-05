@@ -32,6 +32,11 @@ func (m *mockHTTPClient) Do(_ *http.Request) (*http.Response, error) {
 // Helpers
 // ---------------------------------------------------------------------------
 
+const (
+	testURL     = "testURL"
+	testTimeout = 10 * time.Second
+)
+
 func mockResponse(statusCode int, body string) *http.Response {
 	return &http.Response{
 		StatusCode: statusCode,
@@ -100,28 +105,28 @@ func TestICSProvider(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func (s *ICSProviderSuite) TestNewICSProvider_EmptyURL() {
-	_, err := calendar.NewICSProvider("", &mockHTTPClient{}, 10*time.Second)
+	_, err := calendar.NewICSProvider("", &mockHTTPClient{}, testTimeout)
 	s.Error(err)
 	s.Contains(err.Error(), "url")
 }
 
 func (s *ICSProviderSuite) TestNewICSProvider_NilHTTPClient() {
-	_, err := calendar.NewICSProvider("https://example.com/cal.ics", nil, 10*time.Second)
+	_, err := calendar.NewICSProvider("testURL", nil, testTimeout)
 	s.Error(err)
 	s.Contains(err.Error(), "http")
 }
 
 func (s *ICSProviderSuite) TestNewICSProvider_ZeroTimeout() {
-	_, err := calendar.NewICSProvider("https://example.com/cal.ics", &mockHTTPClient{}, 0)
+	_, err := calendar.NewICSProvider("testURL", &mockHTTPClient{}, 0)
 	s.Error(err)
 	s.Contains(err.Error(), "timeout")
 }
 
 func (s *ICSProviderSuite) TestNewICSProvider_ValidArgs() {
 	provider, err := calendar.NewICSProvider(
-		"https://example.com/cal.ics",
+		"testURL",
 		&mockHTTPClient{},
-		10*time.Second,
+		testTimeout,
 	)
 	s.NoError(err)
 	s.NotNil(provider)
@@ -136,9 +141,9 @@ func (s *ICSProviderSuite) TestFetchEvents_ParsesValidICS() {
 		response: mockResponse(200, validICS),
 	}
 	provider, err := calendar.NewICSProvider(
-		"https://example.com/cal.ics",
+		"testURL",
 		client,
-		10*time.Second,
+		testTimeout,
 	)
 	s.Require().NoError(err)
 
@@ -177,9 +182,9 @@ func (s *ICSProviderSuite) TestFetchEvents_FiltersByDate() {
 		response: mockResponse(200, validICS),
 	}
 	provider, err := calendar.NewICSProvider(
-		"https://example.com/cal.ics",
+		"testURL",
 		client,
-		10*time.Second,
+		testTimeout,
 	)
 	s.Require().NoError(err)
 
@@ -201,9 +206,9 @@ func (s *ICSProviderSuite) TestFetchEvents_AllDayEvent() {
 		response: mockResponse(200, validICS),
 	}
 	provider, err := calendar.NewICSProvider(
-		"https://example.com/cal.ics",
+		"testURL",
 		client,
-		10*time.Second,
+		testTimeout,
 	)
 	s.Require().NoError(err)
 
@@ -233,9 +238,9 @@ func (s *ICSProviderSuite) TestFetchEvents_EmptyFeed() {
 		response: mockResponse(200, emptyICS),
 	}
 	provider, err := calendar.NewICSProvider(
-		"https://example.com/cal.ics",
+		"testURL",
 		client,
-		10*time.Second,
+		testTimeout,
 	)
 	s.Require().NoError(err)
 
@@ -253,9 +258,9 @@ func (s *ICSProviderSuite) TestFetchEvents_HTTPError() {
 		err: errors.New("connection refused"),
 	}
 	provider, err := calendar.NewICSProvider(
-		"https://example.com/cal.ics",
+		"testURL",
 		client,
-		10*time.Second,
+		testTimeout,
 	)
 	s.Require().NoError(err)
 
@@ -274,9 +279,9 @@ func (s *ICSProviderSuite) TestFetchEvents_HTTPNotFound() {
 		response: mockResponse(404, "not found"),
 	}
 	provider, err := calendar.NewICSProvider(
-		"https://example.com/cal.ics",
+		"testURL",
 		client,
-		10*time.Second,
+		testTimeout,
 	)
 	s.Require().NoError(err)
 
@@ -291,9 +296,9 @@ func (s *ICSProviderSuite) TestFetchEvents_HTTPInternalServerError() {
 		response: mockResponse(500, "internal server error"),
 	}
 	provider, err := calendar.NewICSProvider(
-		"https://example.com/cal.ics",
+		"testURL",
 		client,
-		10*time.Second,
+		testTimeout,
 	)
 	s.Require().NoError(err)
 
@@ -312,9 +317,9 @@ func (s *ICSProviderSuite) TestFetchEvents_InvalidICSData() {
 		response: mockResponse(200, invalidICS),
 	}
 	provider, err := calendar.NewICSProvider(
-		"https://example.com/cal.ics",
+		"testURL",
 		client,
-		10*time.Second,
+		testTimeout,
 	)
 	s.Require().NoError(err)
 
@@ -332,9 +337,9 @@ func (s *ICSProviderSuite) TestFetchEvents_ContextCancelled() {
 		err: context.Canceled,
 	}
 	provider, err := calendar.NewICSProvider(
-		"https://example.com/cal.ics",
+		"testURL",
 		client,
-		10*time.Second,
+		testTimeout,
 	)
 	s.Require().NoError(err)
 
@@ -352,9 +357,9 @@ func (s *ICSProviderSuite) TestFetchEvents_ContextDeadlineExceeded() {
 		err: context.DeadlineExceeded,
 	}
 	provider, err := calendar.NewICSProvider(
-		"https://example.com/cal.ics",
+		"testURL",
 		client,
-		10*time.Second,
+		testTimeout,
 	)
 	s.Require().NoError(err)
 
@@ -376,9 +381,9 @@ func (s *ICSProviderSuite) TestFetchEvents_MultiDayEventAppearsOnEachDay() {
 		response: mockResponse(200, multiDayICS),
 	}
 	provider, err := calendar.NewICSProvider(
-		"https://example.com/cal.ics",
+		"testURL",
 		client,
-		10*time.Second,
+		testTimeout,
 	)
 	s.Require().NoError(err)
 
@@ -421,9 +426,9 @@ func (s *ICSProviderSuite) TestFetchEvents_MultiDayEventAppearsOnEachDay() {
 func (s *ICSProviderSuite) TestICSProvider_ImplementsCalendarProvider() {
 	client := &mockHTTPClient{}
 	provider, err := calendar.NewICSProvider(
-		"https://example.com/cal.ics",
+		"testURL",
 		client,
-		10*time.Second,
+		testTimeout,
 	)
 	s.Require().NoError(err)
 

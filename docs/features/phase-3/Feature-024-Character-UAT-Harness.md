@@ -107,7 +107,7 @@ func init() {
 ## Build
 
 ```bash
-just uat          # compile to _build/character-uat
+just build-uat    # compile to _build/character-uat
 just run-uat      # build and run
 ```
 

@@ -61,7 +61,19 @@ func (l *fairyJarLayout) positionFairyCircles(containerWidth, containerHeight fl
 // rendered inside the container, accounting for ImageFillContain letterboxing.
 // imgAspect is the jar image's width/height ratio.
 func jarRenderedRect(containerW, containerH, imgAspect float32) (x, y, w, h float32) {
-	return 0, 0, 0, 0
+	containerAspect := containerW / containerH
+	if containerAspect > imgAspect {
+		// Container wider than jar — pillarboxed (gaps on sides)
+		h = containerH
+		w = containerH * imgAspect
+		x = (containerW - w) / 2
+	} else {
+		// Container taller than jar — letterboxed (gaps top/bottom)
+		w = containerW
+		h = containerW / imgAspect
+		y = (containerH - h) / 2
+	}
+	return x, y, w, h
 }
 
 // positionCircle positions and resizes a circle at the fairy's current position.

@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sort"
 	"sync"
 	"time"
@@ -132,9 +133,7 @@ func (o *Orchestrator) PollOnce(ctx context.Context) {
 		return
 	}
 	snapshot := make(map[string]Watcher, len(o.watchers))
-	for name, w := range o.watchers {
-		snapshot[name] = w
-	}
+	maps.Copy(snapshot, o.watchers)
 	o.watcherMu.RUnlock()
 
 	for name, watcher := range snapshot {

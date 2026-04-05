@@ -149,6 +149,17 @@ func (a *mockAlerter) alertCalls() int {
 // Helpers
 // ---------------------------------------------------------------------------
 
+// mustNewOrchestrator creates a test orchestrator with common defaults,
+// reducing boilerplate in tests. Uses nil alerter and 600s poll interval.
+func mustNewOrchestrator(router orchestrator.BatchRouter, repo *mockRepo, watchers map[string]orchestrator.Watcher, eventCh chan orchestrator.ActivityEvent) *orchestrator.Orchestrator {
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, nil)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create test orchestrator: %v", err))
+	}
+	return orch
+}
+
 func makeMessages(source string, n int) []*repository.Message {
 	msgs := make([]*repository.Message, n)
 	for i := range n {
@@ -256,10 +267,8 @@ func (s *OrchestratorSuite) TestPollCycleRoutesAndStores() {
 	router := &mockRouter{}
 	repo := newMockRepo()
 	watchers := map[string]orchestrator.Watcher{"slack": watcher}
-	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
 
-	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, nil)
-	s.Require().NoError(err)
+	orch := mustNewOrchestrator(router, repo, watchers, eventCh)
 
 	// Execute a single poll cycle directly
 	orch.PollOnce(context.Background())
@@ -389,10 +398,8 @@ func (s *OrchestratorSuite) TestMultipleWatchersSeparateBatches() {
 		"slack": slackWatcher,
 		"email": emailWatcher,
 	}
-	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
 
-	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, nil)
-	s.Require().NoError(err)
+	orch := mustNewOrchestrator(router, repo, watchers, eventCh)
 
 	orch.PollOnce(context.Background())
 
@@ -635,11 +642,9 @@ func (s *OrchestratorSuite) TestAddWatcherThenPoll() {
 	watcher := &mockWatcher{messages: msgs}
 	router := &mockRouter{}
 	repo := newMockRepo()
-	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
 
 	// Start with no watchers
-	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, nil, eventCh, nil)
-	s.Require().NoError(err)
+	orch := mustNewOrchestrator(router, repo, nil, eventCh)
 
 	// Add a watcher dynamically
 	orch.AddWatcher("slack", watcher)
@@ -658,10 +663,8 @@ func (s *OrchestratorSuite) TestAddWatcherDuplicateReplaces() {
 	secondWatcher := &mockWatcher{messages: makeMessages("slack", 3)}
 	router := &mockRouter{}
 	repo := newMockRepo()
-	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
 
-	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, nil, eventCh, nil)
-	s.Require().NoError(err)
+	orch := mustNewOrchestrator(router, repo, nil, eventCh)
 
 	// Add first watcher, then replace with second using same name
 	orch.AddWatcher("slack", firstWatcher)

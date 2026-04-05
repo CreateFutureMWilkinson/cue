@@ -103,6 +103,10 @@ func (r *mockRepo) Update(_ context.Context, _ *repository.Message) error {
 	return nil
 }
 
+func (r *mockRepo) QueryByID(_ context.Context, _ uuid.UUID) (*repository.Message, error) {
+	return nil, nil
+}
+
 func (r *mockRepo) QueryByStatus(_ context.Context, _ string) ([]*repository.Message, error) {
 	return nil, nil
 }

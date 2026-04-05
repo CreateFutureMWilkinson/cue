@@ -139,6 +139,7 @@ func run() error {
 			ImportanceThreshold: cfg.Orchestrator.Router.ImportanceThreshold,
 			ConfidenceThreshold: cfg.Orchestrator.Router.ConfidenceThreshold,
 		},
+		nil,
 	)
 	if err != nil {
 		return fmt.Errorf("creating router: %w", err)

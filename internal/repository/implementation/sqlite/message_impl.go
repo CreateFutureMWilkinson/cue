@@ -197,6 +197,24 @@ func (r *SQLiteMessageRepository) Update(ctx context.Context, msg *repository.Me
 	return nil
 }
 
+// QueryByID returns a single message by its UUID, or nil if not found.
+func (r *SQLiteMessageRepository) QueryByID(ctx context.Context, id uuid.UUID) (*repository.Message, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT "+messageColumnsStr+" FROM messages WHERE id = ?", id.String())
+	if err != nil {
+		return nil, fmt.Errorf("query by id: %w", err)
+	}
+	defer rows.Close()
+
+	msgs, err := scanMessages(rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(msgs) == 0 {
+		return nil, nil
+	}
+	return msgs[0], nil
+}
+
 // QueryByStatus returns all messages with the given status.
 func (r *SQLiteMessageRepository) QueryByStatus(ctx context.Context, status string) ([]*repository.Message, error) {
 	rows, err := r.db.QueryContext(ctx, querySelectByStatus, status)

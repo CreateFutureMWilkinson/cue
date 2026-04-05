@@ -48,11 +48,12 @@ type Router struct {
 	usernames           []string
 	importanceThreshold float64
 	confidenceThreshold float64
+	advisor             VectorScoreAdvisor
 }
 
-// NewRouter creates a new Router with the given scorer, usernames, and configuration.
+// NewRouter creates a new Router with the given scorer, usernames, configuration, and optional advisor.
 // Returns an error if scorer is nil or usernames is empty.
-func NewRouter(scorer Scorer, usernames []string, cfg RouterConfig) (*Router, error) {
+func NewRouter(scorer Scorer, usernames []string, cfg RouterConfig, advisor VectorScoreAdvisor) (*Router, error) {
 	if scorer == nil {
 		return nil, fmt.Errorf("scorer must not be nil")
 	}
@@ -64,6 +65,7 @@ func NewRouter(scorer Scorer, usernames []string, cfg RouterConfig) (*Router, er
 		usernames:           usernames,
 		importanceThreshold: float64(cfg.ImportanceThreshold),
 		confidenceThreshold: cfg.ConfidenceThreshold,
+		advisor:             advisor,
 	}, nil
 }
 
@@ -86,6 +88,20 @@ func (r *Router) Route(ctx context.Context, msg *repository.Message) (*repositor
 	msg.ImportanceScore = result.ImportanceScore
 	msg.ConfidenceScore = result.ConfidenceScore
 	msg.Reasoning = result.Reasoning
+
+	// Apply vector advisor adjustment if available
+	if r.advisor != nil {
+		advice, advErr := r.advisor.Advise(ctx, msg.RawContent)
+		if advErr == nil && advice != nil && advice.Adjustment != 0 {
+			msg.ImportanceScore += advice.Adjustment
+			if msg.ImportanceScore < 0 {
+				msg.ImportanceScore = 0
+			}
+			if msg.ImportanceScore > 10 {
+				msg.ImportanceScore = 10
+			}
+		}
+	}
 
 	r.assignStatus(msg)
 	return msg, nil

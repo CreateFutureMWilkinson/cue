@@ -52,9 +52,13 @@ type OrchestratorConfig struct {
 }
 
 type RouterConfig struct {
-	ImportanceThreshold int     `toml:"importance_threshold"`
-	ConfidenceThreshold float64 `toml:"confidence_threshold"`
-	BufferSizePerSource int     `toml:"buffer_size_per_source"`
+	ImportanceThreshold       int     `toml:"importance_threshold"`
+	ConfidenceThreshold       float64 `toml:"confidence_threshold"`
+	BufferSizePerSource       int     `toml:"buffer_size_per_source"`
+	VectorEnabled             bool    `toml:"vector_enabled"`
+	VectorSimilarityThreshold float64 `toml:"vector_similarity_threshold"`
+	VectorTopN                int     `toml:"vector_top_n"`
+	VectorDampingFactor       float64 `toml:"vector_damping_factor"`
 }
 
 type OllamaConfig struct {
@@ -104,9 +108,13 @@ func defaultConfig() *Config {
 		},
 		Orchestrator: OrchestratorConfig{
 			Router: RouterConfig{
-				ImportanceThreshold: 7,
-				ConfidenceThreshold: 0.8,
-				BufferSizePerSource: 100,
+				ImportanceThreshold:       7,
+				ConfidenceThreshold:       0.8,
+				BufferSizePerSource:       100,
+				VectorEnabled:             false,
+				VectorSimilarityThreshold: 0.75,
+				VectorTopN:                5,
+				VectorDampingFactor:       0.5,
 			},
 			PollIntervalSeconds: 600,
 		},
@@ -219,6 +227,15 @@ func applyDefaults(cfg *Config, md toml.MetaData) {
 	defaults := defaultConfig()
 	if !md.IsDefined("orchestrator", "poll_interval_seconds") {
 		cfg.Orchestrator.PollIntervalSeconds = defaults.Orchestrator.PollIntervalSeconds
+	}
+	if !md.IsDefined("orchestrator", "router", "vector_similarity_threshold") {
+		cfg.Orchestrator.Router.VectorSimilarityThreshold = defaults.Orchestrator.Router.VectorSimilarityThreshold
+	}
+	if !md.IsDefined("orchestrator", "router", "vector_top_n") {
+		cfg.Orchestrator.Router.VectorTopN = defaults.Orchestrator.Router.VectorTopN
+	}
+	if !md.IsDefined("orchestrator", "router", "vector_damping_factor") {
+		cfg.Orchestrator.Router.VectorDampingFactor = defaults.Orchestrator.Router.VectorDampingFactor
 	}
 }
 
@@ -342,6 +359,22 @@ func (c *Config) Validate() error {
 				return cfg.Planner.TimerVolume >= 0 && cfg.Planner.TimerVolume <= 100
 			},
 			"planner.timer_volume must be between 0 and 100"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Orchestrator.Router.VectorEnabled },
+			func(cfg *Config) bool {
+				return cfg.Orchestrator.Router.VectorDampingFactor >= 0.0 && cfg.Orchestrator.Router.VectorDampingFactor <= 1.0
+			},
+			"orchestrator.router.vector_damping_factor must be between 0.0 and 1.0"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Orchestrator.Router.VectorEnabled },
+			func(cfg *Config) bool { return cfg.Orchestrator.Router.VectorTopN > 0 },
+			"orchestrator.router.vector_top_n must be greater than 0"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Orchestrator.Router.VectorEnabled },
+			func(cfg *Config) bool {
+				return cfg.Orchestrator.Router.VectorSimilarityThreshold >= 0.0 && cfg.Orchestrator.Router.VectorSimilarityThreshold <= 1.0
+			},
+			"orchestrator.router.vector_similarity_threshold must be between 0.0 and 1.0"),
 	}
 
 	for _, rule := range rules {

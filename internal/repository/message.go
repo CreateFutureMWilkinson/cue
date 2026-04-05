@@ -33,6 +33,7 @@ type Message struct {
 type MessageRepository interface {
 	Insert(ctx context.Context, msg *Message) error
 	Update(ctx context.Context, msg *Message) error
+	QueryByID(ctx context.Context, id uuid.UUID) (*Message, error)
 	QueryByStatus(ctx context.Context, status string) ([]*Message, error)
 	QueryAll(ctx context.Context) ([]*Message, error)
 	QueryOldestToNewest(ctx context.Context, limit int) ([]*Message, error)

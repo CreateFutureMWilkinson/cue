@@ -77,7 +77,7 @@ func (s *NotifyAnimatorSuite) TestNotifyGlowIntensityBounds() {
 }
 
 func (s *NotifyAnimatorSuite) TestNotifyGlowIntensityNeverExceedsBounds() {
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		t := float64(i) * 0.01
 		got := character.NotifyGlowIntensity(t)
 		s.GreaterOrEqual(got, 0.5, "glow at t=%v must be >= 0.5", t)
@@ -218,7 +218,7 @@ func (s *NotifyAnimatorSuite) TestDartPositionsWithinBounds() {
 	s.LessOrEqual(y, 1.0, "y must be <= 1.0")
 
 	// Advance through several darts and check bounds.
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		s.clock.Advance(500 * time.Millisecond)
 		time.Sleep(5 * time.Millisecond)
 

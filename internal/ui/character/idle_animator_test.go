@@ -124,7 +124,7 @@ func (s *IdleAnimatorSuite) TestGlowIntensityBounds() {
 
 func (s *IdleAnimatorSuite) TestGlowIntensityNeverExceedsBounds() {
 	// Sample many points across several cycles.
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		t := float64(i) * 0.01
 		got := character.IdleGlowIntensity(t)
 		s.GreaterOrEqual(got, 0.3, "glow at t=%v must be >= 0.3", t)
@@ -201,7 +201,7 @@ func (s *IdleAnimatorSuite) TestStartSetsBodyColorToDarkGreen() {
 
 // --- Start/Stop lifecycle ---
 
-func (s *IdleAnimatorSuite) TestLifecycleOperations() {
+func (s *IdleAnimatorSuite) TestStartStopLifecycle() {
 	fairy := character.NewFairyCharacter()
 	animator := character.NewIdleAnimator(s.clock)
 

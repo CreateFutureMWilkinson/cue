@@ -2,6 +2,7 @@ package character
 
 import (
 	"image/color"
+	"math"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -202,6 +203,16 @@ func lerpColor(a, b color.RGBA, t float64) color.RGBA {
 		B: uint8(float64(a.B) + t*(float64(b.B)-float64(a.B))),
 		A: uint8(float64(a.A) + t*(float64(b.A)-float64(a.A))),
 	}
+}
+
+// glowIntensity computes the glow intensity at time t using a sinusoidal
+// breathing pattern. The result oscillates between min and max intensities
+// with the specified period.
+func glowIntensity(t, period, min, max float64) float64 {
+	phase := 2 * math.Pi * t / period
+	sinWave := math.Sin(phase)
+	normalizedSin := (sinWave + 1.0) / 2.0
+	return min + (max-min)*normalizedSin
 }
 
 func stateColor(s CharacterState) color.Color {

@@ -3,7 +3,6 @@ package character
 import (
 	"context"
 	"image/color"
-	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -21,9 +20,6 @@ const (
 
 	// NotifyGlowMax is the maximum glow intensity during the notify state.
 	NotifyGlowMax = 0.9
-
-	// notifyFrameInterval is how often the notify animator goroutine checks for updates.
-	notifyFrameInterval = time.Millisecond
 )
 
 // NotifyBodyColor is the body color used in the notify state (#00C300).
@@ -33,10 +29,7 @@ var NotifyBodyColor = color.RGBA{R: 0x00, G: 0xC3, B: 0x00, A: 0xFF}
 // breathing pattern. The result oscillates between NotifyGlowMin and NotifyGlowMax
 // with a period of NotifyBreathCycleSec.
 func NotifyGlowIntensity(t float64) float64 {
-	phase := 2 * math.Pi * t / NotifyBreathCycleSec
-	sinWave := math.Sin(phase)
-	normalizedSin := (sinWave + 1.0) / 2.0
-	return NotifyGlowMin + (NotifyGlowMax-NotifyGlowMin)*normalizedSin
+	return glowIntensity(t, NotifyBreathCycleSec, NotifyGlowMin, NotifyGlowMax)
 }
 
 // NotifyAnimator drives the fairy's notify state animation with rapid darting
@@ -113,7 +106,7 @@ func (a *NotifyAnimator) dart(fairy *FairyCharacter) {
 func (a *NotifyAnimator) runAnimationLoop(ctx context.Context, fairy *FairyCharacter, startTime time.Time, done chan struct{}) {
 	defer close(done)
 
-	ticker := time.NewTicker(notifyFrameInterval)
+	ticker := time.NewTicker(AnimationFrameInterval)
 	defer ticker.Stop()
 
 	lastDartCount := 0

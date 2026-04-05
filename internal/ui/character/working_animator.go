@@ -17,9 +17,6 @@ const (
 
 	// WorkingEntryDurationSec is the duration of the entry transition in seconds.
 	WorkingEntryDurationSec = 0.5
-
-	// workingFrameInterval is how often the working animator goroutine checks for updates.
-	workingFrameInterval = time.Millisecond
 )
 
 // WorkingBodyColor is the body color used after the entry transition completes.
@@ -112,7 +109,7 @@ func (a *WorkingAnimator) State() CharacterState {
 func (a *WorkingAnimator) runAnimationLoop(ctx context.Context, fairy *FairyCharacter, startTime time.Time, done chan struct{}) {
 	defer close(done)
 
-	ticker := time.NewTicker(workingFrameInterval)
+	ticker := time.NewTicker(AnimationFrameInterval)
 	defer ticker.Stop()
 
 	for {

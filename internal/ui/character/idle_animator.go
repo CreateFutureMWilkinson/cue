@@ -2,7 +2,6 @@ package character
 
 import (
 	"context"
-	"math"
 	"sync"
 	"time"
 )
@@ -14,19 +13,16 @@ const (
 	IdleGlowMax        = 0.8 // Maximum glow intensity during breathing
 
 	// Animation timing parameters.
-	AnimationFPS    = 30                  // Target frames per second
-	AnimationTickMs = 1000 / AnimationFPS // Milliseconds between animation frames
+	AnimationFPS           = 30                  // Target frames per second
+	AnimationTickMs        = 1000 / AnimationFPS // Milliseconds between animation frames
+	AnimationFrameInterval = time.Millisecond    // Frame interval for high-frequency animators
 )
 
 // IdleGlowIntensity computes the glow intensity at time t using a sinusoidal
 // breathing pattern. The result oscillates between IdleGlowMin and IdleGlowMax
 // with a period of IdleBreathCycleSec.
 func IdleGlowIntensity(t float64) float64 {
-	// sin(-1 to +1) -> normalized(0 to 1) -> intensity(min to max)
-	phase := 2 * math.Pi * t / IdleBreathCycleSec
-	sinWave := math.Sin(phase)
-	normalizedSin := (sinWave + 1.0) / 2.0
-	return IdleGlowMin + (IdleGlowMax-IdleGlowMin)*normalizedSin
+	return glowIntensity(t, IdleBreathCycleSec, IdleGlowMin, IdleGlowMax)
 }
 
 // IdleAnimator drives the fairy's idle breathing animation.

@@ -81,10 +81,13 @@ func NewNotificationPanel(np *presenter.NotificationPresenter, win fyne.Window) 
 			return
 		}
 
+		var d dialog.Dialog
 		resolveBtn := widget.NewButton("Resolve", func() {
 			_ = np.Resolve(context.Background(), detail.ID)
 			list.UnselectAll()
-			list.Refresh()
+			if d != nil {
+				d.Hide()
+			}
 		})
 
 		content := container.NewVBox(
@@ -94,7 +97,10 @@ func NewNotificationPanel(np *presenter.NotificationPresenter, win fyne.Window) 
 			resolveBtn,
 		)
 
-		d := dialog.NewCustom("Notification Detail", "Close", content, win)
+		d = dialog.NewCustom("Notification Detail", "Close", content, win)
+		d.SetOnClosed(func() {
+			list.Refresh()
+		})
 		d.Show()
 		list.UnselectAll()
 	}
@@ -130,7 +136,7 @@ func (p *NotificationPanel) Container() fyne.CanvasObject {
 
 // CardCount returns the number of notification cards currently displayed.
 func (p *NotificationPanel) CardCount() int {
-	return 0
+	return len(p.presenter.Cards())
 }
 
 // cardAt returns the notification card at the given index, or nil if out of range.

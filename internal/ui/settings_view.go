@@ -17,30 +17,27 @@ type SettingsView struct {
 	container fyne.CanvasObject
 }
 
+// newAccountTab creates a tab with a list of accounts and an "Add Account" button.
+func newAccountTab(title string, onAdd func()) *container.TabItem {
+	accountList := container.NewVBox()
+	addBtn := widget.NewButton("Add Account", onAdd)
+	content := container.NewBorder(
+		widget.NewLabel(title+" Accounts"),
+		addBtn,
+		nil, nil,
+		container.NewVScroll(accountList),
+	)
+	return container.NewTabItem(title, content)
+}
+
 // NewSettingsView creates a SettingsView with tabs for Slack, Email, Audio, and Ollama.
 func NewSettingsView(
 	sp *presenter.SettingsPresenter,
 	ssp *presenter.ServiceSettingsPresenter,
 	ollamaCfg config.OllamaConfig,
 ) *SettingsView {
-	slackAccountList := container.NewVBox()
-	addSlackBtn := widget.NewButton("Add Account", func() {})
-	slackContent := container.NewBorder(
-		widget.NewLabel("Slack Accounts"),
-		addSlackBtn,
-		nil, nil,
-		container.NewVScroll(slackAccountList),
-	)
-	slackTab := container.NewTabItem("Slack", slackContent)
-	emailAccountList := container.NewVBox()
-	addEmailBtn := widget.NewButton("Add Account", func() {})
-	emailContent := container.NewBorder(
-		widget.NewLabel("Email Accounts"),
-		addEmailBtn,
-		nil, nil,
-		container.NewVScroll(emailAccountList),
-	)
-	emailTab := container.NewTabItem("Email", emailContent)
+	slackTab := newAccountTab("Slack", func() {})
+	emailTab := newAccountTab("Email", func() {})
 	volumeLabel := widget.NewLabel(fmt.Sprintf("Notification Volume: %d%%", sp.Volume()))
 	volumeSlider := &widget.Slider{
 		Min:   0,

@@ -30,11 +30,14 @@ const (
 	longLength   = 36.0
 
 	timerMinSize = 120.0
+
+	// Alpha transparency values for segment colors
+	elapsedAlpha = 64
 )
 
 var (
 	futureColor  = color.NRGBA{R: 0xFF, G: 0xCE, B: 0x1B, A: 0xFF}
-	elapsedColor = color.NRGBA{R: 0xFF, G: 0xCE, B: 0x1B, A: 64}
+	elapsedColor = color.NRGBA{R: 0xFF, G: 0xCE, B: 0x1B, A: elapsedAlpha}
 )
 
 // SegmentInfo describes a single segment of the countdown timer ring.
@@ -65,22 +68,22 @@ func (t *CountdownTimer) Segments() []SegmentInfo {
 	segments := make([]SegmentInfo, segmentCount)
 	elapsedCount := int(math.Round(t.progress * float64(segmentCount)))
 
-	for i := 0; i < segmentCount; i++ {
+	for i := range segmentCount {
 		angle := float64((i + 1) * segmentInterval)
 		length := segmentLength(angle)
 
 		state := SegmentFuture
-		c := futureColor
+		segmentColor := futureColor
 		if i < elapsedCount {
 			state = SegmentElapsed
-			c = elapsedColor
+			segmentColor = elapsedColor
 		}
 
 		segments[i] = SegmentInfo{
 			AngleDeg: angle,
 			Length:   length,
 			State:    state,
-			Color:    c,
+			Color:    segmentColor,
 		}
 	}
 	return segments

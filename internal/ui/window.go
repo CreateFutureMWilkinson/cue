@@ -59,16 +59,12 @@ func NewMainWindow(
 	focusRail := widget.NewLabel("Focus")
 
 	// Center area (60%) — dynamically controlled by viewRouter.
-	// Currently shows character widget + activity log; later will route between
+	// Currently shows character widget + activity log drawer; later will route between
 	// ViewCharacter, ViewPlan, and ViewWizard.
 	var centerPane fyne.CanvasObject
 	if ap != nil {
-		activityList := newActivityLog(ap)
-		if characterWidget != nil {
-			centerPane = container.NewBorder(nil, characterWidget, nil, nil, activityList)
-		} else {
-			centerPane = activityList
-		}
+		drawer := NewActivityLogDrawer(ap)
+		centerPane = drawer.ContainerWithCharacter(characterWidget)
 	} else if characterWidget != nil {
 		centerPane = characterWidget
 	} else {

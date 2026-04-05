@@ -70,9 +70,12 @@ type FairyCharacter struct {
 	// Mutex for thread-safe transitions.
 	mu sync.Mutex
 
-	// refreshFunc is called after visual updates; wired to fyne.Do for thread-safety.
-	// Can be replaced via DisableRefresh or SetRefreshHook in tests.
+	// refreshFunc is called after visual updates; defaults to no-op.
+	// Can be replaced via SetRefreshHook for test observability or live Fyne refresh.
 	refreshFunc func()
+
+	// isNoopRefresh tracks whether refreshFunc is the default no-op.
+	isNoopRefresh bool
 }
 
 // NewFairyCharacter creates a new FairyCharacter in the Starting state with jar
@@ -124,11 +127,8 @@ func NewFairyCharacter() *FairyCharacter {
 	objects = append(objects, indicator)
 
 	f.container = container.New(&fairyJarLayout{fairy: f}, objects...)
-	f.refreshFunc = func() {
-		if fyne.CurrentApp() != nil {
-			fyne.Do(func() { f.container.Refresh() })
-		}
-	}
+	f.refreshFunc = func() {}
+	f.isNoopRefresh = true
 
 	return f
 }
@@ -203,15 +203,22 @@ func (f *FairyCharacter) CurrentState() character.CharacterState {
 // SetClock injects a clock implementation (used for testing).
 func (f *FairyCharacter) SetClock(c character.Clock) { f.clock = c }
 
-// DisableRefresh replaces the refresh function with a no-op (used for testing).
-func (f *FairyCharacter) DisableRefresh() { f.refreshFunc = func() {} }
+// Deprecated: DisableRefresh is redundant because the default refreshFunc is already a no-op.
+// Use SetRefreshHook to install a live refresh function instead.
+func (f *FairyCharacter) DisableRefresh() {
+	f.refreshFunc = func() {}
+	f.isNoopRefresh = true
+}
 
 // SetRefreshHook replaces the refresh function with a caller-provided function for test observability.
-func (f *FairyCharacter) SetRefreshHook(fn func()) { f.refreshFunc = fn }
+func (f *FairyCharacter) SetRefreshHook(fn func()) {
+	f.refreshFunc = fn
+	f.isNoopRefresh = false
+}
 
 // IsNoopRefresh reports whether the current refreshFunc is the default no-op.
 func (f *FairyCharacter) IsNoopRefresh() bool {
-	return false // stub: not implemented
+	return f.isNoopRefresh
 }
 
 // Close stops the current animator without changing the character state.

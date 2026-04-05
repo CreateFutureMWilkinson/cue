@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"math/rand"
+	"time"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
@@ -31,11 +34,23 @@ type TimerViewModel interface {
 	BlockType() planner.BlockType
 }
 
+// placeholderMessages are the possible messages shown when there is no active plan.
+var placeholderMessages = []string{
+	"Who even knows",
+	"It's your time you're wasting",
+	"A goal without a plan is just a wish",
+	"Winging it, are we?",
+	"The plan is there is no plan",
+	"Chaos is also a strategy, I suppose",
+	"Bold of you to go planless",
+}
+
 // PlannerView is the Fyne component for the day planner wizard and active schedule.
 // It displays different sets of buttons based on the current wizard step or active plan state.
 type PlannerView struct {
 	plannerModel PlannerViewModel
 	timerModel   TimerViewModel
+	router       *CenterViewRouter
 
 	// Navigation and control buttons
 	planBtn         *widget.Button
@@ -43,6 +58,10 @@ type PlannerView struct {
 	backBtn         *widget.Button
 	completeTaskBtn *widget.Button
 	abandonBtn      *widget.Button
+
+	// Content state
+	placeholderText string
+	scheduleTree    *ScheduleTree
 
 	container *fyne.Container
 }
@@ -52,10 +71,12 @@ func NewPlannerView(plannerModel PlannerViewModel, timerModel TimerViewModel, ro
 	v := &PlannerView{
 		plannerModel: plannerModel,
 		timerModel:   timerModel,
+		router:       router,
 	}
 
 	v.initializeButtons()
 	v.applyVisibility()
+	v.buildContent()
 
 	v.container = container.NewVBox(
 		v.planBtn,
@@ -70,7 +91,11 @@ func NewPlannerView(plannerModel PlannerViewModel, timerModel TimerViewModel, ro
 
 // initializeButtons creates all the buttons with their default text and empty callbacks.
 func (v *PlannerView) initializeButtons() {
-	v.planBtn = widget.NewButton("Plan My Day", func() {})
+	v.planBtn = widget.NewButton("Plan My Day", func() {
+		if v.router != nil {
+			v.router.NavigateTo(ViewWizard)
+		}
+	})
 	v.nextBtn = widget.NewButton("Next", func() {})
 	v.backBtn = widget.NewButton("Back", func() {})
 	v.completeTaskBtn = widget.NewButton("Complete Task", func() {})
@@ -100,12 +125,12 @@ func (v *PlannerView) AbandonButton() *widget.Button { return v.abandonBtn }
 // PlaceholderText returns the placeholder message shown when there is no active plan.
 // Returns empty string when there is an active plan.
 func (v *PlannerView) PlaceholderText() string {
-	return "" // TODO: implement in GREEN phase
+	return v.placeholderText
 }
 
 // ScheduleTree returns the schedule tree widget, or nil when there is no active plan.
 func (v *PlannerView) ScheduleTree() *ScheduleTree {
-	return nil // TODO: implement in GREEN phase
+	return v.scheduleTree
 }
 
 // SetPlannerModel replaces the planner view model and updates button visibility.
@@ -118,9 +143,32 @@ func (v *PlannerView) SetTimerModel(model TimerViewModel) {
 	v.timerModel = model
 }
 
-// Refresh updates button visibility based on the current wizard step.
+// Refresh updates button visibility and content based on the current wizard step.
 func (v *PlannerView) Refresh() {
 	v.applyVisibility()
+	v.buildContent()
+}
+
+// buildContent rebuilds the placeholder text and schedule tree from the current model state.
+func (v *PlannerView) buildContent() {
+	step := v.plannerModel.CurrentStep()
+	if step == presenter.StepIdle && !v.plannerModel.HasActivePlan() {
+		//nolint:gosec // math/rand is fine for placeholder text selection
+		v.placeholderText = placeholderMessages[rand.Intn(len(placeholderMessages))]
+		v.scheduleTree = nil
+		return
+	}
+
+	v.placeholderText = ""
+	if v.plannerModel.HasActivePlan() {
+		if sched := v.plannerModel.ActiveSchedule(); sched != nil && len(sched.Blocks) > 0 {
+			v.scheduleTree = NewScheduleTree(sched.Blocks, time.Now())
+		} else {
+			v.scheduleTree = nil
+		}
+	} else {
+		v.scheduleTree = nil
+	}
 }
 
 // applyVisibility sets button show/hide state based on the current wizard step.

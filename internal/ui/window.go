@@ -96,11 +96,20 @@ func NewMainWindow(
 		planContent = widget.NewLabel("Plan")
 	}
 
+	// Build wizard view content.
+	var wizardContent fyne.CanvasObject
+	if wizardVM != nil {
+		wv := NewWizardView(wizardVM, viewRouter)
+		wizardContent = wv.Container()
+	} else {
+		wizardContent = widget.NewLabel("Wizard")
+	}
+
 	// Map views to their content for lookup during navigation.
 	viewContents := map[CenterView]fyne.CanvasObject{
 		ViewCharacter: characterContent,
 		ViewPlan:      planContent,
-		ViewWizard:    widget.NewLabel("Wizard"),
+		ViewWizard:    wizardContent,
 		ViewSettings:  settingsContent,
 	}
 

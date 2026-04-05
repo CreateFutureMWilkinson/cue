@@ -30,6 +30,7 @@ type MainWindow struct {
 	notifP       *presenter.NotificationPresenter
 	viewRouter   *CenterViewRouter
 	notifPanel   *NotificationPanel
+	focusRail    *FocusRail
 	centerStack  *fyne.Container
 	viewContents map[CenterView]fyne.CanvasObject
 }
@@ -58,12 +59,18 @@ func NewMainWindow(
 	win.Resize(fyne.NewSize(float32(cfg.WindowWidth), float32(cfg.WindowHeight)))
 
 	// Focus rail (left 10%) — timer ring, task info, and navigation buttons.
-	var focusRail fyne.CanvasObject
+	var focusRailWidget fyne.CanvasObject
+	var fr *FocusRail
 	if viewRouter != nil {
-		fr := NewFocusRail(viewRouter)
-		focusRail = fr.Container()
+		fr = NewFocusRail(viewRouter)
+		if fp != nil {
+			fr.SetOnReview(func() {
+				showFeedbackReview(fp, fyneApp)
+			})
+		}
+		focusRailWidget = fr.Container()
 	} else {
-		focusRail = widget.NewLabel("Focus")
+		focusRailWidget = widget.NewLabel("Focus")
 	}
 
 	// Center area (60%) — dynamically controlled by viewRouter.
@@ -130,7 +137,7 @@ func NewMainWindow(
 	innerSplit := container.NewHSplit(centerStack, notifPane)
 	innerSplit.SetOffset(innerSplitOffset)
 
-	outerSplit := container.NewHSplit(focusRail, innerSplit)
+	outerSplit := container.NewHSplit(focusRailWidget, innerSplit)
 	outerSplit.SetOffset(outerSplitOffset)
 
 	win.SetContent(outerSplit)
@@ -162,6 +169,7 @@ func NewMainWindow(
 		notifP:       np,
 		viewRouter:   viewRouter,
 		notifPanel:   notifPanel,
+		focusRail:    fr,
 		centerStack:  centerStack,
 		viewContents: viewContents,
 	}
@@ -197,8 +205,8 @@ func (m *MainWindow) switchCenterView(view CenterView) {
 	}
 }
 
-// FocusRail returns the focus rail component for testing wiring.
-func (m *MainWindow) FocusRail() *FocusRail { return nil }
+// FocusRail returns the focus rail component.
+func (m *MainWindow) FocusRail() *FocusRail { return m.focusRail }
 
 // Run shows the window and starts the Fyne event loop. Blocks until quit.
 func (m *MainWindow) Run() {

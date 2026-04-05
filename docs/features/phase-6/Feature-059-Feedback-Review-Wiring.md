@@ -3,40 +3,70 @@
 **Phase:** Phase-6-Feature-059
 **Type:** Bugfix
 **Severity:** Medium
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/`
-**Related:** Feature 009 (Feedback Buffer), Feature 017 (Focus Rail)
+**Related:** Feature 009 (Feedback Buffer), Feature 017 (Focus Rail), Feature 055 (Focus Rail Wiring)
 
 ---
 
+## Overview
+
+Wires the previously dead-code `showFeedbackReview()` function to the focus rail's Review button, and connects the notification panel's expand/collapse state to the Review button's visibility.
+
 ## Bug Description
 
-The `showFeedbackReview()` function exists in `feedback_review.go` but nothing in the UI invokes it. The Review button in the focus rail (which is itself unwired — see Feature 055) should trigger the feedback review modal when the notification panel is expanded.
-
-## Expected Behavior
-
-Per UiSpec.md: When the notification panel is expanded, a Review button appears in the focus rail. Tapping it opens the feedback review modal where the user can rate buffered messages 0–10 with optional notes.
-
-## Actual Behavior
-
-`showFeedbackReview()` is dead code. No UI element triggers it.
+The `showFeedbackReview()` function existed in `feedback_review.go` but nothing in the UI invoked it. The Review button in the focus rail had an `onReview` callback slot but it was never set.
 
 ## Root Cause
 
-The feedback review function was built but never connected to any button's `OnTapped` callback. The focus rail (which should contain the Review button) is also unwired (Feature 055).
+Two missing wiring connections in `NewMainWindow`:
+1. `FocusRail.SetOnReview` was never called with a callback to invoke `showFeedbackReview`
+2. `NotificationPresenter.SetOnExpandedChange` was never connected to `FocusRail.SetNotificationsExpanded`
 
-## Proposed Fix
+## Design Decisions
 
-After Feature 055 (focus rail wiring) is complete:
-1. Connect the Review button's `OnTapped` callback to `showFeedbackReview()`
-2. Ensure the Review button visibility is tied to notification panel expansion state
-3. Pass required presenter dependencies for feedback data access
+- **Accessor pattern:** Added `MainWindow.FocusRail()` accessor to expose the focus rail for test assertions, consistent with the existing `Content()` and `CenterContent()` pattern.
+- **Initial state sync:** `SetNotificationsExpanded(np.IsExpanded())` is called at construction time to ensure the Review button matches the presenter's state, not just future changes.
+- **Nil-safe guards:** Both wirings are guarded by nil checks (`fp != nil`, `np != nil`) so tests passing nil presenters continue to work.
 
-**Depends on:** Feature 055 (Focus Rail Wiring)
+## API
 
-## Test Strategy
+No new public API. Two wiring connections added inside `NewMainWindow`:
 
-- RED: Interaction test — with notifications expanded, verify Review button is visible
-- RED: Interaction test — tap Review button, verify feedback modal opens
-- GREEN: Wire callback
-- REFACTOR: Clean up
+```go
+// Review button → feedback modal
+fr.SetOnReview(func() { showFeedbackReview(fp, fyneApp) })
+
+// Notification expand → review button visibility
+fr.SetNotificationsExpanded(np.IsExpanded())
+np.SetOnExpandedChange(fr.SetNotificationsExpanded)
+```
+
+## Error Handling
+
+- Nil `FeedbackPresenter`: Review callback is not set (button does nothing)
+- Nil `NotificationPresenter`: Expand/collapse wiring is skipped
+
+## Integration Points
+
+- `internal/ui/window.go` — NewMainWindow wiring
+- `internal/ui/focus_rail.go` — SetOnReview, SetNotificationsExpanded (existing)
+- `internal/ui/feedback_review.go` — showFeedbackReview (existing)
+- `internal/ui/presenter/notification_presenter.go` — SetOnExpandedChange (existing)
+
+## Test Coverage
+
+| Test | Description |
+|---|---|
+| `TestReviewButtonCallbackWiredWhenFeedbackPresenterProvided` | Verifies FocusRail() accessor returns non-nil and Review button has a callback |
+| `TestReviewButtonVisibleWhenNotificationsExpanded` | Verifies Review button shows after ToggleExpanded |
+| `TestReviewButtonHiddenWhenNotificationsCollapsed` | Verifies Review button hides after expand+collapse |
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Commit |
+|---|---|---|
+| RED (behavior 1) | Test Designer | 528bc40 |
+| GREEN (behavior 1) | Implementer | 1518d5f |
+| RED (behavior 2) | Test Designer | 880c1f9 |
+| GREEN (behavior 2) | Implementer | 2fe1d13 |

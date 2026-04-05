@@ -9,28 +9,25 @@ import (
 )
 
 const (
-	// IdleBreathCycleSec is the period of the breathing glow cycle in seconds.
-	IdleBreathCycleSec = 3.0
+	// Idle breathing animation parameters.
+	IdleBreathCycleSec = 3.0 // Period of the breathing glow cycle in seconds
+	IdleGlowMin        = 0.3 // Minimum glow intensity during breathing
+	IdleGlowMax        = 0.8 // Maximum glow intensity during breathing
 
-	// IdleGlowMin is the minimum glow intensity during the breathing cycle.
-	IdleGlowMin = 0.3
-
-	// IdleGlowMax is the maximum glow intensity during the breathing cycle.
-	IdleGlowMax = 0.8
-
-	// AnimationFPS is the target frames per second for animations.
-	AnimationFPS = 30
-
-	// AnimationTickMs is the milliseconds between animation frames.
-	AnimationTickMs = 1000 / AnimationFPS
+	// Animation timing parameters.
+	AnimationFPS    = 30                  // Target frames per second
+	AnimationTickMs = 1000 / AnimationFPS // Milliseconds between animation frames
 )
 
 // IdleGlowIntensity computes the glow intensity at time t using a sinusoidal
 // breathing pattern. The result oscillates between IdleGlowMin and IdleGlowMax
 // with a period of IdleBreathCycleSec.
 func IdleGlowIntensity(t float64) float64 {
-	normalized := math.Sin(2 * math.Pi * t / IdleBreathCycleSec)
-	return IdleGlowMin + (IdleGlowMax-IdleGlowMin)*(normalized+1.0)/2.0
+	// sin(-1 to +1) -> normalized(0 to 1) -> intensity(min to max)
+	phase := 2 * math.Pi * t / IdleBreathCycleSec
+	sinWave := math.Sin(phase)
+	normalizedSin := (sinWave + 1.0) / 2.0
+	return IdleGlowMin + (IdleGlowMax-IdleGlowMin)*normalizedSin
 }
 
 // IdleAnimator drives the fairy's idle breathing animation.
@@ -57,13 +54,9 @@ func (a *IdleAnimator) Start(fairy *FairyCharacter) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	// Set initial fairy state.
-	fairy.SetPosition(0.5, 1.0)
-	fairy.SetBodyColor(color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: 0xFF})
+	a.initializeFairyState(fairy)
 
 	startTime := a.clock.Now()
-	fairy.SetGlowIntensity(IdleGlowIntensity(0.0))
-
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancel = cancel
 	a.done = make(chan struct{})
@@ -71,19 +64,30 @@ func (a *IdleAnimator) Start(fairy *FairyCharacter) {
 	ticker := a.clock.NewTicker(time.Duration(AnimationTickMs) * time.Millisecond)
 	done := a.done
 
-	go func() {
-		defer close(done)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.Chan():
-				elapsed := a.clock.Now().Sub(startTime).Seconds()
-				fairy.SetGlowIntensity(IdleGlowIntensity(elapsed))
-			}
+	go a.runAnimationLoop(ctx, ticker, fairy, startTime, done)
+}
+
+// initializeFairyState sets the fairy to its idle appearance and position.
+func (a *IdleAnimator) initializeFairyState(fairy *FairyCharacter) {
+	fairy.SetPosition(0.5, 1.0)                                        // Bottom-center
+	fairy.SetBodyColor(color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: 0xFF}) // Dark green
+	fairy.SetGlowIntensity(IdleGlowIntensity(0.0))                     // Initial glow
+}
+
+// runAnimationLoop drives the breathing animation in a separate goroutine.
+func (a *IdleAnimator) runAnimationLoop(ctx context.Context, ticker Ticker, fairy *FairyCharacter, startTime time.Time, done chan struct{}) {
+	defer close(done)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.Chan():
+			elapsed := a.clock.Now().Sub(startTime).Seconds()
+			fairy.SetGlowIntensity(IdleGlowIntensity(elapsed))
 		}
-	}()
+	}
 }
 
 // Stop cancels the animation goroutine and waits for it to exit. It is safe

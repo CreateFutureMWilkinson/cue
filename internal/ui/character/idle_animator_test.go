@@ -103,16 +103,23 @@ func (s *IdleAnimatorSuite) TestGlowIntensityAtKeyPoints() {
 
 // --- Breathing glow min/max tests ---
 
-func (s *IdleAnimatorSuite) TestGlowIntensityReachesMin() {
-	// At t=2.25, sin is at -1, glow should be at minimum 0.3.
-	got := character.IdleGlowIntensity(2.25)
-	s.InDelta(0.3, got, 1e-9, "glow should reach minimum of 0.3")
-}
+func (s *IdleAnimatorSuite) TestGlowIntensityBounds() {
+	tests := []struct {
+		name     string
+		t        float64
+		expected float64
+		desc     string
+	}{
+		{"minimum at trough", 2.25, character.IdleGlowMin, "glow should reach minimum"},
+		{"maximum at peak", 0.75, character.IdleGlowMax, "glow should reach maximum"},
+	}
 
-func (s *IdleAnimatorSuite) TestGlowIntensityReachesMax() {
-	// At t=0.75, sin is at +1, glow should be at maximum 0.8.
-	got := character.IdleGlowIntensity(0.75)
-	s.InDelta(0.8, got, 1e-9, "glow should reach maximum of 0.8")
+	for _, tc := range tests {
+		s.Run(tc.name, func() {
+			got := character.IdleGlowIntensity(tc.t)
+			s.InDelta(tc.expected, got, 1e-9, tc.desc)
+		})
+	}
 }
 
 func (s *IdleAnimatorSuite) TestGlowIntensityNeverExceedsBounds() {
@@ -194,47 +201,44 @@ func (s *IdleAnimatorSuite) TestStartSetsBodyColorToDarkGreen() {
 
 // --- Start/Stop lifecycle ---
 
-func (s *IdleAnimatorSuite) TestStartAndStopLifecycle() {
+func (s *IdleAnimatorSuite) TestLifecycleOperations() {
 	fairy := character.NewFairyCharacter()
 	animator := character.NewIdleAnimator(s.clock)
 
-	// Start should not panic.
-	animator.Start(fairy)
-	animator.Stop()
+	testCases := []struct {
+		name string
+		fn   func()
+	}{
+		{"start and stop", func() {
+			animator.Start(fairy)
+			animator.Stop()
+		}},
+		{"stop without start", func() {
+			animator.Stop()
+		}},
+		{"double stop", func() {
+			animator.Start(fairy)
+			animator.Stop()
+			animator.Stop()
+		}},
+		{"double start", func() {
+			animator.Start(fairy)
+			animator.Start(fairy) // Should stop first then restart
+			animator.Stop()
+		}},
+		{"multiple cycles", func() {
+			animator.Start(fairy)
+			animator.Stop()
+			animator.Start(fairy)
+			animator.Stop()
+		}},
+	}
 
-	// Second cycle should also work without panic.
-	animator.Start(fairy)
-	animator.Stop()
-}
-
-func (s *IdleAnimatorSuite) TestStopWithoutStartDoesNotPanic() {
-	animator := character.NewIdleAnimator(s.clock)
-	s.NotPanics(func() {
-		animator.Stop()
-	}, "Stop() without Start() must not panic")
-}
-
-func (s *IdleAnimatorSuite) TestDoubleStopDoesNotPanic() {
-	fairy := character.NewFairyCharacter()
-	animator := character.NewIdleAnimator(s.clock)
-
-	animator.Start(fairy)
-	animator.Stop()
-	s.NotPanics(func() {
-		animator.Stop()
-	}, "double Stop() must not panic")
-}
-
-func (s *IdleAnimatorSuite) TestDoubleStartStopsFirst() {
-	fairy := character.NewFairyCharacter()
-	animator := character.NewIdleAnimator(s.clock)
-
-	// Double Start should stop the previous animation and restart.
-	animator.Start(fairy)
-	s.NotPanics(func() {
-		animator.Start(fairy)
-	}, "double Start() must not panic")
-	animator.Stop()
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.NotPanics(tc.fn, "lifecycle operation should not panic")
+		})
+	}
 }
 
 // --- State() returns StateIdle ---
@@ -253,7 +257,7 @@ func (s *IdleAnimatorSuite) TestIdleAnimatorImplementsStateAnimator() {
 	var _ character.StateAnimator = animator
 }
 
-// --- No goroutine leak after Stop ---
+// --- Synchronous cleanup verification ---
 
 func (s *IdleAnimatorSuite) TestStopIsSynchronous() {
 	fairy := character.NewFairyCharacter()

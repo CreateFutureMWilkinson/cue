@@ -11,6 +11,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- **Fairy movement animations not visible** — `refreshFunc` in `FairyCharacter` was a no-op, so position changes from animators (working drift, notify dart, error vibrate) never triggered a container re-layout. Now wired to `fyne.Do(container.Refresh)` with a nil-app guard for test safety. (Phase-3-Feature-024C)
+
 ### Added
 
 - **Encrypted credential storage** — AES-256-GCM encryption at rest for Slack tokens, email passwords, and calendar ICS URLs via new `internal/secret` package. Key auto-generated at `~/.cue/secret.key` (mode 0600). New `CalendarAccount` model with encrypted ICS URL persistence. `EmailAccount.PasswordEnv` renamed to `Password` (actual password, not env var name). `NewIMAPClient` accepts password directly. (Phase-4-Feature-031A)

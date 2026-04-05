@@ -54,6 +54,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 024 | Character UAT harness | Done | [Feature-024](features/phase-3/Feature-024-Character-UAT-Harness.md) |
 | 024A | Wayland thread-safety in UAT harness | Done | [Feature-024A](features/phase-3/Feature-024A-Wayland-Thread-Safety.md) |
 | 024B | Fairy refresh thread safety | Done | [Feature-024B](features/phase-3/Feature-024B-Fairy-Refresh-Thread-Safety.md) |
+| 024C | refreshFunc wiring (movement animations) | Done | [Feature-024C](features/phase-3/Feature-024C-RefreshFunc-Wiring.md) |
 | 025 | Jar rendering (SVG layers, fairy body/glow) | Done | [Feature-025](features/phase-3/Feature-025-Jar-Rendering.md) |
 | 025A | Animator wiring in FairyCharacter | Done | [Feature-025A](features/phase-3/Feature-025A-Animator-Wiring.md) |
 | 026 | Fairy idle state (breathing glow) | Done | [Feature-026](features/phase-3/Feature-026-Fairy-Idle-State.md) |

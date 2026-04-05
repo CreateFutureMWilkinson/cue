@@ -29,12 +29,13 @@ const (
 
 // MainWindow holds the Fyne application and its primary window.
 type MainWindow struct {
-	fyneApp    fyne.App
-	window     fyne.Window
-	appP       *presenter.AppPresenter
-	notifP     *presenter.NotificationPresenter
-	viewRouter *CenterViewRouter
-	notifPanel *NotificationPanel
+	fyneApp       fyne.App
+	window        fyne.Window
+	appP          *presenter.AppPresenter
+	notifP        *presenter.NotificationPresenter
+	viewRouter    *CenterViewRouter
+	notifPanel    *NotificationPanel
+	centerContent fyne.CanvasObject
 }
 
 // NewMainWindow creates the main application window with a three-column layout:
@@ -59,17 +60,29 @@ func NewMainWindow(
 	focusRail := widget.NewLabel("Focus")
 
 	// Center area (60%) — dynamically controlled by viewRouter.
-	// Currently shows character widget + activity log drawer; later will route between
-	// ViewCharacter, ViewPlan, and ViewWizard.
-	var centerPane fyne.CanvasObject
+	// Build content for each view; the router swaps between them.
+	var characterContent fyne.CanvasObject
 	if ap != nil {
 		drawer := NewActivityLogDrawer(ap)
-		centerPane = drawer.ContainerWithCharacter(characterWidget)
+		characterContent = drawer.ContainerWithCharacter(characterWidget)
 	} else if characterWidget != nil {
-		centerPane = characterWidget
+		characterContent = characterWidget
 	} else {
-		centerPane = widget.NewLabel("")
+		characterContent = widget.NewLabel("")
 	}
+	planContent := widget.NewLabel("Plan")
+	wizardContent := widget.NewLabel("Wizard")
+
+	// Map views to their content for lookup during navigation.
+	viewContents := map[CenterView]fyne.CanvasObject{
+		ViewCharacter: characterContent,
+		ViewPlan:      planContent,
+		ViewWizard:    wizardContent,
+	}
+
+	// Start with the character view.
+	currentCenterContent := characterContent
+	centerStack := container.NewStack(currentCenterContent)
 
 	// Notification panel (right 30%) — expandable from collapsed state.
 	var notifPane fyne.CanvasObject
@@ -82,7 +95,7 @@ func NewMainWindow(
 	}
 
 	// Three-column layout using nested HSplit containers.
-	innerSplit := container.NewHSplit(centerPane, notifPane)
+	innerSplit := container.NewHSplit(centerStack, notifPane)
 	innerSplit.SetOffset(innerSplitOffset)
 
 	outerSplit := container.NewHSplit(focusRail, innerSplit)
@@ -110,14 +123,34 @@ func NewMainWindow(
 		fyne.NewMenu("Cue", menuItems...),
 	))
 
-	return &MainWindow{
-		fyneApp:    fyneApp,
-		window:     win,
-		appP:       appP,
-		notifP:     np,
-		viewRouter: viewRouter,
-		notifPanel: notifPanel,
+	mw := &MainWindow{
+		fyneApp:       fyneApp,
+		window:        win,
+		appP:          appP,
+		notifP:        np,
+		viewRouter:    viewRouter,
+		notifPanel:    notifPanel,
+		centerContent: currentCenterContent,
 	}
+
+	// Register a view-change listener to swap center content on navigation.
+	// Uses AddOnViewChange to avoid overwriting FocusRail's callback.
+	if viewRouter != nil {
+		viewRouter.AddOnViewChange(func(view CenterView) {
+			if c, ok := viewContents[view]; ok {
+				centerStack.Objects = []fyne.CanvasObject{c}
+				centerStack.Refresh()
+				mw.centerContent = c
+			}
+		})
+	}
+
+	return mw
+}
+
+// CenterContent returns the canvas object currently displayed in the center column.
+func (m *MainWindow) CenterContent() fyne.CanvasObject {
+	return m.centerContent
 }
 
 // Run shows the window and starts the Fyne event loop. Blocks until quit.

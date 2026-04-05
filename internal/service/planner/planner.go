@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/calendar"
 )
 
 // BlockType represents the type of a time block in a day schedule.
@@ -114,6 +115,16 @@ func validatePlannerConfig(cfg config.PlannerConfig) error {
 		return fmt.Errorf("workday_end must be after workday_start")
 	}
 	return nil
+}
+
+// GenerateSchedules produces two candidate schedules from tasks and calendar events.
+func (p *Planner) GenerateSchedules(
+	ctx context.Context,
+	tasks []TaskEstimate,
+	events []calendar.CalendarEvent,
+	targetDate time.Time,
+) (focusMaximized *DaySchedule, recoveryBalanced *DaySchedule, err error) {
+	return nil, nil, nil
 }
 
 // TargetDate returns the date that planning should target given the current time.

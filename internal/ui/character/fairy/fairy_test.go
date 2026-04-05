@@ -409,6 +409,17 @@ func (s *FairyCharacterSuite) TestConcurrentSetMethodsDoNotPanic() {
 		"concurrent calls to SetPosition, SetBodyColor, SetGlowIntensity should not panic")
 }
 
+func (s *FairyCharacterSuite) TestRefreshFuncCalledOnSetPosition() {
+	f := fairy.NewFairyCharacter()
+	defer f.Close()
+
+	var callCount int
+	f.SetRefreshHook(func() { callCount++ })
+
+	f.SetPosition(0.3, 0.7)
+	s.Greater(callCount, 0, "refreshFunc should be called when SetPosition is invoked")
+}
+
 func (s *FairyCharacterSuite) TestConcurrentTransitions() {
 	f, _ := s.newTestFairy()
 	defer f.Close()

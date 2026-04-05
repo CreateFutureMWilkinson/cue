@@ -1,7 +1,7 @@
 # Feature 028: Fairy Notification State
 
 **Phase:** Phase-3-Feature-028
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/character/`
 
 ---
@@ -112,6 +112,6 @@ func (a *NotifyAnimator) State() CharacterState  // returns StateNotifying
 
 | TDD Cycle | Phase | Agent | Duration | Tokens | Commit |
 |---|---|---|---|---|---|
-| Notify Animator | RED | Test Designer | — | — | — |
-| Notify Animator | GREEN | Implementer | — | — | — |
-| Notify Animator | REFACTOR | Refactorer | — | — | — |
+| Notify Animator | RED | Test Designer | — | — | 4b5aae8 |
+| Notify Animator | GREEN | Implementer | — | — | 419d98d |
+| Notify Animator | REFACTOR | Refactorer | — | — | 7d53c19 |

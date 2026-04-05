@@ -13,8 +13,6 @@ import (
 // Config represents the application configuration loaded from a TOML file.
 type Config struct {
 	Database     DatabaseConfig     `toml:"database"`
-	Slack        SlackConfig        `toml:"slack"`
-	Email        EmailConfig        `toml:"email"`
 	Orchestrator OrchestratorConfig `toml:"orchestrator"`
 	Ollama       OllamaConfig       `toml:"ollama"`
 	Notification NotificationConfig `toml:"notification"`
@@ -46,22 +44,6 @@ func (p PlannerConfig) isConfigured() bool {
 
 type DatabaseConfig struct {
 	Path string `toml:"path"`
-}
-
-type SlackConfig struct {
-	Enabled             bool   `toml:"enabled"`
-	BotToken            string `toml:"bot_token"`
-	WorkspaceID         string `toml:"workspace_id"`
-	PollIntervalSeconds int    `toml:"poll_interval_seconds"`
-}
-
-type EmailConfig struct {
-	Enabled             bool   `toml:"enabled"`
-	IMAPHost            string `toml:"imap_host"`
-	IMAPPort            int    `toml:"imap_port"`
-	Username            string `toml:"username"`
-	PasswordEnv         string `toml:"password_env"`
-	PollIntervalSeconds int    `toml:"poll_interval_seconds"`
 }
 
 type OrchestratorConfig struct {
@@ -118,17 +100,6 @@ func defaultConfig() *Config {
 	return &Config{
 		Database: DatabaseConfig{
 			Path: "~/.cue/messages.db",
-		},
-		Slack: SlackConfig{
-			Enabled:             true,
-			PollIntervalSeconds: 600,
-		},
-		Email: EmailConfig{
-			Enabled:             true,
-			IMAPHost:            "imap.gmail.com",
-			IMAPPort:            993,
-			PasswordEnv:         "CUE_EMAIL_PASSWORD", // #nosec G101 -- env var name, not a credential
-			PollIntervalSeconds: 600,
 		},
 		Orchestrator: OrchestratorConfig{
 			Router: RouterConfig{
@@ -268,8 +239,6 @@ func (c *Config) Validate() error {
 		{func(cfg *Config) bool { return cfg.Ollama.Port > 0 }, "ollama.port must be greater than 0"},
 		{func(cfg *Config) bool { return cfg.Ollama.InferenceModel != "" }, "ollama.inference_model must not be empty"},
 		{func(cfg *Config) bool { return cfg.Ollama.EmbeddingModel != "" }, "ollama.embedding_model must not be empty"},
-		{func(cfg *Config) bool { return cfg.Slack.PollIntervalSeconds >= 0 }, "slack.poll_interval_seconds must not be negative"},
-		{func(cfg *Config) bool { return cfg.Email.PollIntervalSeconds >= 0 }, "email.poll_interval_seconds must not be negative"},
 		{func(cfg *Config) bool {
 			if cfg.Notification.AudioDir == "" {
 				return true

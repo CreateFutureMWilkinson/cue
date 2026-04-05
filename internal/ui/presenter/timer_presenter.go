@@ -7,6 +7,14 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/service/planner"
 )
 
+const (
+	// Timer ring has 45 segments total
+	timerRingSegments = 45
+
+	// Flash interval for 1Hz toggle (500ms on, 500ms off)
+	flashIntervalMs = 500
+)
+
 // TimerAlerter plays audio alerts when time blocks complete.
 type TimerAlerter interface {
 	PlayBlockComplete(blockType planner.BlockType)
@@ -61,17 +69,28 @@ func (tp *TimerPresenter) Tick() {
 		tp.onTick()
 	}
 
-	elapsed := tp.clock.Now().Sub(tp.block.Start)
-	duration := tp.block.End.Sub(tp.block.Start)
+	elapsed, duration := tp.getTimings()
 
 	if elapsed >= duration && !tp.alerted {
 		tp.alerted = true
-		if tp.block.Type != planner.BlockMeeting {
-			tp.alerter.PlayBlockComplete(tp.block.Type)
-		}
-		if tp.onBlockComplete != nil {
-			tp.onBlockComplete()
-		}
+		tp.handleBlockCompletion()
+	}
+}
+
+// getTimings returns the elapsed time and total duration for the current block.
+func (tp *TimerPresenter) getTimings() (elapsed, duration time.Duration) {
+	elapsed = tp.clock.Now().Sub(tp.block.Start)
+	duration = tp.block.End.Sub(tp.block.Start)
+	return elapsed, duration
+}
+
+// handleBlockCompletion fires alerts and callbacks when a block completes.
+func (tp *TimerPresenter) handleBlockCompletion() {
+	if tp.block.Type != planner.BlockMeeting {
+		tp.alerter.PlayBlockComplete(tp.block.Type)
+	}
+	if tp.onBlockComplete != nil {
+		tp.onBlockComplete()
 	}
 }
 
@@ -80,11 +99,8 @@ func (tp *TimerPresenter) ActiveSegment() int {
 	fraction := tp.ElapsedFraction()
 	// Add small epsilon before truncating to handle floating point precision
 	// loss from integer nanosecond division in time.Duration arithmetic.
-	segment := int(fraction*45 + 1e-9)
-	if segment > 44 {
-		segment = 44
-	}
-	return segment
+	segment := int(fraction*timerRingSegments + 1e-9)
+	return min(segment, timerRingSegments-1)
 }
 
 // ElapsedFraction returns the fraction of the block that has elapsed (0.0-1.0).
@@ -92,19 +108,17 @@ func (tp *TimerPresenter) ElapsedFraction() float64 {
 	if !tp.running {
 		return 0.0
 	}
-	elapsed := tp.clock.Now().Sub(tp.block.Start)
-	duration := tp.block.End.Sub(tp.block.Start)
+	elapsed, duration := tp.getTimings()
 	if duration <= 0 {
 		return 0.0
 	}
 	fraction := float64(elapsed) / float64(duration)
-	if fraction > 1.0 {
-		fraction = 1.0
-	}
-	if fraction < 0.0 {
-		fraction = 0.0
-	}
-	return fraction
+	return clampFraction(fraction)
+}
+
+// clampFraction ensures the fraction is within the valid range of 0.0-1.0.
+func clampFraction(fraction float64) float64 {
+	return max(0.0, min(1.0, fraction))
 }
 
 // IsFlashVisible returns whether the flash indicator should be visible (1Hz toggle).
@@ -114,7 +128,7 @@ func (tp *TimerPresenter) IsFlashVisible() bool {
 	}
 	elapsed := tp.clock.Now().Sub(tp.block.Start)
 	ms := elapsed.Milliseconds()
-	return (ms/500)%2 == 0
+	return (ms/flashIntervalMs)%2 == 0
 }
 
 // CurrentTaskName returns the current block's task name, or empty if not running.
@@ -147,5 +161,6 @@ func (tp *TimerPresenter) SetOnBlockComplete(fn func()) {
 
 // Duration returns the total duration of the current block.
 func (tp *TimerPresenter) Duration() time.Duration {
-	return tp.block.End.Sub(tp.block.Start)
+	_, duration := tp.getTimings()
+	return duration
 }

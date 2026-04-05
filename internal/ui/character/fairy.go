@@ -46,8 +46,9 @@ var (
 	colorError        = color.RGBA{R: 255, G: 100, B: 100, A: 255} // Light red
 	colorShuttingDown = color.RGBA{R: 150, G: 150, B: 150, A: 255} // Gray
 
-	// glowBaseAlphas stores the per-layer graduated base alpha values,
-	// from innermost (brightest) to outermost (dimmest).
+	// glowBaseAlphas stores the graduated base alpha values for each glow layer.
+	// Index 0 = innermost (brightest at 128), index 7 = outermost (dimmest at 16).
+	// Final alpha = base_alpha * glow_intensity for smooth breathing effects.
 	glowBaseAlphas = [fairyGlowLayerCount]uint8{128, 112, 96, 80, 64, 48, 32, 16}
 )
 
@@ -148,16 +149,32 @@ func (f *FairyCharacter) Name() string { return "fairy" }
 // TransitionTo changes the character's state, stops the current animator,
 // creates a new animator for the target state, and starts it.
 func (f *FairyCharacter) TransitionTo(state CharacterState) {
+	// Stop any existing animator and update to new state.
+	animator := f.stopAndUpdateState(state)
+
+	// Start the new animator if one was created.
+	if animator != nil {
+		animator.Start(f)
+	}
+}
+
+// stopAndUpdateState is a helper that stops the current animator (if any),
+// updates the character state and indicator, and creates a new animator for the target state.
+// This encapsulates the common pattern shared by TransitionTo and Shutdown.
+func (f *FairyCharacter) stopAndUpdateState(state CharacterState) StateAnimator {
+	// Phase 1: Safely extract and clear the current animator while holding the lock.
 	f.mu.Lock()
 	prev := f.currentAnimator
 	f.currentAnimator = nil
 	f.mu.Unlock()
 
-	// Stop outside the lock — animator goroutines call Set* methods that lock mu.
+	// Phase 2: Stop the previous animator outside the lock to avoid deadlock.
+	// Animator goroutines may call Set* methods that acquire the same mutex.
 	if prev != nil {
 		prev.Stop()
 	}
 
+	// Phase 3: Update state, indicator, and create the new animator while holding the lock.
 	f.mu.Lock()
 	f.state = state
 	f.indicator.FillColor = stateColor(state)
@@ -167,9 +184,7 @@ func (f *FairyCharacter) TransitionTo(state CharacterState) {
 	f.currentAnimator = animator
 	f.mu.Unlock()
 
-	if animator != nil {
-		animator.Start(f)
-	}
+	return animator
 }
 
 // createAnimatorForState creates the appropriate animator for the given state.
@@ -209,13 +224,15 @@ func (f *FairyCharacter) SetClock(c Clock) { f.clock = c }
 // DisableRefresh replaces the refresh function with a no-op (used for testing).
 func (f *FairyCharacter) DisableRefresh() { f.refreshFunc = func() {} }
 
-// Close stops the current animator and nils it out.
+// Close stops the current animator without changing the character state.
 func (f *FairyCharacter) Close() {
+	// Extract and clear the current animator while holding the lock.
 	f.mu.Lock()
 	prev := f.currentAnimator
 	f.currentAnimator = nil
 	f.mu.Unlock()
 
+	// Stop the animator outside the lock to avoid deadlock.
 	if prev != nil {
 		prev.Stop()
 	}
@@ -224,27 +241,21 @@ func (f *FairyCharacter) Close() {
 // Shutdown stops the current animator, transitions to StateShuttingDown, starts
 // a ShutdownAnimator, and returns a channel that closes when the animation completes.
 func (f *FairyCharacter) Shutdown() <-chan struct{} {
-	f.mu.Lock()
-	prev := f.currentAnimator
-	f.currentAnimator = nil
-	f.mu.Unlock()
+	// Stop any existing animator and transition to ShuttingDown.
+	animator := f.stopAndUpdateState(StateShuttingDown)
 
-	if prev != nil {
-		prev.Stop()
-	}
-
-	f.mu.Lock()
-	f.state = StateShuttingDown
-	f.indicator.FillColor = stateColor(StateShuttingDown)
-	f.indicator.Refresh()
-
-	animator := NewShutdownAnimator(f.clock)
-	f.currentAnimator = animator
-	f.mu.Unlock()
-
+	// Start the shutdown animator (guaranteed to be non-nil).
 	animator.Start(f)
 
-	return animator.Done()
+	// Return the completion channel from the shutdown animator.
+	if shutdownAnimator, ok := animator.(interface{ Done() <-chan struct{} }); ok {
+		return shutdownAnimator.Done()
+	}
+
+	// Fallback: create a closed channel if animator doesn't support Done().
+	done := make(chan struct{})
+	close(done)
+	return done
 }
 
 // Widget returns the jar container as a canvas object.

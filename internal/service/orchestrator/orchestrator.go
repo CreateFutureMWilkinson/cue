@@ -15,6 +15,11 @@ type Watcher interface {
 	Poll(ctx context.Context) ([]*repository.Message, error)
 }
 
+// Alerter plays audio alerts for notifications.
+type Alerter interface {
+	PlayNotification(ctx context.Context) error
+}
+
 // BatchRouter routes a batch of messages, assigning importance/confidence/status.
 type BatchRouter interface {
 	RouteBatch(ctx context.Context, msgs []*repository.Message) ([]*repository.Message, error)
@@ -39,6 +44,7 @@ type Orchestrator struct {
 	repo     repository.MessageRepository
 	watchers map[string]Watcher
 	eventCh  chan<- ActivityEvent
+	alerter  Alerter
 
 	cancel  context.CancelFunc
 	wg      sync.WaitGroup
@@ -47,7 +53,7 @@ type Orchestrator struct {
 }
 
 // NewOrchestrator creates a new Orchestrator, validating all required dependencies.
-func NewOrchestrator(cfg OrchestratorConfig, router BatchRouter, repo repository.MessageRepository, watchers map[string]Watcher, eventCh chan<- ActivityEvent) (*Orchestrator, error) {
+func NewOrchestrator(cfg OrchestratorConfig, router BatchRouter, repo repository.MessageRepository, watchers map[string]Watcher, eventCh chan<- ActivityEvent, alerter Alerter) (*Orchestrator, error) {
 	if router == nil {
 		return nil, fmt.Errorf("router is required")
 	}
@@ -64,6 +70,7 @@ func NewOrchestrator(cfg OrchestratorConfig, router BatchRouter, repo repository
 		repo:     repo,
 		watchers: watchers,
 		eventCh:  eventCh,
+		alerter:  alerter,
 	}, nil
 }
 
@@ -101,6 +108,12 @@ func (o *Orchestrator) PollOnce(ctx context.Context) {
 		}
 
 		o.emitEvent(name, fmt.Sprintf("Routed %d NOTIFIED, %d BUFFERED, %d IGNORED", notified, buffered, ignored), false)
+
+		if notified > 0 && o.alerter != nil {
+			if err := o.alerter.PlayNotification(ctx); err != nil {
+				o.emitEvent(name, fmt.Sprintf("alert error: %s", err.Error()), false)
+			}
+		}
 	}
 }
 

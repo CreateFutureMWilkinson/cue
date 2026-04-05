@@ -43,7 +43,15 @@ func NewSettingsView(
 		volumeSlider,
 	)
 	audioTab := container.NewTabItem("Audio", audioContent)
-	ollamaTab := container.NewTabItem("Ollama", widget.NewLabel("Ollama Settings"))
+	ollamaContent := container.NewVBox(
+		widget.NewLabel("Ollama Settings"),
+		widget.NewLabel(fmt.Sprintf("Host: %s", ollamaCfg.Host)),
+		widget.NewLabel(fmt.Sprintf("Port: %d", ollamaCfg.Port)),
+		widget.NewLabel(fmt.Sprintf("Inference Model: %s", ollamaCfg.InferenceModel)),
+		widget.NewLabel(fmt.Sprintf("Embedding Model: %s", ollamaCfg.EmbeddingModel)),
+		widget.NewLabel(fmt.Sprintf("Timeout: %ds", ollamaCfg.TimeoutSeconds)),
+	)
+	ollamaTab := container.NewTabItem("Ollama", ollamaContent)
 
 	tabs := container.NewAppTabs(slackTab, emailTab, audioTab, ollamaTab)
 

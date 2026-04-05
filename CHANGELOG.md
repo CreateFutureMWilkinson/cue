@@ -11,6 +11,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- **Automated UI testing framework** — New `internal/ui/uitest/` package with generic `FindWidget`, `RequireWidget`, `FindAll` helpers for walking Fyne widget trees in tests. New `MainWindow.Content()` method exposes window widget tree for structural assertions. 28 new tests across 6 test files covering Tier 1 (structural/widget tree) and Tier 2 (simulated interaction) verification. Foundation for all Phase 6 bugfix test coverage. (Phase-6-Feature-052)
+
 ### Changed
 
 - **Injectable Fyne dependencies** — `NewFairyCharacter()` now defaults `refreshFunc` to a no-op instead of calling `fyne.CurrentApp()`, eliminating ~50 noisy error lines in CI test output. Production callers wire the real refresh via `SetRefreshHook(fyne.Do(...))`. `NewMainWindow` now accepts `fyne.App` as an injected first parameter, replacing the package-level `newFyneApp` factory and `export_test.go` init hook. `DisableRefresh()` deprecated. (Phase-1-Feature-011A)

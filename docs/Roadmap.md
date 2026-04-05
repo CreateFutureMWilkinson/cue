@@ -102,7 +102,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 
 | # | Component | Type | Severity | Status | Depends on | Doc |
 |---|---|---|---|---|---|---|
-| 052 | Automated UI testing framework | Enhancement | — | Planned | — | [Feature-052](features/phase-6/Feature-052-Automated-UI-Testing.md) |
+| 052 | Automated UI testing framework | Enhancement | — | Done | — | [Feature-052](features/phase-6/Feature-052-Automated-UI-Testing.md) |
 | 053 | Email mention detection never triggers IS=8 | Bugfix | Critical | Planned | — | [Feature-053](features/phase-6/Feature-053-Email-Mention-Detection.md) |
 | 054 | Audio alerts never fire on NOTIFIED | Bugfix | Critical | Planned | — | [Feature-054](features/phase-6/Feature-054-Audio-Alert-Wiring.md) |
 | 055 | Focus rail is placeholder label | Bugfix | High | Planned | 052 | [Feature-055](features/phase-6/Feature-055-Focus-Rail-Wiring.md) |

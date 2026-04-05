@@ -303,3 +303,12 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-1-Feature-011A | RED | Test Designer | ~48s | ~25,000 | 8e16851 |
 | Phase-1-Feature-011A | GREEN | Implementer | ~61s | ~27,000 | 0c9fa15 |
 | Phase-1-Feature-011A | REFACTOR | Refactorer | ~54s | ~31,000 | (no changes) |
+| Phase-6-Feature-052 (helpers) | RED | Test Designer | ~69s | ~28,000 | 042262a |
+| Phase-6-Feature-052 (helpers) | GREEN | Implementer | ~44s | ~24,000 | d9fbe80 |
+| Phase-6-Feature-052 (helpers) | REFACTOR | Refactorer | ~78s | ~25,000 | fc68535 |
+| Phase-6-Feature-052 (composition) | RED | Test Designer | ~698s | ~29,000 | 26ac1da |
+| Phase-6-Feature-052 (composition) | GREEN | orchestrator | — | — | edce20b |
+| Phase-6-Feature-052 (view-content) | — | Test Designer | ~86s | ~37,000 | 34fc8c0 |
+| Phase-6-Feature-052 (navigation) | — | Test Designer | ~54s | ~33,000 | b0c3c21 |
+| Phase-6-Feature-052 (notification) | — | Test Designer | ~45s | ~26,000 | fe80e07 |
+| Phase-6-Feature-052 (settings) | — | Test Designer | ~693s | ~27,000 | ae2afad |

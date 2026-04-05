@@ -102,7 +102,7 @@ func run() error {
 		},
 		alert.NewBeeepBeeper(),
 		&osFileSystem{},
-		alert.NewBeepPlayer(),
+		alert.NewBeepPlayer(cfg.Notification.AudioDir),
 	)
 	if err != nil {
 		return fmt.Errorf("creating alert service: %w", err)

@@ -38,7 +38,13 @@ func (s *SettingsInteractionSuite) SetupTest() {
 	factory := func(_ string, _ uuid.UUID) error { return nil }
 	ssp := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
 
-	s.sv = ui.NewSettingsView(sp, ssp, config.OllamaConfig{})
+	s.sv = ui.NewSettingsView(sp, ssp, config.OllamaConfig{
+		Host:           "localhost",
+		Port:           11434,
+		InferenceModel: "neural-chat",
+		EmbeddingModel: "nomic-embed-text",
+		TimeoutSeconds: 10,
+	})
 }
 
 func (s *SettingsInteractionSuite) TestSettingsViewContainsAppTabs() {
@@ -132,6 +138,27 @@ func (s *SettingsInteractionSuite) TestAudioSliderOnChangedUpdatesVolumeLabel() 
 
 	s.Equal("Notification Volume: 75%", lbl.Text,
 		"volume label should reflect the new slider value")
+}
+
+func (s *SettingsInteractionSuite) TestOllamaTabDisplaysConfigFields() {
+	root := s.sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	s.Require().Greater(len(tabs.Items), 3, "should have at least 4 tabs (Ollama is index 3)")
+	ollamaContent := tabs.Items[3].Content
+
+	_, foundHost := uitest.FindWidget[*widget.Label](ollamaContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "localhost")
+	})
+	s.True(foundHost, "Ollama tab should contain a label with the configured host 'localhost'")
+
+	_, foundModel := uitest.FindWidget[*widget.Label](ollamaContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "neural-chat")
+	})
+	s.True(foundModel, "Ollama tab should contain a label with the configured inference model 'neural-chat'")
 }
 
 func (s *SettingsInteractionSuite) TestAudioSliderOnChangedCallsPresenterSetVolume() {

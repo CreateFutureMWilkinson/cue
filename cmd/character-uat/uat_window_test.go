@@ -89,6 +89,22 @@ func (s *UATWindowSuite) TestCharacterSwapResetsToInitialState() {
 		"newly created character after swap should start in StateStarting")
 }
 
+func (s *UATWindowSuite) TestProductionFairyWiresRefreshHook() {
+	// The SetupTest registers fairy the same way production callers do.
+	// Production callers MUST wire SetRefreshHook in the factory so the
+	// fairy actually refreshes visually. This test verifies that the
+	// standard registration (shared with cmd/cue and cmd/cue-uat) produces
+	// a fairy whose refreshFunc is NOT the default no-op.
+	ch, err := character.Create("fairy")
+	s.Require().NoError(err)
+
+	fc, ok := ch.(*fairy.FairyCharacter)
+	s.Require().True(ok, "created character should be *fairy.FairyCharacter")
+
+	s.False(fc.IsNoopRefresh(),
+		"production fairy registration must wire SetRefreshHook so IsNoopRefresh returns false")
+}
+
 func (s *UATWindowSuite) TestCharacterPanelFillsSpace() {
 	ch, err := character.Create("fairy")
 	s.Require().NoError(err)

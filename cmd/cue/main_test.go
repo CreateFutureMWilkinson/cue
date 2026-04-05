@@ -12,14 +12,14 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/service/vector"
 )
 
-// mockVectorQuerier implements vector.VectorQuerier for testing.
+// mockVectorQuerier is a minimal implementation of vector.VectorQuerier for testing buildVectorAdvisor.
 type mockVectorQuerier struct{}
 
 func (m *mockVectorQuerier) QuerySimilar(_ context.Context, _ string, _ int) ([]vector.SimilarResult, error) {
 	return nil, nil
 }
 
-// mockMessageQuerier implements decisionengine.MessageQuerier for testing.
+// mockMessageQuerier is a minimal implementation of decisionengine.MessageQuerier for testing buildVectorAdvisor.
 type mockMessageQuerier struct{}
 
 func (m *mockMessageQuerier) QueryByID(_ context.Context, _ uuid.UUID) (*repository.Message, error) {

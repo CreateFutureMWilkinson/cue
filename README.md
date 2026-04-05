@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–3 complete. Phase 4 (Dynamic Service Config + Settings UI) in progress — Features 031–039 (ServiceConfig interface + SQLite implementation + watcher config decoupling + dynamic watcher management + TOML config slimming + settings presenter + settings UI + main wiring + Ollama model validation) done. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–3 complete. Phase 4 (Dynamic Service Config + Settings UI) in progress — Features 031–040 (ServiceConfig interface + SQLite implementation + watcher config decoupling + dynamic watcher management + TOML config slimming + settings presenter + settings UI + main wiring + Ollama model validation + example config generation CLI) done. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 
@@ -43,7 +43,7 @@ just test
 
 ## Configuration
 
-Cue uses TOML configuration at `~/.cue/config.toml`. A default config is created on first run. See [CLAUDE.md](.claude/CLAUDE.md) Section 6 for the full schema.
+Cue uses TOML configuration at `~/.cue/config.toml`. A default config is created on first run. Generate an annotated example with `cue config example`. See [CLAUDE.md](.claude/CLAUDE.md) Section 6 for the full schema.
 
 ## Architecture
 

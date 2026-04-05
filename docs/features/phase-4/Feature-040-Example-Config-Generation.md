@@ -1,7 +1,7 @@
 # Feature 040: Example Config Generation
 
 **Phase:** Phase-4-Feature-040
-**Status:** Planned
+**Status:** Done
 **Package:** `internal/config/`, `cmd/cue/`
 **Depends on:** Feature 035 (TOML Config Slimming — so the generated example reflects the final config shape)
 
@@ -238,3 +238,11 @@ This function lives in the config package so it can be tested independently of t
 | `internal/config/example.go` | **New** — ExampleTOML() function with annotated template |
 | `internal/config/example_test.go` | **New** — validity and content tests |
 | `cmd/cue/main.go` | Modify — register `config example` CLI command |
+
+## TDD Agent Stats
+
+| Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | Test Designer | ~47s | ~27,100 | ea6de7f |
+| GREEN | Implementer | ~42s | ~30,700 | d741622 |
+| REFACTOR | Refactorer | ~35s | ~24,500 | (merged into GREEN) |

@@ -371,3 +371,144 @@ func (s *NotificationPresenterSuite) TestResolveUpdaterErrorPropagates() {
 	s.Error(err)
 	s.Contains(err.Error(), "update failed")
 }
+
+// --- Expand/Collapse + Dismiss Suite ---
+
+type NotificationPresenterExpandSuite struct {
+	suite.Suite
+	querier   *mockMessageQuerier
+	updater   *mockMessageUpdater
+	presenter *presenter.NotificationPresenter
+}
+
+func TestNotificationPresenterExpand(t *testing.T) {
+	suite.Run(t, new(NotificationPresenterExpandSuite))
+}
+
+func (s *NotificationPresenterExpandSuite) SetupTest() {
+	s.querier = &mockMessageQuerier{}
+	s.updater = &mockMessageUpdater{}
+	p, err := presenter.NewNotificationPresenter(s.querier, s.updater)
+	s.Require().NoError(err)
+	s.presenter = p
+}
+
+func (s *NotificationPresenterExpandSuite) TestDefaultIsCollapsed() {
+	s.False(s.presenter.IsExpanded())
+}
+
+func (s *NotificationPresenterExpandSuite) TestToggleExpands() {
+	s.presenter.ToggleExpanded()
+	s.True(s.presenter.IsExpanded())
+}
+
+func (s *NotificationPresenterExpandSuite) TestToggleCollapses() {
+	s.presenter.ToggleExpanded() // expand
+	s.presenter.ToggleExpanded() // collapse
+	s.False(s.presenter.IsExpanded())
+}
+
+func (s *NotificationPresenterExpandSuite) TestExpandedChangeCallbackFires() {
+	var callbackValues []bool
+	s.presenter.SetOnExpandedChange(func(expanded bool) {
+		callbackValues = append(callbackValues, expanded)
+	})
+
+	s.presenter.ToggleExpanded() // expand -> callback(true)
+	s.presenter.ToggleExpanded() // collapse -> callback(false)
+
+	s.Require().Len(callbackValues, 2)
+	s.True(callbackValues[0])
+	s.False(callbackValues[1])
+}
+
+func (s *NotificationPresenterExpandSuite) TestDismissMarksResolved() {
+	msgID := uuid.New()
+	s.querier.messages = []*repository.Message{
+		{
+			ID:         msgID,
+			Source:     "slack",
+			Sender:     "alice",
+			Channel:    "general",
+			RawContent: "important message",
+			CreatedAt:  time.Now(),
+			Status:     "Notified",
+		},
+	}
+
+	err := s.presenter.Refresh(context.Background())
+	s.Require().NoError(err)
+
+	err = s.presenter.DismissMessage(context.Background(), msgID)
+	s.Require().NoError(err)
+
+	s.True(s.updater.called)
+	s.Equal("Resolved", s.updater.updated.Status)
+	s.NotNil(s.updater.updated.ResolvedAt)
+}
+
+func (s *NotificationPresenterExpandSuite) TestDismissRemovesFromList() {
+	msgID := uuid.New()
+	s.querier.messages = []*repository.Message{
+		{
+			ID:         msgID,
+			Source:     "slack",
+			Sender:     "alice",
+			Channel:    "general",
+			RawContent: "important message",
+			CreatedAt:  time.Now(),
+			Status:     "Notified",
+		},
+	}
+
+	err := s.presenter.Refresh(context.Background())
+	s.Require().NoError(err)
+	s.Require().Len(s.presenter.Messages(), 1)
+
+	err = s.presenter.DismissMessage(context.Background(), msgID)
+	s.Require().NoError(err)
+
+	s.Empty(s.presenter.Messages())
+}
+
+func (s *NotificationPresenterExpandSuite) TestDismissUnknownIDReturnsError() {
+	s.querier.messages = []*repository.Message{
+		{
+			ID:        uuid.New(),
+			Source:    "slack",
+			Sender:    "alice",
+			Channel:   "general",
+			CreatedAt: time.Now(),
+			Status:    "Notified",
+		},
+	}
+
+	err := s.presenter.Refresh(context.Background())
+	s.Require().NoError(err)
+
+	unknownID := uuid.New()
+	err = s.presenter.DismissMessage(context.Background(), unknownID)
+	s.Error(err)
+}
+
+func (s *NotificationPresenterExpandSuite) TestDismissUpdaterErrorPropagates() {
+	msgID := uuid.New()
+	s.querier.messages = []*repository.Message{
+		{
+			ID:        msgID,
+			Source:    "slack",
+			Sender:    "alice",
+			Channel:   "general",
+			CreatedAt: time.Now(),
+			Status:    "Notified",
+		},
+	}
+	s.updater.err = errors.New("dismiss update failed")
+
+	err := s.presenter.Refresh(context.Background())
+	s.Require().NoError(err)
+
+	err = s.presenter.DismissMessage(context.Background(), msgID)
+	s.Error(err)
+	s.Contains(err.Error(), "dismiss update failed")
+}

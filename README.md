@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–5 complete. Phase 6 (The Big Clean — bugfixes + test infrastructure) in progress. Recent: Feature 056 Plan/Wizard view wiring fix (PlannerView and WizardView now wired into MainWindow center column, replacing placeholder labels). See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–5 complete. Phase 6 (The Big Clean — bugfixes + test infrastructure) in progress. Recent: Feature 057 Notification card color rendering fix (notification panel now renders color-coded cards with importance-tier colors, expand/collapse toggle, and per-card dismiss buttons). See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 

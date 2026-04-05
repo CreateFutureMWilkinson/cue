@@ -8,6 +8,21 @@ import (
 	"fyne.io/fyne/v2/container"
 )
 
+const (
+	// fairyIndicatorSize is the diameter of the state indicator circle.
+	fairyIndicatorSize = 40
+)
+
+var (
+	// State colors for the fairy character indicator.
+	colorIdle         = color.RGBA{R: 200, G: 200, B: 255, A: 255} // Light blue
+	colorStarting     = color.RGBA{R: 255, G: 255, B: 200, A: 255} // Light yellow
+	colorWorking      = color.RGBA{R: 200, G: 255, B: 200, A: 255} // Light green
+	colorNotifying    = color.RGBA{R: 255, G: 200, B: 100, A: 255} // Orange
+	colorError        = color.RGBA{R: 255, G: 100, B: 100, A: 255} // Light red
+	colorShuttingDown = color.RGBA{R: 150, G: 150, B: 150, A: 255} // Gray
+)
+
 // FairyCharacter is a character implementation that uses colored circles to
 // represent each state visually.
 type FairyCharacter struct {
@@ -19,7 +34,7 @@ type FairyCharacter struct {
 // NewFairyCharacter creates a new FairyCharacter in the Idle state.
 func NewFairyCharacter() *FairyCharacter {
 	indicator := canvas.NewCircle(stateColor(StateIdle))
-	indicator.Resize(fyne.NewSize(40, 40))
+	indicator.Resize(fyne.NewSize(fairyIndicatorSize, fairyIndicatorSize))
 	c := container.NewWithoutLayout(indicator)
 	return &FairyCharacter{
 		state:     StateIdle,
@@ -43,18 +58,18 @@ func (f *FairyCharacter) Widget() fyne.CanvasObject { return f.container }
 func stateColor(s CharacterState) color.Color {
 	switch s {
 	case StateIdle:
-		return color.RGBA{R: 200, G: 200, B: 255, A: 255}
+		return colorIdle
 	case StateStarting:
-		return color.RGBA{R: 255, G: 255, B: 200, A: 255}
+		return colorStarting
 	case StateWorking:
-		return color.RGBA{R: 200, G: 255, B: 200, A: 255}
+		return colorWorking
 	case StateNotifying:
-		return color.RGBA{R: 255, G: 200, B: 100, A: 255}
+		return colorNotifying
 	case StateError:
-		return color.RGBA{R: 255, G: 100, B: 100, A: 255}
+		return colorError
 	case StateShuttingDown:
-		return color.RGBA{R: 150, G: 150, B: 150, A: 255}
+		return colorShuttingDown
 	default:
-		return color.RGBA{R: 200, G: 200, B: 255, A: 255}
+		return colorIdle
 	}
 }

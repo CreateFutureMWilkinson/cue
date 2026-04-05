@@ -50,7 +50,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 27 | Fairy working state (pseudo-random drift) | Done |
 | 28 | Fairy notification state (erratic dart) | Done |
 | 29 | Fairy error state (centered vibrate) | Done |
-| 30 | Fairy lifecycle states (startup/shutdown) | Planned |
+| 30 | Fairy lifecycle states (startup/shutdown) | Done |
 
 **Hotfixes**
 

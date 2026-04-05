@@ -153,3 +153,9 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-3-Feature-029 | RED | Test Designer | 97s | 38,911 | 6d6536d |
 | Phase-3-Feature-029 | GREEN | Implementer | 85s | 33,064 | 0d3f4cd |
 | Phase-3-Feature-029 | REFACTOR | Refactorer | 103s | 39,111 | 5fb31f2 |
+| Phase-3-Feature-030 (startup) | RED | Test Designer | 130s | 45,002 | 7d6fa76 |
+| Phase-3-Feature-030 (startup) | GREEN | Implementer | 109s | 48,119 | 3e9ce99 |
+| Phase-3-Feature-030 (startup) | REFACTOR | Refactorer | 53s | 28,673 | f8a3e8e |
+| Phase-3-Feature-030 (shutdown) | RED | Test Designer | 110s | 39,156 | 158cc2c |
+| Phase-3-Feature-030 (shutdown) | GREEN | Implementer | 59s | 38,979 | fe8b8c5 |
+| Phase-3-Feature-030 (shutdown) | REFACTOR | Refactorer | 67s | 24,901 | 69482bc |

@@ -22,7 +22,9 @@ func TestUATWindow(t *testing.T) {
 func (s *UATWindowSuite) SetupTest() {
 	character.ResetRegistry()
 	character.Register("fairy", func() character.Character {
-		return fairy.NewFairyCharacter()
+		f := fairy.NewFairyCharacter()
+		f.SetRefreshHook(func() {}) // test-safe no-op hook (not fyne.Do)
+		return f
 	})
 }
 

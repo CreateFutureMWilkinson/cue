@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 
 	characteruat "github.com/CreateFutureMWilkinson/cue/cmd/character-uat"
@@ -10,7 +11,11 @@ import (
 
 func init() {
 	character.Register("fairy", func() character.Character {
-		return fairy.NewFairyCharacter()
+		f := fairy.NewFairyCharacter()
+		f.SetRefreshHook(func() {
+			fyne.Do(func() { f.Widget().Refresh() })
+		})
+		return f
 	})
 }
 

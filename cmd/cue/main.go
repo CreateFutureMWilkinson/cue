@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"fyne.io/fyne/v2"
 	"github.com/google/uuid"
 	chromem "github.com/rengensheng/chromem-go"
 	"github.com/urfave/cli/v3"
@@ -288,7 +289,11 @@ func run() error {
 
 	// Create character from config, with fallback to "none".
 	character.Register("fairy", func() character.Character {
-		return fairy.NewFairyCharacter()
+		f := fairy.NewFairyCharacter()
+		f.SetRefreshHook(func() {
+			fyne.Do(func() { f.Widget().Refresh() })
+		})
+		return f
 	})
 	charName := cfg.GUI.Character
 	char, charErr := character.Create(charName)

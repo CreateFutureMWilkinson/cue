@@ -3,10 +3,14 @@ package ui_test
 import (
 	"testing"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/uitest"
 )
 
 // NavigationInteractionSuite contains Tier 2 interaction tests that verify
@@ -71,4 +75,33 @@ func (s *NavigationInteractionSuite) TestTapPlanThenBackRoundTrip() {
 	test.Tap(s.rail.BackButton())
 	s.Equal(ui.ViewCharacter, s.router.CurrentView(),
 		"after tapping Back, router should return to ViewCharacter")
+}
+
+// TestWiredFocusRailPlanButtonNavigates verifies that the Plan button embedded
+// in the MainWindow's left column (via FocusRail wiring) navigates the shared
+// CenterViewRouter to ViewPlan when tapped. This is a Tier 2 integration test
+// exercising the full composition path: MainWindow → FocusRail → button tap →
+// CenterViewRouter navigation.
+func (s *NavigationInteractionSuite) TestWiredFocusRailPlanButtonNavigates() {
+	fyneApp := test.NewApp()
+	router := ui.NewCenterViewRouter()
+	mw := newTestMainWindow(fyneApp, router)
+
+	// Dig into MainWindow content: outerSplit.Leading is the FocusRail VBox.
+	outerSplit, ok := mw.Content().(*container.Split)
+	s.Require().True(ok, "MainWindow content should be *container.Split, got %T", mw.Content())
+
+	leftCol, ok := outerSplit.Leading.(*fyne.Container)
+	s.Require().True(ok, "outer split Leading should be *fyne.Container (FocusRail), got %T", outerSplit.Leading)
+
+	// Find the Plan button in the FocusRail container tree.
+	planBtn := uitest.RequireWidget[*widget.Button](s.T(), leftCol, func(b *widget.Button) bool {
+		return b.Text == "Plan"
+	})
+
+	// Tap the Plan button and verify navigation.
+	planBtn.OnTapped()
+
+	s.Equal(ui.ViewPlan, router.CurrentView(),
+		"tapping the wired Plan button in MainWindow should navigate router to ViewPlan")
 }

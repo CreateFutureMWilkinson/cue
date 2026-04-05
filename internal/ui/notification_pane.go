@@ -153,5 +153,26 @@ func (p *NotificationPanel) RenderCard(index int) fyne.CanvasObject {
 
 // RenderExpandedCard returns the rendered expanded card widget for the notification at the given index.
 func (p *NotificationPanel) RenderExpandedCard(index int) fyne.CanvasObject {
-	return nil
+	cards := p.presenter.Cards()
+	if index < 0 || index >= len(cards) {
+		return nil
+	}
+	card := cards[index]
+
+	bg := canvas.NewRectangle(card.CardColor)
+	badgeLabel := widget.NewLabel(fmt.Sprintf("[%.1f]", card.ImportanceScore))
+	sourceLabel := widget.NewLabel(card.Source)
+	channelLabel := widget.NewLabel(card.Channel)
+	senderLabel := widget.NewLabel(card.Sender)
+	timeLabel := widget.NewLabel(card.RelativeTime)
+	dismissBtn := widget.NewButton("Dismiss", func() {
+		_ = p.presenter.DismissMessage(context.Background(), card.ID)
+	})
+
+	previewLabel := widget.NewLabel(card.FullContent)
+	previewLabel.Wrapping = fyne.TextWrapWord
+
+	row1 := container.NewHBox(badgeLabel, sourceLabel, channelLabel, senderLabel, timeLabel, dismissBtn)
+	content := container.NewVBox(row1, previewLabel)
+	return container.NewStack(bg, content)
 }

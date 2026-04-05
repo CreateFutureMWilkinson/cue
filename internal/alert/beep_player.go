@@ -61,8 +61,17 @@ func NewBeepPlayer() *BeepPlayer {
 }
 
 // MapVolume converts a 0-100 integer volume to a beep volume value and silent flag.
-// Volume 0 or negative returns silent. Volume >= 100 returns 0.0 (full volume).
-// Values in between are mapped via log2(volume/100).
+//
+// Volume mapping:
+//   - 0 or negative: silent (muted)
+//   - 100 or higher: 0.0 (full volume, no attenuation)
+//   - 1-99: logarithmic scaling using log2(volume/100)
+//
+// The logarithmic formula provides more natural volume perception, where:
+//   - volume=50 → log2(0.5) ≈ -1.0 dB (half perceived loudness)
+//   - volume=25 → log2(0.25) = -2.0 dB (quarter perceived loudness)
+//
+// This matches human hearing characteristics better than linear scaling.
 func MapVolume(volume int) (beepVol float64, silent bool) {
 	if volume <= 0 {
 		return 0, true
@@ -75,10 +84,29 @@ func MapVolume(volume int) (beepVol float64, silent bool) {
 
 // PlayFile plays an audio file at the given volume (0-100).
 func (p *BeepPlayer) PlayFile(path string, volume int) error {
+	streamer, format, err := p.decodeAudioFile(path)
+	if err != nil {
+		return fmt.Errorf("decoding audio file %q: %w", path, err)
+	}
+	defer streamer.Close()
+
+	if err := p.ensureSpeakerInitialized(format); err != nil {
+		return fmt.Errorf("ensuring speaker initialized: %w", err)
+	}
+
+	volumeStreamer := p.createVolumeStreamer(streamer, format, volume)
+	SpeakerPlayFn(volumeStreamer)
+
+	return nil
+}
+
+// decodeAudioFile opens and decodes an audio file, returning the streamer and format.
+func (p *BeepPlayer) decodeAudioFile(path string) (beep.StreamSeekCloser, beep.Format, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return fmt.Errorf("opening audio file: %w", err)
+		return nil, beep.Format{}, fmt.Errorf("opening file: %w", err)
 	}
+	defer f.Close()
 
 	ext := strings.ToLower(filepath.Ext(path))
 	var streamer beep.StreamSeekCloser
@@ -92,36 +120,37 @@ func (p *BeepPlayer) PlayFile(path string, volume int) error {
 	case ".ogg":
 		streamer, format, err = DecodeVorbisFn(f)
 	default:
-		f.Close()
-		return fmt.Errorf("unsupported audio format: %s", ext)
+		return nil, beep.Format{}, fmt.Errorf("unsupported audio format: %s", ext)
 	}
-	if err != nil {
-		return fmt.Errorf("decoding %s: %w", ext, err)
-	}
-	defer streamer.Close()
 
+	if err != nil {
+		return nil, beep.Format{}, fmt.Errorf("decoding %s file: %w", ext, err)
+	}
+
+	return streamer, format, nil
+}
+
+// ensureSpeakerInitialized initializes the speaker using sync.Once if not already done.
+func (p *BeepPlayer) ensureSpeakerInitialized(format beep.Format) error {
 	p.initOnce.Do(func() {
 		p.sampleRate = format.SampleRate
 		p.initErr = SpeakerInitFn(format.SampleRate, format.SampleRate.N(time.Second/10))
 	})
-	if p.initErr != nil {
-		return fmt.Errorf("initializing speaker: %w", p.initErr)
-	}
+	return p.initErr
+}
 
+// createVolumeStreamer creates a volume-controlled streamer with optional resampling.
+func (p *BeepPlayer) createVolumeStreamer(streamer beep.StreamSeekCloser, format beep.Format, volume int) beep.Streamer {
 	var s beep.Streamer = streamer
 	if format.SampleRate != p.sampleRate {
 		s = beep.Resample(4, format.SampleRate, p.sampleRate, streamer)
 	}
 
 	beepVol, silent := MapVolume(volume)
-	volumeS := &effects.Volume{
+	return &effects.Volume{
 		Streamer: s,
 		Base:     2,
 		Volume:   beepVol,
 		Silent:   silent,
 	}
-
-	SpeakerPlayFn(volumeS)
-
-	return nil
 }

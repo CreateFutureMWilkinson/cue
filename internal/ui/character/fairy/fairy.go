@@ -314,7 +314,7 @@ func (f *FairyCharacter) JarFront() *canvas.Image { return f.jarFront }
 // LayoutRefreshCount returns how many times the layout has called Refresh on jar images.
 func (f *FairyCharacter) LayoutRefreshCount() int { return f.layoutRefreshCount }
 
-// newGlowCircle creates a new glow circle with the default idle color and given alpha.
+// newGlowCircle creates a new glow circle with the default glow color and given alpha.
 func newGlowCircle(alpha uint8) *canvas.Circle {
-	return canvas.NewCircle(color.RGBA{R: 0x00, G: 0xFF, B: 0x00, A: alpha})
+	return canvas.NewCircle(color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: alpha})
 }

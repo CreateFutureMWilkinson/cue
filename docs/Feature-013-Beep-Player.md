@@ -1,6 +1,6 @@
-# Feature 13: gopxl/beep AudioPlayer Integration
+# Feature 013: gopxl/beep AudioPlayer Integration
 
-**Phase:** Phase-1-Feature-13 (amendment)
+**Phase:** Phase-1-Feature-013 (amendment)
 **Status:** Done
 **Package:** `internal/alert/`
 

@@ -1,6 +1,6 @@
-# Feature 12: Configurable Audio Alerts
+# Feature 012: Configurable Audio Alerts
 
-**Phase:** Phase-1-Feature-12 (amendment)
+**Phase:** Phase-1-Feature-012 (amendment)
 **Status:** Done
 **Packages:** `internal/alert/`, `internal/config/`, `internal/ui/presenter/`, `internal/ui/`, `cmd/cue/`
 

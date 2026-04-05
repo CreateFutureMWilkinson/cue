@@ -1,6 +1,6 @@
-# Feature 6: Email Watcher
+# Feature 006: Email Watcher
 
-**Phase:** Phase-1-Feature-6
+**Phase:** Phase-1-Feature-006
 **Status:** Done
 **Package:** `internal/service/watcher/`
 

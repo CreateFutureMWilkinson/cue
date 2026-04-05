@@ -1,6 +1,6 @@
-# Feature 9: Feedback Buffer Service
+# Feature 009: Feedback Buffer Service
 
-**Phase:** Phase-1-Feature-9
+**Phase:** Phase-1-Feature-009
 **Status:** Done
 **Package:** `internal/service/buffer/`
 

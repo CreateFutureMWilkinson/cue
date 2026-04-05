@@ -1,6 +1,6 @@
-# Feature 4: Ollama Client + Scoring
+# Feature 004: Ollama Client + Scoring
 
-**Phase:** Phase-1-Feature-4
+**Phase:** Phase-1-Feature-004
 **Status:** Done
 **Package:** `internal/service/decisionengine/`
 

@@ -1,6 +1,6 @@
-# Feature 5: Slack Watcher
+# Feature 005: Slack Watcher
 
-**Phase:** Phase-1-Feature-5
+**Phase:** Phase-1-Feature-005
 **Status:** Done
 **Package:** `internal/service/watcher/`
 

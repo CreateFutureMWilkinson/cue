@@ -1,6 +1,6 @@
-# Feature 14: Character Animation System
+# Feature 014: Character Animation System
 
-**Phase:** Phase-3-Feature-14
+**Phase:** Phase-3-Feature-014
 **Status:** Done
 **Packages:** `internal/ui/character/`, `internal/ui/presenter/`, `internal/config/`, `cmd/cue/`
 

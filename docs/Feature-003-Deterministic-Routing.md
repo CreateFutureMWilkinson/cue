@@ -1,6 +1,6 @@
-# Feature 3: Deterministic Routing Rules
+# Feature 003: Deterministic Routing Rules
 
-**Phase:** Phase-1-Feature-3
+**Phase:** Phase-1-Feature-003
 **Status:** Done
 **Package:** `internal/service/decisionengine/`
 

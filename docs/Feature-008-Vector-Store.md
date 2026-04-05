@@ -1,6 +1,6 @@
-# Feature 8: Vector Store with Cosine Similarity
+# Feature 008: Vector Store with Cosine Similarity
 
-**Phase:** Phase-1-Feature-8
+**Phase:** Phase-1-Feature-008
 **Status:** Done
 **Package:** `internal/service/vector/`
 

@@ -1,6 +1,6 @@
-# Feature 7: Router Orchestration
+# Feature 007: Router Orchestration
 
-**Phase:** Phase-1-Feature-7
+**Phase:** Phase-1-Feature-007
 **Status:** Done
 **Package:** `internal/service/orchestrator/`
 

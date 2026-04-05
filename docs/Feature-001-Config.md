@@ -1,6 +1,6 @@
-# Feature 1: Config Loading + Validation
+# Feature 001: Config Loading + Validation
 
-**Phase:** Phase-1-Feature-1
+**Phase:** Phase-1-Feature-001
 **Status:** Done
 **Package:** `internal/config/`
 

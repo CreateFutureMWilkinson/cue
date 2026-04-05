@@ -1,6 +1,6 @@
-# Feature 11: Fyne GUI
+# Feature 011: Fyne GUI
 
-**Phase:** Phase-1-Feature-11
+**Phase:** Phase-1-Feature-011
 **Status:** Done
 **Packages:** `internal/ui/`, `internal/ui/presenter/`, `cmd/cue/`
 

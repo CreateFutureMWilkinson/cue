@@ -1,6 +1,6 @@
-# Feature 10: Audio Alerts
+# Feature 010: Audio Alerts
 
-**Phase:** Phase-1-Feature-10
+**Phase:** Phase-1-Feature-010
 **Status:** Done
 **Package:** `internal/alert/`
 

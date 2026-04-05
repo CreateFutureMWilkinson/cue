@@ -1,6 +1,6 @@
-# Feature 2: SQLite Message Repository
+# Feature 002: SQLite Message Repository
 
-**Phase:** Phase-1-Feature-2
+**Phase:** Phase-1-Feature-002
 **Status:** Done
 **Package:** `internal/repository/` (interface), `internal/repository/implementation/sqlite/` (implementation)
 

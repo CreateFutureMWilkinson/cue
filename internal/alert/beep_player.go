@@ -56,8 +56,10 @@ type BeepPlayer struct {
 	initErr    error
 }
 
-// NewBeepPlayer creates a new BeepPlayer. An optional audioDir argument scopes
-// file access to that directory using os.OpenRoot (Go 1.24+).
+// NewBeepPlayer creates a new BeepPlayer.
+//
+// If audioDir is provided, file access is scoped to that directory using os.OpenRoot (Go 1.24+).
+// If no audioDir is provided, files are opened directly using os.Open.
 func NewBeepPlayer(audioDir ...string) *BeepPlayer {
 	p := &BeepPlayer{}
 	if len(audioDir) > 0 {
@@ -108,24 +110,9 @@ func (p *BeepPlayer) PlayFile(path string, volume int) error {
 
 // decodeAudioFile opens and decodes an audio file, returning the streamer and format.
 func (p *BeepPlayer) decodeAudioFile(path string) (beep.StreamSeekCloser, beep.Format, error) {
-	var f *os.File
-	var err error
-
-	if p.audioDir != "" {
-		root, rootErr := os.OpenRoot(p.audioDir)
-		if rootErr != nil {
-			return nil, beep.Format{}, fmt.Errorf("opening root directory: %w", rootErr)
-		}
-		defer root.Close()
-		f, err = root.Open(path)
-		if err != nil {
-			return nil, beep.Format{}, fmt.Errorf("path outside root directory: %w", err)
-		}
-	} else {
-		f, err = os.Open(path)
-	}
+	f, err := p.openAudioFile(path)
 	if err != nil {
-		return nil, beep.Format{}, fmt.Errorf("opening file: %w", err)
+		return nil, beep.Format{}, err
 	}
 	defer f.Close()
 
@@ -149,6 +136,38 @@ func (p *BeepPlayer) decodeAudioFile(path string) (beep.StreamSeekCloser, beep.F
 	}
 
 	return streamer, format, nil
+}
+
+// openAudioFile opens an audio file, using scoped access if audioDir is configured.
+func (p *BeepPlayer) openAudioFile(path string) (*os.File, error) {
+	if p.audioDir != "" {
+		return p.openWithRootDir(path)
+	}
+	return p.openDirect(path)
+}
+
+// openWithRootDir opens a file using os.OpenRoot for scoped access.
+func (p *BeepPlayer) openWithRootDir(path string) (*os.File, error) {
+	root, err := os.OpenRoot(p.audioDir)
+	if err != nil {
+		return nil, fmt.Errorf("opening root directory: %w", err)
+	}
+	defer root.Close()
+
+	f, err := root.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("path outside root directory: %w", err)
+	}
+	return f, nil
+}
+
+// openDirect opens a file directly using os.Open.
+func (p *BeepPlayer) openDirect(path string) (*os.File, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("opening file: %w", err)
+	}
+	return f, nil
 }
 
 // ensureSpeakerInitialized initializes the speaker using sync.Once if not already done.

@@ -33,9 +33,9 @@ func (s *SlackWebClientSuite) TestGetUserChannels() {
 		s.Equal("/conversations.list", r.URL.Path)
 		s.Equal("Bearer xoxp-test-token", r.Header.Get("Authorization"))
 
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"ok": true,
-			"channels": []map[string]interface{}{
+			"channels": []map[string]any{
 				{"id": "C001", "name": "general"},
 				{"id": "C002", "name": "random"},
 			},
@@ -62,9 +62,9 @@ func (s *SlackWebClientSuite) TestGetChannelMessages() {
 		s.Equal("/conversations.history", r.URL.Path)
 		s.Equal("C001", r.URL.Query().Get("channel"))
 
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"ok": true,
-			"messages": []map[string]interface{}{
+			"messages": []map[string]any{
 				{
 					"ts":   "1234.5678",
 					"user": "U123",
@@ -105,9 +105,9 @@ func (s *SlackWebClientSuite) TestGetChannelMessagesWithOldest() {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedOldest = r.URL.Query().Get("oldest")
 
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"ok":       true,
-			"messages": []map[string]interface{}{},
+			"messages": []map[string]any{},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
@@ -128,9 +128,9 @@ func (s *SlackWebClientSuite) TestGetThreadReplies() {
 		s.Equal("C001", r.URL.Query().Get("channel"))
 		s.Equal("1234.5678", r.URL.Query().Get("ts"))
 
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"ok": true,
-			"messages": []map[string]interface{}{
+			"messages": []map[string]any{
 				{
 					"ts":        "1234.5678",
 					"user":      "U123",
@@ -226,9 +226,9 @@ func (s *SlackWebClientSuite) TestMalformedJSON() {
 
 func (s *SlackWebClientSuite) TestEmptyResponseReturnsEmptySlice() {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]interface{}{
+		resp := map[string]any{
 			"ok":       true,
-			"channels": []map[string]interface{}{},
+			"channels": []map[string]any{},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)

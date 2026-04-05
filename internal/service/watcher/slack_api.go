@@ -77,27 +77,46 @@ type slackMessageJSON struct {
 	ThreadTS string `json:"thread_ts,omitempty"`
 }
 
-// GetUserChannels returns the list of channels the authenticated user belongs to.
-func (c *SlackWebClient) GetUserChannels(ctx context.Context) ([]SlackChannel, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/conversations.list", nil)
+// doRequest is a helper method that handles common HTTP request patterns for Slack API calls.
+func (c *SlackWebClient) doRequest(ctx context.Context, endpoint string, params map[string]string, result any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+endpoint, nil)
 	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+		return fmt.Errorf("creating request for %s: %w", endpoint, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
 
+	if len(params) > 0 {
+		q := req.URL.Query()
+		for key, value := range params {
+			if value != "" {
+				q.Set(key, value)
+			}
+		}
+		req.URL.RawQuery = q.Encode()
+	}
+
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
+		return fmt.Errorf("executing request to %s: %w", endpoint, err)
 	}
 	defer resp.Body.Close()
 
 	if err := checkHTTPStatus(resp); err != nil {
-		return nil, err
+		return fmt.Errorf("slack API error for %s: %w", endpoint, err)
 	}
 
+	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+		return fmt.Errorf("decoding response from %s: %w", endpoint, err)
+	}
+
+	return nil
+}
+
+// GetUserChannels returns the list of channels the authenticated user belongs to.
+func (c *SlackWebClient) GetUserChannels(ctx context.Context) ([]SlackChannel, error) {
 	var result slackChannelResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+	if err := c.doRequest(ctx, "/conversations.list", nil, &result); err != nil {
+		return nil, err
 	}
 
 	channels := make([]SlackChannel, len(result.Channels))
@@ -109,32 +128,14 @@ func (c *SlackWebClient) GetUserChannels(ctx context.Context) ([]SlackChannel, e
 
 // GetChannelMessages returns messages from a channel, optionally filtering by oldest timestamp.
 func (c *SlackWebClient) GetChannelMessages(ctx context.Context, channelID string, oldest string) ([]SlackMessage, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/conversations.history", nil)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-
-	q := req.URL.Query()
-	q.Set("channel", channelID)
-	if oldest != "" {
-		q.Set("oldest", oldest)
-	}
-	req.URL.RawQuery = q.Encode()
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if err := checkHTTPStatus(resp); err != nil {
-		return nil, err
+	params := map[string]string{
+		"channel": channelID,
+		"oldest":  oldest,
 	}
 
 	var result slackMessageResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+	if err := c.doRequest(ctx, "/conversations.history", params, &result); err != nil {
+		return nil, err
 	}
 
 	return convertMessages(result.Messages), nil
@@ -142,36 +143,20 @@ func (c *SlackWebClient) GetChannelMessages(ctx context.Context, channelID strin
 
 // GetThreadReplies returns messages in a thread.
 func (c *SlackWebClient) GetThreadReplies(ctx context.Context, channelID string, threadTS string) ([]SlackMessage, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/conversations.replies", nil)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-
-	q := req.URL.Query()
-	q.Set("channel", channelID)
-	q.Set("ts", threadTS)
-	req.URL.RawQuery = q.Encode()
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("executing request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if err := checkHTTPStatus(resp); err != nil {
-		return nil, err
+	params := map[string]string{
+		"channel": channelID,
+		"ts":      threadTS,
 	}
 
 	var result slackMessageResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+	if err := c.doRequest(ctx, "/conversations.replies", params, &result); err != nil {
+		return nil, err
 	}
 
 	return convertMessages(result.Messages), nil
 }
 
-// checkHTTPStatus returns an error for non-200 HTTP status codes.
+// checkHTTPStatus returns an error for non-200 HTTP status codes with consistent messaging.
 func checkHTTPStatus(resp *http.Response) error {
 	switch resp.StatusCode {
 	case http.StatusOK:
@@ -179,9 +164,13 @@ func checkHTTPStatus(resp *http.Response) error {
 	case http.StatusTooManyRequests:
 		return fmt.Errorf("rate limited by Slack API")
 	case http.StatusUnauthorized:
-		return fmt.Errorf("slack auth error: invalid or expired token")
+		return fmt.Errorf("authentication failed: invalid or expired token")
+	case http.StatusForbidden:
+		return fmt.Errorf("forbidden: insufficient permissions")
+	case http.StatusNotFound:
+		return fmt.Errorf("resource not found")
 	default:
-		return fmt.Errorf("unexpected HTTP status: %d", resp.StatusCode)
+		return fmt.Errorf("HTTP error %d: %s", resp.StatusCode, http.StatusText(resp.StatusCode))
 	}
 }
 

@@ -20,6 +20,16 @@ CREATE TABLE IF NOT EXISTS categories (
 );
 `
 
+const (
+	queryInsertCategory       = "INSERT INTO categories (id, name, color) VALUES (?, ?, ?)"
+	queryUpdateCategory       = "UPDATE categories SET name = ?, color = ? WHERE id = ?"
+	queryDeleteCategory       = "DELETE FROM categories WHERE id = ?"
+	querySelectAllCategories  = "SELECT " + categoryColumnsStr + " FROM categories"
+	querySelectCategoryByName = "SELECT " + categoryColumnsStr + " FROM categories WHERE name = ?"
+)
+
+const categoryColumnsStr = "id, name, color"
+
 // SQLiteCategoryRepository implements repository.CategoryRepository using SQLite.
 type SQLiteCategoryRepository struct {
 	db *sql.DB
@@ -53,8 +63,7 @@ func NewSQLiteCategoryRepository(dbPath string) (*SQLiteCategoryRepository, erro
 
 // Insert adds a new category to the database.
 func (r *SQLiteCategoryRepository) Insert(ctx context.Context, category *repository.Category) error {
-	_, err := r.db.ExecContext(ctx,
-		"INSERT INTO categories (id, name, color) VALUES (?, ?, ?)",
+	_, err := r.db.ExecContext(ctx, queryInsertCategory,
 		category.ID.String(), category.Name, category.Color,
 	)
 	if err != nil {
@@ -65,8 +74,7 @@ func (r *SQLiteCategoryRepository) Insert(ctx context.Context, category *reposit
 
 // Update modifies an existing category's name and color.
 func (r *SQLiteCategoryRepository) Update(ctx context.Context, category *repository.Category) error {
-	_, err := r.db.ExecContext(ctx,
-		"UPDATE categories SET name = ?, color = ? WHERE id = ?",
+	_, err := r.db.ExecContext(ctx, queryUpdateCategory,
 		category.Name, category.Color, category.ID.String(),
 	)
 	if err != nil {
@@ -77,10 +85,7 @@ func (r *SQLiteCategoryRepository) Update(ctx context.Context, category *reposit
 
 // Delete removes a category by ID.
 func (r *SQLiteCategoryRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx,
-		"DELETE FROM categories WHERE id = ?",
-		id.String(),
-	)
+	_, err := r.db.ExecContext(ctx, queryDeleteCategory, id.String())
 	if err != nil {
 		return fmt.Errorf("delete category: %w", err)
 	}
@@ -89,12 +94,41 @@ func (r *SQLiteCategoryRepository) Delete(ctx context.Context, id uuid.UUID) err
 
 // QueryAll returns all categories.
 func (r *SQLiteCategoryRepository) QueryAll(ctx context.Context) ([]*repository.Category, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT id, name, color FROM categories")
+	rows, err := r.db.QueryContext(ctx, querySelectAllCategories)
 	if err != nil {
 		return nil, fmt.Errorf("query all categories: %w", err)
 	}
 	defer rows.Close()
 
+	return scanCategories(rows)
+}
+
+// QueryByName returns a single category by name, or an error wrapping
+// repository.ErrNotFound if no category with that name exists.
+func (r *SQLiteCategoryRepository) QueryByName(ctx context.Context, name string) (*repository.Category, error) {
+	rows, err := r.db.QueryContext(ctx, querySelectCategoryByName, name)
+	if err != nil {
+		return nil, fmt.Errorf("query category by name: %w", err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("query category by name: %w", err)
+		}
+		return nil, fmt.Errorf("query category by name: %w", repository.ErrNotFound)
+	}
+
+	cat, err := scanCategory(rows)
+	if err != nil {
+		return nil, fmt.Errorf("scan category: %w", err)
+	}
+
+	return cat, nil
+}
+
+// scanCategories scans rows into a slice of Category pointers.
+func scanCategories(rows *sql.Rows) ([]*repository.Category, error) {
 	var categories []*repository.Category
 	for rows.Next() {
 		cat, err := scanCategory(rows)
@@ -109,39 +143,22 @@ func (r *SQLiteCategoryRepository) QueryAll(ctx context.Context) ([]*repository.
 	return categories, nil
 }
 
-// QueryByName returns a single category by name, or an error wrapping
-// repository.ErrNotFound if no category with that name exists.
-func (r *SQLiteCategoryRepository) QueryByName(ctx context.Context, name string) (*repository.Category, error) {
-	row := r.db.QueryRowContext(ctx, "SELECT id, name, color FROM categories WHERE name = ?", name)
+// scanCategory reads a category from a sql.Rows scanner.
+func scanCategory(rows *sql.Rows) (*repository.Category, error) {
+	var (
+		cat   repository.Category
+		idStr string
+	)
 
-	var idStr string
-	var cat repository.Category
-	err := row.Scan(&idStr, &cat.Name, &cat.Color)
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("query category by name: %w", repository.ErrNotFound)
-	}
+	err := rows.Scan(&idStr, &cat.Name, &cat.Color)
 	if err != nil {
-		return nil, fmt.Errorf("query category by name: %w", err)
+		return nil, fmt.Errorf("scan category row: %w", err)
 	}
 
 	cat.ID, err = uuid.Parse(idStr)
 	if err != nil {
-		return nil, fmt.Errorf("parse category id: %w", err)
+		return nil, fmt.Errorf("parse category ID: %w", err)
 	}
-	return &cat, nil
-}
 
-// scanCategory reads a category from a sql.Rows scanner.
-func scanCategory(rows *sql.Rows) (*repository.Category, error) {
-	var idStr string
-	var cat repository.Category
-	if err := rows.Scan(&idStr, &cat.Name, &cat.Color); err != nil {
-		return nil, err
-	}
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		return nil, err
-	}
-	cat.ID = id
 	return &cat, nil
 }

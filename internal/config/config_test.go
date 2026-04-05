@@ -1081,3 +1081,121 @@ lunch_window_end = "14:00"
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// 21. TestPlannerTimerSoundDefaults — default config has empty TimerSound and TimerVolume=75
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestPlannerTimerSoundDefaults() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "nonexistent", "config.toml")
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	s.Empty(cfg.Planner.TimerSound, "default TimerSound should be empty (fallback beep)")
+	s.Equal(75, cfg.Planner.TimerVolume, "default TimerVolume should be 75")
+}
+
+// ---------------------------------------------------------------------------
+// 22. TestPlannerTimerVolumeValidation — timer_volume must be 0-100
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestPlannerTimerVolumeValidation() {
+	tests := []struct {
+		name   string
+		volume int
+	}{
+		{"timer_volume below zero", -1},
+		{"timer_volume above 100", 101},
+	}
+
+	for _, tc := range tests {
+		s.Run(tc.name, func() {
+			dir := s.T().TempDir()
+			cfgPath := filepath.Join(dir, "config.toml")
+
+			tomlContent := fmt.Sprintf(`
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[planner]
+workday_start = "09:00"
+workday_end = "17:00"
+planning_cutoff = "16:00"
+pomodoro_minutes = 25
+short_break_minutes = 5
+long_break_minutes = 20
+long_break_after_cycles = 4
+meeting_merge_gap_minutes = 5
+lunch_window_start = "12:00"
+lunch_window_end = "14:00"
+timer_volume = %d
+`, tc.volume)
+			err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+			s.Require().NoError(err)
+
+			cfg, err := config.Load(cfgPath)
+			if err != nil {
+				s.Contains(err.Error(), "planner.timer_volume")
+				return
+			}
+
+			err = cfg.Validate()
+			s.Require().Error(err, "expected validation error for %s", tc.name)
+			s.Contains(err.Error(), "planner.timer_volume")
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 23. TestPlannerTimerSoundParsesFromTOML — timer_sound field parsed correctly
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestPlannerTimerSoundParsesFromTOML() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[planner]
+workday_start = "09:00"
+workday_end = "17:00"
+planning_cutoff = "16:00"
+pomodoro_minutes = 25
+short_break_minutes = 5
+long_break_minutes = 20
+long_break_after_cycles = 4
+meeting_merge_gap_minutes = 5
+lunch_window_start = "12:00"
+lunch_window_end = "14:00"
+timer_sound = "/home/user/sounds/timer.wav"
+timer_volume = 80
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	s.Equal("/home/user/sounds/timer.wav", cfg.Planner.TimerSound)
+	s.Equal(80, cfg.Planner.TimerVolume)
+}

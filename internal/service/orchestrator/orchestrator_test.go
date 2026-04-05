@@ -3,6 +3,7 @@ package orchestrator_test
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -12,6 +13,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 )
+
+// Compile-time interface check: Orchestrator must implement WatcherManager.
+var _ orchestrator.WatcherManager = (*orchestrator.Orchestrator)(nil)
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -224,20 +228,21 @@ func (s *OrchestratorSuite) TestNewOrchestratorRequiresRepo() {
 }
 
 func (s *OrchestratorSuite) TestNewOrchestratorRequiresWatchers() {
+	// This test now verifies that nil/empty watchers are ACCEPTED (dynamic watcher management).
 	eventCh := make(chan orchestrator.ActivityEvent, 100)
 	router := &mockRouter{}
 	repo := newMockRepo()
 	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
 
-	// nil watchers
+	// nil watchers — should succeed
 	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, nil, eventCh, nil)
-	s.Error(err)
-	s.Nil(orch)
+	s.NoError(err)
+	s.NotNil(orch)
 
-	// empty watchers
+	// empty watchers — should succeed
 	orch, err = orchestrator.NewOrchestrator(cfg, router, repo, map[string]orchestrator.Watcher{}, eventCh, nil)
-	s.Error(err)
-	s.Nil(orch)
+	s.NoError(err)
+	s.NotNil(orch)
 }
 
 // ---------------------------------------------------------------------------
@@ -573,4 +578,213 @@ func (s *OrchestratorSuite) TestPollCycleNilAlerterSafe() {
 	s.NotPanics(func() {
 		orch.PollOnce(context.Background())
 	})
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic Watcher Management (Feature 034)
+// ---------------------------------------------------------------------------
+
+func (s *OrchestratorSuite) TestConstructorAcceptsNilWatchers() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	router := &mockRouter{}
+	repo := newMockRepo()
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, nil, eventCh, nil)
+	s.NoError(err)
+	s.NotNil(orch)
+}
+
+func (s *OrchestratorSuite) TestConstructorAcceptsEmptyWatchers() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	router := &mockRouter{}
+	repo := newMockRepo()
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, map[string]orchestrator.Watcher{}, eventCh, nil)
+	s.NoError(err)
+	s.NotNil(orch)
+}
+
+func (s *OrchestratorSuite) TestPollOnceZeroWatchersEmitsEvent() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	router := &mockRouter{}
+	repo := newMockRepo()
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, nil, eventCh, nil)
+	s.Require().NoError(err)
+
+	// PollOnce with zero watchers should be a no-op that emits an event
+	orch.PollOnce(context.Background())
+
+	events := drainEvents(eventCh, 1, 2*time.Second)
+	s.Require().Len(events, 1)
+	s.Contains(events[0].Message, "No watchers configured")
+	s.False(events[0].IsError)
+
+	// Router should NOT have been called
+	s.Equal(0, router.batchCount())
+	// Repo should have no inserts
+	s.Equal(0, repo.insertedCount())
+}
+
+func (s *OrchestratorSuite) TestAddWatcherThenPoll() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	msgs := makeMessages("slack", 2)
+	watcher := &mockWatcher{messages: msgs}
+	router := &mockRouter{}
+	repo := newMockRepo()
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+
+	// Start with no watchers
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, nil, eventCh, nil)
+	s.Require().NoError(err)
+
+	// Add a watcher dynamically
+	orch.AddWatcher("slack", watcher)
+
+	// PollOnce should now poll the added watcher
+	orch.PollOnce(context.Background())
+
+	s.Equal(1, watcher.pollCount())
+	s.Equal(1, router.batchCount())
+	s.Equal(2, repo.insertedCount())
+}
+
+func (s *OrchestratorSuite) TestAddWatcherDuplicateReplaces() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	firstWatcher := &mockWatcher{messages: makeMessages("slack", 1)}
+	secondWatcher := &mockWatcher{messages: makeMessages("slack", 3)}
+	router := &mockRouter{}
+	repo := newMockRepo()
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, nil, eventCh, nil)
+	s.Require().NoError(err)
+
+	// Add first watcher, then replace with second using same name
+	orch.AddWatcher("slack", firstWatcher)
+	orch.AddWatcher("slack", secondWatcher)
+
+	orch.PollOnce(context.Background())
+
+	// First watcher should NOT have been polled (replaced)
+	s.Equal(0, firstWatcher.pollCount())
+	// Second watcher should have been polled
+	s.Equal(1, secondWatcher.pollCount())
+	// Should have 3 messages from the second watcher
+	s.Equal(3, repo.insertedCount())
+}
+
+func (s *OrchestratorSuite) TestRemoveWatcherThenPoll() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	watcher := &mockWatcher{messages: makeMessages("slack", 2)}
+	router := &mockRouter{}
+	repo := newMockRepo()
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, nil, eventCh, nil)
+	s.Require().NoError(err)
+
+	// Add then remove
+	orch.AddWatcher("slack", watcher)
+	orch.RemoveWatcher("slack")
+
+	// PollOnce should not poll the removed watcher
+	orch.PollOnce(context.Background())
+
+	s.Equal(0, watcher.pollCount())
+	s.Equal(0, router.batchCount())
+	s.Equal(0, repo.insertedCount())
+}
+
+func (s *OrchestratorSuite) TestRemoveWatcherUnknownNoOp() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	router := &mockRouter{}
+	repo := newMockRepo()
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, nil, eventCh, nil)
+	s.Require().NoError(err)
+
+	// Removing a watcher that doesn't exist should not panic
+	s.NotPanics(func() {
+		orch.RemoveWatcher("nonexistent")
+	})
+}
+
+func (s *OrchestratorSuite) TestListWatcherNames() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	router := &mockRouter{}
+	repo := newMockRepo()
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, nil, eventCh, nil)
+	s.Require().NoError(err)
+
+	// Initially empty
+	names := orch.ListWatcherNames()
+	s.Empty(names)
+
+	// Add watchers in non-sorted order
+	orch.AddWatcher("email", &mockWatcher{})
+	orch.AddWatcher("slack", &mockWatcher{})
+	orch.AddWatcher("api", &mockWatcher{})
+
+	names = orch.ListWatcherNames()
+	s.Require().Len(names, 3)
+	// Must be sorted for determinism
+	s.True(sort.StringsAreSorted(names), "ListWatcherNames must return sorted names")
+	s.Equal([]string{"api", "email", "slack"}, names)
+
+	// After removal
+	orch.RemoveWatcher("email")
+	names = orch.ListWatcherNames()
+	s.Equal([]string{"api", "slack"}, names)
+}
+
+func (s *OrchestratorSuite) TestConcurrentAddAndPoll() {
+	eventCh := make(chan orchestrator.ActivityEvent, 1000)
+	router := &mockRouter{}
+	repo := newMockRepo()
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, nil, eventCh, nil)
+	s.Require().NoError(err)
+
+	// Run AddWatcher and PollOnce concurrently to verify race safety.
+	// This test is meaningful when run with -race.
+	var wg sync.WaitGroup
+	const iterations = 50
+
+	wg.Add(2)
+
+	// Goroutine 1: repeatedly add/remove watchers
+	go func() {
+		defer wg.Done()
+		for i := range iterations {
+			name := fmt.Sprintf("watcher-%d", i)
+			w := &mockWatcher{messages: makeMessages("dynamic", 1)}
+			orch.AddWatcher(name, w)
+			if i%2 == 0 {
+				orch.RemoveWatcher(name)
+			}
+		}
+	}()
+
+	// Goroutine 2: repeatedly poll
+	go func() {
+		defer wg.Done()
+		for range iterations {
+			orch.PollOnce(context.Background())
+		}
+	}()
+
+	wg.Wait()
+
+	// If we get here without a data race, the test passes.
+	// Just verify the orchestrator is still functional.
+	names := orch.ListWatcherNames()
+	s.NotNil(names) // should return a valid slice (possibly empty)
 }

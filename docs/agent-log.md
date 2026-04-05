@@ -111,3 +111,12 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-2-Feature-020 | RED | Test Designer | 101s | 24,815 | 90d5fa4 |
 | Phase-2-Feature-020 | GREEN | Implementer | 47s | 25,804 | 6057282 |
 | Phase-2-Feature-020 | REFACTOR | Refactorer | 153s | 41,576 | 33dabf7 |
+| Phase-2-Feature-021 (core) | RED | orchestrator | — | — | a353b63 |
+| Phase-2-Feature-021 (core) | GREEN | orchestrator | — | — | 8065805 |
+| Phase-2-Feature-021 (sched) | RED | orchestrator | — | — | dee21e5 |
+| Phase-2-Feature-021 (sched) | GREEN | orchestrator | — | — | 36e9ba5 |
+| Phase-2-Feature-021 (est) | RED | orchestrator | — | — | 674b001 |
+| Phase-2-Feature-021 (est) | GREEN | orchestrator | — | — | b2d05ae |
+| Phase-2-Feature-021 (repo) | RED | orchestrator | — | — | 2cc95ca |
+| Phase-2-Feature-021 (repo) | GREEN | orchestrator | — | — | 1a1ba8a |
+| Phase-2-Feature-021 | REFACTOR | Refactorer | 262s | 49,987 | 2e1316e |

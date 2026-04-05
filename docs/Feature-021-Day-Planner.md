@@ -1,7 +1,7 @@
 # Feature 021: Day Planner (Scheduling Engine)
 
 **Phase:** Phase-2-Feature-021
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/service/planner/`
 
 ---
@@ -200,15 +200,12 @@ Both strategies assign tasks to focus blocks in priority order:
 
 | TDD Cycle | Phase | Agent | Duration | Tokens | Commit |
 |---|---|---|---|---|---|
-| Planner Core | RED | Test Designer | — | — | — |
-| Planner Core | GREEN | Implementer | — | — | — |
-| Planner Core | REFACTOR | Refactorer | — | — | — |
-| Schedule Gen | RED | Test Designer | — | — | — |
-| Schedule Gen | GREEN | Implementer | — | — | — |
-| Schedule Gen | REFACTOR | Refactorer | — | — | — |
-| Task Estimation | RED | Test Designer | — | — | — |
-| Task Estimation | GREEN | Implementer | — | — | — |
-| Task Estimation | REFACTOR | Refactorer | — | — | — |
-| Schedule Repo | RED | Test Designer | — | — | — |
-| Schedule Repo | GREEN | Implementer | — | — | — |
-| Schedule Repo | REFACTOR | Refactorer | — | — | — |
+| Planner Core | RED | orchestrator | — | — | a353b63 |
+| Planner Core | GREEN | orchestrator | — | — | 8065805 |
+| Schedule Gen | RED | orchestrator | — | — | dee21e5 |
+| Schedule Gen | GREEN | orchestrator | — | — | 36e9ba5 |
+| Task Estimation | RED | orchestrator | — | — | 674b001 |
+| Task Estimation | GREEN | orchestrator | — | — | b2d05ae |
+| Schedule Repo | RED | orchestrator | — | — | 2cc95ca |
+| Schedule Repo | GREEN | orchestrator | — | — | 1a1ba8a |
+| All | REFACTOR | Refactorer | 262s | 49,987 | 2e1316e |

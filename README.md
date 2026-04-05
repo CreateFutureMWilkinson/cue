@@ -58,6 +58,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 |---|---|---|
 | 14-A | Security hardening (gosec G304/G404, x/image, x/net CVEs) | Done |
 | 15-A | Gosec G104 unhandled db.Close() in SQLite constructors | Done |
+| 30-A | Gosec G115 integer overflow in color channel conversion | Done |
 
 ## Requirements
 

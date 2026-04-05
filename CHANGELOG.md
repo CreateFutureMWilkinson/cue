@@ -17,6 +17,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Cryptographic RNG for audio selection** — Replaced `math/rand/v2` with `crypto/rand` in audio file selection (gosec G404, Phase-3-Feature-014-Hotfix-A)
 - **Dependency bumps** — `golang.org/x/image` v0.24.0→v0.38.0 (GO-2026-4815 TIFF OOM), `golang.org/x/net` v0.35.0→v0.45.0 (GO-2026-4441, GO-2026-4440, GO-2025-3595, GO-2025-3503) (Phase-3-Feature-014-Hotfix-A)
 - **Explicit db.Close() error handling** — All SQLite repository constructors now use `_ = db.Close()` instead of bare `db.Close()` in error paths, resolving 6 gosec G104 findings (Phase-2-Feature-015-Hotfix-A)
+- **Safe integer conversion in color capture** — Added `& 0xFF` bitmask to `uint32→uint8` color channel conversion in `ShutdownAnimator.captureFairyState`, resolving 4 gosec G115 (CWE-190) integer overflow findings (Phase-3-Feature-030-Hotfix-A)
 
 ### Breaking
 

@@ -184,3 +184,5 @@ func (f *FairyCharacter) Shutdown() <-chan struct{}
 | Shutdown Animator | RED | Test Designer | 110s | 39,156 | 158cc2c |
 | Shutdown Animator | GREEN | Implementer | 59s | 38,979 | fe8b8c5 |
 | Shutdown Animator | REFACTOR | Refactorer | 67s | 24,901 | 69482bc |
+| Hotfix-A (G115) | RED | Test Designer | 32s | 25,967 | 63429de |
+| Hotfix-A (G115) | GREEN | orchestrator | — | — | 0b70af1 |

@@ -3,6 +3,7 @@ package presenter
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -25,13 +26,12 @@ type FeedbackPresenter struct {
 	reviewer BufferReviewer
 	items    []*FeedbackItem
 	index    int
-	total    int
 }
 
 // NewFeedbackPresenter creates a new FeedbackPresenter with the given BufferReviewer.
 func NewFeedbackPresenter(reviewer BufferReviewer) (*FeedbackPresenter, error) {
 	if reviewer == nil {
-		return nil, fmt.Errorf("feedback presenter: reviewer must not be nil")
+		return nil, fmt.Errorf("reviewer must not be nil")
 	}
 	return &FeedbackPresenter{
 		reviewer: reviewer,
@@ -42,7 +42,7 @@ func NewFeedbackPresenter(reviewer BufferReviewer) (*FeedbackPresenter, error) {
 func (p *FeedbackPresenter) Load(ctx context.Context) error {
 	messages, err := p.reviewer.GetBufferedMessages(ctx)
 	if err != nil {
-		return fmt.Errorf("feedback presenter load: %w", err)
+		return fmt.Errorf("load: %w", err)
 	}
 
 	p.items = make([]*FeedbackItem, len(messages))
@@ -50,7 +50,6 @@ func (p *FeedbackPresenter) Load(ctx context.Context) error {
 		p.items[i] = messageToFeedbackItem(msg)
 	}
 	p.index = 0
-	p.total = len(p.items)
 	return nil
 }
 
@@ -64,7 +63,7 @@ func (p *FeedbackPresenter) Current() *FeedbackItem {
 
 // Counter returns a string in the format "X of Y" (1-indexed).
 func (p *FeedbackPresenter) Counter() string {
-	return fmt.Sprintf("%d of %d", p.index+1, p.total)
+	return fmt.Sprintf("%d of %d", p.index+1, len(p.items))
 }
 
 // HasCurrent returns true if there is a current item to review.
@@ -75,12 +74,12 @@ func (p *FeedbackPresenter) HasCurrent() bool {
 // SaveRating saves the rating for the current message and advances to the next.
 func (p *FeedbackPresenter) SaveRating(ctx context.Context, rating int, feedback *string) error {
 	if !p.HasCurrent() {
-		return fmt.Errorf("feedback presenter save rating: no current message")
+		return fmt.Errorf("save rating: no current message")
 	}
 
 	current := p.items[p.index]
 	if err := p.reviewer.SaveRating(ctx, current.ID, rating, feedback); err != nil {
-		return fmt.Errorf("feedback presenter save rating: %w", err)
+		return fmt.Errorf("save rating: %w", err)
 	}
 
 	p.index++
@@ -97,17 +96,16 @@ func (p *FeedbackPresenter) Skip() {
 // Delete removes the current message from the list and the reviewer.
 func (p *FeedbackPresenter) Delete(ctx context.Context) error {
 	if !p.HasCurrent() {
-		return fmt.Errorf("feedback presenter delete: no current message")
+		return fmt.Errorf("delete: no current message")
 	}
 
 	current := p.items[p.index]
 	if err := p.reviewer.DeleteMessage(ctx, current.ID); err != nil {
-		return fmt.Errorf("feedback presenter delete: %w", err)
+		return fmt.Errorf("delete: %w", err)
 	}
 
 	// Remove from slice; next item slides into current index.
-	p.items = append(p.items[:p.index], p.items[p.index+1:]...)
-	p.total--
+	p.items = slices.Delete(p.items, p.index, p.index+1)
 	return nil
 }
 

@@ -64,13 +64,6 @@ func (a *StartupAnimator) Start(fairy *FairyCharacter) {
 	go a.runAnimationLoop(ctx, fairy, startTime, done)
 }
 
-// initializeFairyState sets the fairy to its dormant appearance and position.
-func (a *StartupAnimator) initializeFairyState(fairy *FairyCharacter) {
-	fairy.SetPosition(IdleOriginX, IdleOriginY)
-	fairy.SetBodyColor(DormantColor)
-	fairy.SetGlowIntensity(DormantGlowIntensity)
-}
-
 // runAnimationLoop drives the startup animation in a separate goroutine.
 func (a *StartupAnimator) runAnimationLoop(ctx context.Context, fairy *FairyCharacter, startTime time.Time, done chan struct{}) {
 	defer close(done)
@@ -100,6 +93,13 @@ func (a *StartupAnimator) runAnimationLoop(ctx context.Context, fairy *FairyChar
 			fairy.SetGlowIntensity(DormantGlowIntensity + (StartupIdleGlowIntensity-DormantGlowIntensity)*eased)
 		}
 	}
+}
+
+// initializeFairyState sets the fairy to its dormant appearance and position.
+func (a *StartupAnimator) initializeFairyState(fairy *FairyCharacter) {
+	fairy.SetPosition(IdleOriginX, IdleOriginY)
+	fairy.SetBodyColor(DormantColor)
+	fairy.SetGlowIntensity(DormantGlowIntensity)
 }
 
 // Stop cancels the animation goroutine and waits for it to exit. It is safe

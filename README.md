@@ -60,14 +60,26 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 15-A | Gosec G104 unhandled db.Close() in SQLite constructors | Done |
 | 30-A | Gosec G115 integer overflow in color channel conversion | Done |
 
+## Supported Platforms
+
+| Platform | Architecture | Display Server |
+|---|---|---|
+| Linux | amd64 | X11, Wayland |
+| Linux | arm64 | X11, Wayland |
+| macOS | arm64 (Apple Silicon) | Cocoa (native) |
+
 ## Requirements
 
-- Go 1.26+
+- Go 1.26+ with CGO enabled
 - [Ollama](https://ollama.ai) running locally with `neural-chat` and `nomic-embed-text` models
+- Platform-specific build dependencies — see [docs/BUILDING.md](docs/BUILDING.md)
 
 ## Quick Start
 
 ```bash
+# Install build dependencies (see docs/BUILDING.md for your platform)
+just deps
+
 # Build
 just build
 
@@ -77,6 +89,8 @@ just run
 # Test
 just test
 ```
+
+> **macOS users:** Release binaries are unsigned. On first launch, remove the quarantine flag with `xattr -d com.apple.quarantine ./cue` or allow via System Settings → Privacy & Security. See [docs/BUILDING.md](docs/BUILDING.md#macos-gatekeeper) for details.
 
 ## Configuration
 

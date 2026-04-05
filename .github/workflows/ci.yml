@@ -65,6 +65,9 @@ jobs:
             libxinerama-dev \
             libxi-dev \
             libxxf86vm-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            wayland-protocols \
             pkg-config
 
       - name: Verify module hygiene
@@ -119,11 +122,6 @@ jobs:
           cache: true
           output-file: ${{ env.SUMMARY_FILE }}
 
-      - name: Run unit tests
-        run: |
-          set -euo pipefail
-          go test -count=1 -race ./...
-
       - name: Summary
         if: ${{ always() }}
         run: |
@@ -137,3 +135,71 @@ jobs:
           else
             echo 'No summary generated.'
           fi
+
+  build-test:
+    needs: validate
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-amd64
+          - os: macos-latest
+            name: darwin-arm64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      GO_VERSION: '1.26.1'
+      GOTOOLCHAIN: auto
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Cache Go modules and build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-${{ runner.arch }}-go-cache-${{ hashFiles('**/go.mod', '**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-go-cache-
+
+      - name: Install CGO dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev \
+            libgl-dev \
+            libxcursor-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxi-dev \
+            libxxf86vm-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            wayland-protocols \
+            pkg-config
+
+      - name: Run unit tests
+        run: |
+          set -euo pipefail
+          go test -count=1 -race ./...
+
+      - name: Build binaries
+        run: |
+          set -euo pipefail
+          mkdir -p _build
+          go build -o _build/cue ./cmd/cue
+          go build -o _build/cue-uat ./cmd/cue-uat

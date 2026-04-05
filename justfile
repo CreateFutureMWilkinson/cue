@@ -57,6 +57,18 @@ uat:
 run-uat: uat
     ./_build/character-uat
 
+# Build both binaries for current platform
+build-all: build uat
+
+# Show required system packages for current platform
+deps:
+    @echo "Linux:  sudo apt-get install libasound2-dev libgl-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev libwayland-dev libxkbcommon-dev wayland-protocols pkg-config"
+    @echo "macOS:  xcode-select --install"
+
+# Create a local goreleaser snapshot (no publish)
+release-snapshot:
+    goreleaser release --snapshot --clean
+
 # Clean build artifacts
 clean:
     rm -rf _build/

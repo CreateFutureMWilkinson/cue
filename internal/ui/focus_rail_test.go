@@ -182,6 +182,14 @@ func (s *FocusRailSuite) TestFocusRailSetCurrentTask() {
 		"SetCurrentTask should update the task label text")
 }
 
+func (s *FocusRailSuite) TestFocusRailContainerReturnsNonNil() {
+	rail := ui.NewFocusRail(s.router)
+
+	container := rail.Container()
+
+	s.NotNil(container, "Container() should return a non-nil *fyne.Container")
+}
+
 func (s *FocusRailSuite) TestFocusRailDoneButtonCallback() {
 	rail := ui.NewFocusRail(s.router)
 

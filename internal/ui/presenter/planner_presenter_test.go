@@ -727,6 +727,122 @@ func (s *PlannerPresenterSuite) advanceToActive() {
 	s.Require().Equal(presenter.StepActive, s.presenter.CurrentStep())
 }
 
+// --- 28. SetOnStepChange ---
+
+func (s *PlannerPresenterSuite) TestSetOnStepChangeFiresOnStartPlanning() {
+	todos := []*repository.Todo{
+		{ID: uuid.New(), Title: "Task A", Priority: 1},
+	}
+	s.todos.On("QueryIncomplete", mock.Anything).Return(todos, nil)
+
+	var received presenter.WizardStep
+	s.presenter.SetOnStepChange(func(step presenter.WizardStep) {
+		received = step
+	})
+
+	err := s.presenter.StartPlanning(s.ctx)
+	s.Require().NoError(err)
+	s.Equal(presenter.StepTaskSelect, received)
+}
+
+func (s *PlannerPresenterSuite) TestSetOnStepChangeFiresOnNextStep() {
+	s.advanceToTaskSelect()
+
+	var received presenter.WizardStep
+	s.presenter.SetOnStepChange(func(step presenter.WizardStep) {
+		received = step
+	})
+
+	todoID := s.presenter.AvailableTasks()[0].ID
+	s.presenter.SelectTask(todoID, true)
+	s.estimator.On("EstimatePomodoros", mock.Anything, mock.Anything, mock.Anything).Return(2, nil)
+
+	err := s.presenter.NextStep(s.ctx)
+	s.Require().NoError(err)
+	s.Equal(presenter.StepEstimates, received)
+}
+
+func (s *PlannerPresenterSuite) TestSetOnStepChangeFiresOnPreviousStep() {
+	s.advanceToEstimates()
+
+	var received presenter.WizardStep
+	s.presenter.SetOnStepChange(func(step presenter.WizardStep) {
+		received = step
+	})
+
+	s.presenter.PreviousStep()
+	s.Equal(presenter.StepTaskSelect, received)
+}
+
+func (s *PlannerPresenterSuite) TestSetOnStepChangeFiresOnSelectSchedule() {
+	s.advanceToSchedule()
+
+	var received presenter.WizardStep
+	s.presenter.SetOnStepChange(func(step presenter.WizardStep) {
+		received = step
+	})
+
+	s.schedRepo.On("Save", mock.Anything, mock.AnythingOfType("*repository.Schedule")).Return(nil)
+
+	err := s.presenter.SelectSchedule(s.ctx, "focus-maximized")
+	s.Require().NoError(err)
+	s.Equal(presenter.StepActive, received)
+}
+
+func (s *PlannerPresenterSuite) TestSetOnStepChangeFiresOnAbandonPlan() {
+	s.advanceToActive()
+
+	var received presenter.WizardStep
+	s.presenter.SetOnStepChange(func(step presenter.WizardStep) {
+		received = step
+	})
+
+	s.schedRepo.On("Delete", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(nil)
+
+	err := s.presenter.AbandonPlan(s.ctx)
+	s.Require().NoError(err)
+	s.Equal(presenter.StepIdle, received)
+}
+
+func (s *PlannerPresenterSuite) TestSetOnStepChangeFiresOnLoadExistingPlan() {
+	scheduleID := uuid.New()
+	schedule := &repository.Schedule{
+		ID:       scheduleID,
+		Date:     time.Date(2026, 3, 30, 0, 0, 0, 0, time.UTC),
+		Strategy: "focus-maximized",
+		Blocks: []repository.ScheduleBlock{
+			{
+				Start:    s.clock.now,
+				End:      s.clock.now.Add(25 * time.Minute),
+				Type:     repository.ScheduleBlockFocus,
+				TaskName: "Task A",
+			},
+		},
+	}
+	s.schedRepo.On("LoadByDate", mock.Anything, mock.Anything).Return(schedule, nil)
+
+	var received presenter.WizardStep
+	s.presenter.SetOnStepChange(func(step presenter.WizardStep) {
+		received = step
+	})
+
+	err := s.presenter.LoadExistingPlan(s.ctx)
+	s.Require().NoError(err)
+	s.Equal(presenter.StepActive, received)
+}
+
+// --- Helpers (continued) ---
+
+// advanceToTaskSelect sets up a presenter at StepTaskSelect with one task.
+func (s *PlannerPresenterSuite) advanceToTaskSelect() {
+	todo := &repository.Todo{ID: uuid.New(), Title: "Task A", Priority: 1}
+	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{todo}, nil)
+
+	err := s.presenter.StartPlanning(s.ctx)
+	s.Require().NoError(err)
+	s.Require().Equal(presenter.StepTaskSelect, s.presenter.CurrentStep())
+}
+
 // advanceToPriorityWithCalendarFailure tests that calendar failures are handled gracefully.
 func (s *PlannerPresenterSuite) advanceToPriorityWithCalendarFailure() {
 	s.advanceToPriority()

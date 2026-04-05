@@ -103,7 +103,6 @@ jobs:
         with:
           go-package: ./...
           cache: true
-          cache-dependency-path: go.sum
           output-file: ${{ env.SUMMARY_FILE }}
 
       - name: Run unit tests

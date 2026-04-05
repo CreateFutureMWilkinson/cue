@@ -190,6 +190,74 @@ func (s *FocusRailSuite) TestFocusRailContainerReturnsNonNil() {
 	s.NotNil(container, "Container() should return a non-nil *fyne.Container")
 }
 
+func (s *FocusRailSuite) TestFocusRailSettingsButtonVisibleByDefault() {
+	rail := ui.NewFocusRail(s.router)
+
+	s.True(rail.SettingsButton().Visible(),
+		"Settings button should be visible when view is Character (default)")
+}
+
+func (s *FocusRailSuite) TestFocusRailSettingsButtonHiddenInSettingsView() {
+	rail := ui.NewFocusRail(s.router)
+
+	s.router.NavigateTo(ui.ViewSettings)
+
+	s.False(rail.SettingsButton().Visible(),
+		"Settings button should be hidden when in Settings view")
+}
+
+func (s *FocusRailSuite) TestFocusRailBackButtonVisibleInSettingsView() {
+	rail := ui.NewFocusRail(s.router)
+
+	s.router.NavigateTo(ui.ViewSettings)
+
+	s.True(rail.BackButton().Visible(),
+		"Back button should be visible when in Settings view")
+}
+
+func (s *FocusRailSuite) TestFocusRailPlanButtonVisibleInSettingsView() {
+	rail := ui.NewFocusRail(s.router)
+
+	s.router.NavigateTo(ui.ViewSettings)
+
+	s.True(rail.PlanButton().Visible(),
+		"Plan button should stay visible in Settings view")
+}
+
+func (s *FocusRailSuite) TestFocusRailSettingsButtonNavigatesToSettings() {
+	rail := ui.NewFocusRail(s.router)
+
+	rail.SettingsButton().OnTapped()
+
+	s.Equal(ui.ViewSettings, s.router.CurrentView(),
+		"tapping Settings button should navigate to ViewSettings")
+}
+
+func (s *FocusRailSuite) TestFocusRailSettingsButtonVisibleInPlanView() {
+	rail := ui.NewFocusRail(s.router)
+
+	s.router.NavigateTo(ui.ViewPlan)
+
+	s.False(rail.SettingsButton().Visible(),
+		"Settings button should be hidden in Plan view (Back is shown instead)")
+}
+
+func (s *FocusRailSuite) TestFocusRailContainerIncludesSettingsButton() {
+	rail := ui.NewFocusRail(s.router)
+
+	cont := rail.Container()
+
+	// The container should include the settings button among its objects.
+	found := false
+	for _, obj := range cont.Objects {
+		if obj == rail.SettingsButton() {
+			found = true
+			break
+		}
+	}
+	s.True(found, "Container should include the settings button")
+}
+
 func (s *FocusRailSuite) TestFocusRailDoneButtonCallback() {
 	rail := ui.NewFocusRail(s.router)
 

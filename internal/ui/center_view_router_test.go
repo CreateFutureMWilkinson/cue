@@ -78,6 +78,25 @@ func (s *CenterViewRouterSuite) TestCallbackNotCalledWithoutSet() {
 		"view should still change even without a callback")
 }
 
+func (s *CenterViewRouterSuite) TestNavigateToSettingsFiresCallback() {
+	router := ui.NewCenterViewRouter()
+
+	var received ui.CenterView
+	called := false
+	router.SetOnViewChange(func(v ui.CenterView) {
+		called = true
+		received = v
+	})
+
+	router.NavigateTo(ui.ViewSettings)
+
+	s.True(called, "callback should have been called")
+	s.Equal(ui.ViewSettings, received,
+		"callback should receive ViewSettings")
+	s.Equal(ui.ViewSettings, router.CurrentView(),
+		"CurrentView should return ViewSettings after NavigateTo(ViewSettings)")
+}
+
 func (s *CenterViewRouterSuite) TestMultipleNavigations() {
 	router := ui.NewCenterViewRouter()
 

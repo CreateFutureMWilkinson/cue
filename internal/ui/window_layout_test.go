@@ -94,6 +94,21 @@ func (s *ThreeColumnLayoutSuite) TestNavigateToWizardSwapsCenterContent() {
 		"Navigating to ViewWizard should swap the center pane to different content")
 }
 
+func (s *ThreeColumnLayoutSuite) TestNavigateToSettingsSwapsCenterContent() {
+	router := ui.NewCenterViewRouter()
+	mw := newTestMainWindow(router)
+
+	originalContent := mw.CenterContent()
+	s.NotNil(originalContent)
+
+	router.NavigateTo(ui.ViewSettings)
+
+	newContent := mw.CenterContent()
+	s.NotNil(newContent, "CenterContent should not be nil after navigating to ViewSettings")
+	s.NotEqual(originalContent, newContent,
+		"Navigating to ViewSettings should swap the center pane to different content")
+}
+
 func (s *ThreeColumnLayoutSuite) TestNavigateBackToCharacterRestoresContent() {
 	router := ui.NewCenterViewRouter()
 	mw := newTestMainWindow(router)

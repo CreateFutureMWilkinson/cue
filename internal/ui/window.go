@@ -54,8 +54,14 @@ func NewMainWindow(
 	win := fyneApp.NewWindow("Cue")
 	win.Resize(fyne.NewSize(float32(cfg.WindowWidth), float32(cfg.WindowHeight)))
 
-	// Focus rail (left 10%) — placeholder for timer and navigation.
-	focusRail := widget.NewLabel("Focus")
+	// Focus rail (left 10%) — timer ring, task info, and navigation buttons.
+	var focusRail fyne.CanvasObject
+	if viewRouter != nil {
+		fr := NewFocusRail(viewRouter)
+		focusRail = fr.Container()
+	} else {
+		focusRail = widget.NewLabel("Focus")
+	}
 
 	// Center area (60%) — dynamically controlled by viewRouter.
 	// Build content for each view; the router swaps between them.

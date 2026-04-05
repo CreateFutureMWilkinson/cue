@@ -13,11 +13,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Slack Web API client** — Real `SlackWebClient` implementing `SlackAPI` interface with direct HTTP calls to `conversations.list`, `conversations.history`, and `conversations.replies`. Replaces inert `placeholderSlackAPI` in `cmd/cue/main.go`. Handles rate limiting (429), auth errors (401), network timeouts, and malformed JSON. Uses user token auth (`xoxp-`). (Phase-5-Feature-045)
 - **Vector-assisted routing** — Historical user feedback now influences future routing decisions; after Ollama scoring, the router queries the vector store for similar previously-rated messages and adjusts importance scores (±2.0 max, configurable damping factor). New config fields: `vector_enabled`, `vector_similarity_threshold`, `vector_top_n`, `vector_damping_factor`. Disabled by default. Also adds `MessageRepository.QueryByID` method (Phase-5-Feature-042)
 
 ### Changed
 
 - **Ollama scorer wiring** — Wire real `OllamaClient` scorer replacing placeholder in composition root; `placeholderScorer` struct removed from `cmd/cue/main.go` (Phase-5-Feature-044)
+
+### Breaking
+
+- **SlackAccount.BotToken renamed to Token** — The `SlackAccount` struct field `BotToken` is now `Token`, and the SQLite column `bot_token` is now `token`. Existing databases are migrated automatically. Config example updated from `xoxb-` to `xoxp-` prefix. (Phase-5-Feature-045)
 - **chromem-go vector database** — Replace in-memory `VectorStore` with chromem-go persistent vector database; flat-file storage at `~/.cue/vectors/`, Ollama embedding endpoint integration, `ChromemVectorStore` adapter implementing `VectorEmbedder` and `VectorQuerier` interfaces (Phase-5-Feature-043)
 
 ### Security

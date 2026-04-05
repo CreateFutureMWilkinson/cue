@@ -26,6 +26,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Breaking
 
+- **NewMainWindow API change** — Now accepts `*ServiceSettingsPresenter` and `config.OllamaConfig` parameters; Settings menu navigates to center-column `SettingsView` instead of opening a popup dialog (Phase-4-Feature-038)
 - **Alert service API change** — `NewAlertService` now takes 4 args (cfg, beeper, filesystem, player); `PlayStartup` and `PlayShutdown` removed (Phase-1-Feature-012)
 - **AppPresenter API change** — `NewAppPresenter` now takes 3 args (removed alerter parameter); presenter `Alerter` interface removed (Phase-1-Feature-012)
 - **NewMainWindow API change** — Now accepts `*CenterViewRouter` as 8th argument; layout changed from two-pane HSplit to three-column (10%/60%/30%); "Review Buffered" button removed from bottom border (Phase-1-Feature-016, Phase-1-Feature-012, Phase-3-Feature-014)
@@ -43,6 +44,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Main wiring update** — Startup flow rewired: service accounts loaded from SQLite instead of TOML config; orchestrator starts with zero watchers and populates from DB; watcher factory closure enables runtime account management via Settings UI; `PollIntervalSeconds` added to `[orchestrator]` TOML section (default 600); `DB()` accessor on `SQLiteMessageRepository` for shared DB connections (Phase-4-Feature-038)
 - **Settings UI expansion** — Replaced popup settings window with full center-area `ViewSettings` in `CenterViewRouter`; added cog button to `FocusRail`; new `SettingsView` with four-tab layout (Slack, Email, Audio, Ollama); placeholder tab content for Feature 038 wiring (Phase-4-Feature-037)
 - **Service settings presenter** — Service settings presenter for Slack/Email account CRUD and watcher lifecycle (Phase-4-Feature-036)
 - **ServiceConfig repository interface** — `SlackAccount` and `EmailAccount` domain types with `ServiceConfigRepository` interface for multi-account database-backed service configuration (Phase-4-Feature-031)

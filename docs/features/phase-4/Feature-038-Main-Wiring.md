@@ -1,7 +1,7 @@
 # Feature 038: Main Wiring Update
 
 **Phase:** Phase-4-Feature-038
-**Status:** Planned
+**Status:** Done
 **Package:** `cmd/cue/`
 **Depends on:** All previous Phase 4 features (031-037)
 
@@ -133,8 +133,21 @@ Verification checklist:
 6. Restart app → accounts persist, watchers recreate from DB
 7. `just test` passes across entire project
 
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | Test Designer | ~71s | ~49,500 | a5e2a53 |
+| GREEN | Implementer | ~175s | ~41,700 | 3283dc8 |
+| REFACTOR | Refactorer | ~68s | ~31,800 | (no changes) |
+| WIRING | Manual | — | — | 2ec298e |
+
 ## Files
 
 | File | Action |
 |---|---|
-| `cmd/cue/main.go` | Modify — rewire startup flow, remove Slack/Email config references, add ServiceConfigRepository, factory, presenter wiring |
+| `cmd/cue/main.go` | Modified — rewired startup flow, removed Slack/Email config references, added ServiceConfigRepository, factory, presenter wiring |
+| `internal/config/config.go` | Modified — added `PollIntervalSeconds` to `OrchestratorConfig`, `applyDefaults()`, validation |
+| `internal/repository/implementation/sqlite/message_impl.go` | Modified — added `DB()` accessor |
+| `internal/ui/window.go` | Modified — `NewMainWindow` accepts `ServiceSettingsPresenter` + `OllamaConfig`, builds `SettingsView`, Settings menu navigates to center view |
+| `internal/ui/window_layout_test.go` | Modified — updated test helper for new `NewMainWindow` signature |

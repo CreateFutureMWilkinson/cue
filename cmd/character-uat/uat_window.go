@@ -191,7 +191,7 @@ func (w *UATWindow) buildLayout() {
 	rightPanel := container.NewBorder(diagnostics, nil, nil, nil, controls)
 
 	// Left panel: character widget centered.
-	leftPanel := container.NewCenter(w.charContainer)
+	leftPanel := NewCharacterPanel(w.charContainer)
 
 	// 60/40 horizontal split.
 	split := container.NewHSplit(leftPanel, rightPanel)
@@ -219,7 +219,7 @@ func (w *UATWindow) setStateButtonsEnabled(enabled bool) {
 // NewCharacterPanel creates the left panel container that holds the character widget.
 // The character widget fills the available space to match the main application's embedding.
 func NewCharacterPanel(charContainer *fyne.Container) fyne.CanvasObject {
-	return nil // stub — not implemented
+	return container.NewStack(charContainer)
 }
 
 // availableCharacterNames returns sorted character names from the registry,

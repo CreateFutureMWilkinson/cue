@@ -3,6 +3,7 @@ package sqlite_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -780,4 +781,33 @@ func (s *MessageRepoSuite) TestEvictionAtThresholdOne() {
 	s.Require().NoError(err)
 	s.Require().Len(results, 1)
 	s.Equal(msg2.ID, results[0].ID, "only the latest message should remain")
+}
+
+// --- Feature 049: ErrNotFound sentinel ---
+
+func (s *MessageRepoSuite) TestQueryByID_UnknownID_ReturnsErrNotFound() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+
+	got, err := repo.QueryByID(ctx, uuid.New())
+	s.True(errors.Is(err, repository.ErrNotFound), "expected ErrNotFound sentinel, got: %v", err)
+	s.Nil(got, "message should be nil for unknown ID")
+}
+
+func (s *MessageRepoSuite) TestQueryByID_CancelledContext_ReturnsContextError() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
+	s.Require().NoError(err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	got, err := repo.QueryByID(ctx, uuid.New())
+	s.Error(err, "expected error when context is cancelled")
+	s.Nil(got, "message should be nil when context is cancelled")
 }

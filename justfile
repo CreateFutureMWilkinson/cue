@@ -48,6 +48,15 @@ security:
 vulncheck:
     govulncheck ./...
 
+# Build the character UAT harness
+uat:
+    @mkdir -p _build
+    go build -o _build/character-uat ./cmd/cue-uat
+
+# Build and run the character UAT harness
+run-uat: uat
+    ./_build/character-uat
+
 # Clean build artifacts
 clean:
     rm -rf _build/

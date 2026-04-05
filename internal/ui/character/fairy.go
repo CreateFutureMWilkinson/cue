@@ -1,11 +1,12 @@
 package character
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"image/color"
 	"math"
-	"math/rand"
+	mathrand "math/rand"
 	"sync"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -88,7 +89,8 @@ type FairyCharacter struct {
 // rendering. The fairy starts at the bottom-center position (0.5, 1.0) with
 // dark green body color (#006100).
 func NewFairyCharacter() *FairyCharacter {
-	// State indicator (kept for backward compatibility with TransitionTo).
+	// State indicator (hidden but maintained for TransitionTo method compatibility).
+	// This circle tracks state colors but is not visually displayed.
 	indicator := canvas.NewCircle(stateColor(StateIdle))
 	indicator.Resize(fyne.NewSize(fairyIndicatorSize, fairyIndicatorSize))
 	indicator.Hide()
@@ -105,8 +107,7 @@ func NewFairyCharacter() *FairyCharacter {
 	// Glow layers — 8 concentric circles from innermost to outermost.
 	glowLayers := make([]*canvas.Circle, fairyGlowLayerCount)
 	for i := range glowLayers {
-		c := canvas.NewCircle(color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: glowAlpha})
-		glowLayers[i] = c
+		glowLayers[i] = newGlowCircle()
 	}
 
 	f := &FairyCharacter{
@@ -120,6 +121,7 @@ func NewFairyCharacter() *FairyCharacter {
 		posY:          1.0,
 		glowIntensity: 0.0,
 		clock:         WallClock{},
+		refreshFunc:   func() {}, // Default no-op, replaced by container refresh in production
 	}
 
 	// Build the container with custom layout for proportional sizing.
@@ -155,27 +157,34 @@ func (f *FairyCharacter) TransitionTo(state CharacterState) {
 	f.indicator.FillColor = stateColor(state)
 	f.indicator.Refresh()
 
-	var animator StateAnimator
-	switch state {
-	case StateIdle:
-		animator = NewIdleAnimator(f.clock)
-	case StateStarting:
-		animator = NewStartupAnimator(f.clock, func() {
-			go f.TransitionTo(StateIdle)
-		})
-	case StateWorking:
-		animator = NewWorkingAnimator(f.clock)
-	case StateNotifying:
-		animator = NewNotifyAnimator(f.clock, rand.New(rand.NewSource(time.Now().UnixNano())))
-	case StateError:
-		animator = NewErrorAnimator(f.clock)
-	case StateShuttingDown:
-		animator = NewShutdownAnimator(f.clock)
-	}
-
+	animator := f.createAnimatorForState(state)
 	f.currentAnimator = animator
 	if animator != nil {
 		animator.Start(f)
+	}
+}
+
+// createAnimatorForState creates the appropriate animator for the given state.
+func (f *FairyCharacter) createAnimatorForState(state CharacterState) StateAnimator {
+	switch state {
+	case StateIdle:
+		return NewIdleAnimator(f.clock)
+	case StateStarting:
+		return NewStartupAnimator(f.clock, func() {
+			go f.TransitionTo(StateIdle)
+		})
+	case StateWorking:
+		return NewWorkingAnimator(f.clock)
+	case StateNotifying:
+		var seed int64
+		_ = binary.Read(rand.Reader, binary.LittleEndian, &seed)
+		return NewNotifyAnimator(f.clock, mathrand.New(mathrand.NewSource(seed))) // #nosec G404 -- animation dart positions are visual-only, not security-sensitive; seed is cryptographic
+	case StateError:
+		return NewErrorAnimator(f.clock)
+	case StateShuttingDown:
+		return NewShutdownAnimator(f.clock)
+	default:
+		return nil
 	}
 }
 
@@ -210,9 +219,7 @@ func (f *FairyCharacter) Widget() fyne.CanvasObject { return f.container }
 func (f *FairyCharacter) SetPosition(x, y float64) {
 	f.posX = clamp01(x)
 	f.posY = clamp01(y)
-	if f.refreshFunc != nil {
-		f.refreshFunc()
-	}
+	f.refreshFunc()
 }
 
 // Position returns the fairy's current normalized position.
@@ -224,9 +231,7 @@ func (f *FairyCharacter) Position() (x, y float64) {
 func (f *FairyCharacter) SetBodyColor(c color.Color) {
 	f.bodyCircle.FillColor = c
 	f.bodyCircle.Refresh()
-	if f.refreshFunc != nil {
-		f.refreshFunc()
-	}
+	f.refreshFunc()
 }
 
 // SetGlowIntensity sets the glow intensity (0.0-1.0). Values are clamped.
@@ -236,15 +241,13 @@ func (f *FairyCharacter) SetGlowIntensity(intensity float64) {
 	for _, gl := range f.glowLayers {
 		r, g, b, _ := gl.FillColor.RGBA()
 		gl.FillColor = color.RGBA{
-			R: uint8(r >> 8),
-			G: uint8(g >> 8),
-			B: uint8(b >> 8),
+			R: uint8((r >> 8) & 0xFF),
+			G: uint8((g >> 8) & 0xFF),
+			B: uint8((b >> 8) & 0xFF),
 			A: uint8(float64(glowAlpha) * f.glowIntensity),
 		}
 	}
-	if f.refreshFunc != nil {
-		f.refreshFunc()
-	}
+	f.refreshFunc()
 }
 
 // GlowIntensity returns the current glow intensity.
@@ -268,6 +271,11 @@ func (f *FairyCharacter) GlowCircle() *canvas.Circle {
 // GlowLayers returns all glow layer circles.
 func (f *FairyCharacter) GlowLayers() []*canvas.Circle {
 	return f.glowLayers
+}
+
+// newGlowCircle creates a new glow circle with the default idle color.
+func newGlowCircle() *canvas.Circle {
+	return canvas.NewCircle(color.RGBA{R: 0x00, G: 0x61, B: 0x00, A: glowAlpha})
 }
 
 // clamp01 clamps a value to the range [0.0, 1.0].
@@ -340,7 +348,7 @@ func (l *fairyJarLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
 	// Position fairy circles (body + glow layers).
 	l.positionFairyCircles(w, h)
 
-	// Hidden indicator (kept for backward compatibility).
+	// Position hidden indicator (maintained for compatibility).
 	l.fairy.indicator.Resize(fyne.NewSize(fairyIndicatorSize, fairyIndicatorSize))
 }
 

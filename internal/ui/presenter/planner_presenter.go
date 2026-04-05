@@ -116,6 +116,9 @@ type PlannerPresenter struct {
 	activeScheduleID uuid.UUID
 	activeBlocks     []TimeBlockPreview
 	activeIndex      int
+
+	// Step change callback
+	onStepChange func(WizardStep)
 }
 
 // NewPlannerPresenter creates a new PlannerPresenter, validating all dependencies.
@@ -161,6 +164,17 @@ func NewPlannerPresenter(
 	}, nil
 }
 
+// SetOnStepChange registers a callback that fires whenever the wizard step changes.
+func (p *PlannerPresenter) SetOnStepChange(fn func(WizardStep)) {
+	p.onStepChange = fn
+}
+
+func (p *PlannerPresenter) fireStepChange() {
+	if p.onStepChange != nil {
+		p.onStepChange(p.step)
+	}
+}
+
 // === Wizard Navigation ===
 
 // CurrentStep returns the current wizard step.
@@ -181,6 +195,7 @@ func (p *PlannerPresenter) StartPlanning(ctx context.Context) error {
 		p.descriptions[t.ID] = t.Description
 	}
 	p.step = StepTaskSelect
+	p.fireStepChange()
 	return nil
 }
 
@@ -224,6 +239,7 @@ func (p *PlannerPresenter) NextStep(ctx context.Context) error {
 		return p.nextFromTaskSelect(ctx)
 	case StepEstimates:
 		p.step = StepPriority
+		p.fireStepChange()
 		return nil
 	case StepPriority:
 		return p.nextFromPriority(ctx)
@@ -239,12 +255,16 @@ func (p *PlannerPresenter) PreviousStep() {
 	switch p.step {
 	case StepTaskSelect:
 		p.step = StepIdle
+		p.fireStepChange()
 	case StepEstimates:
 		p.step = StepTaskSelect
+		p.fireStepChange()
 	case StepPriority:
 		p.step = StepEstimates
+		p.fireStepChange()
 	case StepSchedule:
 		p.step = StepPriority
+		p.fireStepChange()
 	}
 }
 
@@ -340,6 +360,7 @@ func (p *PlannerPresenter) SelectSchedule(ctx context.Context, strategy string) 
 	p.activeBlocks = timeBlocksToPreview(chosen.Blocks)
 	p.activeIndex = 0
 	p.step = StepActive
+	p.fireStepChange()
 	return nil
 }
 
@@ -388,6 +409,7 @@ func (p *PlannerPresenter) AbandonPlan(ctx context.Context) error {
 		return fmt.Errorf("deleting schedule: %w", err)
 	}
 	p.step = StepIdle
+	p.fireStepChange()
 	p.activeBlocks = nil
 	p.activeIndex = 0
 	p.activeScheduleID = uuid.Nil
@@ -415,6 +437,7 @@ func (p *PlannerPresenter) LoadExistingPlan(ctx context.Context) error {
 	p.activeBlocks = repoBlocksToPreview(schedule.Blocks)
 	p.activeIndex = 0
 	p.step = StepActive
+	p.fireStepChange()
 	return nil
 }
 
@@ -474,6 +497,7 @@ func (p *PlannerPresenter) nextFromTaskSelect(ctx context.Context) error {
 
 	p.estimates = estimates
 	p.step = StepEstimates
+	p.fireStepChange()
 	return nil
 }
 
@@ -494,6 +518,7 @@ func (p *PlannerPresenter) nextFromPriority(ctx context.Context) error {
 	p.focusSchedule = focus
 	p.recoverySchedule = recovery
 	p.step = StepSchedule
+	p.fireStepChange()
 	return nil
 }
 

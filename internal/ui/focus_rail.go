@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -130,4 +132,16 @@ func (r *FocusRail) SetOnDone(fn func()) {
 // SetOnReview registers a callback invoked when the Review button is tapped.
 func (r *FocusRail) SetOnReview(fn func()) {
 	r.onReview = fn
+}
+
+// Container returns a *fyne.Container with all FocusRail widgets in a VBox layout.
+func (r *FocusRail) Container() *fyne.Container {
+	return container.NewVBox(
+		r.timer,
+		r.taskLabel,
+		r.planBtn,
+		r.backBtn,
+		r.doneBtn,
+		r.reviewBtn,
+	)
 }

@@ -52,15 +52,40 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 29 | Fairy error state (centered vibrate) | Done |
 | 30 | Fairy lifecycle states (startup/shutdown) | Done |
 
-**Hotfixes**
+**Hotfixes (Done)**
 
 | ID | Scope | Status |
 |---|---|---|
-| 14-A | Security hardening (gosec G304/G404, x/image, x/net CVEs) | Done |
-| 15-A | Gosec G104 unhandled db.Close() in SQLite constructors | Done |
-| 30-A | Gosec G115 integer overflow in color channel conversion | Done |
-| 24-A | Wayland thread-safety in UAT harness FPS update | Done |
-| 25-A | Animator wiring in FairyCharacter TransitionTo | Done |
+| 001-A | Tilde expansion in config paths | Done |
+| 014-A | Security hardening (gosec G304/G404, x/image, x/net CVEs) | Done |
+| 015-A | Gosec G104 unhandled db.Close() in SQLite constructors | Done |
+| 024-A | Wayland thread-safety in UAT harness FPS update | Done |
+| 025-A | Animator wiring in FairyCharacter TransitionTo | Done |
+| 030-A | Gosec G115 integer overflow in color channel conversion | Done |
+
+**Phase 4** — Dynamic Service Config + Settings UI
+
+| # | Component | Status | Depends on |
+|---|---|---|---|
+| 031 | ServiceConfig repository interface | Planned | — |
+| 032 | SQLite ServiceConfig implementation | Planned | 031 |
+| 033 | Watcher config decoupling | Planned | — |
+| 034 | Dynamic watcher management | Planned | — |
+| 035 | TOML config slimming | Planned | 033 |
+| 036 | Settings presenter expansion | Planned | 031, 032, 034 |
+| 037 | Settings UI expansion | Planned | 036 |
+| 038 | Main wiring update | Planned | 031–037 |
+| 039 | Ollama model validation on startup | Planned | — |
+| 040 | Example config generation CLI | Planned | 035 |
+
+**Hotfixes (Planned)**
+
+| ID | Scope | Status |
+|---|---|---|
+| 014-B | Fairy animator integration (wire animators into FairyCharacter) | Planned |
+| 017-A | Countdown timer renderer (45-segment ring drawing) | Planned |
+| 018-A | Notification card visual rendering (styled cards with presenter colors) | Planned |
+| 022-A | Planner UI views + center view wiring | Planned |
 
 ## Supported Platforms
 

@@ -25,6 +25,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **AppPresenter API change** — `NewAppPresenter` now takes 3 args (removed alerter parameter); presenter `Alerter` interface removed (Phase-1-Feature-012)
 - **NewMainWindow API change** — Now accepts `*CenterViewRouter` as 8th argument; layout changed from two-pane HSplit to three-column (10%/60%/30%); "Review Buffered" button removed from bottom border (Phase-1-Feature-016, Phase-1-Feature-012, Phase-3-Feature-014)
 
+### Changed
+
+- **README updated with planned work** — Added Phase 4 feature table (Features 031–040 with dependency chain), planned hotfixes section (014-B, 017-A, 018-A, 022-A), missing completed hotfix 001-A, and zero-padded all hotfix IDs to 3 digits per numbering convention
+
 ### Fixed
 
 - **First-run database crash** — `config.Load()` now calls `expandPaths()` on the default config, expanding `~/` to the user's home directory before SQLite opens the database. Previously, first-run users hit error 14 (SQLITE_CANTOPEN) because the literal `~/.cue/messages.db` path was passed to SQLite (Phase-1-Feature-001-Hotfix-A)

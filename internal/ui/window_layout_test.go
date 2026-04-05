@@ -1,11 +1,13 @@
 package ui_test
 
 import (
+	"context"
 	"testing"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
@@ -194,6 +196,64 @@ func (s *ThreeColumnLayoutSuite) TestViewPlanShowsPlannerViewWhenVMsProvided() {
 	// show a real PlannerView container, NOT a placeholder label.
 	_, isLabel := content.(*widget.Label)
 	s.False(isLabel, "ViewPlan content should be a *fyne.Container from PlannerView, not a *widget.Label placeholder")
+}
+
+// stubWizardVM satisfies WizardViewModel with zero-value returns for all methods.
+// Separate from stubPlannerTimerVM for clarity.
+type stubWizardVM struct{}
+
+func (s *stubWizardVM) CurrentStep() presenter.WizardStep      { return presenter.StepIdle }
+func (s *stubWizardVM) AvailableTasks() []presenter.TodoRow    { return nil }
+func (s *stubWizardVM) Estimates() []presenter.TaskEstimateRow { return nil }
+func (s *stubWizardVM) EstimateSummary() presenter.EstimateSummary {
+	return presenter.EstimateSummary{}
+}
+func (s *stubWizardVM) FocusSchedule() *presenter.SchedulePreview        { return nil }
+func (s *stubWizardVM) RecoverySchedule() *presenter.SchedulePreview     { return nil }
+func (s *stubWizardVM) SelectTask(_ uuid.UUID, _ bool)                   {}
+func (s *stubWizardVM) AddTask(_ context.Context, _ string, _ int) error { return nil }
+func (s *stubWizardVM) NextStep(_ context.Context) error                 { return nil }
+func (s *stubWizardVM) PreviousStep()                                    {}
+func (s *stubWizardVM) OverrideEstimate(_ uuid.UUID, _ int)              {}
+func (s *stubWizardVM) ReorderTask(_, _ int)                             {}
+func (s *stubWizardVM) SelectSchedule(_ context.Context, _ string) error { return nil }
+func (s *stubWizardVM) SelectedCount() int                               { return 0 }
+
+func (s *ThreeColumnLayoutSuite) TestViewWizardShowsWizardViewWhenVMProvided() {
+	fyneApp := test.NewApp()
+	router := ui.NewCenterViewRouter()
+	wvm := &stubWizardVM{}
+
+	cfg := config.GUIConfig{
+		WindowWidth:  1200,
+		WindowHeight: 800,
+	}
+	mw := ui.NewMainWindow(
+		fyneApp,
+		cfg,
+		(*presenter.NotificationPresenter)(nil),
+		(*presenter.ActivityPresenter)(nil),
+		(*presenter.FeedbackPresenter)(nil),
+		(*presenter.AppPresenter)(nil),
+		(*presenter.SettingsPresenter)(nil),
+		(*presenter.ServiceSettingsPresenter)(nil),
+		config.OllamaConfig{},
+		nil, // characterWidget
+		router,
+		nil, // plannerVM
+		nil, // timerVM
+		wvm, // wizardVM
+	)
+
+	router.NavigateTo(ui.ViewWizard)
+
+	content := mw.CenterContent()
+	s.Require().NotNil(content, "CenterContent should not be nil after navigating to ViewWizard")
+
+	// When WizardViewModel is provided, ViewWizard should show a real
+	// WizardView container, NOT a placeholder label.
+	_, isLabel := content.(*widget.Label)
+	s.False(isLabel, "ViewWizard content should be a *fyne.Container from WizardView, not a *widget.Label placeholder")
 }
 
 func (s *ThreeColumnLayoutSuite) TestNavigateBackToCharacterRestoresContent() {

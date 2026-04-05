@@ -170,3 +170,6 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-3-Feature-025-Hotfix-A | RED | Test Designer | 108s | 54,403 | 58837ab |
 | Phase-3-Feature-025-Hotfix-A | GREEN | Implementer | 4310s | 79,345 | 313aac8 |
 | Phase-3-Feature-025-Hotfix-A | REFACTOR | Refactorer | 136s | 36,248 | 99e3dd3 |
+| Phase-3-Feature-014-Hotfix-B | RED | Test Designer | 428s | 51,352 | b9cc323 |
+| Phase-3-Feature-014-Hotfix-B | GREEN | Implementer | — | — | d3c2343 |
+| Phase-3-Feature-014-Hotfix-B | REFACTOR | Refactorer | 76s | 33,344 | e573b14 |

@@ -359,12 +359,13 @@ func (c *Config) Validate() error {
 				return cfg.Planner.TimerVolume >= 0 && cfg.Planner.TimerVolume <= 100
 			},
 			"planner.timer_volume must be between 0 and 100"),
+		// Vector-assisted routing validation (only when enabled)
 		conditionalRule(
 			func(cfg *Config) bool { return cfg.Orchestrator.Router.VectorEnabled },
 			func(cfg *Config) bool {
-				return cfg.Orchestrator.Router.VectorDampingFactor >= 0.0 && cfg.Orchestrator.Router.VectorDampingFactor <= 1.0
+				return cfg.Orchestrator.Router.VectorSimilarityThreshold >= 0.0 && cfg.Orchestrator.Router.VectorSimilarityThreshold <= 1.0
 			},
-			"orchestrator.router.vector_damping_factor must be between 0.0 and 1.0"),
+			"orchestrator.router.vector_similarity_threshold must be between 0.0 and 1.0"),
 		conditionalRule(
 			func(cfg *Config) bool { return cfg.Orchestrator.Router.VectorEnabled },
 			func(cfg *Config) bool { return cfg.Orchestrator.Router.VectorTopN > 0 },
@@ -372,9 +373,9 @@ func (c *Config) Validate() error {
 		conditionalRule(
 			func(cfg *Config) bool { return cfg.Orchestrator.Router.VectorEnabled },
 			func(cfg *Config) bool {
-				return cfg.Orchestrator.Router.VectorSimilarityThreshold >= 0.0 && cfg.Orchestrator.Router.VectorSimilarityThreshold <= 1.0
+				return cfg.Orchestrator.Router.VectorDampingFactor >= 0.0 && cfg.Orchestrator.Router.VectorDampingFactor <= 1.0
 			},
-			"orchestrator.router.vector_similarity_threshold must be between 0.0 and 1.0"),
+			"orchestrator.router.vector_damping_factor must be between 0.0 and 1.0"),
 	}
 
 	for _, rule := range rules {

@@ -12,17 +12,17 @@ import (
 
 // ScoreAdvice contains the vector-based score adjustment recommendation.
 type ScoreAdvice struct {
-	Adjustment    float64
-	SimilarCount  int
-	AvgUserRating float64
-	TopSimilarity float32
+	Adjustment    float64 // Score adjustment to apply [-2.0, +2.0]
+	SimilarCount  int     // Number of similar messages found
+	AvgUserRating float64 // Weighted average user rating of similar messages
+	TopSimilarity float32 // Highest similarity score among matches
 }
 
 // VectorAdvisorConfig contains configuration for the vector score advisor.
 type VectorAdvisorConfig struct {
-	SimilarityThreshold float64
-	TopN                int
-	DampingFactor       float64
+	SimilarityThreshold float64 // Minimum similarity score to consider [0.0, 1.0]
+	TopN                int     // Maximum number of similar messages to fetch
+	DampingFactor       float64 // Factor to reduce adjustment impact [0.0, 1.0]
 }
 
 // VectorScoreAdvisor provides score adjustment advice based on similar historical messages.
@@ -66,11 +66,11 @@ func (a *vectorScoreAdvisor) Advise(ctx context.Context, content string) (*Score
 	}
 
 	var (
-		weightedRatingSum     float64
-		weightedImportanceSum float64
-		similaritySum         float64
-		count                 int
-		maxSimilarity         float32
+		totalWeightedRating     float64
+		totalWeightedImportance float64
+		totalSimilarity         float64
+		matchCount              int
+		maxSimilarity           float32
 	)
 
 	for _, r := range results {
@@ -86,41 +86,41 @@ func (a *vectorScoreAdvisor) Advise(ctx context.Context, content string) (*Score
 			continue
 		}
 
-		sim := float64(r.Score)
-		weightedRatingSum += float64(*msg.UserRating) * sim
-		weightedImportanceSum += msg.ImportanceScore * sim
-		similaritySum += sim
-		count++
+		similarity := float64(r.Score)
+		totalWeightedRating += float64(*msg.UserRating) * similarity
+		totalWeightedImportance += msg.ImportanceScore * similarity
+		totalSimilarity += similarity
+		matchCount++
 
 		if r.Score > maxSimilarity {
 			maxSimilarity = r.Score
 		}
 	}
 
-	if count == 0 {
+	if matchCount == 0 {
 		return &ScoreAdvice{}, nil
 	}
 
-	weightedAvgRating := weightedRatingSum / similaritySum
-	weightedAvgIS := weightedImportanceSum / similaritySum
+	avgUserRating := totalWeightedRating / totalSimilarity
+	avgImportanceScore := totalWeightedImportance / totalSimilarity
 
-	rawAdj := weightedAvgRating - weightedAvgIS
+	// Calculate raw adjustment: user rating vs initial scoring
+	rawAdjustment := avgUserRating - avgImportanceScore
 
-	// Clamp to [-2.0, +2.0]
-	if rawAdj > 2.0 {
-		rawAdj = 2.0
+	// Clamp adjustment to valid range [-2.0, +2.0]
+	if rawAdjustment > 2.0 {
+		rawAdjustment = 2.0
+	} else if rawAdjustment < -2.0 {
+		rawAdjustment = -2.0
 	}
-	if rawAdj < -2.0 {
-		rawAdj = -2.0
-	}
 
-	// Apply damping factor
-	adj := rawAdj * a.cfg.DampingFactor
+	// Apply damping factor to moderate adjustment impact
+	dampedAdjustment := rawAdjustment * a.cfg.DampingFactor
 
 	return &ScoreAdvice{
-		Adjustment:    adj,
-		SimilarCount:  count,
-		AvgUserRating: weightedAvgRating,
+		Adjustment:    dampedAdjustment,
+		SimilarCount:  matchCount,
+		AvgUserRating: avgUserRating,
 		TopSimilarity: maxSimilarity,
 	}, nil
 }

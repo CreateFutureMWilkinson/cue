@@ -44,6 +44,7 @@ const maxMessagesPerSource = 100
 const (
 	queryCountBySource        = "SELECT COUNT(*) FROM messages WHERE source = ?"
 	queryDeleteOldestBySource = "DELETE FROM messages WHERE id = (SELECT id FROM messages WHERE source = ? ORDER BY created_at ASC LIMIT 1)"
+	querySelectByID           = "SELECT " + messageColumnsStr + " FROM messages WHERE id = ?"
 	querySelectByStatus       = "SELECT " + messageColumnsStr + " FROM messages WHERE status = ?"
 	querySelectAll            = "SELECT " + messageColumnsStr + " FROM messages"
 	querySelectOldestLimit    = "SELECT " + messageColumnsStr + " FROM messages ORDER BY created_at ASC LIMIT ?"
@@ -199,7 +200,7 @@ func (r *SQLiteMessageRepository) Update(ctx context.Context, msg *repository.Me
 
 // QueryByID returns a single message by its UUID, or nil if not found.
 func (r *SQLiteMessageRepository) QueryByID(ctx context.Context, id uuid.UUID) (*repository.Message, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT "+messageColumnsStr+" FROM messages WHERE id = ?", id.String())
+	rows, err := r.db.QueryContext(ctx, querySelectByID, id.String())
 	if err != nil {
 		return nil, fmt.Errorf("query by id: %w", err)
 	}

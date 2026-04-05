@@ -89,15 +89,17 @@ func (r *Router) Route(ctx context.Context, msg *repository.Message) (*repositor
 	msg.ConfidenceScore = result.ConfidenceScore
 	msg.Reasoning = result.Reasoning
 
-	// Apply vector advisor adjustment if available
+	// Apply vector-based score adjustment if advisor is available
 	if r.advisor != nil {
 		advice, advErr := r.advisor.Advise(ctx, msg.RawContent)
 		if advErr == nil && advice != nil && advice.Adjustment != 0 {
+			// Adjust score based on historical user feedback for similar messages
 			msg.ImportanceScore += advice.Adjustment
+
+			// Clamp final score to valid range [0, 10]
 			if msg.ImportanceScore < 0 {
 				msg.ImportanceScore = 0
-			}
-			if msg.ImportanceScore > 10 {
+			} else if msg.ImportanceScore > 10 {
 				msg.ImportanceScore = 10
 			}
 		}

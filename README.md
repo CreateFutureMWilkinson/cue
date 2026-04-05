@@ -25,11 +25,28 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 12 | Configurable audio alerts (amendment) | Done |
 | 13 | gopxl/beep audio player (amendment) | Done |
 
+**Phase 2** — Day Planner + Timer
+
+| # | Component | Status |
+|---|---|---|
+| 15 | Todo list (CRUD, categories, SQLite) | Planned |
+| 16 | Calendar adapter (ICS-over-HTTP) | Planned |
+| 17 | Day planner (scheduling engine, Pomodoro model) | Planned |
+| 18 | Planner UI (wizard pane, Countdown timer) | Planned |
+| 19 | Planner audio alerts (timer sounds, volume control) | Planned |
+
 **Phase 3** — Animations
 
 | # | Component | Status |
 |---|---|---|
 | 14 | Character animation system | Done |
+| 20 | Character UAT harness | Planned |
+| 21 | Jar rendering (SVG layers, fairy body/glow) | Planned |
+| 22 | Fairy idle state (breathing glow) | Planned |
+| 23 | Fairy working state (pseudo-random drift) | Planned |
+| 24 | Fairy notification state (erratic dart) | Planned |
+| 25 | Fairy error state (centered vibrate) | Planned |
+| 26 | Fairy lifecycle states (startup/shutdown) | Planned |
 
 **Hotfixes**
 

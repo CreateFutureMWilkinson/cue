@@ -14,6 +14,20 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
 
+// stubMessageQuerier satisfies presenter.MessageQuerier for wiring tests.
+type stubMessageQuerier struct{}
+
+func (s *stubMessageQuerier) QueryByStatus(_ context.Context, _ string) ([]*repository.Message, error) {
+	return nil, nil
+}
+
+// stubMessageUpdater satisfies presenter.MessageUpdater for wiring tests.
+type stubMessageUpdater struct{}
+
+func (s *stubMessageUpdater) Update(_ context.Context, _ *repository.Message) error {
+	return nil
+}
+
 // stubBufferReviewer is a minimal mock satisfying presenter.BufferReviewer
 // for wiring tests that need a real *presenter.FeedbackPresenter.
 type stubBufferReviewer struct{}
@@ -75,8 +89,97 @@ func (s *FeedbackReviewWiringSuite) TestReviewButtonCallbackWiredWhenFeedbackPre
 		nil, // wizardVM
 	)
 
-	// The stub FocusRail() returns nil — this assertion will fail in RED phase.
 	s.Require().NotNil(mw.FocusRail(), "FocusRail() should return the focus rail instance")
 	s.NotNil(mw.FocusRail().ReviewButton().OnTapped,
 		"Review button should have a callback wired when FeedbackPresenter is provided")
+}
+
+func (s *FeedbackReviewWiringSuite) TestReviewButtonVisibleWhenNotificationsExpanded() {
+	app := test.NewApp()
+	defer app.Quit()
+
+	router := ui.NewCenterViewRouter()
+
+	np, err := presenter.NewNotificationPresenter(&stubMessageQuerier{}, &stubMessageUpdater{})
+	s.Require().NoError(err)
+
+	fp, err := presenter.NewFeedbackPresenter(&stubBufferReviewer{})
+	s.Require().NoError(err)
+
+	cfg := config.GUIConfig{
+		WindowWidth:  1200,
+		WindowHeight: 800,
+	}
+
+	mw := ui.NewMainWindow(
+		app,
+		cfg,
+		np,
+		(*presenter.ActivityPresenter)(nil),
+		fp,
+		(*presenter.AppPresenter)(nil),
+		(*presenter.SettingsPresenter)(nil),
+		(*presenter.ServiceSettingsPresenter)(nil),
+		config.OllamaConfig{},
+		nil, // characterWidget
+		router,
+		nil, // plannerVM
+		nil, // timerVM
+		nil, // wizardVM
+	)
+
+	// Review button should be hidden by default.
+	s.Require().NotNil(mw.FocusRail())
+	s.False(mw.FocusRail().ReviewButton().Visible(),
+		"Review button should be hidden before notifications are expanded")
+
+	// Expand notifications — review button should become visible.
+	np.ToggleExpanded()
+
+	s.True(mw.FocusRail().ReviewButton().Visible(),
+		"Review button should be visible after notifications are expanded")
+}
+
+func (s *FeedbackReviewWiringSuite) TestReviewButtonHiddenWhenNotificationsCollapsed() {
+	app := test.NewApp()
+	defer app.Quit()
+
+	router := ui.NewCenterViewRouter()
+
+	np, err := presenter.NewNotificationPresenter(&stubMessageQuerier{}, &stubMessageUpdater{})
+	s.Require().NoError(err)
+
+	fp, err := presenter.NewFeedbackPresenter(&stubBufferReviewer{})
+	s.Require().NoError(err)
+
+	cfg := config.GUIConfig{
+		WindowWidth:  1200,
+		WindowHeight: 800,
+	}
+
+	mw := ui.NewMainWindow(
+		app,
+		cfg,
+		np,
+		(*presenter.ActivityPresenter)(nil),
+		fp,
+		(*presenter.AppPresenter)(nil),
+		(*presenter.SettingsPresenter)(nil),
+		(*presenter.ServiceSettingsPresenter)(nil),
+		config.OllamaConfig{},
+		nil, // characterWidget
+		router,
+		nil, // plannerVM
+		nil, // timerVM
+		nil, // wizardVM
+	)
+
+	s.Require().NotNil(mw.FocusRail())
+
+	// Expand then collapse — review button should hide again.
+	np.ToggleExpanded()
+	np.ToggleExpanded()
+
+	s.False(mw.FocusRail().ReviewButton().Visible(),
+		"Review button should be hidden after notifications are collapsed")
 }

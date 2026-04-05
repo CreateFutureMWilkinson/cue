@@ -357,18 +357,9 @@ Email: fetch 10 messages → [Batch] → Route all → Store all
 
 Red-Green-Refactor is **required** for all feature and bug-fix work.
 
-### Single-Agent Workflow
+### Agent Teams (Required for ALL Changes)
 
-For simple changes (config, utility functions), work in a single Claude Code session:
-
-1. **Red** — Write/update failing test. Observe failure for expected reason.
-2. **Green** — Write minimum code to pass.
-3. **Refactor** — Improve design only after tests pass.
-4. **Commit** — One commit per phase.
-
-### Multi-Agent Workflow (Recommended for Complex Features)
-
-For complex features, spawn **Agent Teams** to enforce context isolation:
+**All features and bug fixes MUST use Agent Teams** to enforce context isolation. No exceptions — even simple changes (config, utility functions) go through the full pipeline.
 
 ```
 Feature Requirement (from docs/DESIGN.md)
@@ -422,7 +413,7 @@ Create an agent team to implement [feature] with TDD:
 
 ### Commit Checkpoints
 
-Create one commit per phase:
+Create one commit per phase. **Run `just fmt` as the last step before every commit** (red, green, and refactor):
 
 | Phase | Scope | Message |
 |---|---|---|

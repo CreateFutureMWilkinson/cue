@@ -46,6 +46,22 @@ func (m *mockServiceConfigRepo) DeleteEmailAccount(_ context.Context, _ uuid.UUI
 	return nil
 }
 
+func (m *mockServiceConfigRepo) ListCalendarAccounts(_ context.Context) ([]*repository.CalendarAccount, error) {
+	return nil, nil
+}
+
+func (m *mockServiceConfigRepo) GetCalendarAccount(_ context.Context, _ uuid.UUID) (*repository.CalendarAccount, error) {
+	return nil, nil
+}
+
+func (m *mockServiceConfigRepo) UpsertCalendarAccount(_ context.Context, _ *repository.CalendarAccount) error {
+	return nil
+}
+
+func (m *mockServiceConfigRepo) DeleteCalendarAccount(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
 // Compile-time interface satisfaction check.
 var _ repository.ServiceConfigRepository = &mockServiceConfigRepo{}
 
@@ -107,7 +123,7 @@ func (s *ServiceConfigSuite) TestEmailAccountFields() {
 		IMAPHost:            "imap.gmail.com",
 		IMAPPort:            993,
 		Username:            "user@gmail.com",
-		PasswordEnv:         "CUE_EMAIL_PASSWORD",
+		Password:            "my-secret-password",
 		PollIntervalSeconds: 600,
 		CreatedAt:           now,
 		UpdatedAt:           now,
@@ -118,7 +134,7 @@ func (s *ServiceConfigSuite) TestEmailAccountFields() {
 	s.Equal("imap.gmail.com", acct.IMAPHost)
 	s.Equal(993, acct.IMAPPort)
 	s.Equal("user@gmail.com", acct.Username)
-	s.Equal("CUE_EMAIL_PASSWORD", acct.PasswordEnv)
+	s.Equal("my-secret-password", acct.Password)
 	s.Equal(600, acct.PollIntervalSeconds)
 	s.Equal(now, acct.CreatedAt)
 	s.Equal(now, acct.UpdatedAt)
@@ -132,7 +148,42 @@ func (s *ServiceConfigSuite) TestEmailAccountDefaultValues() {
 	s.Empty(acct.IMAPHost)
 	s.Zero(acct.IMAPPort)
 	s.Empty(acct.Username)
-	s.Empty(acct.PasswordEnv)
+	s.Empty(acct.Password)
+	s.Zero(acct.PollIntervalSeconds)
+	s.True(acct.CreatedAt.IsZero())
+	s.True(acct.UpdatedAt.IsZero())
+}
+
+func (s *ServiceConfigSuite) TestCalendarAccountFields() {
+	now := time.Now().UTC().Truncate(time.Second)
+	id := uuid.New()
+
+	acct := &repository.CalendarAccount{
+		ID:                  id,
+		Enabled:             true,
+		Name:                "Work Calendar",
+		ICSURL:              "https://calendar.example.com/feed.ics",
+		PollIntervalSeconds: 600,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	s.Equal(id, acct.ID)
+	s.True(acct.Enabled)
+	s.Equal("Work Calendar", acct.Name)
+	s.Equal("https://calendar.example.com/feed.ics", acct.ICSURL)
+	s.Equal(600, acct.PollIntervalSeconds)
+	s.Equal(now, acct.CreatedAt)
+	s.Equal(now, acct.UpdatedAt)
+}
+
+func (s *ServiceConfigSuite) TestCalendarAccountDefaultValues() {
+	acct := &repository.CalendarAccount{}
+
+	s.Equal(uuid.UUID{}, acct.ID)
+	s.False(acct.Enabled)
+	s.Empty(acct.Name)
+	s.Empty(acct.ICSURL)
 	s.Zero(acct.PollIntervalSeconds)
 	s.True(acct.CreatedAt.IsZero())
 	s.True(acct.UpdatedAt.IsZero())

@@ -15,14 +15,18 @@ import (
 // --- Mock ServiceConfigRepository ---
 
 type mockServiceConfigRepo struct {
-	listSlackFn   func(ctx context.Context) ([]*repository.SlackAccount, error)
-	getSlackFn    func(ctx context.Context, id uuid.UUID) (*repository.SlackAccount, error)
-	upsertSlackFn func(ctx context.Context, acct *repository.SlackAccount) error
-	deleteSlackFn func(ctx context.Context, id uuid.UUID) error
-	listEmailFn   func(ctx context.Context) ([]*repository.EmailAccount, error)
-	getEmailFn    func(ctx context.Context, id uuid.UUID) (*repository.EmailAccount, error)
-	upsertEmailFn func(ctx context.Context, acct *repository.EmailAccount) error
-	deleteEmailFn func(ctx context.Context, id uuid.UUID) error
+	listSlackFn      func(ctx context.Context) ([]*repository.SlackAccount, error)
+	getSlackFn       func(ctx context.Context, id uuid.UUID) (*repository.SlackAccount, error)
+	upsertSlackFn    func(ctx context.Context, acct *repository.SlackAccount) error
+	deleteSlackFn    func(ctx context.Context, id uuid.UUID) error
+	listEmailFn      func(ctx context.Context) ([]*repository.EmailAccount, error)
+	getEmailFn       func(ctx context.Context, id uuid.UUID) (*repository.EmailAccount, error)
+	upsertEmailFn    func(ctx context.Context, acct *repository.EmailAccount) error
+	deleteEmailFn    func(ctx context.Context, id uuid.UUID) error
+	listCalendarFn   func(ctx context.Context) ([]*repository.CalendarAccount, error)
+	getCalendarFn    func(ctx context.Context, id uuid.UUID) (*repository.CalendarAccount, error)
+	upsertCalendarFn func(ctx context.Context, acct *repository.CalendarAccount) error
+	deleteCalendarFn func(ctx context.Context, id uuid.UUID) error
 }
 
 func (m *mockServiceConfigRepo) ListSlackAccounts(ctx context.Context) ([]*repository.SlackAccount, error) {
@@ -55,6 +59,22 @@ func (m *mockServiceConfigRepo) UpsertEmailAccount(ctx context.Context, acct *re
 
 func (m *mockServiceConfigRepo) DeleteEmailAccount(ctx context.Context, id uuid.UUID) error {
 	return m.deleteEmailFn(ctx, id)
+}
+
+func (m *mockServiceConfigRepo) ListCalendarAccounts(ctx context.Context) ([]*repository.CalendarAccount, error) {
+	return m.listCalendarFn(ctx)
+}
+
+func (m *mockServiceConfigRepo) GetCalendarAccount(ctx context.Context, id uuid.UUID) (*repository.CalendarAccount, error) {
+	return m.getCalendarFn(ctx, id)
+}
+
+func (m *mockServiceConfigRepo) UpsertCalendarAccount(ctx context.Context, acct *repository.CalendarAccount) error {
+	return m.upsertCalendarFn(ctx, acct)
+}
+
+func (m *mockServiceConfigRepo) DeleteCalendarAccount(ctx context.Context, id uuid.UUID) error {
+	return m.deleteCalendarFn(ctx, id)
 }
 
 // --- Mock WatcherManager ---
@@ -108,8 +128,20 @@ func validEmailAccount() *repository.EmailAccount {
 		IMAPHost:            "imap.gmail.com",
 		IMAPPort:            993,
 		Username:            "user@gmail.com",
-		PasswordEnv:         "CUE_EMAIL_PASSWORD",
+		Password:            "my-secret-password",
 		PollIntervalSeconds: 600,
+	}
+}
+
+// --- Helper to build a valid CalendarAccount ---
+
+func validCalendarAccount() *repository.CalendarAccount {
+	return &repository.CalendarAccount{
+		ID:                  uuid.New(),
+		Enabled:             true,
+		Name:                "Work Calendar",
+		ICSURL:              "https://calendar.example.com/feed.ics",
+		PollIntervalSeconds: 3600,
 	}
 }
 
@@ -609,9 +641,9 @@ func (s *ServiceSettingsSuite) TestValidationEmailEmptyUsername() {
 	s.Contains(err.Error(), "username")
 }
 
-func (s *ServiceSettingsSuite) TestValidationEmailEmptyPasswordEnv() {
+func (s *ServiceSettingsSuite) TestValidationEmailEmptyPassword() {
 	acct := validEmailAccount()
-	acct.PasswordEnv = ""
+	acct.Password = ""
 	repo := &mockServiceConfigRepo{
 		upsertEmailFn: func(ctx context.Context, a *repository.EmailAccount) error {
 			s.Fail("upsert should not be called on validation failure")
@@ -718,4 +750,149 @@ func (s *ServiceSettingsSuite) TestRepoErrorOnDelete() {
 
 	s.Error(err)
 	s.Contains(err.Error(), "delete failed")
+}
+
+// --- Calendar Account Presenter Tests ---
+
+func (s *ServiceSettingsSuite) TestListCalendarAccounts() {
+	acct1 := validCalendarAccount()
+	acct2 := validCalendarAccount()
+	repo := &mockServiceConfigRepo{
+		listCalendarFn: func(ctx context.Context) ([]*repository.CalendarAccount, error) {
+			return []*repository.CalendarAccount{acct1, acct2}, nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+	factory := func(accountType string, accountID uuid.UUID) error { return nil }
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	accounts, err := p.ListCalendarAccounts(context.Background())
+
+	s.Require().NoError(err)
+	s.Len(accounts, 2)
+	s.Equal(acct1.ID, accounts[0].ID)
+	s.Equal(acct2.ID, accounts[1].ID)
+}
+
+func (s *ServiceSettingsSuite) TestListCalendarAccountsEmpty() {
+	repo := &mockServiceConfigRepo{
+		listCalendarFn: func(ctx context.Context) ([]*repository.CalendarAccount, error) {
+			return []*repository.CalendarAccount{}, nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+	factory := func(accountType string, accountID uuid.UUID) error { return nil }
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	accounts, err := p.ListCalendarAccounts(context.Background())
+
+	s.Require().NoError(err)
+	s.Empty(accounts)
+}
+
+func (s *ServiceSettingsSuite) TestSaveNewCalendarAccount() {
+	acct := validCalendarAccount()
+	var upsertedAcct *repository.CalendarAccount
+	repo := &mockServiceConfigRepo{
+		upsertCalendarFn: func(ctx context.Context, a *repository.CalendarAccount) error {
+			upsertedAcct = a
+			return nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+	factory := func(accountType string, accountID uuid.UUID) error { return nil }
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	err := p.SaveCalendarAccount(context.Background(), acct)
+
+	s.Require().NoError(err)
+	s.Equal(acct, upsertedAcct)
+}
+
+func (s *ServiceSettingsSuite) TestEditCalendarAccount() {
+	acct := validCalendarAccount()
+	acct.Name = "Updated Calendar"
+	var upsertedAcct *repository.CalendarAccount
+	repo := &mockServiceConfigRepo{
+		upsertCalendarFn: func(ctx context.Context, a *repository.CalendarAccount) error {
+			upsertedAcct = a
+			return nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+	factory := func(accountType string, accountID uuid.UUID) error { return nil }
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	err := p.EditCalendarAccount(context.Background(), acct, "Old Calendar")
+
+	s.Require().NoError(err)
+	s.Equal(acct, upsertedAcct)
+}
+
+func (s *ServiceSettingsSuite) TestDeleteCalendarAccount() {
+	acct := validCalendarAccount()
+	var deletedID uuid.UUID
+	repo := &mockServiceConfigRepo{
+		getCalendarFn: func(ctx context.Context, id uuid.UUID) (*repository.CalendarAccount, error) {
+			return acct, nil
+		},
+		deleteCalendarFn: func(ctx context.Context, id uuid.UUID) error {
+			deletedID = id
+			return nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+	factory := func(accountType string, accountID uuid.UUID) error { return nil }
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	err := p.DeleteCalendarAccount(context.Background(), acct.ID)
+
+	s.Require().NoError(err)
+	s.Equal(acct.ID, deletedID)
+}
+
+func (s *ServiceSettingsSuite) TestToggleCalendarEnable() {
+	acct := validCalendarAccount()
+	acct.Enabled = false
+	var upsertedAcct *repository.CalendarAccount
+	repo := &mockServiceConfigRepo{
+		getCalendarFn: func(ctx context.Context, id uuid.UUID) (*repository.CalendarAccount, error) {
+			return acct, nil
+		},
+		upsertCalendarFn: func(ctx context.Context, a *repository.CalendarAccount) error {
+			upsertedAcct = a
+			return nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+	factory := func(accountType string, accountID uuid.UUID) error { return nil }
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	err := p.ToggleCalendarAccount(context.Background(), acct.ID, true)
+
+	s.Require().NoError(err)
+	s.True(upsertedAcct.Enabled)
+}
+
+func (s *ServiceSettingsSuite) TestToggleCalendarDisable() {
+	acct := validCalendarAccount()
+	acct.Enabled = true
+	var upsertedAcct *repository.CalendarAccount
+	repo := &mockServiceConfigRepo{
+		getCalendarFn: func(ctx context.Context, id uuid.UUID) (*repository.CalendarAccount, error) {
+			return acct, nil
+		},
+		upsertCalendarFn: func(ctx context.Context, a *repository.CalendarAccount) error {
+			upsertedAcct = a
+			return nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+	factory := func(accountType string, accountID uuid.UUID) error { return nil }
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	err := p.ToggleCalendarAccount(context.Background(), acct.ID, false)
+
+	s.Require().NoError(err)
+	s.False(upsertedAcct.Enabled)
 }

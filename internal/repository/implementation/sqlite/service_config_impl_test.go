@@ -12,6 +12,7 @@ import (
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	sqlite "github.com/CreateFutureMWilkinson/cue/internal/repository/implementation/sqlite"
+	"github.com/CreateFutureMWilkinson/cue/internal/secret"
 
 	_ "modernc.org/sqlite"
 )
@@ -36,7 +37,11 @@ func (s *ServiceConfigSuite) SetupTest() {
 	_, err = db.Exec("PRAGMA journal_mode=WAL")
 	s.Require().NoError(err)
 
-	repo, err := sqlite.NewSQLiteServiceConfigRepository(db)
+	keyPath := filepath.Join(tmpDir, "test.key")
+	enc, err := secret.NewKeyFileEncryptor(keyPath)
+	s.Require().NoError(err)
+
+	repo, err := sqlite.NewSQLiteServiceConfigRepository(db, enc)
 	s.Require().NoError(err)
 	s.Require().NotNil(repo)
 
@@ -92,7 +97,7 @@ func (s *ServiceConfigSuite) TestEmailAccountRoundTrip() {
 		IMAPHost:            "imap.gmail.com",
 		IMAPPort:            993,
 		Username:            "user@gmail.com",
-		PasswordEnv:         "CUE_EMAIL_PASSWORD",
+		Password:            "my-secret-password",
 		PollIntervalSeconds: 600,
 		CreatedAt:           now,
 		UpdatedAt:           now,
@@ -110,7 +115,7 @@ func (s *ServiceConfigSuite) TestEmailAccountRoundTrip() {
 	s.Equal(acct.IMAPHost, got.IMAPHost)
 	s.Equal(acct.IMAPPort, got.IMAPPort)
 	s.Equal(acct.Username, got.Username)
-	s.Equal(acct.PasswordEnv, got.PasswordEnv)
+	s.Equal(acct.Password, got.Password)
 	s.Equal(acct.PollIntervalSeconds, got.PollIntervalSeconds)
 	s.WithinDuration(acct.CreatedAt, got.CreatedAt, time.Second)
 	s.WithinDuration(acct.UpdatedAt, got.UpdatedAt, time.Second)
@@ -165,7 +170,7 @@ func (s *ServiceConfigSuite) TestEmailAccountUpdate() {
 		IMAPHost:            "imap.original.com",
 		IMAPPort:            993,
 		Username:            "original@test.com",
-		PasswordEnv:         "ORIG_PASSWORD",
+		Password:            "orig-password",
 		PollIntervalSeconds: 600,
 		CreatedAt:           now,
 		UpdatedAt:           now,
@@ -178,7 +183,7 @@ func (s *ServiceConfigSuite) TestEmailAccountUpdate() {
 	acct.IMAPHost = "imap.updated.com"
 	acct.IMAPPort = 143
 	acct.Enabled = false
-	acct.PasswordEnv = "NEW_PASSWORD"
+	acct.Password = "new-password"
 	acct.PollIntervalSeconds = 300
 	acct.UpdatedAt = now.Add(time.Minute)
 
@@ -191,7 +196,7 @@ func (s *ServiceConfigSuite) TestEmailAccountUpdate() {
 	s.Equal("imap.updated.com", got.IMAPHost)
 	s.Equal(143, got.IMAPPort)
 	s.Equal(false, got.Enabled)
-	s.Equal("NEW_PASSWORD", got.PasswordEnv)
+	s.Equal("new-password", got.Password)
 	s.Equal(300, got.PollIntervalSeconds)
 	s.WithinDuration(now.Add(time.Minute), got.UpdatedAt, time.Second)
 	s.WithinDuration(now, got.CreatedAt, time.Second)
@@ -233,7 +238,7 @@ func (s *ServiceConfigSuite) TestEmailAccountDelete() {
 		IMAPHost:            "imap.delete.com",
 		IMAPPort:            993,
 		Username:            "delete@test.com",
-		PasswordEnv:         "DEL_PASSWORD",
+		Password:            "del-password",
 		PollIntervalSeconds: 600,
 		CreatedAt:           now,
 		UpdatedAt:           now,
@@ -346,7 +351,7 @@ func (s *ServiceConfigSuite) TestListEmailAccountsMultiple() {
 			IMAPHost:            "imap.list.com",
 			IMAPPort:            993,
 			Username:            "user" + string(rune('0'+i)) + "@list.com",
-			PasswordEnv:         "LIST_PASSWORD",
+			Password:            "list-password",
 			PollIntervalSeconds: 600,
 			CreatedAt:           now,
 			UpdatedAt:           now,
@@ -412,7 +417,7 @@ func (s *ServiceConfigSuite) TestEmailAccountUniqueUsername() {
 		IMAPHost:            "imap.unique.com",
 		IMAPPort:            993,
 		Username:            "duplicate@unique.com",
-		PasswordEnv:         "UNIQUE_PASSWORD",
+		Password:            "unique-password",
 		PollIntervalSeconds: 600,
 		CreatedAt:           now,
 		UpdatedAt:           now,
@@ -428,7 +433,7 @@ func (s *ServiceConfigSuite) TestEmailAccountUniqueUsername() {
 		IMAPHost:            "imap.unique2.com",
 		IMAPPort:            993,
 		Username:            "duplicate@unique.com",
-		PasswordEnv:         "UNIQUE_PASSWORD_2",
+		Password:            "unique-password-2",
 		PollIntervalSeconds: 600,
 		CreatedAt:           now,
 		UpdatedAt:           now,
@@ -436,4 +441,272 @@ func (s *ServiceConfigSuite) TestEmailAccountUniqueUsername() {
 
 	err = s.repo.UpsertEmailAccount(ctx, acct2)
 	s.Error(err, "upserting a second account with the same username should fail")
+}
+
+// --- Slack Token Encryption Verification ---
+
+func (s *ServiceConfigSuite) TestSlackTokenEncryptedAtRest() {
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+	token := "xoxb-plaintext-token-visible"
+
+	acct := &repository.SlackAccount{
+		ID:                  uuid.New(),
+		Enabled:             true,
+		Token:               token,
+		WorkspaceID:         "T-ENC-SLACK",
+		PollIntervalSeconds: 600,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	err := s.repo.UpsertSlackAccount(ctx, acct)
+	s.Require().NoError(err)
+
+	// Read the raw value from SQLite and verify it is NOT the plaintext token.
+	var rawToken []byte
+	err = s.db.QueryRowContext(ctx,
+		"SELECT token_encrypted FROM slack_accounts WHERE id = ?",
+		acct.ID.String(),
+	).Scan(&rawToken)
+	s.Require().NoError(err)
+	s.NotEqual([]byte(token), rawToken, "token must be encrypted at rest")
+}
+
+// --- Email Password Encryption Verification ---
+
+func (s *ServiceConfigSuite) TestEmailPasswordEncryptedAtRest() {
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+	password := "super-secret-email-password"
+
+	acct := &repository.EmailAccount{
+		ID:                  uuid.New(),
+		Enabled:             true,
+		IMAPHost:            "imap.enc.com",
+		IMAPPort:            993,
+		Username:            "enc@test.com",
+		Password:            password,
+		PollIntervalSeconds: 600,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	err := s.repo.UpsertEmailAccount(ctx, acct)
+	s.Require().NoError(err)
+
+	var rawPassword []byte
+	err = s.db.QueryRowContext(ctx,
+		"SELECT password_encrypted FROM email_accounts WHERE id = ?",
+		acct.ID.String(),
+	).Scan(&rawPassword)
+	s.Require().NoError(err)
+	s.NotEqual([]byte(password), rawPassword, "password must be encrypted at rest")
+}
+
+// --- Calendar Account CRUD Tests ---
+
+func (s *ServiceConfigSuite) TestCalendarAccountRoundTrip() {
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	acct := &repository.CalendarAccount{
+		ID:                  uuid.New(),
+		Enabled:             true,
+		Name:                "Work Calendar",
+		ICSURL:              "https://calendar.example.com/feed.ics",
+		PollIntervalSeconds: 3600,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	err := s.repo.UpsertCalendarAccount(ctx, acct)
+	s.Require().NoError(err)
+
+	got, err := s.repo.GetCalendarAccount(ctx, acct.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+
+	s.Equal(acct.ID, got.ID)
+	s.Equal(acct.Enabled, got.Enabled)
+	s.Equal(acct.Name, got.Name)
+	s.Equal(acct.ICSURL, got.ICSURL)
+	s.Equal(acct.PollIntervalSeconds, got.PollIntervalSeconds)
+	s.WithinDuration(acct.CreatedAt, got.CreatedAt, time.Second)
+	s.WithinDuration(acct.UpdatedAt, got.UpdatedAt, time.Second)
+}
+
+func (s *ServiceConfigSuite) TestCalendarAccountUpdate() {
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	acct := &repository.CalendarAccount{
+		ID:                  uuid.New(),
+		Enabled:             true,
+		Name:                "Original Calendar",
+		ICSURL:              "https://calendar.example.com/orig.ics",
+		PollIntervalSeconds: 3600,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	err := s.repo.UpsertCalendarAccount(ctx, acct)
+	s.Require().NoError(err)
+
+	acct.Name = "Updated Calendar"
+	acct.ICSURL = "https://calendar.example.com/updated.ics"
+	acct.Enabled = false
+	acct.PollIntervalSeconds = 1800
+	acct.UpdatedAt = now.Add(time.Minute)
+
+	err = s.repo.UpsertCalendarAccount(ctx, acct)
+	s.Require().NoError(err)
+
+	got, err := s.repo.GetCalendarAccount(ctx, acct.ID)
+	s.Require().NoError(err)
+
+	s.Equal("Updated Calendar", got.Name)
+	s.Equal("https://calendar.example.com/updated.ics", got.ICSURL)
+	s.False(got.Enabled)
+	s.Equal(1800, got.PollIntervalSeconds)
+	s.WithinDuration(now.Add(time.Minute), got.UpdatedAt, time.Second)
+	s.WithinDuration(now, got.CreatedAt, time.Second)
+}
+
+func (s *ServiceConfigSuite) TestCalendarAccountDelete() {
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	acct := &repository.CalendarAccount{
+		ID:                  uuid.New(),
+		Enabled:             true,
+		Name:                "Delete Me Calendar",
+		ICSURL:              "https://calendar.example.com/delete.ics",
+		PollIntervalSeconds: 3600,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	err := s.repo.UpsertCalendarAccount(ctx, acct)
+	s.Require().NoError(err)
+
+	err = s.repo.DeleteCalendarAccount(ctx, acct.ID)
+	s.Require().NoError(err)
+
+	_, err = s.repo.GetCalendarAccount(ctx, acct.ID)
+	s.ErrorIs(err, repository.ErrNotFound)
+}
+
+func (s *ServiceConfigSuite) TestGetUnknownCalendarAccount() {
+	ctx := context.Background()
+	_, err := s.repo.GetCalendarAccount(ctx, uuid.New())
+	s.ErrorIs(err, repository.ErrNotFound)
+}
+
+func (s *ServiceConfigSuite) TestDeleteUnknownCalendarAccount() {
+	ctx := context.Background()
+	err := s.repo.DeleteCalendarAccount(ctx, uuid.New())
+	s.NoError(err)
+}
+
+func (s *ServiceConfigSuite) TestListCalendarAccountsEmpty() {
+	ctx := context.Background()
+	results, err := s.repo.ListCalendarAccounts(ctx)
+	s.Require().NoError(err)
+	s.NotNil(results, "empty list should return non-nil slice")
+	s.Len(results, 0)
+}
+
+func (s *ServiceConfigSuite) TestListCalendarAccountsMultiple() {
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	ids := make([]uuid.UUID, 3)
+	for i := 0; i < 3; i++ {
+		id := uuid.New()
+		ids[i] = id
+		acct := &repository.CalendarAccount{
+			ID:                  id,
+			Enabled:             true,
+			Name:                "Calendar " + string(rune('A'+i)),
+			ICSURL:              "https://calendar.example.com/" + id.String()[:8] + ".ics",
+			PollIntervalSeconds: 3600,
+			CreatedAt:           now,
+			UpdatedAt:           now,
+		}
+		err := s.repo.UpsertCalendarAccount(ctx, acct)
+		s.Require().NoError(err)
+	}
+
+	results, err := s.repo.ListCalendarAccounts(ctx)
+	s.Require().NoError(err)
+	s.Len(results, 3)
+
+	gotIDs := make(map[uuid.UUID]bool)
+	for _, r := range results {
+		gotIDs[r.ID] = true
+	}
+	for _, id := range ids {
+		s.True(gotIDs[id], "expected calendar account %s in list results", id)
+	}
+}
+
+func (s *ServiceConfigSuite) TestCalendarAccountUniqueName() {
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	acct1 := &repository.CalendarAccount{
+		ID:                  uuid.New(),
+		Enabled:             true,
+		Name:                "Duplicate Name",
+		ICSURL:              "https://calendar.example.com/first.ics",
+		PollIntervalSeconds: 3600,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	err := s.repo.UpsertCalendarAccount(ctx, acct1)
+	s.Require().NoError(err)
+
+	acct2 := &repository.CalendarAccount{
+		ID:                  uuid.New(),
+		Enabled:             true,
+		Name:                "Duplicate Name",
+		ICSURL:              "https://calendar.example.com/second.ics",
+		PollIntervalSeconds: 3600,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	err = s.repo.UpsertCalendarAccount(ctx, acct2)
+	s.Error(err, "upserting a second calendar account with the same name should fail")
+}
+
+// --- Calendar ICS URL Encryption Verification ---
+
+func (s *ServiceConfigSuite) TestCalendarICSURLEncryptedAtRest() {
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+	icsURL := "https://calendar.example.com/secret-feed.ics"
+
+	acct := &repository.CalendarAccount{
+		ID:                  uuid.New(),
+		Enabled:             true,
+		Name:                "Encrypted Calendar",
+		ICSURL:              icsURL,
+		PollIntervalSeconds: 3600,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	err := s.repo.UpsertCalendarAccount(ctx, acct)
+	s.Require().NoError(err)
+
+	var rawURL []byte
+	err = s.db.QueryRowContext(ctx,
+		"SELECT ics_url_encrypted FROM calendar_accounts WHERE id = ?",
+		acct.ID.String(),
+	).Scan(&rawURL)
+	s.Require().NoError(err)
+	s.NotEqual([]byte(icsURL), rawURL, "ICS URL must be encrypted at rest")
 }

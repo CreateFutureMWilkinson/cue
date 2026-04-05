@@ -18,6 +18,7 @@ type Character interface {
 	TransitionTo(state CharacterState)
 	CurrentState() CharacterState
 	Widget() fyne.CanvasObject
+	Close()
 }
 
 // CharacterFactory is a constructor function that creates a Character.

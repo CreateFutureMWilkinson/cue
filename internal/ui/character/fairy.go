@@ -3,6 +3,9 @@ package character
 import (
 	"image/color"
 	"math"
+	"math/rand"
+	"sync"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -67,6 +70,18 @@ type FairyCharacter struct {
 
 	// Glow intensity 0..1.
 	glowIntensity float64
+
+	// Clock for creating animators.
+	clock Clock
+
+	// Current running animator (nil if none).
+	currentAnimator StateAnimator
+
+	// Mutex for thread-safe transitions.
+	mu sync.Mutex
+
+	// refreshFunc is called after visual updates; replaced by DisableRefresh in tests.
+	refreshFunc func()
 }
 
 // NewFairyCharacter creates a new FairyCharacter in the Idle state with jar
@@ -104,6 +119,7 @@ func NewFairyCharacter() *FairyCharacter {
 		posX:          0.5,
 		posY:          1.0,
 		glowIntensity: 0.0,
+		clock:         WallClock{},
 	}
 
 	// Build the container with custom layout for proportional sizing.
@@ -125,15 +141,66 @@ func NewFairyCharacter() *FairyCharacter {
 // Name returns the character name.
 func (f *FairyCharacter) Name() string { return "fairy" }
 
-// TransitionTo changes the character's state and updates the indicator color.
+// TransitionTo changes the character's state, stops the current animator,
+// creates a new animator for the target state, and starts it.
 func (f *FairyCharacter) TransitionTo(state CharacterState) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.currentAnimator != nil {
+		f.currentAnimator.Stop()
+	}
+
 	f.state = state
 	f.indicator.FillColor = stateColor(state)
 	f.indicator.Refresh()
+
+	var animator StateAnimator
+	switch state {
+	case StateIdle:
+		animator = NewIdleAnimator(f.clock)
+	case StateStarting:
+		animator = NewStartupAnimator(f.clock, func() {
+			go f.TransitionTo(StateIdle)
+		})
+	case StateWorking:
+		animator = NewWorkingAnimator(f.clock)
+	case StateNotifying:
+		animator = NewNotifyAnimator(f.clock, rand.New(rand.NewSource(time.Now().UnixNano())))
+	case StateError:
+		animator = NewErrorAnimator(f.clock)
+	case StateShuttingDown:
+		animator = NewShutdownAnimator(f.clock)
+	}
+
+	f.currentAnimator = animator
+	if animator != nil {
+		animator.Start(f)
+	}
 }
 
 // CurrentState returns the current character state.
-func (f *FairyCharacter) CurrentState() CharacterState { return f.state }
+func (f *FairyCharacter) CurrentState() CharacterState {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.state
+}
+
+// SetClock injects a clock implementation (used for testing).
+func (f *FairyCharacter) SetClock(c Clock) { f.clock = c }
+
+// DisableRefresh replaces the refresh function with a no-op (used for testing).
+func (f *FairyCharacter) DisableRefresh() { f.refreshFunc = func() {} }
+
+// Close stops the current animator and nils it out.
+func (f *FairyCharacter) Close() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.currentAnimator != nil {
+		f.currentAnimator.Stop()
+		f.currentAnimator = nil
+	}
+}
 
 // Widget returns the jar container as a canvas object.
 func (f *FairyCharacter) Widget() fyne.CanvasObject { return f.container }
@@ -143,6 +210,9 @@ func (f *FairyCharacter) Widget() fyne.CanvasObject { return f.container }
 func (f *FairyCharacter) SetPosition(x, y float64) {
 	f.posX = clamp01(x)
 	f.posY = clamp01(y)
+	if f.refreshFunc != nil {
+		f.refreshFunc()
+	}
 }
 
 // Position returns the fairy's current normalized position.
@@ -154,11 +224,27 @@ func (f *FairyCharacter) Position() (x, y float64) {
 func (f *FairyCharacter) SetBodyColor(c color.Color) {
 	f.bodyCircle.FillColor = c
 	f.bodyCircle.Refresh()
+	if f.refreshFunc != nil {
+		f.refreshFunc()
+	}
 }
 
 // SetGlowIntensity sets the glow intensity (0.0-1.0). Values are clamped.
+// It also updates the alpha channel of all glow layers based on the intensity.
 func (f *FairyCharacter) SetGlowIntensity(intensity float64) {
 	f.glowIntensity = clamp01(intensity)
+	for _, gl := range f.glowLayers {
+		r, g, b, _ := gl.FillColor.RGBA()
+		gl.FillColor = color.RGBA{
+			R: uint8(r >> 8),
+			G: uint8(g >> 8),
+			B: uint8(b >> 8),
+			A: uint8(float64(glowAlpha) * f.glowIntensity),
+		}
+	}
+	if f.refreshFunc != nil {
+		f.refreshFunc()
+	}
 }
 
 // GlowIntensity returns the current glow intensity.

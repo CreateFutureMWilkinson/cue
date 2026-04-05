@@ -20,3 +20,22 @@ type StateAnimator interface {
 	Stop()
 	State() CharacterState
 }
+
+// wallTicker wraps a standard time.Ticker to implement the Ticker interface.
+type wallTicker struct {
+	t *time.Ticker
+}
+
+func (wt *wallTicker) Chan() <-chan time.Time { return wt.t.C }
+func (wt *wallTicker) Stop()                  { wt.t.Stop() }
+
+// WallClock implements Clock using the real system clock.
+type WallClock struct{}
+
+// Now returns the current wall clock time.
+func (WallClock) Now() time.Time { return time.Now() }
+
+// NewTicker returns a new Ticker that wraps time.NewTicker.
+func (WallClock) NewTicker(d time.Duration) Ticker {
+	return &wallTicker{t: time.NewTicker(d)}
+}

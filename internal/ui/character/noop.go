@@ -30,3 +30,6 @@ func (c *NoOpCharacter) CurrentState() CharacterState {
 func (c *NoOpCharacter) Widget() fyne.CanvasObject {
 	return container.NewWithoutLayout()
 }
+
+// Close is a no-op for the NoOpCharacter.
+func (c *NoOpCharacter) Close() {}

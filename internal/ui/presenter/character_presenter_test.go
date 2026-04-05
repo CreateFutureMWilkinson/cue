@@ -41,6 +41,8 @@ func (m *mockCharacter) CurrentState() character.CharacterState {
 
 func (m *mockCharacter) Widget() fyne.CanvasObject { return nil }
 
+func (m *mockCharacter) Close() {}
+
 func (m *mockCharacter) recordedStates() []character.CharacterState {
 	m.mu.Lock()
 	defer m.mu.Unlock()

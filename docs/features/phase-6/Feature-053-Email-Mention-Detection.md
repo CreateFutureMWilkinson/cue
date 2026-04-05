@@ -3,7 +3,7 @@
 **Phase:** Phase-6-Feature-053
 **Type:** Bugfix
 **Severity:** Critical
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/service/decisionengine/`
 **Related:** Feature 003 (Deterministic Routing), Feature 006 (Email Watcher)
 
@@ -42,3 +42,29 @@ if strings.Contains(msg.RawContent, "@"+username) || msg.MessageType == "mention
 - RED: Test that a message with `MessageType: "mention"` and no `@username` in content receives IS=8, CS=1.0, NOTIFIED
 - GREEN: Extend the deterministic rule check
 - REFACTOR: Extract mention detection into a helper if warranted
+
+## Implementation
+
+### Changes
+
+**`internal/service/decisionengine/router.go`:**
+- Added `MessageType == "mention"` check in `applyDeterministicRules`, after `channel_join` and before `@username` content scan
+- Extracted `applyMentionScoring` helper to eliminate duplication between the two mention detection paths
+- Both Slack `@username` in content and email `MessageType: "mention"` now route through the same IS=8, CS=1.0, NOTIFIED path
+
+**`internal/service/decisionengine/router_test.go`:**
+- Added `TestRoute_EmailMentionMessageType_SetsNotified` — verifies email mention with `MessageType: "mention"` (no `@username` in content) receives IS=8, CS=1.0, NOTIFIED via deterministic path (scorer not called)
+
+### Test Coverage
+
+| Test | Behavior |
+|---|---|
+| `TestRoute_EmailMentionMessageType_SetsNotified` | Email mention via MessageType triggers IS=8 deterministic rule |
+
+### TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | Test Designer | ~35s | ~31,000 | 8513aeb |
+| GREEN | Implementer | ~28s | ~21,000 | c2778dc |
+| REFACTOR | Refactorer | ~64s | ~25,000 | 43c27a8 |

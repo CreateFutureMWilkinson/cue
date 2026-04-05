@@ -28,7 +28,6 @@ type ShutdownAnimator struct {
 func NewShutdownAnimator(clock Clock) *ShutdownAnimator {
 	return &ShutdownAnimator{
 		clock: clock,
-		done:  make(chan struct{}),
 	}
 }
 

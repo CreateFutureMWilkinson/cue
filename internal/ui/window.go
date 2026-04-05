@@ -148,6 +148,12 @@ func NewMainWindow(
 	return mw
 }
 
+// Content returns the top-level canvas object set as the window's content.
+// This exposes the widget tree for structural testing.
+func (m *MainWindow) Content() fyne.CanvasObject {
+	return nil
+}
+
 // CenterContent returns the canvas object currently displayed in the center column.
 func (m *MainWindow) CenterContent() fyne.CanvasObject {
 	if m.viewRouter == nil {

@@ -1,7 +1,7 @@
 # Feature 033: Watcher Config Decoupling
 
 **Phase:** Phase-4-Feature-033
-**Status:** Planned
+**Status:** Done
 **Package:** `internal/service/watcher/`
 **Depends on:** None (parallel with Features 031/032)
 
@@ -85,3 +85,11 @@ All existing watcher tests updated to use new config types. No new test cases ne
 | `internal/service/watcher/slack_test.go` | Modify — update config type in test setup |
 | `internal/service/watcher/email.go` | Modify — add `EmailWatcherConfig`, update constructor signature, remove `config` import |
 | `internal/service/watcher/email_test.go` | Modify — update config type in test setup |
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | Test Designer | 45s | 22,310 | 91b7c78 |
+| GREEN | Implementer | 38s | 24,875 | 3c75e1a |
+| REFACTOR | Refactorer | 25s | 18,420 | 4026572 |

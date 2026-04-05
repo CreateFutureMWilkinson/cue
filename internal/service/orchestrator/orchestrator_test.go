@@ -121,6 +121,26 @@ func (r *mockRepo) insertedCount() int {
 	return len(r.inserted)
 }
 
+// mockAlerter implements orchestrator.Alerter for testing.
+type mockAlerter struct {
+	mu    sync.Mutex
+	calls int
+	err   error
+}
+
+func (a *mockAlerter) PlayNotification(_ context.Context) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.calls++
+	return a.err
+}
+
+func (a *mockAlerter) alertCalls() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.calls
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -181,7 +201,7 @@ func (s *OrchestratorSuite) TestNewOrchestratorRequiresRouter() {
 	}
 	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
 
-	orch, err := orchestrator.NewOrchestrator(cfg, nil, repo, watchers, eventCh)
+	orch, err := orchestrator.NewOrchestrator(cfg, nil, repo, watchers, eventCh, nil)
 
 	s.Error(err)
 	s.Nil(orch)
@@ -196,7 +216,7 @@ func (s *OrchestratorSuite) TestNewOrchestratorRequiresRepo() {
 	}
 	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
 
-	orch, err := orchestrator.NewOrchestrator(cfg, router, nil, watchers, eventCh)
+	orch, err := orchestrator.NewOrchestrator(cfg, router, nil, watchers, eventCh, nil)
 
 	s.Error(err)
 	s.Nil(orch)
@@ -210,12 +230,12 @@ func (s *OrchestratorSuite) TestNewOrchestratorRequiresWatchers() {
 	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
 
 	// nil watchers
-	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, nil, eventCh)
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, nil, eventCh, nil)
 	s.Error(err)
 	s.Nil(orch)
 
 	// empty watchers
-	orch, err = orchestrator.NewOrchestrator(cfg, router, repo, map[string]orchestrator.Watcher{}, eventCh)
+	orch, err = orchestrator.NewOrchestrator(cfg, router, repo, map[string]orchestrator.Watcher{}, eventCh, nil)
 	s.Error(err)
 	s.Nil(orch)
 }
@@ -233,7 +253,7 @@ func (s *OrchestratorSuite) TestPollCycleRoutesAndStores() {
 	watchers := map[string]orchestrator.Watcher{"slack": watcher}
 	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
 
-	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh)
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, nil)
 	s.Require().NoError(err)
 
 	// Execute a single poll cycle directly
@@ -272,7 +292,7 @@ func (s *OrchestratorSuite) TestPollCycleEmitsActivityEvents() {
 	watchers := map[string]orchestrator.Watcher{"slack": watcher}
 	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
 
-	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh)
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, nil)
 	s.Require().NoError(err)
 
 	orch.PollOnce(context.Background())
@@ -306,7 +326,7 @@ func (s *OrchestratorSuite) TestWatcherErrorDoesNotCrash() {
 	watchers := map[string]orchestrator.Watcher{"slack": watcher}
 	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
 
-	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh)
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, nil)
 	s.Require().NoError(err)
 
 	// Should not panic
@@ -339,7 +359,7 @@ func (s *OrchestratorSuite) TestStoreErrorDoesNotAbortBatch() {
 	watchers := map[string]orchestrator.Watcher{"slack": watcher}
 	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
 
-	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh)
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, nil)
 	s.Require().NoError(err)
 
 	orch.PollOnce(context.Background())
@@ -366,7 +386,7 @@ func (s *OrchestratorSuite) TestMultipleWatchersSeparateBatches() {
 	}
 	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
 
-	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh)
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, nil)
 	s.Require().NoError(err)
 
 	orch.PollOnce(context.Background())
@@ -395,7 +415,7 @@ func (s *OrchestratorSuite) TestStartAndStop() {
 	// Use a long interval so we can control timing
 	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 3600}
 
-	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh)
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, nil)
 	s.Require().NoError(err)
 
 	// Start should not block
@@ -427,7 +447,7 @@ func (s *OrchestratorSuite) TestImmediateFirstPoll() {
 	// Very long interval - if poll only happens at interval, test will timeout
 	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 3600}
 
-	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh)
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, nil)
 	s.Require().NoError(err)
 
 	err = orch.Start(context.Background())
@@ -444,4 +464,113 @@ func (s *OrchestratorSuite) TestImmediateFirstPoll() {
 
 	err = orch.Stop()
 	s.NoError(err)
+}
+
+// ---------------------------------------------------------------------------
+// Alert Integration
+// ---------------------------------------------------------------------------
+
+func (s *OrchestratorSuite) TestPollCycleTriggersAlertOnNotified() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	msgs := makeMessages("slack", 2)
+	watcher := &mockWatcher{messages: msgs}
+	router := &mockRouter{
+		routeFn: func(msg *repository.Message) *repository.Message {
+			msg.Status = "Notified"
+			msg.ImportanceScore = 8
+			msg.ConfidenceScore = 0.9
+			return msg
+		},
+	}
+	repo := newMockRepo()
+	alerter := &mockAlerter{}
+	watchers := map[string]orchestrator.Watcher{"slack": watcher}
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, alerter)
+	s.Require().NoError(err)
+
+	orch.PollOnce(context.Background())
+
+	s.Equal(1, alerter.alertCalls())
+}
+
+func (s *OrchestratorSuite) TestPollCycleNoAlertOnBufferedOnly() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	msgs := makeMessages("slack", 3)
+	watcher := &mockWatcher{messages: msgs}
+	router := &mockRouter{
+		routeFn: func(msg *repository.Message) *repository.Message {
+			msg.Status = "Buffered"
+			msg.ImportanceScore = 7
+			msg.ConfidenceScore = 0.5
+			return msg
+		},
+	}
+	repo := newMockRepo()
+	alerter := &mockAlerter{}
+	watchers := map[string]orchestrator.Watcher{"slack": watcher}
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, alerter)
+	s.Require().NoError(err)
+
+	orch.PollOnce(context.Background())
+
+	s.Equal(0, alerter.alertCalls())
+}
+
+func (s *OrchestratorSuite) TestPollCycleAlertErrorNonFatal() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	msgs := makeMessages("slack", 1)
+	watcher := &mockWatcher{messages: msgs}
+	router := &mockRouter{
+		routeFn: func(msg *repository.Message) *repository.Message {
+			msg.Status = "Notified"
+			msg.ImportanceScore = 9
+			msg.ConfidenceScore = 1.0
+			return msg
+		},
+	}
+	repo := newMockRepo()
+	alerter := &mockAlerter{err: fmt.Errorf("audio device unavailable")}
+	watchers := map[string]orchestrator.Watcher{"slack": watcher}
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, alerter)
+	s.Require().NoError(err)
+
+	// Should not panic even though alerter returns error
+	s.NotPanics(func() {
+		orch.PollOnce(context.Background())
+	})
+
+	// Events should still be emitted
+	events := drainEvents(eventCh, 2, 2*time.Second)
+	s.GreaterOrEqual(len(events), 2, "expected activity events even when alert fails")
+}
+
+func (s *OrchestratorSuite) TestPollCycleNilAlerterSafe() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	msgs := makeMessages("slack", 2)
+	watcher := &mockWatcher{messages: msgs}
+	router := &mockRouter{
+		routeFn: func(msg *repository.Message) *repository.Message {
+			msg.Status = "Notified"
+			msg.ImportanceScore = 8
+			msg.ConfidenceScore = 0.9
+			return msg
+		},
+	}
+	repo := newMockRepo()
+	watchers := map[string]orchestrator.Watcher{"slack": watcher}
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+
+	// Pass nil as alerter — should not panic
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, nil)
+	s.Require().NoError(err)
+
+	s.NotPanics(func() {
+		orch.PollOnce(context.Background())
+	})
 }

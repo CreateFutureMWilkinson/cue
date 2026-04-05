@@ -94,3 +94,4 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 047 | MessageType SQLite persistence | Done | — | [Feature-047](features/phase-5/Feature-047-MessageType-Persistence.md) |
 | 048 | Unused config field wiring | Done | — | [Feature-048](features/phase-5/Feature-048-Config-Field-Wiring.md) |
 | 049 | MessageRepository QueryByID | Done | — | [Feature-049](features/phase-5/Feature-049-MessageRepository-QueryByID.md) |
+| 050 | Resize refresh | Done | — | [Feature-050](features/phase-5/Feature-050-Resize-Refresh.md) |

@@ -17,6 +17,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/repository/implementation/sqlite"
+	"github.com/CreateFutureMWilkinson/cue/internal/secret"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/buffer"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
@@ -115,8 +116,15 @@ func run() error {
 		return fmt.Errorf("opening database: %w", err)
 	}
 
+	// Create encryptor for credential storage.
+	keyPath := filepath.Join(home, ".cue", "secret.key")
+	enc, err := secret.NewKeyFileEncryptor(keyPath)
+	if err != nil {
+		return fmt.Errorf("creating encryptor: %w", err)
+	}
+
 	// Create service config repository (shares the same DB connection).
-	serviceConfigRepo, err := sqlite.NewSQLiteServiceConfigRepository(repo.DB())
+	serviceConfigRepo, err := sqlite.NewSQLiteServiceConfigRepository(repo.DB(), enc)
 	if err != nil {
 		return fmt.Errorf("creating service config repository: %w", err)
 	}
@@ -260,7 +268,7 @@ func run() error {
 			if err != nil {
 				return fmt.Errorf("querying email account: %w", err)
 			}
-			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.PasswordEnv)
+			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.Password)
 			if err != nil {
 				return fmt.Errorf("creating IMAP client: %w", err)
 			}
@@ -396,7 +404,7 @@ func buildWatchersFromDB(ctx context.Context, repo repository.ServiceConfigRepos
 			if !acct.Enabled {
 				continue
 			}
-			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.PasswordEnv)
+			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.Password)
 			if err != nil {
 				log.Printf("warning: failed to create IMAP client for %s: %v", acct.Username, err)
 				continue

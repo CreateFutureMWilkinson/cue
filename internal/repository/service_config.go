@@ -25,7 +25,18 @@ type EmailAccount struct {
 	IMAPHost            string
 	IMAPPort            int
 	Username            string
-	PasswordEnv         string
+	Password            string
+	PollIntervalSeconds int
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+// CalendarAccount represents a configured calendar feed for monitoring.
+type CalendarAccount struct {
+	ID                  uuid.UUID
+	Enabled             bool
+	Name                string
+	ICSURL              string
 	PollIntervalSeconds int
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
@@ -46,4 +57,10 @@ type ServiceConfigRepository interface {
 	GetEmailAccount(ctx context.Context, id uuid.UUID) (*EmailAccount, error)
 	UpsertEmailAccount(ctx context.Context, acct *EmailAccount) error
 	DeleteEmailAccount(ctx context.Context, id uuid.UUID) error
+
+	// Calendar accounts
+	ListCalendarAccounts(ctx context.Context) ([]*CalendarAccount, error)
+	GetCalendarAccount(ctx context.Context, id uuid.UUID) (*CalendarAccount, error)
+	UpsertCalendarAccount(ctx context.Context, acct *CalendarAccount) error
+	DeleteCalendarAccount(ctx context.Context, id uuid.UUID) error
 }

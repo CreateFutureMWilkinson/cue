@@ -45,6 +45,18 @@ func (s *stubServiceConfigRepo) UpsertEmailAccount(_ context.Context, _ *reposit
 func (s *stubServiceConfigRepo) DeleteEmailAccount(_ context.Context, _ uuid.UUID) error {
 	return nil
 }
+func (s *stubServiceConfigRepo) ListCalendarAccounts(_ context.Context) ([]*repository.CalendarAccount, error) {
+	return nil, nil
+}
+func (s *stubServiceConfigRepo) GetCalendarAccount(_ context.Context, _ uuid.UUID) (*repository.CalendarAccount, error) {
+	return nil, nil
+}
+func (s *stubServiceConfigRepo) UpsertCalendarAccount(_ context.Context, _ *repository.CalendarAccount) error {
+	return nil
+}
+func (s *stubServiceConfigRepo) DeleteCalendarAccount(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
 
 type stubWatcherRemover struct{}
 

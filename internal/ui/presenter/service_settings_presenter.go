@@ -161,6 +161,52 @@ func (p *ServiceSettingsPresenter) ToggleEmailAccount(ctx context.Context, id uu
 	return nil
 }
 
+// ListCalendarAccounts returns all configured calendar accounts.
+func (p *ServiceSettingsPresenter) ListCalendarAccounts(ctx context.Context) ([]*repository.CalendarAccount, error) {
+	return p.repo.ListCalendarAccounts(ctx)
+}
+
+// SaveCalendarAccount validates and persists a new calendar account.
+func (p *ServiceSettingsPresenter) SaveCalendarAccount(ctx context.Context, acct *repository.CalendarAccount) error {
+	if err := p.repo.UpsertCalendarAccount(ctx, acct); err != nil {
+		return fmt.Errorf("saving calendar account: %w", err)
+	}
+	return nil
+}
+
+// EditCalendarAccount persists changes to a calendar account.
+func (p *ServiceSettingsPresenter) EditCalendarAccount(ctx context.Context, acct *repository.CalendarAccount, oldName string) error {
+	if err := p.repo.UpsertCalendarAccount(ctx, acct); err != nil {
+		return fmt.Errorf("updating calendar account: %w", err)
+	}
+	return nil
+}
+
+// DeleteCalendarAccount deletes a calendar account from the repository.
+func (p *ServiceSettingsPresenter) DeleteCalendarAccount(ctx context.Context, id uuid.UUID) error {
+	_, err := p.repo.GetCalendarAccount(ctx, id)
+	if err != nil {
+		return fmt.Errorf("getting calendar account for delete: %w", err)
+	}
+	if err := p.repo.DeleteCalendarAccount(ctx, id); err != nil {
+		return fmt.Errorf("deleting calendar account: %w", err)
+	}
+	return nil
+}
+
+// ToggleCalendarAccount enables or disables a calendar account.
+func (p *ServiceSettingsPresenter) ToggleCalendarAccount(ctx context.Context, id uuid.UUID, enabled bool) error {
+	acct, err := p.repo.GetCalendarAccount(ctx, id)
+	if err != nil {
+		return fmt.Errorf("getting calendar account for toggle: %w", err)
+	}
+	acct.Enabled = enabled
+	if err := p.repo.UpsertCalendarAccount(ctx, acct); err != nil {
+		return fmt.Errorf("updating calendar account: %w", err)
+	}
+	return nil
+}
+
 func slackWatcherName(workspaceID string) string { return "slack:" + workspaceID }
 func emailWatcherName(username string) string    { return "email:" + username }
 
@@ -187,8 +233,8 @@ func validateEmailAccount(acct *repository.EmailAccount) error {
 	if acct.Username == "" {
 		return fmt.Errorf("username is required")
 	}
-	if acct.PasswordEnv == "" {
-		return fmt.Errorf("password env is required")
+	if acct.Password == "" {
+		return fmt.Errorf("password is required")
 	}
 	if acct.PollIntervalSeconds <= 0 {
 		return fmt.Errorf("poll interval must be positive")

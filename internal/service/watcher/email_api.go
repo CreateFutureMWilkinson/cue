@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 
 	"github.com/emersion/go-imap/v2"
@@ -19,9 +18,8 @@ type IMAPClient struct {
 	password string
 }
 
-// NewIMAPClient creates a new IMAPClient, reading the password from the named
-// environment variable.
-func NewIMAPClient(host string, port int, username, passwordEnv string) (*IMAPClient, error) {
+// NewIMAPClient creates a new IMAPClient with the given credentials.
+func NewIMAPClient(host string, port int, username, password string) (*IMAPClient, error) {
 	if host == "" {
 		return nil, fmt.Errorf("host must not be empty")
 	}
@@ -31,9 +29,8 @@ func NewIMAPClient(host string, port int, username, passwordEnv string) (*IMAPCl
 	if username == "" {
 		return nil, fmt.Errorf("username must not be empty")
 	}
-	password := os.Getenv(passwordEnv)
 	if password == "" {
-		return nil, fmt.Errorf("password env var %q is not set or empty", passwordEnv)
+		return nil, fmt.Errorf("password must not be empty")
 	}
 	return &IMAPClient{
 		host:     host,

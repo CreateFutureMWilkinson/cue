@@ -128,6 +128,11 @@ func (p *NotificationPanel) Container() fyne.CanvasObject {
 	return p.root
 }
 
+// CardCount returns the number of notification cards currently displayed.
+func (p *NotificationPanel) CardCount() int {
+	return 0
+}
+
 // cardAt returns the notification card at the given index, or nil if out of range.
 func (p *NotificationPanel) cardAt(index int) *presenter.NotificationCard {
 	cards := p.presenter.Cards()

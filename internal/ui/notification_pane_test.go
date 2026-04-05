@@ -180,6 +180,26 @@ func (s *NotificationPaneSuite) TestDetailDialogResolveRemovesMessage() {
 	s.True(s.updater.updateCalled, "updater.Update should have been called")
 }
 
+func (s *NotificationPaneSuite) TestListRefreshesAfterResolve() {
+	np := s.newPresenter()
+	win := test.NewWindow(nil)
+	defer win.Close()
+
+	panel := ui.NewNotificationPanel(np, win)
+
+	// Precondition: panel should report 2 cards.
+	s.Equal(2, panel.CardCount(), "panel should start with 2 cards")
+
+	// Simulate the resolve action: select the first notification and resolve it.
+	detail, err := np.Select(0)
+	s.Require().NoError(err)
+	err = np.Resolve(context.Background(), detail.ID)
+	s.Require().NoError(err)
+
+	// After resolving, CardCount should reflect the updated list (1 remaining).
+	s.Equal(1, panel.CardCount(), "panel should report 1 card after resolving one notification")
+}
+
 // --- Feature 018-Hotfix-A: Notification Card Visual Rendering ---
 
 func (s *NotificationPaneSuite) TestCollapsedCardShowsBadgeText() {

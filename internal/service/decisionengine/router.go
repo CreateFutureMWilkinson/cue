@@ -134,10 +134,7 @@ func (r *Router) applyDeterministicRules(msg *repository.Message) bool {
 
 	// Check for mention message type (e.g., email To/CC/BCC detection)
 	if msg.MessageType == "mention" {
-		msg.ImportanceScore = AtMentionImportanceScore
-		msg.ConfidenceScore = HighConfidenceScore
-		msg.Status = StatusNotified
-		msg.Reasoning = "Direct mention of user detected via message type"
+		r.applyMentionScoring(msg, "Direct mention of user detected via message type")
 		return true
 	}
 
@@ -145,15 +142,20 @@ func (r *Router) applyDeterministicRules(msg *repository.Message) bool {
 	lower := strings.ToLower(msg.RawContent)
 	for _, u := range r.usernames {
 		if strings.Contains(lower, "@"+strings.ToLower(u)) {
-			msg.ImportanceScore = AtMentionImportanceScore
-			msg.ConfidenceScore = HighConfidenceScore
-			msg.Status = StatusNotified
-			msg.Reasoning = "Direct @mention of user"
+			r.applyMentionScoring(msg, "Direct @mention of user")
 			return true
 		}
 	}
 
 	return false
+}
+
+// applyMentionScoring sets mention-specific scores and status for detected mentions.
+func (r *Router) applyMentionScoring(msg *repository.Message, reasoning string) {
+	msg.ImportanceScore = AtMentionImportanceScore
+	msg.ConfidenceScore = HighConfidenceScore
+	msg.Status = StatusNotified
+	msg.Reasoning = reasoning
 }
 
 // applyFallbackScoring sets safe default values when scorer fails.

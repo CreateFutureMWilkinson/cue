@@ -11,7 +11,7 @@ import (
 type SlackAccount struct {
 	ID                  uuid.UUID
 	Enabled             bool
-	BotToken            string
+	Token               string
 	WorkspaceID         string
 	PollIntervalSeconds int
 	CreatedAt           time.Time

@@ -71,6 +71,11 @@ func NewSQLiteMessageRepository(dbPath string) (*SQLiteMessageRepository, error)
 		return nil, fmt.Errorf("enable WAL mode: %w", err)
 	}
 
+	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("enable foreign keys: %w", err)
+	}
+
 	if _, err := db.Exec(createMessagesTable); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("create messages table: %w", err)

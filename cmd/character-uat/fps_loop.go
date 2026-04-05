@@ -2,6 +2,7 @@ package characteruat
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -20,10 +21,23 @@ type FPSLoop struct {
 	interval    time.Duration
 	onFPSUpdate func(string)
 	stop        chan struct{}
+	stopped     bool
+	mu          sync.Mutex
 }
 
 // NewFPSLoop creates a new FPSLoop from the given config.
+// All config fields are required and must be non-nil/non-zero.
 func NewFPSLoop(cfg FPSLoopConfig) *FPSLoop {
+	if cfg.Counter == nil {
+		panic("FPSLoopConfig.Counter must not be nil")
+	}
+	if cfg.Interval <= 0 {
+		panic("FPSLoopConfig.Interval must be positive")
+	}
+	if cfg.OnFPSUpdate == nil {
+		panic("FPSLoopConfig.OnFPSUpdate must not be nil")
+	}
+
 	return &FPSLoop{
 		counter:     cfg.Counter,
 		interval:    cfg.Interval,
@@ -38,9 +52,16 @@ func (l *FPSLoop) Start() {
 	go l.run()
 }
 
-// Stop halts the loop. No callbacks fire after Stop returns.
+// Stop halts the loop. Safe to call multiple times.
+// No callbacks fire after Stop returns.
 func (l *FPSLoop) Stop() {
-	close(l.stop)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if !l.stopped {
+		close(l.stop)
+		l.stopped = true
+	}
 }
 
 func (l *FPSLoop) run() {

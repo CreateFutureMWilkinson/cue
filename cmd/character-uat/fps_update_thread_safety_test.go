@@ -90,3 +90,65 @@ func (s *FPSUpdateThreadSafetySuite) TestFPSLoopStopsCleanly() {
 	s.Equal(countAtStop, countAfterWait,
 		"no further callbacks should fire after Stop()")
 }
+
+// TestFPSLoopMultipleStopCallsSafe verifies that calling Stop() multiple
+// times doesn't panic (closing an already-closed channel would panic).
+func (s *FPSUpdateThreadSafetySuite) TestFPSLoopMultipleStopCallsSafe() {
+	loop := characteruat.NewFPSLoop(characteruat.FPSLoopConfig{
+		Counter:     characteruat.NewFPSCounter(),
+		Interval:    50 * time.Millisecond,
+		OnFPSUpdate: func(fpsText string) {},
+	})
+
+	loop.Start()
+	time.Sleep(100 * time.Millisecond)
+
+	// Multiple Stop() calls should not panic.
+	s.NotPanics(func() {
+		loop.Stop()
+		loop.Stop()
+		loop.Stop()
+	}, "calling Stop() multiple times should be safe")
+}
+
+// TestNewFPSLoopValidatesConfig verifies that NewFPSLoop panics on invalid config.
+func (s *FPSUpdateThreadSafetySuite) TestNewFPSLoopValidatesConfig() {
+	validConfig := characteruat.FPSLoopConfig{
+		Counter:     characteruat.NewFPSCounter(),
+		Interval:    50 * time.Millisecond,
+		OnFPSUpdate: func(string) {},
+	}
+
+	// Valid config should not panic.
+	s.NotPanics(func() {
+		characteruat.NewFPSLoop(validConfig)
+	}, "valid config should not panic")
+
+	// Nil counter should panic.
+	s.Panics(func() {
+		cfg := validConfig
+		cfg.Counter = nil
+		characteruat.NewFPSLoop(cfg)
+	}, "nil Counter should panic")
+
+	// Zero interval should panic.
+	s.Panics(func() {
+		cfg := validConfig
+		cfg.Interval = 0
+		characteruat.NewFPSLoop(cfg)
+	}, "zero Interval should panic")
+
+	// Negative interval should panic.
+	s.Panics(func() {
+		cfg := validConfig
+		cfg.Interval = -1 * time.Millisecond
+		characteruat.NewFPSLoop(cfg)
+	}, "negative Interval should panic")
+
+	// Nil callback should panic.
+	s.Panics(func() {
+		cfg := validConfig
+		cfg.OnFPSUpdate = nil
+		characteruat.NewFPSLoop(cfg)
+	}, "nil OnFPSUpdate should panic")
+}

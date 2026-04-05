@@ -30,6 +30,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **README updated with planned work** — Added Phase 4 feature table (Features 031–040 with dependency chain), planned hotfixes section (014-B, 017-A, 018-A, 022-A through 022-E), missing completed hotfix 001-A, and zero-padded all hotfix IDs to 3 digits per numbering convention
 - **Split Feature 022-Hotfix-A into 5 hotfixes** — Original 022-A (planner UI views + center view wiring) was too large for a single hotfix. Split into: 022-A (center view router wiring), 022-B (plan view with schedule tree + no-plan state), 022-C (todo list view + task detail modal), 022-D (wizard steps 1-4), 022-E (timer tick loop + presenter ↔ view binding). 022-A is the critical foundation; B/C can be parallel; D needs A; E needs all
 
+### Added
+
+- **Plan view with schedule tree + no-plan state** — Plan overview (left half of Plan split) shows either a random motivational placeholder with "Plan My Day" button (navigates to wizard), or an active schedule tree with blocks grouped by Pomodoro cycle, color-coded bars (focus/green, short break/light blue, long break/blue, meeting/amber), proportional bar widths, elapsed block/cycle pruning, and "Abandon Plan" button. New `ScheduleTree` type with `Cycles()` API. 23 new tests (Phase-2-Feature-022-Hotfix-B)
+
 ### Fixed
 
 - **Center view router wiring** — `CenterViewRouter.NavigateTo()` now actually swaps the center pane content in the main window. Added `AddOnViewChange()` for multi-listener support (coexists with FocusRail's `SetOnViewChange`), `CenterContent()` accessor, and `switchCenterView()` method. Plan and wizard views show placeholders until 022-B/C/D. Foundation for all remaining 022 hotfixes (Phase-2-Feature-022-Hotfix-A)

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/CreateFutureMWilkinson/cue/internal/config"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
 	"github.com/stretchr/testify/suite"
 )
@@ -42,13 +41,8 @@ func TestEmailWatcher(t *testing.T) {
 
 func (s *EmailWatcherSuite) TestNewEmailWatcher_ValidConfig() {
 	api := &mockEmailAPI{}
-	cfg := config.EmailConfig{
-		Enabled:             true,
-		IMAPHost:            "imap.gmail.com",
-		IMAPPort:            993,
-		Username:            "user@example.com",
-		PasswordEnv:         "CUE_EMAIL_PASSWORD",
-		PollIntervalSeconds: 600,
+	cfg := watcher.EmailWatcherConfig{
+		Username: "user@example.com",
 	}
 
 	w, err := watcher.NewEmailWatcher(api, cfg)
@@ -57,10 +51,7 @@ func (s *EmailWatcherSuite) TestNewEmailWatcher_ValidConfig() {
 }
 
 func (s *EmailWatcherSuite) TestNewEmailWatcher_NilAPI() {
-	cfg := config.EmailConfig{
-		Enabled:  true,
-		IMAPHost: "imap.gmail.com",
-		IMAPPort: 993,
+	cfg := watcher.EmailWatcherConfig{
 		Username: "user@example.com",
 	}
 
@@ -72,10 +63,7 @@ func (s *EmailWatcherSuite) TestNewEmailWatcher_NilAPI() {
 
 func (s *EmailWatcherSuite) TestNewEmailWatcher_EmptyUsername() {
 	api := &mockEmailAPI{}
-	cfg := config.EmailConfig{
-		Enabled:  true,
-		IMAPHost: "imap.gmail.com",
-		IMAPPort: 993,
+	cfg := watcher.EmailWatcherConfig{
 		Username: "",
 	}
 
@@ -321,13 +309,8 @@ func (s *EmailWatcherSuite) TestPoll_MultipleMessages_TracksHighestUID() {
 // --- Helpers ---
 
 func (s *EmailWatcherSuite) mustNewWatcher(api watcher.EmailAPI, username string) *watcher.EmailWatcher {
-	cfg := config.EmailConfig{
-		Enabled:             true,
-		IMAPHost:            "imap.gmail.com",
-		IMAPPort:            993,
-		Username:            username,
-		PasswordEnv:         "CUE_EMAIL_PASSWORD",
-		PollIntervalSeconds: 600,
+	cfg := watcher.EmailWatcherConfig{
+		Username: username,
 	}
 	w, err := watcher.NewEmailWatcher(api, cfg)
 	s.Require().NoError(err)

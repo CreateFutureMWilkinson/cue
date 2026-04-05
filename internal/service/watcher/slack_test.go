@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/CreateFutureMWilkinson/cue/internal/config"
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
 	"github.com/stretchr/testify/suite"
@@ -51,11 +50,8 @@ func TestSlackWatcher(t *testing.T) {
 
 func (s *SlackWatcherSuite) TestNewSlackWatcher_ValidConfig() {
 	api := &mockSlackAPI{}
-	cfg := config.SlackConfig{
-		Enabled:             true,
-		BotToken:            "xoxb-test",
-		WorkspaceID:         "T12345",
-		PollIntervalSeconds: 600,
+	cfg := watcher.SlackWatcherConfig{
+		WorkspaceID: "T12345",
 	}
 
 	w, err := watcher.NewSlackWatcher(api, cfg)
@@ -64,11 +60,8 @@ func (s *SlackWatcherSuite) TestNewSlackWatcher_ValidConfig() {
 }
 
 func (s *SlackWatcherSuite) TestNewSlackWatcher_NilAPI() {
-	cfg := config.SlackConfig{
-		Enabled:             true,
-		BotToken:            "xoxb-test",
-		WorkspaceID:         "T12345",
-		PollIntervalSeconds: 600,
+	cfg := watcher.SlackWatcherConfig{
+		WorkspaceID: "T12345",
 	}
 
 	w, err := watcher.NewSlackWatcher(nil, cfg)
@@ -79,11 +72,8 @@ func (s *SlackWatcherSuite) TestNewSlackWatcher_NilAPI() {
 
 func (s *SlackWatcherSuite) TestNewSlackWatcher_EmptyWorkspaceID() {
 	api := &mockSlackAPI{}
-	cfg := config.SlackConfig{
-		Enabled:             true,
-		BotToken:            "xoxb-test",
-		WorkspaceID:         "",
-		PollIntervalSeconds: 600,
+	cfg := watcher.SlackWatcherConfig{
+		WorkspaceID: "",
 	}
 
 	w, err := watcher.NewSlackWatcher(api, cfg)
@@ -391,11 +381,8 @@ func (s *SlackWatcherSuite) TestPoll_PassesLastTimestampToAPI() {
 // --- Helpers ---
 
 func (s *SlackWatcherSuite) mustNewWatcher(api watcher.SlackAPI, workspaceID string) *watcher.SlackWatcher {
-	cfg := config.SlackConfig{
-		Enabled:             true,
-		BotToken:            "xoxb-test",
-		WorkspaceID:         workspaceID,
-		PollIntervalSeconds: 600,
+	cfg := watcher.SlackWatcherConfig{
+		WorkspaceID: workspaceID,
 	}
 	w, err := watcher.NewSlackWatcher(api, cfg)
 	s.Require().NoError(err)
@@ -403,11 +390,8 @@ func (s *SlackWatcherSuite) mustNewWatcher(api watcher.SlackAPI, workspaceID str
 }
 
 func (s *SlackWatcherSuite) mustNewWatcherWithAPI(api watcher.SlackAPI, workspaceID string) *watcher.SlackWatcher {
-	cfg := config.SlackConfig{
-		Enabled:             true,
-		BotToken:            "xoxb-test",
-		WorkspaceID:         workspaceID,
-		PollIntervalSeconds: 600,
+	cfg := watcher.SlackWatcherConfig{
+		WorkspaceID: workspaceID,
 	}
 	w, err := watcher.NewSlackWatcher(api, cfg)
 	s.Require().NoError(err)

@@ -154,6 +154,7 @@ func (o *Orchestrator) PollOnce(ctx context.Context) {
 		notified, buffered, ignored := countByStatus(routed)
 		for _, msg := range routed {
 			if err := o.repo.Insert(ctx, msg); err != nil {
+				o.emitEvent(name, fmt.Sprintf("failed to store %s message: %v", msg.Source, err), true)
 				continue
 			}
 		}

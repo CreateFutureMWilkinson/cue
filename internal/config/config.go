@@ -206,6 +206,7 @@ func Load(path string) (*Config, error) {
 			return nil, fmt.Errorf("writing default config: %w", wErr)
 		}
 		cfg := defaultConfig()
+		expandPaths(cfg)
 		return cfg, nil
 	}
 

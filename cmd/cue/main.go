@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/alert"
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
@@ -17,6 +18,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
 
@@ -124,9 +126,10 @@ func run() error {
 		return fmt.Errorf("creating orchestrator: %w", err)
 	}
 
-	// Bridge channel: convert orchestrator events to presenter events.
+	// Bridge channel: convert orchestrator events to presenter events (fan-out).
 	presenterEventCh := make(chan presenter.ActivityEvent, eventChannelBuffer)
-	go bridgeEvents(orchEventCh, presenterEventCh)
+	charPresenterEventCh := make(chan presenter.ActivityEvent, eventChannelBuffer)
+	go bridgeEvents(orchEventCh, presenterEventCh, charPresenterEventCh)
 
 	// Create presenters.
 	notifPresenter, err := presenter.NewNotificationPresenter(repo, repo)
@@ -159,6 +162,25 @@ func run() error {
 		return fmt.Errorf("creating settings presenter: %w", err)
 	}
 
+	// Create character from config, with fallback to "none".
+	character.Register("fairy", func() character.Character {
+		return character.NewFairyCharacter()
+	})
+	charName := cfg.GUI.Character
+	char, charErr := character.Create(charName)
+	if charErr != nil {
+		log.Printf("warning: character %q not found, falling back to %q", charName, character.NoneCharacterName)
+		char, _ = character.Create(character.NoneCharacterName)
+	}
+
+	// Create character presenter, sharing activity events via fan-out.
+	charPresenter, err := presenter.NewCharacterPresenter(
+		char, &channelActivitySource{ch: charPresenterEventCh}, 5*time.Second,
+	)
+	if err != nil {
+		return fmt.Errorf("creating character presenter: %w", err)
+	}
+
 	// Start orchestrator.
 	ctx := context.Background()
 	if err := orch.Start(ctx); err != nil {
@@ -170,27 +192,37 @@ func run() error {
 		return fmt.Errorf("starting app presenter: %w", err)
 	}
 
+	// Start character presenter.
+	charPresenter.Start(ctx)
+
 	// Create and run the Fyne window (blocks until quit).
-	mainWindow := ui.NewMainWindow(cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter)
+	mainWindow := ui.NewMainWindow(cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, char.Widget())
 	mainWindow.Run()
 
 	// Graceful shutdown.
+	charPresenter.Stop()
 	_ = appPresenter.Shutdown(ctx)
 	_ = orch.Stop()
 
 	return nil
 }
 
-// bridgeEvents converts orchestrator.ActivityEvent to presenter.ActivityEvent.
-func bridgeEvents(in <-chan orchestrator.ActivityEvent, out chan<- presenter.ActivityEvent) {
+// bridgeEvents converts orchestrator.ActivityEvent to presenter.ActivityEvent,
+// fanning out to all provided output channels.
+func bridgeEvents(in <-chan orchestrator.ActivityEvent, outs ...chan<- presenter.ActivityEvent) {
 	for ev := range in {
-		out <- presenter.ActivityEvent{
+		pe := presenter.ActivityEvent{
 			Source:  ev.Source,
 			Message: ev.Message,
 			IsError: ev.IsError,
 		}
+		for _, out := range outs {
+			out <- pe
+		}
 	}
-	close(out)
+	for _, out := range outs {
+		close(out)
+	}
 }
 
 // channelActivitySource wraps a channel as a presenter.ActivitySource.

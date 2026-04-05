@@ -386,6 +386,47 @@ func (s *OrchestratorSuite) TestStoreErrorDoesNotAbortBatch() {
 	s.Equal(2, repo.insertedCount())
 }
 
+func (s *OrchestratorSuite) TestStoreErrorEmitsErrorEvent() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	msgs := makeMessages("slack", 3)
+	watcher := &mockWatcher{messages: msgs}
+	router := &mockRouter{}
+	repo := newMockRepo()
+
+	// Make the second message fail to store
+	repo.insertErr[msgs[1].ID.String()] = fmt.Errorf("database locked")
+
+	watchers := map[string]orchestrator.Watcher{"slack": watcher}
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, router, repo, watchers, eventCh, nil)
+	s.Require().NoError(err)
+
+	orch.PollOnce(context.Background())
+
+	// 2 out of 3 should be stored successfully (continuation still works)
+	s.Equal(2, repo.insertedCount())
+
+	// Drain all events: expect "fetched 3 messages", an insert error event,
+	// and "Routed ..." summary = 3 events total.
+	events := drainEvents(eventCh, 3, 2*time.Second)
+
+	// Find the error event among the emitted events
+	var errorEvents []orchestrator.ActivityEvent
+	for _, ev := range events {
+		if ev.IsError {
+			errorEvents = append(errorEvents, ev)
+		}
+	}
+
+	s.Require().Len(errorEvents, 1, "expected exactly one error event for the failed insert")
+	errEvt := errorEvents[0]
+	s.Equal("slack", errEvt.Source)
+	s.True(errEvt.IsError)
+	s.Contains(errEvt.Message, "failed to store")
+	s.Contains(errEvt.Message, "database locked")
+}
+
 // ---------------------------------------------------------------------------
 // Multiple Watchers
 // ---------------------------------------------------------------------------

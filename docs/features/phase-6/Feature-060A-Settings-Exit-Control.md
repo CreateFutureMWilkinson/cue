@@ -3,7 +3,7 @@
 **Phase:** Phase-6-Feature-060A
 **Type:** Enhancement (Hotfix)
 **Severity:** Low
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/`
 **Related:** Feature 060 (Settings View Implementation), Feature 055 (Focus Rail Wiring)
 
@@ -56,9 +56,30 @@ func NewSettingsView(
 - GREEN: Add the button and wire the callback
 - REFACTOR: Clean up if needed
 
+## Implementation
+
+Implemented Option A. Added `onClose func()` as a 4th parameter to `NewSettingsView`. The constructor wraps the existing `AppTabs` in a `container.NewBorder` layout with a "Done" button at the bottom. In `window.go`, the callback navigates to `ViewCharacter` via the `CenterViewRouter`.
+
+## Test Coverage
+
+| Test | Type | Asserts |
+|---|---|---|
+| `TestSettingsViewContainsDoneButton` | Structural | `*widget.Button` with text "Done" found in container tree |
+| `TestDoneButtonCallsOnClose` | Interaction | Tapping Done button invokes the `onClose` callback |
+
+Plus all 14 pre-existing settings tests remain green.
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | Test Designer | ~68s | ~31,000 | 8451534 |
+| GREEN | Implementer | ~83s | ~28,000 | 4c7f1cb |
+| REFACTOR | orchestrator | manual | — | 26c0a86 |
+
 ## Acceptance Criteria
 
-- [ ] Settings view contains a visible "Done" button
-- [ ] Tapping "Done" navigates back to ViewCharacter
-- [ ] Existing FocusRail Back button continues to work
-- [ ] All existing settings tests remain green
+- [x] Settings view contains a visible "Done" button
+- [x] Tapping "Done" navigates back to ViewCharacter
+- [x] Existing FocusRail Back button continues to work
+- [x] All existing settings tests remain green

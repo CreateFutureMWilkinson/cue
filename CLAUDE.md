@@ -34,9 +34,19 @@ go test -count=1 -v -run TestRouter/TestDeterministicChannelJoin ./internal/serv
 
 Validation sequence before marking work complete: `just fmt && just lint && just tidy && just test`
 
-## UI Specification
+## Documentation Structure
 
-The authoritative UI specification is `docs/guides/UiSpec.md`. It defines layout wireframes, design tokens, component specs, interaction behavior, and acceptance criteria. All UI implementation work defers to UiSpec.md.
+```
+docs/
+  Roadmap.md              # Implementation status by phase
+  agent-log.md            # TDD agent stats
+  guides/                 # Developer guides (UiSpec, Building, etc.)
+  features/              # Per-feature design docs, organized by phase
+```
+
+- **Roadmap:** `docs/Roadmap.md` tracks implementation status for all phases and features.
+- **UI Specification:** `docs/guides/UiSpec.md` defines layout wireframes, design tokens, component specs, interaction behavior, and acceptance criteria. All UI implementation work defers to UiSpec.md.
+- **Hotfix docs** use the format `Feature-NNNX-Name.md` (e.g., `Feature-014A-Security-Hardening.md`).
 
 ## Architecture
 

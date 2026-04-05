@@ -79,9 +79,15 @@ internal/
     audio.go
     audio_test.go
 
-docs/                               # Architecture, design docs
-  DESIGN.md
-  DATA_MODEL.md
+docs/                               # Documentation
+  Roadmap.md                        # Implementation status by phase
+  agent-log.md                      # TDD agent stats
+  guides/                           # Developer guides (UiSpec, Building, etc.)
+  features/
+    phase-1/                        # Smart Routing + Feedback Buffer + UI
+    phase-2/                        # Day Planner + Timer
+    phase-3/                        # Animations
+    phase-4/                        # Dynamic Service Config + Settings UI
 
 tests/                              # Integration tests
   integration_test.go
@@ -236,7 +242,9 @@ log_dir = ""
 
 ---
 
-## 7. UI Specification
+## 7. Documentation & UI Specification
+
+Implementation status for all phases lives in `docs/Roadmap.md`. Feature design docs are organized by phase under `docs/features/`. Developer guides are in `docs/guides/`.
 
 **The authoritative UI specification is `docs/guides/UiSpec.md`.** It defines layout wireframes, design tokens, component specs, interaction behavior, and acceptance criteria. All UI implementation work defers to UiSpec.md.
 

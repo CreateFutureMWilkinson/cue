@@ -363,7 +363,7 @@ func (s *SlackWatcherSuite) TestPoll_PassesLastTimestampToAPI() {
 		log: callLog,
 	}
 
-	w := s.mustNewWatcherWithAPI(api, "T12345")
+	w := s.mustNewWatcher(api, "T12345")
 
 	// First poll: oldest should be empty (fetch all)
 	_, err := w.Poll(context.Background())
@@ -381,15 +381,6 @@ func (s *SlackWatcherSuite) TestPoll_PassesLastTimestampToAPI() {
 // --- Helpers ---
 
 func (s *SlackWatcherSuite) mustNewWatcher(api watcher.SlackAPI, workspaceID string) *watcher.SlackWatcher {
-	cfg := watcher.SlackWatcherConfig{
-		WorkspaceID: workspaceID,
-	}
-	w, err := watcher.NewSlackWatcher(api, cfg)
-	s.Require().NoError(err)
-	return w
-}
-
-func (s *SlackWatcherSuite) mustNewWatcherWithAPI(api watcher.SlackAPI, workspaceID string) *watcher.SlackWatcher {
 	cfg := watcher.SlackWatcherConfig{
 		WorkspaceID: workspaceID,
 	}

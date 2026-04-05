@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -50,7 +51,7 @@ const (
 	querySelectOldestLimit    = "SELECT " + messageColumnsStr + " FROM messages ORDER BY created_at ASC LIMIT ?"
 )
 
-const messageColumnsStr = "id, source, source_account, channel, sender, message_id, " +
+const messageColumnsStr = "id, source, source_account, channel, sender, message_id, message_type, " +
 	"raw_content, importance_score, confidence_score, status, reasoning, " +
 	"user_rating, user_feedback, vector_id, created_at, updated_at, resolved_at"
 
@@ -82,6 +83,13 @@ func NewSQLiteMessageRepository(dbPath string) (*SQLiteMessageRepository, error)
 		return nil, fmt.Errorf("create messages table: %w", err)
 	}
 
+	// Migration: add message_type column (idempotent).
+	_, err = db.Exec("ALTER TABLE messages ADD COLUMN message_type TEXT NOT NULL DEFAULT ''")
+	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+		_ = db.Close()
+		return nil, fmt.Errorf("migrate message_type column: %w", err)
+	}
+
 	return &SQLiteMessageRepository{db: db}, nil
 }
 
@@ -107,16 +115,17 @@ func (r *SQLiteMessageRepository) Insert(ctx context.Context, msg *repository.Me
 	// Upsert the message.
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO messages (
-			id, source, source_account, channel, sender, message_id,
+			id, source, source_account, channel, sender, message_id, message_type,
 			raw_content, importance_score, confidence_score, status, reasoning,
 			user_rating, user_feedback, vector_id, created_at, updated_at, resolved_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(message_id) DO UPDATE SET
 			id = excluded.id,
 			source = excluded.source,
 			source_account = excluded.source_account,
 			channel = excluded.channel,
 			sender = excluded.sender,
+			message_type = excluded.message_type,
 			raw_content = excluded.raw_content,
 			importance_score = excluded.importance_score,
 			confidence_score = excluded.confidence_score,
@@ -135,6 +144,7 @@ func (r *SQLiteMessageRepository) Insert(ctx context.Context, msg *repository.Me
 		msg.Channel,
 		msg.Sender,
 		msg.MessageID,
+		msg.MessageType,
 		msg.RawContent,
 		msg.ImportanceScore,
 		msg.ConfidenceScore,
@@ -163,6 +173,7 @@ func (r *SQLiteMessageRepository) Update(ctx context.Context, msg *repository.Me
 			channel = ?,
 			sender = ?,
 			message_id = ?,
+			message_type = ?,
 			raw_content = ?,
 			importance_score = ?,
 			confidence_score = ?,
@@ -180,6 +191,7 @@ func (r *SQLiteMessageRepository) Update(ctx context.Context, msg *repository.Me
 		msg.Channel,
 		msg.Sender,
 		msg.MessageID,
+		msg.MessageType,
 		msg.RawContent,
 		msg.ImportanceScore,
 		msg.ConfidenceScore,
@@ -309,6 +321,7 @@ func scanMessage(rows *sql.Rows) (*repository.Message, error) {
 		&msg.Channel,
 		&msg.Sender,
 		&msg.MessageID,
+		&msg.MessageType,
 		&msg.RawContent,
 		&msg.ImportanceScore,
 		&msg.ConfidenceScore,

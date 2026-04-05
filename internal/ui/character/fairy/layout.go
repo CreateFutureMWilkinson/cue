@@ -64,14 +64,16 @@ func jarRenderedRect(containerW, containerH, imgAspect float32) (x, y, w, h floa
 	containerAspect := containerW / containerH
 	if containerAspect > imgAspect {
 		// Container wider than jar — pillarboxed (gaps on sides)
-		h = containerH
+		x = (containerW - containerH*imgAspect) / 2
+		y = 0
 		w = containerH * imgAspect
-		x = (containerW - w) / 2
+		h = containerH
 	} else {
 		// Container taller than jar — letterboxed (gaps top/bottom)
+		x = 0
+		y = (containerH - containerW/imgAspect) / 2
 		w = containerW
 		h = containerW / imgAspect
-		y = (containerH - h) / 2
 	}
 	return x, y, w, h
 }

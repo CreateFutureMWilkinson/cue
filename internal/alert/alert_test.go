@@ -559,3 +559,89 @@ func (s *AlertSuite) TestPlayNotificationFsErrorFallsBackToBeep() {
 
 	s.GreaterOrEqual(beeper.callCount(), 1, "beeper should be called as fallback when fs errors")
 }
+
+// ---------------------------------------------------------------------------
+// Path Traversal Protection (G304)
+// ---------------------------------------------------------------------------
+
+func (s *AlertSuite) TestSelectAudioFileRejectsPathTraversal() {
+	// A malicious filename containing path traversal should be rejected.
+	// The directory listing returns a file whose name escapes the audio dir.
+	traversalFiles := entries("../../etc/passwd.wav")
+	fsys := &mockFileSystem{entries: traversalFiles}
+	player := &mockAudioPlayer{}
+	beeper := &mockBeeper{}
+	cfg := defaultConfig()
+	cfg.AudioDir = "/sounds"
+
+	svc, err := alert.NewAlertService(cfg, beeper, fsys, player)
+	s.Require().NoError(err)
+
+	err = svc.PlayNotification(context.Background())
+	s.NoError(err)
+
+	time.Sleep(100 * time.Millisecond)
+
+	// The traversal file must NOT be played via the audio player.
+	// Instead, the service should fall back to beep because no safe files exist.
+	s.Equal(0, player.callCount(), "path traversal file should not be played")
+	s.GreaterOrEqual(beeper.callCount(), 1, "should fall back to beep when all files are rejected for path traversal")
+}
+
+func (s *AlertSuite) TestSelectAudioFilRejectsMixedTraversalAndValid() {
+	// When the directory contains both traversal and valid files,
+	// only the valid file should ever be selected.
+	mixedFiles := entries("../escape.mp3", "safe.mp3", "../../etc/shadow.wav")
+	fsys := &mockFileSystem{entries: mixedFiles}
+	player := &mockAudioPlayer{}
+	beeper := &mockBeeper{}
+	cfg := defaultConfig()
+	cfg.AudioDir = "/sounds"
+
+	svc, err := alert.NewAlertService(cfg, beeper, fsys, player)
+	s.Require().NoError(err)
+
+	// Play multiple times to exercise randomness, advancing past cooldown each time.
+	for i := 0; i < 20; i++ {
+		svc.SetNowFunc(func() time.Time {
+			return time.Now().Add(time.Duration(i*3) * time.Second)
+		})
+		_ = svc.PlayNotification(context.Background())
+	}
+
+	time.Sleep(200 * time.Millisecond)
+
+	calls := player.getCalls()
+	for _, call := range calls {
+		s.Equal("/sounds/safe.mp3", call.Path,
+			"only safe files should be played, got: %s", call.Path)
+	}
+	s.Greater(len(calls), 0, "safe file should have been played at least once")
+}
+
+func (s *AlertSuite) TestSelectAudioFileAcceptsNormalPaths() {
+	// Normal filenames without traversal components should work fine.
+	normalFiles := entries("alert.wav", "notification.mp3")
+	fsys := &mockFileSystem{entries: normalFiles}
+	player := &mockAudioPlayer{}
+	beeper := &mockBeeper{}
+	cfg := defaultConfig()
+	cfg.AudioDir = "/sounds"
+
+	svc, err := alert.NewAlertService(cfg, beeper, fsys, player)
+	s.Require().NoError(err)
+
+	err = svc.PlayNotification(context.Background())
+	s.NoError(err)
+
+	time.Sleep(100 * time.Millisecond)
+
+	calls := player.getCalls()
+	s.Require().Len(calls, 1, "should play exactly one file")
+
+	validPaths := map[string]bool{
+		"/sounds/alert.wav":        true,
+		"/sounds/notification.mp3": true,
+	}
+	s.True(validPaths[calls[0].Path], "played file should be within audio dir, got: %s", calls[0].Path)
+}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
 	"github.com/google/uuid"
 	chromem "github.com/rengensheng/chromem-go"
 	"github.com/urfave/cli/v3"
@@ -330,7 +331,8 @@ func run() error {
 	viewRouter := ui.NewCenterViewRouter()
 
 	// Create and run the Fyne window (blocks until quit).
-	mainWindow := ui.NewMainWindow(cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, serviceSettingsPresenter, cfg.Ollama, char.Widget(), viewRouter)
+	fyneApp := app.New()
+	mainWindow := ui.NewMainWindow(fyneApp, cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, serviceSettingsPresenter, cfg.Ollama, char.Widget(), viewRouter)
 	mainWindow.Run()
 
 	// Graceful shutdown: play shutdown animation if character supports it.

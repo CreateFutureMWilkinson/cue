@@ -4,17 +4,12 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
-
-// newFyneApp is the factory function for creating a Fyne application.
-// Tests can replace this with test.NewApp to avoid requiring a display.
-var newFyneApp = func() fyne.App { return app.New() }
 
 const (
 	// refreshInterval is how often the UI refreshes notification content.
@@ -44,6 +39,7 @@ type MainWindow struct {
 // The optional characterWidget, if non-nil, is displayed in the center column.
 // The viewRouter controls center-column view switching.
 func NewMainWindow(
+	fyneApp fyne.App,
 	cfg config.GUIConfig,
 	np *presenter.NotificationPresenter,
 	ap *presenter.ActivityPresenter,
@@ -55,7 +51,6 @@ func NewMainWindow(
 	characterWidget fyne.CanvasObject,
 	viewRouter *CenterViewRouter,
 ) *MainWindow {
-	fyneApp := newFyneApp()
 	win := fyneApp.NewWindow("Cue")
 	win.Resize(fyne.NewSize(float32(cfg.WindowWidth), float32(cfg.WindowHeight)))
 
@@ -121,7 +116,7 @@ func NewMainWindow(
 		}))
 	}
 	menuItems = append(menuItems, fyne.NewMenuItem("About", func() {
-		fyne.CurrentApp().SendNotification(&fyne.Notification{
+		fyneApp.SendNotification(&fyne.Notification{
 			Title:   "Cue",
 			Content: "Cue - ADHD-friendly productivity assistant",
 		})

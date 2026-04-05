@@ -89,7 +89,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 | 022-B | Plan view (schedule tree + no-plan state) | Done |
 | 022-C | Todo list view + task detail modal | Done |
 | 022-D | Day planner wizard steps 1-4 | Done |
-| 022-E | Timer tick loop + presenter ↔ view binding | Planned |
+| 022-E | Timer tick loop + presenter ↔ view binding | Done |
 
 ## Supported Platforms
 

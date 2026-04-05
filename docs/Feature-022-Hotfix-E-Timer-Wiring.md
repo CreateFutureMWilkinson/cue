@@ -1,74 +1,91 @@
 # Feature 022-Hotfix-E: Timer Tick Loop + Presenter ↔ View Binding
 
 **Phase:** Phase-2-Feature-022-Hotfix-E
-**Status:** Planned
-**Package:** `internal/ui/`, `cmd/cue/`
+**Status:** Done
+**Package:** `internal/ui/`, `internal/ui/presenter/`
 **Parent:** Feature 022 (Planner UI)
 
 ---
 
 ## Overview
 
-The TimerPresenter and PlannerPresenter have callbacks (`SetOnTick`, `SetOnBlockComplete`, `SetOnStepChange`, etc.) but nothing in the UI subscribes to them, and no tick loop exists to drive the timer. This hotfix wires the presenters to the views and creates the timer tick loop in `main.go`.
+Wires presenter callbacks to views and creates the timer tick loop that drives the countdown timer widget at 1Hz. This is the final hotfix in the Feature 022 series, completing the planner UI by connecting the already-tested presenters (PlannerPresenter, TimerPresenter) to the already-built views (FocusRail, WizardView, PlannerView).
 
-## Issues to Fix
+## Design Decisions
 
-### 1. Timer Tick Loop Missing
+### TimerLoop with Interfaces
 
-The TimerPresenter provides `ElapsedFraction()`, `IsFlashVisible()`, `ActiveSegment()`, `CurrentTaskName()`, and `IsRunning()`. These need to be wired to the CountdownTimer widget in the focus rail:
+A dedicated `TimerLoop` type in `internal/ui/timer_loop.go` encapsulates the 1Hz tick goroutine. It depends on three interfaces (`TickableTimer`, `TimerWidget`, `TaskUpdater`) rather than concrete types, enabling deterministic testing without goroutine timing.
 
-- UI tick loop (1Hz) calls `timerPresenter.Tick()`
-- After tick: `timer.SetProgress(timerPresenter.ElapsedFraction())`
-- After tick: `timer.SetFlashVisible(timerPresenter.IsFlashVisible())`
-- After tick: `focusRail.SetCurrentTask(timerPresenter.CurrentTaskName())`
+The `TickOnce()` method performs a single tick cycle synchronously — tests call it directly. The `Start(ctx)` method wraps `TickOnce()` in a 1-second ticker goroutine for production use.
 
-This tick loop doesn't exist yet. It should be a goroutine in `main.go` that runs while the app is open.
+### AppBinder for Callback Wiring
 
-### 2. PlannerPresenter ↔ View Binding
+A dedicated `AppBinder` type in `internal/ui/app_binder.go` wires presenter callbacks to view updates. It depends on four interfaces (`PlannerCallbacks`, `FocusRailCallbacks`, `RefreshableView`, `ViewNavigator`) for testability.
 
-The PlannerPresenter manages wizard state and active schedule state, but the views don't subscribe to its changes. The wiring must:
-- Listen for step changes to swap wizard content (wizard_view refreshes on step change)
-- Listen for schedule-ready to display the schedule tree in plan view
-- Listen for block-advance to update the timer and current task
-- Wire "Done" button in focus rail to `plannerPresenter.CompleteCurrentTask()`
-- Wire "Abandon Plan" to `plannerPresenter.AbandonPlan()` and update focus rail state
-- Call `focusRail.SetActivePlan(true/false)` when plan state changes
+`Bind()` wires two callbacks:
+- `SetOnStepChange` — refreshes wizard view on every step change; additionally navigates to plan view and activates focus rail on `StepActive`, deactivates on `StepIdle`
+- `SetOnDone` — calls `CompleteCurrentTask` when the Done button is tapped
 
-### 3. Existing Plan Auto-Load
+`AutoLoad(ctx)` calls `LoadExistingPlan` and updates focus rail active state.
 
-On startup, `plannerPresenter.LoadExistingPlan()` should be called. If a plan exists for today, the UI should reflect the active state (timer running, focus rail showing task, etc.).
+### PlannerPresenter.SetOnStepChange
 
-## Files
+Added a callback field + `fireStepChange()` helper. Every method that assigns `p.step` now calls `fireStepChange()` afterward. This includes: `StartPlanning`, `NextStep` (all branches), `PreviousStep` (all branches), `SelectSchedule`, `AbandonPlan`, `LoadExistingPlan`.
 
-| File | Action |
-|---|---|
-| `cmd/cue/main.go` | Modify — create timer tick loop goroutine, wire presenter callbacks to views, auto-load existing plan |
-| `internal/ui/window.go` | Modify — accept PlannerPresenter and TimerPresenter for binding (or wire externally) |
+### FocusRail.Container()
 
-## Dependencies
+Added a `Container()` method returning a `*fyne.Container` with VBox layout of all rail widgets (timer, task label, plan/back/done/review buttons). This allows `window.go` to use the real FocusRail instead of the placeholder label.
 
-- 022-A (center view router wiring) — view switching must work
-- 022-B (plan view) — schedule tree must exist to display active plan
-- 022-D (wizard steps) — wizard view must exist for step changes to refresh
-- TimerPresenter + PlannerPresenter (Feature 022) — already fully tested
+## API
+
+### New Types
+
+| Type | Package | Purpose |
+|---|---|---|
+| `TimerLoop` | `internal/ui` | 1Hz tick loop driving timer → widget updates |
+| `AppBinder` | `internal/ui` | Presenter ↔ view callback wiring |
+
+### New Interfaces
+
+| Interface | Package | Methods |
+|---|---|---|
+| `TickableTimer` | `internal/ui` | `Tick()`, `ElapsedFraction()`, `IsFlashVisible()`, `CurrentTaskName()` |
+| `TimerWidget` | `internal/ui` | `SetProgress(float64)`, `SetFlashVisible(bool)` |
+| `TaskUpdater` | `internal/ui` | `SetCurrentTask(string)` |
+| `PlannerCallbacks` | `internal/ui` | `SetOnStepChange(...)`, `HasActivePlan()`, `LoadExistingPlan(...)`, `CompleteCurrentTask(...)` |
+| `FocusRailCallbacks` | `internal/ui` | `SetActivePlan(bool)`, `SetCurrentTask(string)`, `SetOnDone(func())` |
+| `RefreshableView` | `internal/ui` | `Refresh()` |
+| `ViewNavigator` | `internal/ui` | `NavigateTo(CenterView)` |
+
+### New Methods on Existing Types
+
+| Method | Type | Purpose |
+|---|---|---|
+| `SetOnStepChange(func(WizardStep))` | `PlannerPresenter` | Register step-change callback |
+| `Container() *fyne.Container` | `FocusRail` | Get VBox container of all rail widgets |
+
+## Error Handling
+
+- `NewTimerLoop` / `NewAppBinder` return errors on nil dependencies
+- `AutoLoad` propagates `LoadExistingPlan` errors
+- `Bind()` Done callback swallows `CompleteCurrentTask` errors (fire-and-forget from UI)
 
 ## Test Coverage
 
-**Timer Tick Loop:**
-- Tick loop updates timer widget progress via ElapsedFraction()
-- Tick loop updates flash visibility via IsFlashVisible()
-- Tick loop updates task label via CurrentTaskName()
-- Block complete callback fires and advances to next block
+24 new tests across 4 files:
 
-**Presenter ↔ View Binding:**
-- Step change refreshes wizard view content
-- Schedule selection transitions from wizard to plan view with schedule tree
-- "Done" button calls CompleteCurrentTask()
-- "Abandon Plan" calls AbandonPlan() and hides timer/task in focus rail
-- Focus rail shows timer + task label when plan is active
-- Focus rail hides timer + task label when no plan
+| File | Tests | Coverage |
+|---|---|---|
+| `planner_presenter_test.go` | 6 | SetOnStepChange fires on all step transitions |
+| `focus_rail_test.go` | 1 | Container() returns non-nil |
+| `timer_loop_test.go` | 9 | Constructor validation, TickOnce behavior, Stop |
+| `app_binder_test.go` | 8 | Constructor validation, Bind wiring, AutoLoad |
 
-**Auto-Load:**
-- Existing plan loaded on startup
-- Focus rail reflects active plan state on startup
-- No plan: focus rail in default state
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED | Test Designer | 128s | 67,887 | c0ef44b |
+| GREEN | Implementer | 137s | 53,383 | db548d8 |
+| REFACTOR | Refactorer | 65s | 34,777 | e604f58 |

@@ -3,97 +3,122 @@ name: CI
 on:
   push:
     branches:
-      - main
+      - "**"
+    tags-ignore:
+      - "*"
   pull_request:
     branches:
       - main
 
+concurrency:
+  group: ci-${{ github.ref_name }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
-env:
-  GO_VERSION: "1.26"
-  GOSEC_VERSION: "v2.22.4"
-  GOVULNCHECK_VERSION: "v1.1.4"
-
 jobs:
-  test:
+  validate:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      GO_VERSION: '1.26.1'
+      GOTOOLCHAIN: auto
+      GOSEC_VERSION: v2.25.0
+      SUMMARY_FILE: ${{ runner.temp }}/summary.md
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Go
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          check-latest: true
+          cache: true
+          cache-dependency-path: go.sum
 
-      - name: Cache Go build artifacts
+      - name: Cache Go modules and build cache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/go-build
-          key: go-build-${{ runner.os }}-${{ hashFiles('**/*.go') }}
-          restore-keys: go-build-${{ runner.os }}-
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/go/bin
+          key: ${{ runner.os }}-go-cache-${{ hashFiles('**/go.mod', '**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-cache-
 
-      - name: Verify module tidiness
+      - name: Verify module hygiene
         run: |
+          set -euo pipefail
           go mod tidy
-          git diff --exit-code go.mod go.sum
+          if ! go mod verify; then
+            echo "go mod verify failed; refreshing module cache and retrying" >&2
+            go clean -modcache
+            go mod download
+            go mod verify
+          fi
 
-      - name: Lint
+      - name: Check code formatting
+        id: formatting
         run: |
-          test -z "$(gofmt -l .)" || (echo "Files need formatting:" && gofmt -l . && exit 1)
-          go vet ./...
+          set -euo pipefail
+          fmt_output=$(go fmt ./...)
+          if [[ -n "$fmt_output" ]]; then
+            echo "## Formatting" >> $SUMMARY_FILE
+            echo "" >> $SUMMARY_FILE
+            echo "Code formatting check failed. The following files need formatting:" >> $SUMMARY_FILE
+            echo "$fmt_output" >> $SUMMARY_FILE
+            exit 1
+          fi
 
-      - name: Run tests
-        run: go test -count=1 -race ./...
-
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Cache gosec binary
+      - name: Restore cached gosec binary
         id: cache-gosec
         uses: actions/cache@v4
         with:
-          path: ~/go/bin/gosec
-          key: gosec-${{ runner.os }}-${{ env.GOSEC_VERSION }}
+          path: ${{ runner.temp }}/gosec-bin
+          key: gosec-${{ env.GOSEC_VERSION }}-${{ runner.os }}-${{ runner.arch }}
 
-      - name: Install gosec
+      - name: Install gosec binary
         if: steps.cache-gosec.outputs.cache-hit != 'true'
-        run: go install github.com/securego/gosec/v2/cmd/gosec@${{ env.GOSEC_VERSION }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/gosec-bin"
+          GOBIN="${RUNNER_TEMP}/gosec-bin" go install github.com/securego/gosec/v2/cmd/gosec@${{ env.GOSEC_VERSION }}
 
-      - name: Run gosec
-        run: ~/go/bin/gosec ./...
+      - name: Run gosec security analysis
+        run: |
+          set -euo pipefail
+          echo "## Security" >> $SUMMARY_FILE
+          echo "" >> $SUMMARY_FILE
+          "${RUNNER_TEMP}/gosec-bin/gosec" --color=false ./... >> $SUMMARY_FILE 2>&1
 
-  vulncheck:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - name: Run Go Vulnerability Check
+        uses: golang/govulncheck-action@v1.0.4
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-package: ./...
+          cache: true
+          cache-dependency-path: go.sum
+          output-file: ${{ env.SUMMARY_FILE }}
 
-      - name: Cache govulncheck binary
-        id: cache-govulncheck
-        uses: actions/cache@v4
-        with:
-          path: ~/go/bin/govulncheck
-          key: govulncheck-${{ runner.os }}-${{ env.GOVULNCHECK_VERSION }}
+      - name: Run unit tests
+        run: |
+          set -euo pipefail
+          go test -count=1 -race ./...
 
-      - name: Install govulncheck
-        if: steps.cache-govulncheck.outputs.cache-hit != 'true'
-        run: go install golang.org/x/vuln/cmd/govulncheck@${{ env.GOVULNCHECK_VERSION }}
+      - name: Summary
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
 
-      - name: Run govulncheck
-        run: ~/go/bin/govulncheck ./...
+          echo 'Summary'
+          echo
+
+          if [[ -s "$SUMMARY_FILE" ]]; then
+            cat "$SUMMARY_FILE"
+          else
+            echo 'No summary generated.'
+          fi

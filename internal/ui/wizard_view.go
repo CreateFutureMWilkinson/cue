@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"github.com/google/uuid"
 
+	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
 
@@ -83,70 +84,119 @@ func (v *WizardView) Container() *fyne.Container {
 func (v *WizardView) buildState() {
 	step := v.vm.CurrentStep()
 
-	// Step indicator
-	stepNum := 0
+	v.buildStepIndicator(step)
+	v.buildNavigationButtons(step)
+	v.buildTaskSelection()
+	v.buildEstimates()
+	v.buildPriorityList()
+	v.buildScheduleCards()
+}
+
+// buildStepIndicator sets the step indicator text based on the current step.
+func (v *WizardView) buildStepIndicator(step presenter.WizardStep) {
+	stepNum := v.getStepNumber(step)
+	v.stepIndicator = fmt.Sprintf("Step %d of 4", stepNum)
+}
+
+// getStepNumber returns the numeric step number for a given wizard step.
+func (v *WizardView) getStepNumber(step presenter.WizardStep) int {
 	switch step {
 	case presenter.StepTaskSelect:
-		stepNum = 1
+		return 1
 	case presenter.StepEstimates:
-		stepNum = 2
+		return 2
 	case presenter.StepPriority:
-		stepNum = 3
+		return 3
 	case presenter.StepSchedule:
-		stepNum = 4
+		return 4
+	default:
+		return 0
 	}
-	v.stepIndicator = fmt.Sprintf("Step %d of 4", stepNum)
+}
 
-	// Navigation buttons
+// buildNavigationButtons sets navigation button visibility based on the current step.
+func (v *WizardView) buildNavigationButtons(step presenter.WizardStep) {
 	v.hasCancelButton = step == presenter.StepTaskSelect
-	v.hasNextButton = step == presenter.StepTaskSelect || step == presenter.StepEstimates || step == presenter.StepPriority
-	v.hasBackButton = step == presenter.StepEstimates || step == presenter.StepPriority || step == presenter.StepSchedule
+	v.hasNextButton = v.isNextButtonStep(step)
+	v.hasBackButton = v.isBackButtonStep(step)
 	v.hasUpDownButtons = step == presenter.StepPriority
+}
 
-	// Step 1: Task selection
+// isNextButtonStep returns true for steps that show the Next button.
+func (v *WizardView) isNextButtonStep(step presenter.WizardStep) bool {
+	return step == presenter.StepTaskSelect ||
+		step == presenter.StepEstimates ||
+		step == presenter.StepPriority
+}
+
+// isBackButtonStep returns true for steps that show the Back button.
+func (v *WizardView) isBackButtonStep(step presenter.WizardStep) bool {
+	return step == presenter.StepEstimates ||
+		step == presenter.StepPriority ||
+		step == presenter.StepSchedule
+}
+
+// buildTaskSelection populates task selection data for step 1.
+func (v *WizardView) buildTaskSelection() {
 	tasks := v.vm.AvailableTasks()
 	v.taskCheckboxes = make([]TaskCheckboxItem, len(tasks))
+
 	for i, t := range tasks {
-		cats := make([]string, len(t.Categories))
-		for j, c := range t.Categories {
-			cats[j] = c.Name
-		}
 		v.taskCheckboxes[i] = TaskCheckboxItem{
 			ID:         t.ID,
 			Title:      t.Title,
 			Selected:   t.Selected,
-			Categories: cats,
+			Categories: v.extractCategoryNames(t.Categories),
 		}
 	}
-	v.nextButtonEnabled = v.vm.SelectedCount() > 0
 
-	// Step 2: Estimates
+	v.nextButtonEnabled = v.vm.SelectedCount() > 0
+}
+
+// extractCategoryNames converts category structs to name strings.
+func (v *WizardView) extractCategoryNames(categories []repository.Category) []string {
+	names := make([]string, len(categories))
+	for i, c := range categories {
+		names[i] = c.Name
+	}
+	return names
+}
+
+// buildEstimates populates estimate data for step 2.
+func (v *WizardView) buildEstimates() {
 	v.estimateRows = v.vm.Estimates()
+
 	summary := v.vm.EstimateSummary()
 	v.summaryText = fmt.Sprintf("%d of %d Pomodoros", summary.TotalPomos, summary.AvailableBlocks)
 	v.overloadWarning = summary.Overloaded
+}
 
-	// Step 3: Priority
+// buildPriorityList populates priority list data for step 3.
+func (v *WizardView) buildPriorityList() {
 	estimates := v.vm.Estimates()
 	v.priorityList = make([]string, len(estimates))
+
 	for i, e := range estimates {
 		v.priorityList[i] = e.Title
 	}
+}
 
-	// Step 4: Schedule
+// buildScheduleCards populates schedule card data for step 4.
+func (v *WizardView) buildScheduleCards() {
 	focus := v.vm.FocusSchedule()
 	recovery := v.vm.RecoverySchedule()
 
 	v.scheduleCards = 0
-	if focus != nil {
+	v.buildScheduleCard(focus, &v.focusCardStrategy, &v.focusCardStats)
+	v.buildScheduleCard(recovery, &v.recoveryCardStrategy, &v.recoveryCardStats)
+}
+
+// buildScheduleCard populates a single schedule card's data if the preview is not nil.
+func (v *WizardView) buildScheduleCard(preview *presenter.SchedulePreview, strategy *string, stats *ScheduleCardStats) {
+	if preview != nil {
 		v.scheduleCards++
-		v.focusCardStrategy = focus.Strategy
-		v.focusCardStats = buildCardStats(focus)
-	}
-	if recovery != nil {
-		v.scheduleCards++
-		v.recoveryCardStrategy = recovery.Strategy
-		v.recoveryCardStats = buildCardStats(recovery)
+		*strategy = preview.Strategy
+		*stats = buildCardStats(preview)
 	}
 }
 

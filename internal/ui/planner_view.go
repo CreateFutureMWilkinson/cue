@@ -158,10 +158,14 @@ func (v *PlannerView) ScheduleTree() *ScheduleTree {
 }
 
 // SetOnNext sets the callback invoked when the "Next" button is tapped.
-func (v *PlannerView) SetOnNext(_ func()) {}
+func (v *PlannerView) SetOnNext(fn func()) {
+	v.nextBtn.OnTapped = fn
+}
 
 // SetOnBack sets the callback invoked when the "Back" button is tapped.
-func (v *PlannerView) SetOnBack(_ func()) {}
+func (v *PlannerView) SetOnBack(fn func()) {
+	v.backBtn.OnTapped = fn
+}
 
 // SetOnCompleteTask sets the callback invoked when the "Complete Task" button is tapped.
 func (v *PlannerView) SetOnCompleteTask(_ func()) {}

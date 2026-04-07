@@ -1,9 +1,10 @@
 package decisionengine
 
 import (
+	"cmp"
 	"log/slog"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
@@ -35,10 +36,31 @@ func NewRulesEngine(rules []*repository.RoutingRule) *RulesEngine {
 		}
 		compiled = append(compiled, compiledRule{rule: r, pattern: re})
 	}
-	sort.Slice(compiled, func(i, j int) bool {
-		return compiled[i].rule.Priority < compiled[j].rule.Priority
+	slices.SortFunc(compiled, func(a, b compiledRule) int {
+		return cmp.Compare(a.rule.Priority, b.rule.Priority)
 	})
 	return &RulesEngine{rules: compiled}
+}
+
+// extractField extracts the specified field value from a message.
+func extractField(msg *repository.Message, field string) string {
+	switch field {
+	case "sender":
+		return msg.Sender
+	case "subject":
+		if idx := strings.Index(msg.RawContent, "\n"); idx >= 0 {
+			return msg.RawContent[:idx]
+		}
+		return msg.RawContent
+	case "channel":
+		return msg.Channel
+	case "content":
+		return msg.RawContent
+	case "message_type":
+		return msg.MessageType
+	default:
+		return ""
+	}
 }
 
 // Evaluate checks the message against compiled rules in priority order.
@@ -48,27 +70,13 @@ func (e *RulesEngine) Evaluate(msg *repository.Message) (string, *repository.Rou
 		if cr.rule.Source != msg.Source {
 			continue
 		}
-		var fieldValue string
-		switch cr.rule.Field {
-		case "sender":
-			fieldValue = msg.Sender
-		case "subject":
-			if idx := strings.Index(msg.RawContent, "\n"); idx >= 0 {
-				fieldValue = msg.RawContent[:idx]
-			} else {
-				fieldValue = msg.RawContent
-			}
-		case "channel":
-			fieldValue = msg.Channel
-		case "content":
-			fieldValue = msg.RawContent
-		case "message_type":
-			fieldValue = msg.MessageType
-		}
+
+		fieldValue := extractField(msg, cr.rule.Field)
 		matched := cr.pattern.MatchString(fieldValue)
 		if cr.rule.Negate {
 			matched = !matched
 		}
+
 		if matched {
 			return cr.rule.Action, cr.rule
 		}

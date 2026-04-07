@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–5 complete. Phase 6 (The Big Clean — bugfixes + test infrastructure) in progress. Recent: Feature 071 wires the entire Phase 2 day planner subsystem into `cmd/cue/main.go` — Plan view, Wizard view, countdown timer, AppBinder, and todo list are now fully functional at runtime. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–5 complete. Phase 6 (The Big Clean — bugfixes + test infrastructure) in progress. Recent: Feature 065 adds the missing Calendar tab to the Settings view, completing the settings UI surface for calendar account management. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 

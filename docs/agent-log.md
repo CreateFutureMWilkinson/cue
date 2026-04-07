@@ -392,3 +392,6 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-071 (ViewRefs) | GREEN | Implementer | ~45s | ~31,000 | bb5d4ad |
 | Phase-6-Feature-071 (main wiring) | GREEN | Implementer | ~60s | ~35,000 | 69b8410 |
 | Phase-6-Feature-071 (nosec) | REFACTOR | orchestrator | ~30s | ~25,000 | 49d3da9 |
+| Phase-6-Feature-065 | RED | Test Designer | ~32s | ~23,000 | 6839d16 |
+| Phase-6-Feature-065 | GREEN | Implementer | ~19s | ~21,000 | 09e3df4 |
+| Phase-6-Feature-065 | REFACTOR | orchestrator | ~5s | — | 09ccce6 |

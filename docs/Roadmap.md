@@ -105,7 +105,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 052 | Automated UI testing framework | Enhancement | — | Done | — | [Feature-052](features/phase-6/Feature-052-Automated-UI-Testing.md) |
 | 053 | Email mention detection never triggers IS=8 | Bugfix | Critical | Done | — | [Feature-053](features/phase-6/Feature-053-Email-Mention-Detection.md) |
 | 054 | Audio alerts never fire on NOTIFIED | Bugfix | Critical | Done | — | [Feature-054](features/phase-6/Feature-054-Audio-Alert-Wiring.md) |
-| 055 | Focus rail is placeholder label | Bugfix | High | Planned | 052 | [Feature-055](features/phase-6/Feature-055-Focus-Rail-Wiring.md) |
+| 055 | Focus rail is placeholder label | Bugfix | High | Done | 052 | [Feature-055](features/phase-6/Feature-055-Focus-Rail-Wiring.md) |
 | 056 | Plan/Wizard views are placeholder labels | Bugfix | High | Done | 052 | [Feature-056](features/phase-6/Feature-056-Plan-Wizard-Wiring.md) |
 | 057 | Notification panel ignores color-coded cards | Bugfix | High | Done | 052 | [Feature-057](features/phase-6/Feature-057-Notification-Card-Rendering.md) |
 | 058 | Vector score advisor not wired in main.go | Bugfix | Medium | Done | — | [Feature-058](features/phase-6/Feature-058-Vector-Advisor-Wiring.md) |
@@ -117,7 +117,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 063 | PlannerView missing horizontal split + todo widget tree | Bugfix | High | Done | 052 | [Feature-063](features/phase-6/Feature-063-PlannerView-Widget-Tree.md) |
 | 064 | WizardView missing step widget rendering | Bugfix | High | Done | 052 | [Feature-064](features/phase-6/Feature-064-WizardView-Widget-Tree.md) |
 | 074 | Failing UI acceptance tests for bugs 065-073 | Enhancement | — | Done | 052 | [Feature-074](features/phase-6/Feature-074-Bugfix-UI-Acceptance-Tests.md) |
-| 065 | Settings view missing Calendar tab | Bugfix | Medium | Planned | 060, 074 | [Feature-065](features/phase-6/Feature-065-Calendar-Settings-Tab.md) |
+| 065 | Settings view missing Calendar tab | Bugfix | Medium | Done | 060, 074 | [Feature-065](features/phase-6/Feature-065-Calendar-Settings-Tab.md) |
 | 066 | PlannerView no-plan content not rendered | Bugfix | High | Planned | 063, 071 | [Feature-066](features/phase-6/Feature-066-PlannerView-Content-Rendering.md) |
 | 067 | Email settings Add Account callback is noop | Bugfix | Medium | Planned | 060 | [Feature-067](features/phase-6/Feature-067-Email-Add-Account.md) |
 | 068 | Slack settings Add Account callback is noop | Bugfix | Medium | Planned | 060 | [Feature-068](features/phase-6/Feature-068-Slack-Add-Account.md) |

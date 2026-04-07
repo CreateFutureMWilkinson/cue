@@ -423,3 +423,10 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-072 | RED | Test Designer | ~102s | ~43,000 | c377959 |
 | Phase-6-Feature-072 | GREEN | Implementer | ~26s | ~23,000 | db13fc5 |
 | Phase-6-Feature-072 | FIX (acceptance) | orchestrator | manual | — | 4f5f14b |
+| Phase-6-Feature-073 | UI TESTS | orchestrator | manual | — | 78314ba |
+| Phase-6-Feature-073 | RED (setters 1) | Test Designer | ~32s | ~30,000 | 5229fb7 |
+| Phase-6-Feature-073 | GREEN (setters 1) | Implementer | ~26s | ~22,000 | 0c72d1c |
+| Phase-6-Feature-073 | RED (setters 2) | Test Designer | ~36s | ~34,000 | 2e56830 |
+| Phase-6-Feature-073 | GREEN (setters 2) | orchestrator | manual | — | 98bf53f |
+| Phase-6-Feature-073 | RED (binder) | Test Designer | ~124s | ~41,000 | 7af1b7f |
+| Phase-6-Feature-073 | GREEN (binder) | orchestrator | manual | — | 801a595 |

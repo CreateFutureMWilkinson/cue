@@ -21,25 +21,69 @@ v.abandonBtn = widget.NewButton("Abandon Plan", func() {})
 
 The `AppBinder` only wires `focusRail.SetOnDone` — it does not wire these PlannerView buttons. There is no mechanism to inject callbacks for these buttons.
 
-## Fix
+## Solution
 
-1. Add setter methods or constructor parameters to `PlannerView` for button callbacks:
-   - `SetOnNext(fn func())` — calls `plannerPresenter.NextStep()`
-   - `SetOnBack(fn func())` — calls `plannerPresenter.PreviousStep()`
-   - `SetOnCompleteTask(fn func())` — calls `plannerPresenter.CompleteCurrentTask()`
-   - `SetOnAbandonPlan(fn func())` — calls `plannerPresenter.AbandonPlan()`
-2. Wire these in `AppBinder.Bind()` or in `main.go` after creating the PlannerView.
-3. Button callbacks should delegate to the presenter and handle errors gracefully (log, don't panic).
+### 1. Setter methods on PlannerView
 
-## Files to Change
+Added four setter methods that update the Fyne button's `OnTapped` callback:
 
-- `internal/ui/planner_view.go` — add callback setters, wire button OnTapped
-- `internal/ui/app_binder.go` — wire PlannerView button callbacks in `Bind()`
+- `SetOnNext(fn func())` — wires Next button
+- `SetOnBack(fn func())` — wires Back button
+- `SetOnCompleteTask(fn func())` — wires Complete Task button
+- `SetOnAbandonPlan(fn func())` — wires Abandon Plan button
+
+### 2. PlannerViewBindable interface
+
+Introduced `PlannerViewBindable` interface in `app_binder.go` combining `RefreshableView` with the four setter methods. This replaces the `RefreshableView` type for the `plannerView` parameter in `AppBinder`.
+
+### 3. Expanded PlannerCallbacks interface
+
+Added `NextStep(ctx) error`, `PreviousStep()`, and `AbandonPlan(ctx) error` to `PlannerCallbacks` so `AppBinder.Bind()` can delegate to the presenter.
+
+### 4. Wiring in AppBinder.Bind()
+
+`Bind()` now calls all four setters with closures that delegate to the presenter:
+- Next → `plannerP.NextStep(ctx)`
+- Back → `plannerP.PreviousStep()`
+- Complete Task → `plannerP.CompleteCurrentTask(ctx)`
+- Abandon Plan → `plannerP.AbandonPlan(ctx)`
+
+Errors are intentionally discarded (same pattern as the existing Done button wiring) — UI callbacks should not panic.
+
+## Files Changed
+
+- `internal/ui/planner_view.go` — added 4 setter methods
+- `internal/ui/app_binder.go` — expanded interfaces, wiring in Bind()
+- `internal/ui/window.go` — changed PlannerViewRef() return type to PlannerViewBindable
+- `internal/ui/app_binder_test.go` — 4 new tests, extracted expectBindCalls() helper
+- `internal/ui/planner_view_test.go` — 4 new setter tests
+- `tests/ui/bugfix_acceptance_test.go` — 5 acceptance tests (4 button callbacks + no-panic)
+- `tests/ui/helpers_test.go` — added configurable step field to stubPlannerTimerVM
 
 ## Acceptance Criteria
 
-- [ ] "Next" button advances the wizard step via presenter
-- [ ] "Back" button returns to previous wizard step via presenter
-- [ ] "Complete Task" button completes the current task via presenter
-- [ ] "Abandon Plan" button deletes the schedule and returns to idle
-- [ ] All buttons handle presenter errors gracefully (no panics)
+- [x] "Next" button advances the wizard step via presenter
+- [x] "Back" button returns to previous wizard step via presenter
+- [x] "Complete Task" button completes the current task via presenter
+- [x] "Abandon Plan" button deletes the schedule and returns to idle
+- [x] All buttons handle presenter errors gracefully (no panics)
+
+## Test Coverage
+
+| Area | Tests |
+|---|---|
+| PlannerView setters (unit) | 4 tests — each setter wires OnTapped |
+| AppBinder.Bind() wiring (unit) | 4 tests — each button delegates to presenter |
+| UI acceptance | 5 tests — 4 callback invocations + no-panic safety |
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| UI TESTS | orchestrator | manual | — | 78314ba |
+| RED (setters 1) | Test Designer | ~32s | ~30,000 | 5229fb7 |
+| GREEN (setters 1) | Implementer | ~26s | ~22,000 | 0c72d1c |
+| RED (setters 2) | Test Designer | ~36s | ~34,000 | 2e56830 |
+| GREEN (setters 2) | orchestrator | manual | — | 98bf53f |
+| RED (binder) | Test Designer | ~124s | ~41,000 | 7af1b7f |
+| GREEN (binder) | orchestrator | manual | — | 801a595 |

@@ -22,6 +22,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **PlannerView navigation buttons are noops** — Next, Back, Complete Task, and Abandon Plan buttons had empty callbacks and did nothing when tapped. Added `SetOnNext`/`SetOnBack`/`SetOnCompleteTask`/`SetOnAbandonPlan` setter methods on `PlannerView` and wired them in `AppBinder.Bind()` to delegate to the planner presenter. Introduced `PlannerViewBindable` interface. (Phase-6-Feature-073)
 - **Wizard step 3 Up/Down reorder buttons are noops** — Global noop Up/Down buttons replaced with per-row buttons that call `ReorderTask` on the view model. Up is disabled on the first item, Down on the last. Priority list refreshes after reorder. (Phase-6-Feature-072)
 - **Activity log drawer uses split instead of overlay** — `ContainerWithCharacter` used a `container.NewVSplit` that pushed the character widget up instead of overlaying it. Replaced with `container.NewStack` so the activity log overlays the character area with a semi-transparent dark background (`RGBA(0,0,0,77)`). Character widget remains fully visible underneath. (Phase-6-Feature-070)
 - **Audio settings missing Timer Volume slider** — The Audio tab only had a Notification Volume slider despite the UiSpec defining two independent sliders (Notification + Timer). `SettingsPresenter` now accepts a second `VolumeController` for timer alerts with `TimerVolume()` / `SetTimerVolume()` methods. Audio tab renders both sliders with live label updates. (Phase-6-Feature-069)

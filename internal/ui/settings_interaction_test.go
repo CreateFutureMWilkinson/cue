@@ -331,6 +331,17 @@ func (s *SettingsInteractionSuite) TestEmailAddAccountSaveWithValidDataReplacesF
 		"after saving valid data, form should be replaced with account list (fewer than 5 Entry widgets)")
 }
 
+func (s *SettingsInteractionSuite) TestSlackAddAccountShowsFormFields() {
+	root := s.sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	slackContent := tabs.Items[0].Content
+	btn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool { return b.Text == "Add Account" })
+	btn.OnTapped()
+	slackContent = tabs.Items[0].Content
+	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
+	s.GreaterOrEqual(len(entries), 3, "after tapping Add Account, Slack tab should contain at least 3 Entry widgets (bot token, workspace ID, poll interval)")
+}
+
 func (s *SettingsInteractionSuite) TestAudioSliderOnChangedCallsPresenterSetVolume() {
 	root := s.sv.Container()
 

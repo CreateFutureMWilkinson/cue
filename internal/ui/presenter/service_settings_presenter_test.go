@@ -107,6 +107,26 @@ func (m *mockSlackValidator) ValidateSlack(ctx context.Context, token string) er
 	return m.validateFn(ctx, token)
 }
 
+// --- Mock EmailValidator ---
+
+type mockEmailValidator struct {
+	validateFn func(ctx context.Context, host string, port int, username, password, encryption string) error
+}
+
+func (m *mockEmailValidator) ValidateEmail(ctx context.Context, host string, port int, username, password, encryption string) error {
+	return m.validateFn(ctx, host, port, username, password, encryption)
+}
+
+// --- Mock CalendarValidator ---
+
+type mockCalendarValidator struct {
+	validateFn func(ctx context.Context, url string) error
+}
+
+func (m *mockCalendarValidator) ValidateCalendar(ctx context.Context, url string) error {
+	return m.validateFn(ctx, url)
+}
+
 // --- Suite ---
 
 type ServiceSettingsSuite struct {
@@ -720,6 +740,66 @@ func (s *ServiceSettingsSuite) TestSaveSlackAccount_ValidationFailure() {
 
 	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory, presenter.WithSlackValidator(validator))
 	err := p.SaveSlackAccount(context.Background(), acct)
+
+	s.Error(err)
+	s.ErrorIs(err, validationErr)
+}
+
+func (s *ServiceSettingsSuite) TestSaveEmailAccount_ValidationFailure() {
+	acct := validEmailAccount()
+	validationErr := fmt.Errorf("IMAP connection refused")
+	validator := &mockEmailValidator{
+		validateFn: func(ctx context.Context, host string, port int, username, password, encryption string) error {
+			s.Equal(acct.IMAPHost, host)
+			s.Equal(acct.IMAPPort, port)
+			s.Equal(acct.Username, username)
+			s.Equal(acct.Password, password)
+			s.Equal(acct.Encryption, encryption)
+			return validationErr
+		},
+	}
+	repo := &mockServiceConfigRepo{
+		upsertEmailFn: func(ctx context.Context, a *repository.EmailAccount) error {
+			s.Fail("UpsertEmailAccount should not be called when credential validation fails")
+			return nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+	factory := func(accountType string, accountID uuid.UUID) error {
+		s.Fail("factory should not be called when credential validation fails")
+		return nil
+	}
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory, presenter.WithEmailValidator(validator))
+	err := p.SaveEmailAccount(context.Background(), acct)
+
+	s.Error(err)
+	s.ErrorIs(err, validationErr)
+}
+
+func (s *ServiceSettingsSuite) TestSaveCalendarAccount_ValidationFailure() {
+	acct := validCalendarAccount()
+	validationErr := fmt.Errorf("calendar unreachable")
+	validator := &mockCalendarValidator{
+		validateFn: func(ctx context.Context, url string) error {
+			s.Equal(acct.ICSURL, url)
+			return validationErr
+		},
+	}
+	repo := &mockServiceConfigRepo{
+		upsertCalendarFn: func(ctx context.Context, a *repository.CalendarAccount) error {
+			s.Fail("UpsertCalendarAccount should not be called when credential validation fails")
+			return nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+	factory := func(accountType string, accountID uuid.UUID) error {
+		s.Fail("factory should not be called when credential validation fails")
+		return nil
+	}
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory, presenter.WithCalendarValidator(validator))
+	err := p.SaveCalendarAccount(context.Background(), acct)
 
 	s.Error(err)
 	s.ErrorIs(err, validationErr)

@@ -113,6 +113,11 @@ func (p *ServiceSettingsPresenter) SaveEmailAccount(ctx context.Context, acct *r
 	if err := validateEmailAccount(acct); err != nil {
 		return err
 	}
+	if p.emailValidator != nil {
+		if err := p.emailValidator.ValidateEmail(ctx, acct.IMAPHost, acct.IMAPPort, acct.Username, acct.Password, acct.Encryption); err != nil {
+			return fmt.Errorf("email credential validation failed: %w", err)
+		}
+	}
 	if err := p.repo.UpsertEmailAccount(ctx, acct); err != nil {
 		return fmt.Errorf("saving email account: %w", err)
 	}
@@ -141,6 +146,11 @@ func (p *ServiceSettingsPresenter) EditSlackAccount(ctx context.Context, acct *r
 
 // EditEmailAccount persists changes, removes the old watcher, and starts a new one.
 func (p *ServiceSettingsPresenter) EditEmailAccount(ctx context.Context, acct *repository.EmailAccount, oldUsername string) error {
+	if p.emailValidator != nil {
+		if err := p.emailValidator.ValidateEmail(ctx, acct.IMAPHost, acct.IMAPPort, acct.Username, acct.Password, acct.Encryption); err != nil {
+			return fmt.Errorf("email credential validation failed: %w", err)
+		}
+	}
 	if err := p.repo.UpsertEmailAccount(ctx, acct); err != nil {
 		return fmt.Errorf("updating email account: %w", err)
 	}
@@ -224,6 +234,11 @@ func (p *ServiceSettingsPresenter) ListCalendarAccounts(ctx context.Context) ([]
 
 // SaveCalendarAccount validates and persists a new calendar account.
 func (p *ServiceSettingsPresenter) SaveCalendarAccount(ctx context.Context, acct *repository.CalendarAccount) error {
+	if p.calendarValidator != nil {
+		if err := p.calendarValidator.ValidateCalendar(ctx, acct.ICSURL); err != nil {
+			return fmt.Errorf("calendar credential validation failed: %w", err)
+		}
+	}
 	if err := p.repo.UpsertCalendarAccount(ctx, acct); err != nil {
 		return fmt.Errorf("saving calendar account: %w", err)
 	}
@@ -232,6 +247,11 @@ func (p *ServiceSettingsPresenter) SaveCalendarAccount(ctx context.Context, acct
 
 // EditCalendarAccount persists changes to a calendar account.
 func (p *ServiceSettingsPresenter) EditCalendarAccount(ctx context.Context, acct *repository.CalendarAccount, oldName string) error {
+	if p.calendarValidator != nil {
+		if err := p.calendarValidator.ValidateCalendar(ctx, acct.ICSURL); err != nil {
+			return fmt.Errorf("calendar credential validation failed: %w", err)
+		}
+	}
 	if err := p.repo.UpsertCalendarAccount(ctx, acct); err != nil {
 		return fmt.Errorf("updating calendar account: %w", err)
 	}

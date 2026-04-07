@@ -441,6 +441,11 @@ func (p *PlannerPresenter) LoadExistingPlan(ctx context.Context) error {
 	return nil
 }
 
+// SelectedCount returns the number of tasks with Selected == true.
+func (p *PlannerPresenter) SelectedCount() int {
+	return 0
+}
+
 // === Internal Helpers ===
 
 // Task index helpers

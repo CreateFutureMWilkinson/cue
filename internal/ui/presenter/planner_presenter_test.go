@@ -869,3 +869,28 @@ func (s *PlannerPresenterSuite) advanceToPriorityWithCalendarFailure() {
 	err := s.presenter.NextStep(s.ctx)
 	s.Require().NoError(err)
 }
+
+// --- SelectedCount ---
+
+func (s *PlannerPresenterSuite) TestSelectedCountReturnsCountOfSelectedTasks() {
+	id1 := uuid.New()
+	id2 := uuid.New()
+	id3 := uuid.New()
+	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{
+		{ID: id1, Title: "Task A", Priority: 1},
+		{ID: id2, Title: "Task B", Priority: 2},
+		{ID: id3, Title: "Task C", Priority: 3},
+	}, nil)
+
+	err := s.presenter.StartPlanning(s.ctx)
+	s.Require().NoError(err)
+
+	// No tasks selected initially
+	s.Equal(0, s.presenter.SelectedCount())
+
+	// Select two of three tasks
+	s.presenter.SelectTask(id1, true)
+	s.presenter.SelectTask(id3, true)
+
+	s.Equal(2, s.presenter.SelectedCount())
+}

@@ -77,7 +77,7 @@ func TestSettingsView(t *testing.T) {
 
 func (s *SettingsViewSuite) SetupTest() {
 	vc := &stubVolumeController{}
-	sp, err := presenter.NewSettingsPresenter(vc, 50)
+	sp, err := presenter.NewSettingsPresenter(vc, 50, &stubVolumeController{}, 50)
 	s.Require().NoError(err)
 	s.sp = sp
 

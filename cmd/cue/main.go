@@ -252,7 +252,7 @@ func run() error {
 	}
 
 	// Create settings presenter for runtime volume control.
-	settingsPresenter, err := presenter.NewSettingsPresenter(alertSvc, cfg.Notification.AudioVolume)
+	settingsPresenter, err := presenter.NewSettingsPresenter(alertSvc, cfg.Notification.AudioVolume, alertSvc, cfg.Notification.AudioVolume)
 	if err != nil {
 		return fmt.Errorf("creating settings presenter: %w", err)
 	}

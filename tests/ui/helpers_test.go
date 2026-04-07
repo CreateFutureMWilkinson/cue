@@ -337,7 +337,7 @@ func newMainWindowWithWizard(fyneApp fyne.App, router *ui.CenterViewRouter, wiza
 // newSettingsView creates a SettingsView with real presenters backed by mocks.
 func newSettingsView() *ui.SettingsView {
 	vc := &mockVolumeController{}
-	sp, _ := presenter.NewSettingsPresenter(vc, 50)
+	sp, _ := presenter.NewSettingsPresenter(vc, 50, &mockVolumeController{}, 50)
 	ssp := presenter.NewServiceSettingsPresenter(&mockServiceConfigRepo{}, &mockWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil })
 	return ui.NewSettingsView(sp, ssp, defaultOllamaConfig(), func() {})
 }

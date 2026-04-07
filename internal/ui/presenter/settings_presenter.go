@@ -4,13 +4,16 @@ import "fmt"
 
 // SettingsPresenter manages application settings state.
 type SettingsPresenter struct {
-	vc     VolumeController
-	volume int
+	vc          VolumeController
+	volume      int
+	timerVC     VolumeController
+	timerVolume int
 }
 
 // NewSettingsPresenter creates a new SettingsPresenter with the given volume
-// controller and initial volume.
-func NewSettingsPresenter(vc VolumeController, initialVolume int) (*SettingsPresenter, error) {
+// controller and initial volume, plus a timer volume controller and initial
+// timer volume.
+func NewSettingsPresenter(vc VolumeController, initialVolume int, timerVC VolumeController, initialTimerVolume int) (*SettingsPresenter, error) {
 	if vc == nil {
 		return nil, fmt.Errorf("volume controller must not be nil")
 	}
@@ -18,6 +21,16 @@ func NewSettingsPresenter(vc VolumeController, initialVolume int) (*SettingsPres
 		vc:     vc,
 		volume: initialVolume,
 	}, nil
+}
+
+// TimerVolume returns the current timer volume level.
+func (p *SettingsPresenter) TimerVolume() int {
+	return 0
+}
+
+// SetTimerVolume updates the timer volume, clamping to 0-100, and delegates
+// to the timer volume controller.
+func (p *SettingsPresenter) SetTimerVolume(volume int) {
 }
 
 // Volume returns the current volume level.

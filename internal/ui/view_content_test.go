@@ -95,7 +95,7 @@ func (s *ViewContentSuite) TestSettingsViewWithPresentersContainsTabs() {
 	router := ui.NewCenterViewRouter()
 
 	// Create a SettingsPresenter with a mock volume controller.
-	sp, err := presenter.NewSettingsPresenter(&stubVolumeController{}, 50)
+	sp, err := presenter.NewSettingsPresenter(&stubVolumeController{}, 50, &stubVolumeController{}, 50)
 	s.Require().NoError(err)
 
 	// Create a ServiceSettingsPresenter with nil deps — we only need the

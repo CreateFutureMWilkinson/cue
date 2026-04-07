@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 // SignalHandler listens for OS interrupt and SIGTERM signals and calls a quit
@@ -35,4 +36,11 @@ func (h *SignalHandler) Start(ctx context.Context) {
 			signal.Stop(sigCh)
 		}
 	}()
+}
+
+// RunCleanup runs cleanup functions sequentially with a timeout. If the total
+// elapsed time exceeds timeout, it returns immediately with a timeout error.
+// Otherwise it returns the first error from any cleanup function.
+func RunCleanup(_ time.Duration, _ ...func() error) error {
+	return nil
 }

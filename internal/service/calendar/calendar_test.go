@@ -420,6 +420,33 @@ func (s *ICSProviderSuite) TestFetchEvents_MultiDayEventAppearsOnEachDay() {
 }
 
 // ---------------------------------------------------------------------------
+// NoopCalendarProvider Suite
+// ---------------------------------------------------------------------------
+
+type NoopCalendarSuite struct {
+	suite.Suite
+}
+
+func TestNoopCalendar(t *testing.T) {
+	suite.Run(t, new(NoopCalendarSuite))
+}
+
+func (s *NoopCalendarSuite) TestNoopCalendarProviderReturnsEmptySlice() {
+	provider := calendar.NewNoopCalendarProvider()
+
+	events, err := provider.FetchEvents(context.Background(), time.Now())
+
+	s.NoError(err, "FetchEvents should return nil error")
+	s.NotNil(events, "FetchEvents should return non-nil slice")
+	s.Empty(events, "FetchEvents should return empty slice")
+}
+
+func (s *NoopCalendarSuite) TestNoopCalendarProvider_ImplementsCalendarProvider() {
+	provider := calendar.NewNoopCalendarProvider()
+	var _ calendar.CalendarProvider = provider
+}
+
+// ---------------------------------------------------------------------------
 // CalendarProvider interface compliance
 // ---------------------------------------------------------------------------
 

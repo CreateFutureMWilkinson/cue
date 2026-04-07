@@ -120,6 +120,9 @@ func (p *ServiceSettingsPresenter) SaveSlackAccount(ctx context.Context, acct *r
 
 // SaveEmailAccount validates and persists a new email account, then starts its watcher.
 func (p *ServiceSettingsPresenter) SaveEmailAccount(ctx context.Context, acct *repository.EmailAccount) error {
+	if acct.PollIntervalSeconds == 0 {
+		acct.PollIntervalSeconds = DefaultEmailPollInterval
+	}
 	if err := validateEmailAccount(acct); err != nil {
 		return err
 	}

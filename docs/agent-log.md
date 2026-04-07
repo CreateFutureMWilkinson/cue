@@ -420,3 +420,6 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-070 (behavior 1) | GREEN | Implementer | ~40s | ~24,000 | 565f6df |
 | Phase-6-Feature-070 (behavior 2) | RED | Test Designer | ~47s | ~24,000 | bd38d49 |
 | Phase-6-Feature-070 (behavior 2) | GREEN | Implementer | ~39s | ~25,000 | 1fd7cd1 |
+| Phase-6-Feature-072 | RED | Test Designer | ~102s | ~43,000 | c377959 |
+| Phase-6-Feature-072 | GREEN | Implementer | ~26s | ~23,000 | db13fc5 |
+| Phase-6-Feature-072 | FIX (acceptance) | orchestrator | manual | — | 4f5f14b |

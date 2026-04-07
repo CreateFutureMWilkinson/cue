@@ -161,10 +161,13 @@ func (p *NotificationPanel) RenderCard(index int) fyne.CanvasObject {
 	previewLabel := widget.NewLabel(card.MessagePreview)
 	senderLabel := widget.NewLabel(card.Sender)
 	timeLabel := widget.NewLabel(card.RelativeTime)
+	dismissBtn := widget.NewButton("Dismiss", func() {
+		_ = p.presenter.DismissMessage(context.Background(), card.ID)
+	})
 	content := container.NewVBox(
 		container.NewHBox(badge, badgeLabel, channelLabel),
 		previewLabel,
-		container.NewHBox(senderLabel, timeLabel),
+		container.NewHBox(senderLabel, timeLabel, dismissBtn),
 	)
 	return container.NewStack(bg, content)
 }

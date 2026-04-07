@@ -30,6 +30,34 @@ func newAccountTab(title string, onAdd func()) *container.TabItem {
 	return container.NewTabItem(title, content)
 }
 
+// createEmailAccountForm creates the form UI for adding a new email account.
+func createEmailAccountForm() fyne.CanvasObject {
+	hostEntry := widget.NewEntry()
+	hostEntry.SetPlaceHolder("IMAP Host")
+	portEntry := widget.NewEntry()
+	portEntry.SetPlaceHolder("IMAP Port")
+	userEntry := widget.NewEntry()
+	userEntry.SetPlaceHolder("Username")
+	passEntry := widget.NewEntry()
+	passEntry.SetPlaceHolder("Password")
+	passEntry.Password = true
+	pollEntry := widget.NewEntry()
+	pollEntry.SetPlaceHolder("Poll Interval (seconds)")
+
+	saveBtn := widget.NewButton("Save", func() {})
+	cancelBtn := widget.NewButton("Cancel", func() {})
+
+	return container.NewVBox(
+		widget.NewLabel("Add Email Account"),
+		hostEntry,
+		portEntry,
+		userEntry,
+		passEntry,
+		pollEntry,
+		container.NewHBox(saveBtn, cancelBtn),
+	)
+}
+
 // NewSettingsView creates a SettingsView with tabs for Slack, Email, Calendar, Audio, and Ollama.
 // The onClose callback is invoked when the user taps the Done button to exit settings.
 func NewSettingsView(
@@ -47,30 +75,7 @@ func NewSettingsView(
 		container.NewVScroll(container.NewVBox()),
 	))
 	emailAddBtn.OnTapped = func() {
-		hostEntry := widget.NewEntry()
-		hostEntry.SetPlaceHolder("IMAP Host")
-		portEntry := widget.NewEntry()
-		portEntry.SetPlaceHolder("IMAP Port")
-		userEntry := widget.NewEntry()
-		userEntry.SetPlaceHolder("Username")
-		passEntry := widget.NewEntry()
-		passEntry.SetPlaceHolder("Password")
-		passEntry.Password = true
-		pollEntry := widget.NewEntry()
-		pollEntry.SetPlaceHolder("Poll Interval (seconds)")
-
-		saveBtn := widget.NewButton("Save", func() {})
-		cancelBtn := widget.NewButton("Cancel", func() {})
-
-		emailTab.Content = container.NewVBox(
-			widget.NewLabel("Add Email Account"),
-			hostEntry,
-			portEntry,
-			userEntry,
-			passEntry,
-			pollEntry,
-			container.NewHBox(saveBtn, cancelBtn),
-		)
+		emailTab.Content = createEmailAccountForm()
 	}
 	calendarTab := newAccountTab("Calendar", func() {})
 	volumeLabel := widget.NewLabel(fmt.Sprintf("Notification Volume: %d%%", sp.Volume()))

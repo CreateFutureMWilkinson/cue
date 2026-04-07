@@ -222,8 +222,8 @@ func (m *MainWindow) switchCenterView(view CenterView) {
 // FocusRail returns the focus rail component.
 func (m *MainWindow) FocusRail() *FocusRail { return m.focusRail }
 
-// PlannerViewRef returns the PlannerView as a RefreshableView, or nil.
-func (m *MainWindow) PlannerViewRef() RefreshableView {
+// PlannerViewRef returns the PlannerView as a PlannerViewBindable, or nil.
+func (m *MainWindow) PlannerViewRef() PlannerViewBindable {
 	if m.plannerView == nil {
 		return nil
 	}

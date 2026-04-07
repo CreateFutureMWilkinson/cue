@@ -36,6 +36,14 @@ func (m *mockPlannerCallbacks) CompleteCurrentTask(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
 }
 
+func (m *mockPlannerCallbacks) NextStep(ctx context.Context) error {
+	return m.Called(ctx).Error(0)
+}
+
+func (m *mockPlannerCallbacks) PreviousStep() {
+	m.Called()
+}
+
 func (m *mockPlannerCallbacks) AbandonPlan(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
 }
@@ -74,6 +82,38 @@ func (m *mockRefreshableView) Refresh() {
 	m.Called()
 }
 
+type mockPlannerViewBindable struct {
+	mock.Mock
+	nextCallback         func()
+	backCallback         func()
+	completeTaskCallback func()
+	abandonPlanCallback  func()
+}
+
+func (m *mockPlannerViewBindable) Refresh() {
+	m.Called()
+}
+
+func (m *mockPlannerViewBindable) SetOnNext(fn func()) {
+	m.Called(fn)
+	m.nextCallback = fn
+}
+
+func (m *mockPlannerViewBindable) SetOnBack(fn func()) {
+	m.Called(fn)
+	m.backCallback = fn
+}
+
+func (m *mockPlannerViewBindable) SetOnCompleteTask(fn func()) {
+	m.Called(fn)
+	m.completeTaskCallback = fn
+}
+
+func (m *mockPlannerViewBindable) SetOnAbandonPlan(fn func()) {
+	m.Called(fn)
+	m.abandonPlanCallback = fn
+}
+
 type mockViewNavigator struct {
 	mock.Mock
 }
@@ -89,7 +129,7 @@ type AppBinderSuite struct {
 	plannerP    *mockPlannerCallbacks
 	focusRail   *mockFocusRailCallbacks
 	wizardView  *mockRefreshableView
-	plannerView *mockRefreshableView
+	plannerView *mockPlannerViewBindable
 	viewRouter  *mockViewNavigator
 }
 
@@ -101,7 +141,7 @@ func (s *AppBinderSuite) SetupTest() {
 	s.plannerP = new(mockPlannerCallbacks)
 	s.focusRail = new(mockFocusRailCallbacks)
 	s.wizardView = new(mockRefreshableView)
-	s.plannerView = new(mockRefreshableView)
+	s.plannerView = new(mockPlannerViewBindable)
 	s.viewRouter = new(mockViewNavigator)
 }
 
@@ -276,4 +316,90 @@ func (s *AppBinderSuite) TestAutoLoadError() {
 
 	err = binder.AutoLoad(context.Background())
 	s.Error(err)
+}
+
+// --- Bug 073: Bind wires planner view buttons ---
+
+func (s *AppBinderSuite) TestBindWiresNextButtonToPresenterNextStep() {
+	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
+	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnNext", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnBack", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnCompleteTask", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnAbandonPlan", mock.AnythingOfType("func()")).Return()
+
+	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
+	s.Require().NoError(err)
+
+	binder.Bind()
+
+	s.Require().NotNil(s.plannerView.nextCallback, "Bind should wire a Next callback on plannerView")
+
+	s.plannerP.On("NextStep", mock.Anything).Return(nil)
+	s.plannerView.nextCallback()
+
+	s.plannerP.AssertCalled(s.T(), "NextStep", mock.Anything)
+}
+
+func (s *AppBinderSuite) TestBindWiresBackButtonToPresenterPreviousStep() {
+	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
+	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnNext", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnBack", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnCompleteTask", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnAbandonPlan", mock.AnythingOfType("func()")).Return()
+
+	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
+	s.Require().NoError(err)
+
+	binder.Bind()
+
+	s.Require().NotNil(s.plannerView.backCallback, "Bind should wire a Back callback on plannerView")
+
+	s.plannerP.On("PreviousStep").Return()
+	s.plannerView.backCallback()
+
+	s.plannerP.AssertCalled(s.T(), "PreviousStep")
+}
+
+func (s *AppBinderSuite) TestBindWiresCompleteTaskButtonToPresenterCompleteCurrentTask() {
+	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
+	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnNext", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnBack", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnCompleteTask", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnAbandonPlan", mock.AnythingOfType("func()")).Return()
+
+	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
+	s.Require().NoError(err)
+
+	binder.Bind()
+
+	s.Require().NotNil(s.plannerView.completeTaskCallback, "Bind should wire a CompleteTask callback on plannerView")
+
+	s.plannerP.On("CompleteCurrentTask", mock.Anything).Return(nil)
+	s.plannerView.completeTaskCallback()
+
+	s.plannerP.AssertCalled(s.T(), "CompleteCurrentTask", mock.Anything)
+}
+
+func (s *AppBinderSuite) TestBindWiresAbandonButtonToPresenterAbandonPlan() {
+	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
+	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnNext", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnBack", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnCompleteTask", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnAbandonPlan", mock.AnythingOfType("func()")).Return()
+
+	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
+	s.Require().NoError(err)
+
+	binder.Bind()
+
+	s.Require().NotNil(s.plannerView.abandonPlanCallback, "Bind should wire an AbandonPlan callback on plannerView")
+
+	s.plannerP.On("AbandonPlan", mock.Anything).Return(nil)
+	s.plannerView.abandonPlanCallback()
+
+	s.plannerP.AssertCalled(s.T(), "AbandonPlan", mock.Anything)
 }

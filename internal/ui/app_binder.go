@@ -13,6 +13,9 @@ type PlannerCallbacks interface {
 	HasActivePlan() bool
 	LoadExistingPlan(ctx context.Context) error
 	CompleteCurrentTask(ctx context.Context) error
+	NextStep(ctx context.Context) error
+	PreviousStep()
+	AbandonPlan(ctx context.Context) error
 }
 
 // FocusRailCallbacks abstracts the focus rail for binding.
@@ -27,6 +30,16 @@ type RefreshableView interface {
 	Refresh()
 }
 
+// PlannerViewBindable abstracts a planner view that can be refreshed
+// and have button callbacks wired.
+type PlannerViewBindable interface {
+	RefreshableView
+	SetOnNext(fn func())
+	SetOnBack(fn func())
+	SetOnCompleteTask(fn func())
+	SetOnAbandonPlan(fn func())
+}
+
 // ViewNavigator abstracts the center view router for binding.
 type ViewNavigator interface {
 	NavigateTo(view CenterView)
@@ -39,7 +52,7 @@ type AppBinder struct {
 	plannerP    PlannerCallbacks
 	focusRail   FocusRailCallbacks
 	wizardView  RefreshableView
-	plannerView RefreshableView
+	plannerView PlannerViewBindable
 	viewRouter  ViewNavigator
 }
 
@@ -48,7 +61,7 @@ func NewAppBinder(
 	plannerP PlannerCallbacks,
 	focusRail FocusRailCallbacks,
 	wizardView RefreshableView,
-	plannerView RefreshableView,
+	plannerView PlannerViewBindable,
 	viewRouter ViewNavigator,
 ) (*AppBinder, error) {
 	if plannerP == nil {

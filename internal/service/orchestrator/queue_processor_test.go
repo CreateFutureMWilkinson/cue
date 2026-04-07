@@ -2,6 +2,7 @@ package orchestrator_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -195,4 +196,63 @@ func (s *QueueProcessorSuite) TestProcessOneSuccessNotified() {
 
 	s.Equal(entryID, queueRepo.markDoneID)
 	s.Equal(1, alerter.playCount)
+}
+
+func (s *QueueProcessorSuite) TestProcessOneScorerErrorMarksBUFFERED() {
+	// Arrange
+	entryID := uuid.New()
+	msgID := uuid.New()
+
+	queueRepo := &mockQueueRepo{
+		dequeueEntry: &repository.QueueEntry{
+			ID:        entryID,
+			MessageID: msgID,
+			Status:    "pending",
+		},
+	}
+
+	msg := &repository.Message{
+		ID:     msgID,
+		Status: "Pending",
+		Source: "slack",
+	}
+	msgRepo := &mockMsgRepo{
+		queryByIDMsg: msg,
+	}
+
+	scorer := &mockScorer{
+		err: errors.New("ollama timeout"),
+	}
+
+	alerter := &mockQueueAlerter{}
+	eventCh := make(chan orchestrator.ActivityEvent, 10)
+
+	processor, err := orchestrator.NewQueueProcessor(
+		queueRepo,
+		msgRepo,
+		scorer,
+		alerter,
+		eventCh,
+		7,   // importanceThreshold
+		0.8, // confidenceThreshold
+		time.Second,
+	)
+	s.Require().NoError(err)
+
+	// Act
+	processed, err := processor.ProcessOne(context.Background())
+
+	// Assert
+	s.Require().NoError(err)
+	s.True(processed)
+
+	s.Require().NotNil(msgRepo.updatedMsg)
+	s.Equal(7.0, msgRepo.updatedMsg.ImportanceScore)
+	s.Equal(0.0, msgRepo.updatedMsg.ConfidenceScore)
+	s.Equal("Buffered", msgRepo.updatedMsg.Status)
+	s.Contains(msgRepo.updatedMsg.Reasoning, "Ollama scoring failed")
+
+	s.Equal(entryID, queueRepo.markFailedID)
+	s.Equal(uuid.Nil, queueRepo.markDoneID)
+	s.Equal(0, alerter.playCount)
 }

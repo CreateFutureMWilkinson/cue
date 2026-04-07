@@ -115,4 +115,4 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 061 | Database insert errors silently swallowed | Bugfix | Low | Done | — | [Feature-061](features/phase-6/Feature-061-Insert-Error-Logging.md) |
 | 062 | Notification list not refreshed after resolve | Bugfix | Low | Done | — | [Feature-062](features/phase-6/Feature-062-Notification-Refresh-After-Resolve.md) |
 | 063 | PlannerView missing horizontal split + todo widget tree | Bugfix | High | Done | 052 | [Feature-063](features/phase-6/Feature-063-PlannerView-Widget-Tree.md) |
-| 064 | WizardView missing step widget rendering | Bugfix | High | Planned | 052 | [Feature-064](features/phase-6/Feature-064-WizardView-Widget-Tree.md) |
+| 064 | WizardView missing step widget rendering | Bugfix | High | Done | 052 | [Feature-064](features/phase-6/Feature-064-WizardView-Widget-Tree.md) |

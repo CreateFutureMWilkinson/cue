@@ -104,6 +104,11 @@ func (b *AppBinder) Bind() {
 		}
 	})
 
+	b.plannerView.SetOnPlanMyDay(func() {
+		_ = b.plannerP.StartPlanning(context.Background())
+		b.viewRouter.NavigateTo(ViewWizard)
+	})
+
 	b.focusRail.SetOnDone(func() {
 		// Intentionally discard error - UI callback should not panic on task completion failure
 		_ = b.plannerP.CompleteCurrentTask(context.Background())

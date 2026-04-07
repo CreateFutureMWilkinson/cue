@@ -1092,3 +1092,61 @@ func (s *OrchestratorSuite) TestStartPurgesAndResetsQueue() {
 	s.InDelta(expectedCutoff.Unix(), cutoff.Unix(), 5,
 		"purge cutoff should be approximately now minus poll interval")
 }
+
+// ---------------------------------------------------------------------------
+// ImportBaseline
+// ---------------------------------------------------------------------------
+
+func (s *OrchestratorSuite) TestImportBaselineInsertsAsImported() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	msgs := makeMessages("slack", 3)
+	watcher := &mockWatcher{messages: msgs}
+	repo := newMockRepo()
+	alerter := &mockAlerter{}
+	watchers := map[string]orchestrator.Watcher{"slack": watcher}
+
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+	rules := decisionengine.NewRulesEngine(nil)
+	queueRepo := &mockQueueRepo{}
+	orch, err := orchestrator.NewOrchestrator(cfg, rules, queueRepo, repo, watchers, eventCh, alerter)
+	s.Require().NoError(err)
+
+	err = orch.ImportBaseline(context.Background())
+	s.NoError(err)
+
+	// All 3 messages should be inserted.
+	s.Equal(3, repo.insertedCount(), "all polled messages should be inserted")
+
+	// Each inserted message should have Status == "Imported" and zero scores.
+	repo.mu.Lock()
+	inserted := make([]*repository.Message, len(repo.inserted))
+	copy(inserted, repo.inserted)
+	repo.mu.Unlock()
+
+	for _, msg := range inserted {
+		s.Equal(decisionengine.StatusImported, msg.Status,
+			"imported messages must have Status 'Imported'")
+		s.Equal(0.0, msg.ImportanceScore,
+			"imported messages must not be scored (IS=0)")
+		s.Equal(0.0, msg.ConfidenceScore,
+			"imported messages must not be scored (CS=0)")
+	}
+
+	// Alerter must NOT be called — import is silent.
+	s.Equal(0, alerter.alertCalls(), "ImportBaseline must not trigger alerts")
+
+	// Queue repo must NOT have enqueued anything.
+	s.Equal(0, queueRepo.enqueuedCount(), "ImportBaseline must not enqueue messages")
+
+	// Events should be emitted containing "import".
+	events := drainEvents(eventCh, 10, 500*time.Millisecond)
+	s.NotEmpty(events, "ImportBaseline should emit progress events")
+	var foundImport bool
+	for _, ev := range events {
+		if strings.Contains(strings.ToLower(ev.Message), "import") {
+			foundImport = true
+			break
+		}
+	}
+	s.True(foundImport, "at least one event should mention 'import'")
+}

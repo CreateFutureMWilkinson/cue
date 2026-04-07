@@ -258,6 +258,12 @@ func (o *Orchestrator) ReloadRules(rules []*repository.RoutingRule) {
 	o.rulesMu.Unlock()
 }
 
+// ImportBaseline fetches all available messages from each watcher and inserts
+// them as "Imported" without scoring, routing, or alerting.
+func (o *Orchestrator) ImportBaseline(ctx context.Context) error {
+	return nil
+}
+
 // Stop gracefully shuts down the orchestrator. It is idempotent.
 func (o *Orchestrator) Stop() error {
 	o.mu.Lock()

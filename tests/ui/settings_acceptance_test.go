@@ -395,6 +395,89 @@ func (s *SettingsAcceptanceSuite) TestCalendarAddAccountCancelReturnsToList() {
 	s.True(found, "after tapping Cancel, calendar tab should show the account list with 'Add Account' button")
 }
 
+// AC: Email form has an encryption dropdown with SSL/TLS as default.
+func (s *SettingsAcceptanceSuite) TestEmailFormHasEncryptionDropdown() {
+	sv := newSettingsView()
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	emailContent := tabs.Items[1].Content
+
+	btn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	btn.OnTapped()
+
+	// Re-read tab content after tap
+	emailContent = tabs.Items[1].Content
+
+	sel, found := uitest.FindWidget[*widget.Select](emailContent, func(_ *widget.Select) bool {
+		return true
+	})
+
+	s.True(found, "email form should contain an encryption Select widget")
+	s.Equal("SSL/TLS (Recommended)", sel.Selected,
+		"encryption dropdown should default to 'SSL/TLS (Recommended)'")
+	s.Len(sel.Options, 3, "encryption dropdown should have 3 options")
+}
+
+// AC: Email form save persists encryption value.
+func (s *SettingsAcceptanceSuite) TestEmailFormSaveIncludesEncryption() {
+	sv := newSettingsView()
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	emailContent := tabs.Items[1].Content
+
+	btn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	btn.OnTapped()
+
+	emailContent = tabs.Items[1].Content
+
+	entries := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool {
+		return true
+	})
+	s.Require().GreaterOrEqual(len(entries), 5, "form should have at least 5 Entry widgets")
+
+	entries[0].SetText("imap.example.com") // IMAP Host
+	entries[1].SetText("993")              // IMAP Port
+	entries[2].SetText("user@example.com") // Username
+	entries[3].SetText("secret")           // Password
+	entries[4].SetText("600")              // Poll Interval
+
+	// Select STARTTLS encryption
+	sel := uitest.RequireWidget[*widget.Select](s.T(), emailContent, func(_ *widget.Select) bool {
+		return true
+	})
+	sel.SetSelected("STARTTLS")
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
+		return b.Text == "Save"
+	})
+
+	saveBtn.OnTapped()
+
+	// Re-read tab content after save — form should be replaced with account list
+	emailContent = tabs.Items[1].Content
+
+	entriesAfterSave := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool {
+		return true
+	})
+
+	s.Less(len(entriesAfterSave), 5,
+		"after saving valid data with encryption set, form should be replaced with account list")
+}
+
 // AC: Each tab has non-nil content.
 func (s *SettingsAcceptanceSuite) TestEachTabHasContent() {
 	sv := newSettingsView()

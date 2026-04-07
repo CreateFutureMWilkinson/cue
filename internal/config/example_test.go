@@ -66,6 +66,7 @@ func (s *ExampleConfigSuite) TestExampleTOMLMatchesDefaultRouterValues() {
 	s.InDelta(0.8, cfg.Orchestrator.Router.ConfidenceThreshold, 0.001)
 	s.Equal(100, cfg.Orchestrator.Router.BufferSizePerSource)
 	s.Equal(600, cfg.Orchestrator.PollIntervalSeconds)
+	s.Equal(10, cfg.Orchestrator.OllamaCooldownSeconds)
 }
 
 func (s *ExampleConfigSuite) TestExampleTOMLMatchesDefaultNotificationValues() {

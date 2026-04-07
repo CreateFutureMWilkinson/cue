@@ -45,6 +45,9 @@ timeout_seconds = 10
 # How often (seconds) to poll all configured watchers.
 poll_interval_seconds = 600
 
+# Cooldown (seconds) between Ollama scoring attempts after failure.
+ollama_cooldown_seconds = 10
+
 [orchestrator.router]
 # Messages scoring >= importance AND >= confidence → NOTIFIED.
 # Messages scoring >= importance AND < confidence → BUFFERED.

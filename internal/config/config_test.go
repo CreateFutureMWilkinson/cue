@@ -1591,3 +1591,19 @@ character_dir = "~/my-characters"
 		"CharacterDir should start with home dir, got: %s", cfg.GUI.CharacterDir)
 	s.NotContains(cfg.GUI.CharacterDir, "~")
 }
+
+// ---------------------------------------------------------------------------
+// 28. TestOrchestratorOllamaCooldownDefault — default ollama_cooldown_seconds is 10
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestOrchestratorOllamaCooldownDefault() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "nonexistent", "config.toml")
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	s.Equal(10, cfg.Orchestrator.OllamaCooldownSeconds,
+		"default ollama_cooldown_seconds should be 10")
+}

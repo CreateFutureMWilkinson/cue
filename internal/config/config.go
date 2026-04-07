@@ -47,8 +47,9 @@ type DatabaseConfig struct {
 }
 
 type OrchestratorConfig struct {
-	Router              RouterConfig `toml:"router"`
-	PollIntervalSeconds int          `toml:"poll_interval_seconds"`
+	Router                RouterConfig `toml:"router"`
+	PollIntervalSeconds   int          `toml:"poll_interval_seconds"`
+	OllamaCooldownSeconds int          `toml:"ollama_cooldown_seconds"`
 }
 
 type RouterConfig struct {
@@ -116,7 +117,8 @@ func defaultConfig() *Config {
 				VectorTopN:                5,
 				VectorDampingFactor:       0.5,
 			},
-			PollIntervalSeconds: 600,
+			PollIntervalSeconds:   600,
+			OllamaCooldownSeconds: 10,
 		},
 		Ollama: OllamaConfig{
 			Host:           "localhost",
@@ -228,6 +230,9 @@ func applyDefaults(cfg *Config, md toml.MetaData) {
 	defaults := defaultConfig()
 	if !md.IsDefined("orchestrator", "poll_interval_seconds") {
 		cfg.Orchestrator.PollIntervalSeconds = defaults.Orchestrator.PollIntervalSeconds
+	}
+	if !md.IsDefined("orchestrator", "ollama_cooldown_seconds") {
+		cfg.Orchestrator.OllamaCooldownSeconds = defaults.Orchestrator.OllamaCooldownSeconds
 	}
 	if !md.IsDefined("orchestrator", "router", "vector_similarity_threshold") {
 		cfg.Orchestrator.Router.VectorSimilarityThreshold = defaults.Orchestrator.Router.VectorSimilarityThreshold

@@ -35,7 +35,7 @@ func (e *RulesEngine) Evaluate(msg *repository.Message) (action string, matched 
 
 For each rule (sorted by priority ascending):
 
-1. Check source scope: if `rule.Source != "all"` and `rule.Source != msg.Source`, skip
+1. Check source scope: if `rule.Source != msg.Source`, skip
 2. Extract field value from message based on `rule.Field`
 3. Match against pre-compiled regex: `compiledRule.pattern.MatchString(fieldValue)`
 4. If `rule.Negate`, invert the match result

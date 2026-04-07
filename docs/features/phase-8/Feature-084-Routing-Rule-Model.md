@@ -17,7 +17,7 @@ Define the `RoutingRule` data model and SQLite persistence layer for user-config
 type RoutingRule struct {
     ID        uuid.UUID
     Priority  int       // 0 = highest, ascending. Controls evaluation order.
-    Source    string    // "email", "slack", or "all"
+    Source    string    // "email" or "slack"
     Field     string    // Field to match against (source-dependent)
     Negate    bool      // true = "not matches", false = "matches"
     Pattern   string    // Go regexp pattern
@@ -39,7 +39,7 @@ type RoutingRule struct {
 | slack | `content` | Message text |
 | slack | `message_type` | e.g., "channel_join" |
 
-Rules with `source = "all"` can only match fields common to both sources (`sender`). Validation must reject any field other than `sender` when source is `"all"`.
+~~`source = "all"` was removed — sender formats differ between email and Slack, making cross-source matching impractical.~~ Source must be `"email"` or `"slack"`.
 
 ## Actions
 
@@ -70,7 +70,7 @@ type RoutingRuleRepository interface {
 CREATE TABLE routing_rules (
     id TEXT PRIMARY KEY,
     priority INTEGER NOT NULL,
-    source TEXT NOT NULL,          -- "email", "slack", "all"
+    source TEXT NOT NULL,          -- "email", "slack"
     field TEXT NOT NULL,           -- "sender", "subject", "channel", etc.
     negate INTEGER NOT NULL DEFAULT 0,
     pattern TEXT NOT NULL,         -- Go regexp
@@ -86,8 +86,7 @@ CREATE INDEX idx_routing_rules_source ON routing_rules(source);
 ## Validation
 
 - `Pattern` must be a valid Go regexp (compile check on upsert)
-- `Source` must be one of: "email", "slack", "all"
+- `Source` must be one of: "email", "slack"
 - `Field` must be valid for the given source
 - `Action` must be "notified" or "ignored" (lowercase — the orchestrator maps these to capitalized status values "Notified"/"Ignored" when applying, see Feature 087)
 - `Priority` must be >= 0
-- `Field` must be `"sender"` when `Source` is `"all"` (only field common to both email and slack)

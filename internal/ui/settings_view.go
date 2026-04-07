@@ -39,7 +39,39 @@ func NewSettingsView(
 	onClose func(),
 ) *SettingsView {
 	slackTab := newAccountTab("Slack", func() {})
-	emailTab := newAccountTab("Email", func() {})
+	emailAddBtn := widget.NewButton("Add Account", nil)
+	emailTab := container.NewTabItem("Email", container.NewBorder(
+		widget.NewLabel("Email Accounts"),
+		emailAddBtn,
+		nil, nil,
+		container.NewVScroll(container.NewVBox()),
+	))
+	emailAddBtn.OnTapped = func() {
+		hostEntry := widget.NewEntry()
+		hostEntry.SetPlaceHolder("IMAP Host")
+		portEntry := widget.NewEntry()
+		portEntry.SetPlaceHolder("IMAP Port")
+		userEntry := widget.NewEntry()
+		userEntry.SetPlaceHolder("Username")
+		passEntry := widget.NewEntry()
+		passEntry.SetPlaceHolder("Password")
+		passEntry.Password = true
+		pollEntry := widget.NewEntry()
+		pollEntry.SetPlaceHolder("Poll Interval (seconds)")
+
+		saveBtn := widget.NewButton("Save", func() {})
+		cancelBtn := widget.NewButton("Cancel", func() {})
+
+		emailTab.Content = container.NewVBox(
+			widget.NewLabel("Add Email Account"),
+			hostEntry,
+			portEntry,
+			userEntry,
+			passEntry,
+			pollEntry,
+			container.NewHBox(saveBtn, cancelBtn),
+		)
+	}
 	calendarTab := newAccountTab("Calendar", func() {})
 	volumeLabel := widget.NewLabel(fmt.Sprintf("Notification Volume: %d%%", sp.Volume()))
 	volumeSlider := &widget.Slider{

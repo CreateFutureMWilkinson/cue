@@ -154,9 +154,9 @@ func (s *SettingsAcceptanceSuite) TestSlackAddAccountShowsFormFields() {
 		return true
 	})
 
-	s.GreaterOrEqual(len(entries), 3,
-		"after tapping Add Account, Slack tab should contain at least 3 Entry widgets "+
-			"(bot token, workspace ID, poll interval)")
+	s.GreaterOrEqual(len(entries), 4,
+		"after tapping Add Account, Slack tab should contain at least 4 Entry widgets "+
+			"(user OAuth token, workspace ID, username, poll interval)")
 }
 
 // AC: Submitting Slack form with empty fields shows validation error.
@@ -220,12 +220,13 @@ func (s *SettingsAcceptanceSuite) TestSlackAddAccountSaveWithValidDataReplacesFo
 	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool {
 		return true
 	})
-	s.Require().GreaterOrEqual(len(entries), 3, "form should have at least 3 Entry widgets")
+	s.Require().GreaterOrEqual(len(entries), 4, "form should have at least 4 Entry widgets")
 
-	// Fill in all 3 fields with valid data
-	entries[0].SetText("xoxp-test-token") // Bot Token
+	// Fill in all 4 fields with valid data
+	entries[0].SetText("xoxp-test-token") // User OAuth Token
 	entries[1].SetText("T12345")          // Workspace ID
-	entries[2].SetText("600")             // Poll Interval
+	entries[2].SetText("testuser")        // Username
+	entries[3].SetText("600")             // Poll Interval
 
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
 		return b.Text == "Save"
@@ -240,8 +241,8 @@ func (s *SettingsAcceptanceSuite) TestSlackAddAccountSaveWithValidDataReplacesFo
 		return true
 	})
 
-	s.Less(len(entriesAfterSave), 3,
-		"after saving valid data, form should be replaced with account list (fewer than 3 Entry widgets)")
+	s.Less(len(entriesAfterSave), 4,
+		"after saving valid data, form should be replaced with account list (fewer than 4 Entry widgets)")
 }
 
 // AC: Clicking "Add Account" in Calendar tab opens a form with entry fields.

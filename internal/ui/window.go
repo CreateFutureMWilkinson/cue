@@ -45,6 +45,7 @@ func NewMainWindow(
 	appP *presenter.AppPresenter,
 	sp *presenter.SettingsPresenter,
 	ssp *presenter.ServiceSettingsPresenter,
+	rp *presenter.RulesPresenter,
 	ollamaCfg config.OllamaConfig,
 	characterWidget fyne.CanvasObject,
 	viewRouter *CenterViewRouter,
@@ -90,7 +91,7 @@ func NewMainWindow(
 	// Build settings view content.
 	var settingsContent fyne.CanvasObject
 	if sp != nil && ssp != nil {
-		sv := NewSettingsView(sp, ssp, nil, ollamaCfg, func() {
+		sv := NewSettingsView(sp, ssp, rp, ollamaCfg, func() {
 			if viewRouter != nil {
 				viewRouter.NavigateTo(ViewCharacter)
 			}

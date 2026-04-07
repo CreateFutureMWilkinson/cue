@@ -81,6 +81,7 @@ func (s *FeedbackReviewWiringSuite) TestReviewButtonCallbackWiredWhenFeedbackPre
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
 		(*presenter.ServiceSettingsPresenter)(nil),
+		nil, // rp
 		config.OllamaConfig{},
 		nil, // characterWidget
 		router,
@@ -121,6 +122,7 @@ func (s *FeedbackReviewWiringSuite) TestReviewButtonVisibleWhenNotificationsExpa
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
 		(*presenter.ServiceSettingsPresenter)(nil),
+		nil, // rp
 		config.OllamaConfig{},
 		nil, // characterWidget
 		router,
@@ -168,6 +170,7 @@ func (s *FeedbackReviewWiringSuite) TestReviewButtonHiddenWhenNotificationsColla
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
 		(*presenter.ServiceSettingsPresenter)(nil),
+		nil, // rp
 		config.OllamaConfig{},
 		nil, // characterWidget
 		router,

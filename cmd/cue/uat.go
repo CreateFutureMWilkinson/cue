@@ -116,6 +116,7 @@ func runUAT() error {
 		nil, // no app presenter
 		nil, // no settings presenter
 		nil, // no service settings presenter
+		nil, // no rules presenter
 		config.OllamaConfig{},
 		char.Widget(),
 		viewRouter,

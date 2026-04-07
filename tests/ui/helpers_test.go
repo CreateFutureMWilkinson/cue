@@ -260,17 +260,17 @@ type mockQueueRepo struct {
 	pending int
 }
 
-func (m *mockQueueRepo) Enqueue(_ context.Context, _ uuid.UUID) error                { return nil }
+func (m *mockQueueRepo) Enqueue(_ context.Context, _ uuid.UUID) error { return nil }
 func (m *mockQueueRepo) DequeueOldest(_ context.Context) (*repository.QueueEntry, error) {
 	return nil, nil
 }
-func (m *mockQueueRepo) MarkDone(_ context.Context, _ uuid.UUID) error               { return nil }
-func (m *mockQueueRepo) MarkFailed(_ context.Context, _ uuid.UUID) error             { return nil }
-func (m *mockQueueRepo) PendingCount(_ context.Context) (int, error)                 { return m.pending, nil }
-func (m *mockQueueRepo) PurgeCompleted(_ context.Context) error                      { return nil }
-func (m *mockQueueRepo) PurgeOlderThan(_ context.Context, _ time.Time) error         { return nil }
-func (m *mockQueueRepo) PurgeAll(_ context.Context) error                            { return nil }
-func (m *mockQueueRepo) ResetProcessing(_ context.Context) (int64, error)            { return 0, nil }
+func (m *mockQueueRepo) MarkDone(_ context.Context, _ uuid.UUID) error       { return nil }
+func (m *mockQueueRepo) MarkFailed(_ context.Context, _ uuid.UUID) error     { return nil }
+func (m *mockQueueRepo) PendingCount(_ context.Context) (int, error)         { return m.pending, nil }
+func (m *mockQueueRepo) PurgeCompleted(_ context.Context) error              { return nil }
+func (m *mockQueueRepo) PurgeOlderThan(_ context.Context, _ time.Time) error { return nil }
+func (m *mockQueueRepo) PurgeAll(_ context.Context) error                    { return nil }
+func (m *mockQueueRepo) ResetProcessing(_ context.Context) (int64, error)    { return 0, nil }
 
 // --- Factory functions ---
 
@@ -304,6 +304,7 @@ func newMinimalMainWindow(fyneApp fyne.App, router *ui.CenterViewRouter) *ui.Mai
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
 		(*presenter.ServiceSettingsPresenter)(nil),
+		nil, // rp
 		defaultOllamaConfig(),
 		nil, // characterWidget
 		router,
@@ -331,6 +332,7 @@ func newMainWindowWithNotifications(fyneApp fyne.App, router *ui.CenterViewRoute
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
 		(*presenter.ServiceSettingsPresenter)(nil),
+		nil, // rp
 		defaultOllamaConfig(),
 		nil, // characterWidget
 		router,
@@ -361,6 +363,7 @@ func newMainWindowWithFeedback(fyneApp fyne.App, router *ui.CenterViewRouter, no
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
 		(*presenter.ServiceSettingsPresenter)(nil),
+		nil, // rp
 		defaultOllamaConfig(),
 		nil, // characterWidget
 		router,
@@ -383,6 +386,7 @@ func newMainWindowWithPlanner(fyneApp fyne.App, router *ui.CenterViewRouter, pla
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
 		(*presenter.ServiceSettingsPresenter)(nil),
+		nil, // rp
 		defaultOllamaConfig(),
 		nil, // characterWidget
 		router,
@@ -404,6 +408,7 @@ func newMainWindowWithWizard(fyneApp fyne.App, router *ui.CenterViewRouter, wiza
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
 		(*presenter.ServiceSettingsPresenter)(nil),
+		nil, // rp
 		defaultOllamaConfig(),
 		nil, // characterWidget
 		router,

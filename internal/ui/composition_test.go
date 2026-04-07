@@ -148,6 +148,7 @@ func (s *CompositionSuite) TestPlannerViewRefReturnsNonNilWhenVMProvided() {
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
 		(*presenter.ServiceSettingsPresenter)(nil),
+		nil, // rp
 		config.OllamaConfig{},
 		nil, // characterWidget
 		router,
@@ -182,6 +183,7 @@ func (s *CompositionSuite) TestWizardViewRefReturnsNonNilWhenVMProvided() {
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
 		(*presenter.ServiceSettingsPresenter)(nil),
+		nil, // rp
 		config.OllamaConfig{},
 		nil, // characterWidget
 		router,

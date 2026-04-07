@@ -115,6 +115,7 @@ func (s *ViewContentSuite) TestSettingsViewWithPresentersContainsTabs() {
 		(*presenter.AppPresenter)(nil),
 		sp,
 		ssp,
+		nil, // rp
 		config.OllamaConfig{},
 		nil, // characterWidget
 		router,

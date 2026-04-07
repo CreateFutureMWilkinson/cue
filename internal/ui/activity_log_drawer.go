@@ -11,10 +11,12 @@ import (
 // ActivityLogDrawer wraps the activity log list in a toggle-able drawer
 // that sits at the bottom of the character area.
 type ActivityLogDrawer struct {
-	open      bool
-	toggleBtn *widget.Button
-	logList   *widget.List
-	drawerBox *fyne.Container
+	open           bool
+	toggleBtn      *widget.Button
+	logList        *widget.List
+	drawerBox      *fyne.Container
+	character      fyne.CanvasObject
+	stackContainer *fyne.Container
 }
 
 // NewActivityLogDrawer creates an ActivityLogDrawer using the given presenter.
@@ -50,6 +52,10 @@ func (d *ActivityLogDrawer) ToggleOpen() {
 		d.drawerBox.Objects = []fyne.CanvasObject{d.toggleBtn}
 	}
 	d.drawerBox.Refresh()
+	if d.stackContainer != nil && d.character != nil {
+		d.stackContainer.Objects = []fyne.CanvasObject{d.character, d.drawerBox}
+		d.stackContainer.Refresh()
+	}
 }
 
 // Container returns the standalone drawer as a canvas object.
@@ -57,13 +63,13 @@ func (d *ActivityLogDrawer) Container() fyne.CanvasObject {
 	return d.drawerBox
 }
 
-// ContainerWithCharacter returns a VSplit with the character widget on top
-// and the drawer on the bottom. If character is nil, a placeholder is used.
+// ContainerWithCharacter returns a Stack with the character widget behind
+// and the drawer overlaid on top. If character is nil, a placeholder is used.
 func (d *ActivityLogDrawer) ContainerWithCharacter(character fyne.CanvasObject) fyne.CanvasObject {
 	if character == nil {
 		character = widget.NewLabel("")
 	}
-	split := container.NewVSplit(character, d.drawerBox)
-	split.Offset = 0.6
-	return split
+	d.character = character
+	d.stackContainer = container.NewStack(character, d.drawerBox)
+	return d.stackContainer
 }

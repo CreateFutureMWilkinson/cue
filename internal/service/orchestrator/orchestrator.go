@@ -146,7 +146,70 @@ func (o *Orchestrator) PollOnce(ctx context.Context) {
 
 		o.emitEvent(name, fmt.Sprintf("fetched %d messages", len(msgs)), false)
 
-		// TODO(087): dedup → rules → queue pipeline
+		// Step 1: Dedup — skip messages already in the DB.
+		var newMsgs []*repository.Message
+		for _, msg := range msgs {
+			exists, err := o.repo.ExistsByMessageID(ctx, msg.MessageID)
+			if err != nil {
+				o.emitEvent(name, fmt.Sprintf("dedup check error: %v", err), true)
+				continue
+			}
+			if exists {
+				continue
+			}
+			newMsgs = append(newMsgs, msg)
+		}
+
+		// Step 2: Rules evaluation.
+		var notifiedCount, ignoredCount, queuedCount int
+		for _, msg := range newMsgs {
+			o.rulesMu.RLock()
+			action, matchedRule := o.rules.Evaluate(msg)
+			o.rulesMu.RUnlock()
+
+			switch action {
+			case "notified":
+				msg.ImportanceScore = 8.0
+				msg.ConfidenceScore = 1.0
+				msg.Status = decisionengine.StatusNotified
+				msg.Reasoning = fmt.Sprintf("Rule: %s", matchedRule.Pattern)
+				notifiedCount++
+			case "ignored":
+				msg.ImportanceScore = 0.0
+				msg.ConfidenceScore = 1.0
+				msg.Status = decisionengine.StatusIgnored
+				msg.Reasoning = fmt.Sprintf("Rule: %s", matchedRule.Pattern)
+				ignoredCount++
+			default: // "queue"
+				msg.Status = "Pending"
+				msg.ImportanceScore = 0
+				msg.ConfidenceScore = 0
+				queuedCount++
+			}
+		}
+
+		// Step 3: Insert all new messages and enqueue pending ones.
+		for _, msg := range newMsgs {
+			if err := o.repo.Insert(ctx, msg); err != nil {
+				o.emitEvent(name, fmt.Sprintf("failed to store %s message: %v", msg.Source, err), true)
+				continue
+			}
+			if msg.Status == "Pending" {
+				if err := o.queueRepo.Enqueue(ctx, msg.ID); err != nil {
+					o.emitEvent(name, fmt.Sprintf("enqueue error: %v", err), true)
+				}
+			}
+		}
+
+		// Step 4: Emit rules summary.
+		o.emitEvent(name, fmt.Sprintf("rules: %d notified, %d ignored, %d queued", notifiedCount, ignoredCount, queuedCount), false)
+
+		// Step 5: Alert if any notified.
+		if notifiedCount > 0 && o.alerter != nil {
+			if err := o.alerter.PlayNotification(ctx); err != nil {
+				o.emitEvent(name, fmt.Sprintf("alert error: %s", err.Error()), false)
+			}
+		}
 	}
 }
 

@@ -2,11 +2,8 @@ package calendar
 
 import (
 	"context"
-	"errors"
 	"time"
 )
-
-var errNotImplemented = errors.New("not implemented")
 
 // NoopCalendarProvider returns empty events. Used when no calendar is configured.
 type NoopCalendarProvider struct{}
@@ -16,7 +13,7 @@ func NewNoopCalendarProvider() *NoopCalendarProvider {
 	return &NoopCalendarProvider{}
 }
 
-// FetchEvents returns an error (stub).
-func (n *NoopCalendarProvider) FetchEvents(ctx context.Context, date time.Time) ([]CalendarEvent, error) {
-	return nil, errNotImplemented
+// FetchEvents always returns an empty slice and nil error.
+func (n *NoopCalendarProvider) FetchEvents(_ context.Context, _ time.Time) ([]CalendarEvent, error) {
+	return []CalendarEvent{}, nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/uitest"
@@ -477,6 +478,246 @@ func (s *SettingsAcceptanceSuite) TestEmailFormSaveIncludesEncryption() {
 
 	s.Less(len(entriesAfterSave), 5,
 		"after saving valid data with encryption set, form should be replaced with account list")
+}
+
+// AC: Empty account list shows helpful empty state message.
+func (s *SettingsAcceptanceSuite) TestEmptySlackAccountListShowsEmptyState() {
+	sv := newSettingsView() // no pre-loaded accounts
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	slackContent := tabs.Items[0].Content
+
+	_, found := uitest.FindWidget[*widget.Label](slackContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "No Slack accounts configured")
+	})
+
+	s.True(found, "empty Slack account list should show 'No Slack accounts configured' message")
+}
+
+// AC: Empty email account list shows helpful empty state message.
+func (s *SettingsAcceptanceSuite) TestEmptyEmailAccountListShowsEmptyState() {
+	sv := newSettingsView()
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	emailContent := tabs.Items[1].Content
+
+	_, found := uitest.FindWidget[*widget.Label](emailContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "No Email accounts configured")
+	})
+
+	s.True(found, "empty Email account list should show 'No Email accounts configured' message")
+}
+
+// AC: Empty calendar account list shows helpful empty state message.
+func (s *SettingsAcceptanceSuite) TestEmptyCalendarAccountListShowsEmptyState() {
+	sv := newSettingsView()
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	calendarContent := tabs.Items[2].Content
+
+	_, found := uitest.FindWidget[*widget.Label](calendarContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "No Calendar accounts configured")
+	})
+
+	s.True(found, "empty Calendar account list should show 'No Calendar accounts configured' message")
+}
+
+// AC: Existing Slack accounts appear in the list when opening Settings.
+func (s *SettingsAcceptanceSuite) TestPreExistingSlackAccountsAppearInList() {
+	repo := &mockServiceConfigRepo{
+		slackAccounts: []*repository.SlackAccount{
+			{ID: uuid.New(), Enabled: true, Token: "xoxp-123", WorkspaceID: "T-ACME", Username: "testuser", PollIntervalSeconds: 600},
+		},
+	}
+	sv := newSettingsViewWithRepo(repo)
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	slackContent := tabs.Items[0].Content
+
+	_, found := uitest.FindWidget[*widget.Label](slackContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "T-ACME")
+	})
+
+	s.True(found, "pre-existing Slack account should show workspace ID 'T-ACME' in the list")
+}
+
+// AC: Existing Email accounts appear in the list when opening Settings.
+func (s *SettingsAcceptanceSuite) TestPreExistingEmailAccountsAppearInList() {
+	repo := &mockServiceConfigRepo{
+		emailAccounts: []*repository.EmailAccount{
+			{ID: uuid.New(), Enabled: true, IMAPHost: "imap.example.com", IMAPPort: 993, Username: "user@example.com", Password: "secret", PollIntervalSeconds: 600},
+		},
+	}
+	sv := newSettingsViewWithRepo(repo)
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	emailContent := tabs.Items[1].Content
+
+	_, found := uitest.FindWidget[*widget.Label](emailContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "user@example.com")
+	})
+
+	s.True(found, "pre-existing Email account should show username 'user@example.com' in the list")
+}
+
+// AC: Existing Calendar accounts appear in the list when opening Settings.
+func (s *SettingsAcceptanceSuite) TestPreExistingCalendarAccountsAppearInList() {
+	repo := &mockServiceConfigRepo{
+		calendarAccounts: []*repository.CalendarAccount{
+			{ID: uuid.New(), Enabled: true, Name: "Work Calendar", ICSURL: "https://example.com/cal.ics", PollIntervalSeconds: 600},
+		},
+	}
+	sv := newSettingsViewWithRepo(repo)
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	calendarContent := tabs.Items[2].Content
+
+	_, found := uitest.FindWidget[*widget.Label](calendarContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "Work Calendar")
+	})
+
+	s.True(found, "pre-existing Calendar account should show name 'Work Calendar' in the list")
+}
+
+// AC: After adding a new Slack account, it appears in the account list immediately.
+func (s *SettingsAcceptanceSuite) TestSlackAccountAppearsAfterSave() {
+	repo := &mockServiceConfigRepo{}
+	sv := newSettingsViewWithRepo(repo)
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	slackContent := tabs.Items[0].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+	addBtn.OnTapped()
+
+	slackContent = tabs.Items[0].Content
+	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 4)
+	entries[0].SetText("xoxp-new-token")
+	entries[1].SetText("T-NEW-WS")
+	entries[2].SetText("newuser")
+	entries[3].SetText("600")
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
+		return b.Text == "Save"
+	})
+	saveBtn.OnTapped()
+
+	slackContent = tabs.Items[0].Content
+
+	_, found := uitest.FindWidget[*widget.Label](slackContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "T-NEW-WS")
+	})
+
+	s.True(found, "after saving a new Slack account, workspace ID 'T-NEW-WS' should appear in the list")
+}
+
+// AC: After adding a new Email account, it appears in the account list immediately.
+func (s *SettingsAcceptanceSuite) TestEmailAccountAppearsAfterSave() {
+	repo := &mockServiceConfigRepo{}
+	sv := newSettingsViewWithRepo(repo)
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	emailContent := tabs.Items[1].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+	addBtn.OnTapped()
+
+	emailContent = tabs.Items[1].Content
+	entries := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 5)
+	entries[0].SetText("imap.test.com")
+	entries[1].SetText("993")
+	entries[2].SetText("new@test.com")
+	entries[3].SetText("password")
+	entries[4].SetText("600")
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
+		return b.Text == "Save"
+	})
+	saveBtn.OnTapped()
+
+	emailContent = tabs.Items[1].Content
+
+	_, found := uitest.FindWidget[*widget.Label](emailContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "new@test.com")
+	})
+
+	s.True(found, "after saving a new Email account, username 'new@test.com' should appear in the list")
+}
+
+// AC: After adding a new Calendar account, it appears in the account list immediately.
+func (s *SettingsAcceptanceSuite) TestCalendarAccountAppearsAfterSave() {
+	repo := &mockServiceConfigRepo{}
+	sv := newSettingsViewWithRepo(repo)
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	calendarContent := tabs.Items[2].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+	addBtn.OnTapped()
+
+	calendarContent = tabs.Items[2].Content
+	entries := uitest.FindAll[*widget.Entry](calendarContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 3)
+	entries[0].SetText("Personal Calendar")
+	entries[1].SetText("https://example.com/personal.ics")
+	entries[2].SetText("600")
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool {
+		return b.Text == "Save"
+	})
+	saveBtn.OnTapped()
+
+	calendarContent = tabs.Items[2].Content
+
+	_, found := uitest.FindWidget[*widget.Label](calendarContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "Personal Calendar")
+	})
+
+	s.True(found, "after saving a new Calendar account, name 'Personal Calendar' should appear in the list")
 }
 
 // AC: Each tab has non-nil content.

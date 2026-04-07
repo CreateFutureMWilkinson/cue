@@ -71,17 +71,23 @@ func (m *mockVolumeController) SetVolume(v int) {
 }
 
 // mockServiceConfigRepo satisfies repository.ServiceConfigRepository.
-type mockServiceConfigRepo struct{}
+// It can be pre-loaded with accounts and tracks upserted accounts.
+type mockServiceConfigRepo struct {
+	slackAccounts    []*repository.SlackAccount
+	emailAccounts    []*repository.EmailAccount
+	calendarAccounts []*repository.CalendarAccount
+}
 
 func (m *mockServiceConfigRepo) ListSlackAccounts(_ context.Context) ([]*repository.SlackAccount, error) {
-	return nil, nil
+	return m.slackAccounts, nil
 }
 
 func (m *mockServiceConfigRepo) GetSlackAccount(_ context.Context, _ uuid.UUID) (*repository.SlackAccount, error) {
 	return nil, nil
 }
 
-func (m *mockServiceConfigRepo) UpsertSlackAccount(_ context.Context, _ *repository.SlackAccount) error {
+func (m *mockServiceConfigRepo) UpsertSlackAccount(_ context.Context, acct *repository.SlackAccount) error {
+	m.slackAccounts = append(m.slackAccounts, acct)
 	return nil
 }
 
@@ -90,14 +96,15 @@ func (m *mockServiceConfigRepo) DeleteSlackAccount(_ context.Context, _ uuid.UUI
 }
 
 func (m *mockServiceConfigRepo) ListEmailAccounts(_ context.Context) ([]*repository.EmailAccount, error) {
-	return nil, nil
+	return m.emailAccounts, nil
 }
 
 func (m *mockServiceConfigRepo) GetEmailAccount(_ context.Context, _ uuid.UUID) (*repository.EmailAccount, error) {
 	return nil, nil
 }
 
-func (m *mockServiceConfigRepo) UpsertEmailAccount(_ context.Context, _ *repository.EmailAccount) error {
+func (m *mockServiceConfigRepo) UpsertEmailAccount(_ context.Context, acct *repository.EmailAccount) error {
+	m.emailAccounts = append(m.emailAccounts, acct)
 	return nil
 }
 
@@ -106,14 +113,15 @@ func (m *mockServiceConfigRepo) DeleteEmailAccount(_ context.Context, _ uuid.UUI
 }
 
 func (m *mockServiceConfigRepo) ListCalendarAccounts(_ context.Context) ([]*repository.CalendarAccount, error) {
-	return nil, nil
+	return m.calendarAccounts, nil
 }
 
 func (m *mockServiceConfigRepo) GetCalendarAccount(_ context.Context, _ uuid.UUID) (*repository.CalendarAccount, error) {
 	return nil, nil
 }
 
-func (m *mockServiceConfigRepo) UpsertCalendarAccount(_ context.Context, _ *repository.CalendarAccount) error {
+func (m *mockServiceConfigRepo) UpsertCalendarAccount(_ context.Context, acct *repository.CalendarAccount) error {
+	m.calendarAccounts = append(m.calendarAccounts, acct)
 	return nil
 }
 
@@ -345,6 +353,14 @@ func newSettingsView() *ui.SettingsView {
 	vc := &mockVolumeController{}
 	sp, _ := presenter.NewSettingsPresenter(vc, 50, &mockVolumeController{}, 50)
 	ssp := presenter.NewServiceSettingsPresenter(&mockServiceConfigRepo{}, &mockWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil })
+	return ui.NewSettingsView(sp, ssp, defaultOllamaConfig(), func() {})
+}
+
+// newSettingsViewWithRepo creates a SettingsView backed by a specific mock repo.
+func newSettingsViewWithRepo(repo *mockServiceConfigRepo) *ui.SettingsView {
+	vc := &mockVolumeController{}
+	sp, _ := presenter.NewSettingsPresenter(vc, 50, &mockVolumeController{}, 50)
+	ssp := presenter.NewServiceSettingsPresenter(repo, &mockWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil })
 	return ui.NewSettingsView(sp, ssp, defaultOllamaConfig(), func() {})
 }
 

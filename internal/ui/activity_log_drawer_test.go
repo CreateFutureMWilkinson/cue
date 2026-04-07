@@ -3,6 +3,7 @@ package ui_test
 import (
 	"testing"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
@@ -125,6 +126,20 @@ func (s *ActivityLogDrawerSuite) TestContainerWithCharacterUsesStackNotSplit() {
 		return true
 	})
 	s.False(found, "ContainerWithCharacter should use a Stack layout, not a Split")
+}
+
+func (s *ActivityLogDrawerSuite) TestClosedDrawerStackHasSingleChild() {
+	ap := s.newPresenter()
+
+	drawer := ui.NewActivityLogDrawer(ap)
+	characterWidget := widget.NewLabel("Fairy placeholder")
+
+	result := drawer.ContainerWithCharacter(characterWidget)
+
+	topContainer, ok := result.(*fyne.Container)
+	s.Require().True(ok, "ContainerWithCharacter should return a *fyne.Container")
+	s.Equal(1, len(topContainer.Objects),
+		"closed drawer stack should have exactly 1 child (a Border wrapping character+button), not separate character and drawerBox objects")
 }
 
 func (s *ActivityLogDrawerSuite) TestOpenDrawerOverlayHasSemiTransparentBackground() {

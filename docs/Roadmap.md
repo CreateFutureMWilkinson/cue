@@ -131,5 +131,5 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 065A | Calendar Add Account form is noop | Bugfix | Medium | Done | 065 | [Feature-065A](features/phase-6/Feature-065A-Calendar-Add-Account-Form.md) |
 | 067A | Email encryption setting missing | Bugfix | High | Done | 067 | [Feature-067A](features/phase-6/Feature-067A-Email-Encryption-Setting.md) |
 | 068A | Slack user authentication (bot→user token) | Bugfix | High | Done | 068 | [Feature-068A](features/phase-6/Feature-068A-Slack-User-Authentication.md) |
-| 075 | WASM character plugins | Feature | — | Planned | 014, 041 | [Feature-075](features/phase-7/Feature-075-WASM-Character-Plugins.md) |
+| 075 | WASM character plugins | Feature | — | Done | 014, 041 | [Feature-075](features/phase-7/Feature-075-WASM-Character-Plugins.md) |
 | 076 | Integrated character UAT mode | Refactor | — | Planned | 075 | [Feature-076](features/phase-7/Feature-076-Integrated-Character-UAT.md) |

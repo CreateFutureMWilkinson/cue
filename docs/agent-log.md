@@ -455,3 +455,13 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-068A | RED | Test Designer | ~30s | ~31,579 | 3653cc3 |
 | Phase-6-Feature-068A | GREEN (SQLite) | Implementer | ~36s | ~29,720 | 873f32f |
 | Phase-6-Feature-068A | GREEN (UI) | orchestrator | manual | — | 9c5e747 |
+| Phase-7-Feature-075 (config) | RED+GREEN | orchestrator | manual | — | 1fe984d |
+| Phase-7-Feature-075 (canvas host) | RED | Test Designer | manual | — | 624bc44 |
+| Phase-7-Feature-075 (canvas host) | GREEN | Implementer | manual | — | b1d70d5 |
+| Phase-7-Feature-075 (ABI + echo plugin) | BUILD | orchestrator | manual | — | 2e0ba3d |
+| Phase-7-Feature-075 (WASM host) | RED | Test Designer | manual | — | 94052d0 |
+| Phase-7-Feature-075 (WASM host) | GREEN | Implementer | manual | — | 8c1f5b9 |
+| Phase-7-Feature-075 (discovery) | RED+GREEN | orchestrator | manual | — | 3138f6f |
+| Phase-7-Feature-075 (wiring) | GREEN | orchestrator | manual | — | 9266a51 |
+| Phase-7-Feature-075 (build infra) | BUILD | orchestrator | manual | — | bb373c1 |
+| Phase-7-Feature-075 (security/lint) | CHORE | orchestrator | manual | — | a1f1a7b |

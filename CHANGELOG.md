@@ -13,6 +13,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **WASM character plugin framework** — Third-party characters can now be loaded at runtime from `~/.cue/characters/` as `.wasm` files using wazero (pure-Go WebAssembly runtime). New `CanvasHost` rendering abstraction, `WASMCharacterHost` implementing the `Character` interface, and automatic plugin discovery with NoOp fallback for broken plugins. Host drives tick loop at 30 FPS with normalized 0-1 coordinates. Includes `gui.character_dir` config field, `just build-plugins` target, and CI WASM build step. Fairy remains compiled-in as the default. (Phase-7-Feature-075)
 - **Settings exit control** — Settings view now has a "Done" button at the bottom that navigates back to the character view, providing an in-context exit affordance for ADHD users who may miss the Back button in the focus rail. `NewSettingsView` accepts an `onClose` callback. (Phase-6-Feature-060A)
 - **OllamaClient.Generate()** — Raw prompt-to-response method satisfying `planner.OllamaGenerator` interface. Shares `sendRequest()` helper with `Score()`. (Phase-6-Feature-071)
 - **NoopCalendarProvider** — Noop calendar implementation returning empty events when no calendar accounts are configured. (Phase-6-Feature-071)

@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–5 complete. Phase 6 (The Big Clean — bugfixes + test infrastructure) in progress. Recent: Feature 067A adds email encryption settings (SSL/TLS, STARTTLS) to the email account form and IMAPClient. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–6 complete. Phase 7 (WASM Character Plugins) in progress. Recent: Feature 075 adds a WASM character plugin framework using wazero — third-party characters can be loaded at runtime from `~/.cue/characters/` without forking the repo. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 
@@ -58,6 +58,7 @@ Cue uses TOML configuration at `~/.cue/config.toml`. A default config is created
 - **Watchers** (`internal/service/watcher/`) — Slack and Email polling
 - **Alert** (`internal/alert/`) — Configurable audio alerts with real file playback via gopxl/beep (MP3/WAV/OGG), beeep fallback, configurable cooldown and volume
 - **UI** (`internal/ui/`) — Fyne desktop GUI with presenter/view architecture (notification queue, activity log, feedback review, character animation)
+- **WASM Character Plugins** (`internal/ui/character/wasmhost/`) — wazero-based plugin host for loading third-party character `.wasm` files at runtime with sandboxed rendering API
 - **Entry Point** (`cmd/cue/`) — Composition root wiring all components
 - **Character UAT** (`cmd/character-uat/`, `cmd/cue-uat/`) — Standalone harness for visual character testing (`just run-uat`)
 

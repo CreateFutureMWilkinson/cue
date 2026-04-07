@@ -3,7 +3,7 @@
 **Phase:** Phase-7-Feature-075
 **Type:** Feature
 **Severity:** N/A (new capability)
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/character/`, `internal/config/`, `cmd/cue/`, CI/CD pipelines
 **Related:** Feature 014 (Character System), Feature 024 (Character UAT Harness), Feature 041 (Character Package Restructure)
 
@@ -315,6 +315,47 @@ The existing `cmd/cue-uat` (character UAT) should also load WASM plugins for vis
 | File | Reason |
 |---|---|
 | `internal/ui/character/fairy/` (entire package) | Fairy moves to `cmd/fairy-plugin/` as a WASM plugin |
+
+## Implementation Notes
+
+### What was built
+
+The WASM character plugin framework was implemented using wazero v1.11.0 (pure-Go WebAssembly runtime). Third-party characters can be loaded at runtime from a configurable directory (`gui.character_dir`, defaults to `~/.cue/characters/`). The implementation lives in `internal/ui/character/wasmhost/` as a new sub-package.
+
+**Key components:**
+
+- **CanvasHost interface + FyneCanvasHost** (`canvas_host.go`) — Rendering surface abstraction with circle/image operations and z-ordering by ID. Decouples WASM plugin rendering from Fyne internals.
+- **WASMCharacterHost** (`wasm_host.go`) — Loads WASM plugins via wazero, bridges the host API (circles, images, logging), and implements the `Character` interface. Host drives the tick loop at 30 FPS; guest works in normalized 0-1 coordinates.
+- **Plugin discovery** (`discovery.go`) — Scans the character directory for `.wasm` files, auto-registers each as a character factory. Broken plugins fall back to `NoOpCharacter` with a log warning.
+- **ABI contract** (`abi.go`) — Named constants for all host/guest function names in the WASM plugin interface.
+- **Echo test plugin** (`cmd/echo-plugin/main.go`) — Minimal WASM plugin that draws a green circle; used as the test fixture for the WASMHostSuite.
+
+### Design decisions
+
+1. **Fairy stays compiled-in.** The spec called for migrating the fairy to a WASM plugin and removing it from the main binary. This was deferred — the fairy remains the built-in default character. WASM is for *additional* third-party characters only. This avoids the risk of regressing the fairy's visual fidelity and keeps the out-of-box experience working without any `.wasm` files present.
+
+2. **Standard Go WASM compilation** (`GOOS=wasip1 GOARCH=wasm`) was used instead of TinyGo. TinyGo produces smaller binaries but has stdlib limitations. Standard Go with `-buildmode=c-shared` produces reactor modules (with `_initialize` export) that work well with wazero.
+
+3. **Sidecar asset directories.** Each plugin `foo.wasm` has a corresponding `foo/` directory for images. The host API validates that `host_set_image` paths stay within the plugin's own asset directory (path traversal prevention).
+
+4. **Sub-package isolation.** All WASM host code lives in `internal/ui/character/wasmhost/` rather than the parent `character/` package, keeping the existing character registry and fairy code untouched.
+
+### Test coverage
+
+22 new tests across 3 test suites:
+- **CanvasHostSuite** — Circle/image CRUD, z-ordering, coordinate normalization
+- **WASMHostSuite** — Plugin loading, name resolution, state transitions, tick loop, cleanup
+- **DiscoverySuite** — Directory scanning, factory registration, broken plugin fallback
+
+All existing tests pass unchanged.
+
+### Config changes
+
+Added `gui.character_dir` field to `GUIConfig` (defaults to `~/.cue/characters`). The existing `gui.character` field is unchanged — it still selects which character to use. WASM-discovered characters are registered alongside the compiled-in fairy.
+
+### Wiring
+
+Plugin discovery is integrated into both `cmd/cue/main.go` and `cmd/cue-uat/main.go`. The `just build-plugins` target compiles the echo test plugin. CI includes a WASM build step.
 
 ## Acceptance Criteria
 

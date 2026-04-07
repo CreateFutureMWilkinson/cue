@@ -1,7 +1,10 @@
 package decisionengine
 
 import (
+	"log/slog"
 	"regexp"
+	"sort"
+	"strings"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 )
@@ -20,11 +23,55 @@ type RulesEngine struct {
 // Disabled rules and rules with invalid regex patterns are silently excluded.
 // Rules are evaluated in priority order (lowest priority number first).
 func NewRulesEngine(rules []*repository.RoutingRule) *RulesEngine {
-	return &RulesEngine{}
+	var compiled []compiledRule
+	for _, r := range rules {
+		if !r.Enabled {
+			continue
+		}
+		re, err := regexp.Compile(r.Pattern)
+		if err != nil {
+			slog.Warn("skipping routing rule with invalid pattern", "rule_id", r.ID, "pattern", r.Pattern, "error", err)
+			continue
+		}
+		compiled = append(compiled, compiledRule{rule: r, pattern: re})
+	}
+	sort.Slice(compiled, func(i, j int) bool {
+		return compiled[i].rule.Priority < compiled[j].rule.Priority
+	})
+	return &RulesEngine{rules: compiled}
 }
 
 // Evaluate checks the message against compiled rules in priority order.
 // Returns the action string ("notified", "ignored", or "queue") and the matched rule (nil if "queue").
 func (e *RulesEngine) Evaluate(msg *repository.Message) (string, *repository.RoutingRule) {
-	return "", nil
+	for _, cr := range e.rules {
+		if cr.rule.Source != msg.Source {
+			continue
+		}
+		var fieldValue string
+		switch cr.rule.Field {
+		case "sender":
+			fieldValue = msg.Sender
+		case "subject":
+			if idx := strings.Index(msg.RawContent, "\n"); idx >= 0 {
+				fieldValue = msg.RawContent[:idx]
+			} else {
+				fieldValue = msg.RawContent
+			}
+		case "channel":
+			fieldValue = msg.Channel
+		case "content":
+			fieldValue = msg.RawContent
+		case "message_type":
+			fieldValue = msg.MessageType
+		}
+		matched := cr.pattern.MatchString(fieldValue)
+		if cr.rule.Negate {
+			matched = !matched
+		}
+		if matched {
+			return cr.rule.Action, cr.rule
+		}
+	}
+	return "queue", nil
 }

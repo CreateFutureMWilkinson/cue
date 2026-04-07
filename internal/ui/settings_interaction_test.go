@@ -616,6 +616,68 @@ func (s *SettingsInteractionSuite) TestSlackFormHasFriendlyNameAndWebURLEntries(
 	s.True(foundWebURL, "Slack account form should contain an Entry with placeholder 'Web URL'")
 }
 
+func (s *SettingsInteractionSuite) TestSlackFormTokenInstructionsAccordion() {
+	root := s.sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	slackContent := tabs.Items[0].Content
+
+	// Tap "Add Account" to show the form
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool { return b.Text == "Add Account" })
+	addBtn.OnTapped()
+	slackContent = tabs.Items[0].Content
+
+	// The form should contain an Accordion with token setup instructions
+	accordion, found := uitest.FindWidget[*widget.Accordion](slackContent, func(_ *widget.Accordion) bool { return true })
+	s.Require().True(found, "Slack account form should contain a widget.Accordion for token instructions")
+
+	// Accordion should have at least 1 item with a title mentioning "token"
+	s.Require().GreaterOrEqual(len(accordion.Items), 1, "accordion should have at least 1 item")
+
+	var tokenItem *widget.AccordionItem
+	for _, item := range accordion.Items {
+		if strings.Contains(strings.ToLower(item.Title), "token") {
+			tokenItem = item
+			break
+		}
+	}
+	s.Require().NotNil(tokenItem, "accordion should have an item with title containing 'token'")
+
+	// The detail content should mention all 9 required OAuth scopes
+	requiredScopes := []string{
+		"channels:history",
+		"channels:read",
+		"groups:history",
+		"groups:read",
+		"im:history",
+		"im:read",
+		"mpim:history",
+		"mpim:read",
+		"users:read",
+	}
+
+	// Collect all text from labels and rich text widgets in the detail
+	detail := tokenItem.Detail
+	s.Require().NotNil(detail, "accordion item detail should not be nil")
+
+	// Gather all label text from the detail content
+	labels := uitest.FindAll[*widget.Label](detail, func(_ *widget.Label) bool { return true })
+	richTexts := uitest.FindAll[*widget.RichText](detail, func(_ *widget.RichText) bool { return true })
+
+	var allText string
+	for _, l := range labels {
+		allText += " " + l.Text
+	}
+	for _, rt := range richTexts {
+		allText += " " + rt.String()
+	}
+	allText = strings.ToLower(allText)
+
+	for _, scope := range requiredScopes {
+		s.Contains(allText, scope,
+			"accordion detail should mention required OAuth scope: %s", scope)
+	}
+}
+
 func (s *SettingsInteractionSuite) TestSlackAccountListRendersDeleteButton() {
 	// Create a stub repo that returns one Slack account
 	repo := &stubServiceConfigRepoWithSlack{

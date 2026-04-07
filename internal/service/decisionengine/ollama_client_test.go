@@ -322,6 +322,69 @@ func (s *OllamaClientSuite) TestScore_ResponseWithMarkdownWrapping_ExtractsJSON(
 
 // --- Prompt requests JSON format ---
 
+// --- Structured output format field ---
+
+func (s *OllamaClientSuite) TestScore_RequestIncludesJSONFormat() {
+	var rawBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rawBody, _ = io.ReadAll(r.Body)
+
+		resp := map[string]any{
+			"response": `{"importance_score": 5.0, "confidence_score": 0.7, "reasoning": "normal"}`,
+			"done":     true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client, err := decisionengine.NewOllamaClient(server.URL, "neural-chat", 10*time.Second)
+	s.Require().NoError(err)
+
+	msg := &repository.Message{Source: "slack", RawContent: "hello"}
+
+	_, err = client.Score(context.Background(), msg)
+	s.NoError(err)
+
+	var receivedBody map[string]any
+	err = json.Unmarshal(rawBody, &receivedBody)
+	s.Require().NoError(err, "request body should be valid JSON")
+
+	formatVal, exists := receivedBody["format"]
+	s.True(exists, "Score request body must contain a 'format' field")
+	s.Equal("json", formatVal, "Score request 'format' field must be \"json\"")
+}
+
+func (s *OllamaClientSuite) TestGenerate_RequestOmitsFormat() {
+	var rawBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rawBody, _ = io.ReadAll(r.Body)
+
+		resp := map[string]any{
+			"response": "some free-text response",
+			"done":     true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client, err := decisionengine.NewOllamaClient(server.URL, "neural-chat", 10*time.Second)
+	s.Require().NoError(err)
+
+	_, err = client.Generate(context.Background(), "tell me something")
+	s.NoError(err)
+
+	var receivedBody map[string]any
+	err = json.Unmarshal(rawBody, &receivedBody)
+	s.Require().NoError(err, "request body should be valid JSON")
+
+	_, exists := receivedBody["format"]
+	s.False(exists, "Generate request body must NOT contain a 'format' field")
+}
+
 // --- Generate method ---
 
 func (s *OllamaClientSuite) TestGenerateReturnsResponseText() {

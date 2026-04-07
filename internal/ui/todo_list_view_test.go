@@ -252,6 +252,19 @@ func (s *TodoListViewSuite) TestContainerHasAddButton() {
 	s.True(found, "Container should contain a *widget.Button with Text==\"Add\"")
 }
 
+func (s *TodoListViewSuite) TestContainerRendersCheckWidgetsForItems() {
+	todos := sampleTodos()
+	s.vm.On("AllTodos").Return(todos).Maybe()
+
+	view := ui.NewTodoListView(s.vm)
+
+	checks := uitest.FindAll[*widget.Check](view.Container(), func(c *widget.Check) bool {
+		return true
+	})
+	s.Equal(3, len(checks),
+		"Container should contain one *widget.Check per todo item")
+}
+
 func (s *TodoListViewSuite) TestRefreshUpdatesListFromViewModel() {
 	// Start with empty list.
 	s.vm.On("AllTodos").Return([]ui.TodoListRow{}).Once()

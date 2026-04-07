@@ -118,7 +118,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 064 | WizardView missing step widget rendering | Bugfix | High | Done | 052 | [Feature-064](features/phase-6/Feature-064-WizardView-Widget-Tree.md) |
 | 074 | Failing UI acceptance tests for bugs 065-073 | Enhancement | — | Done | 052 | [Feature-074](features/phase-6/Feature-074-Bugfix-UI-Acceptance-Tests.md) |
 | 065 | Settings view missing Calendar tab | Bugfix | Medium | Done | 060, 074 | [Feature-065](features/phase-6/Feature-065-Calendar-Settings-Tab.md) |
-| 066 | PlannerView no-plan content not rendered | Bugfix | High | Planned | 063, 071 | [Feature-066](features/phase-6/Feature-066-PlannerView-Content-Rendering.md) |
+| 066 | PlannerView no-plan content not rendered | Bugfix | High | Done | 063, 071 | [Feature-066](features/phase-6/Feature-066-PlannerView-Content-Rendering.md) |
 | 067 | Email settings Add Account callback is noop | Bugfix | Medium | Planned | 060 | [Feature-067](features/phase-6/Feature-067-Email-Add-Account.md) |
 | 068 | Slack settings Add Account callback is noop | Bugfix | Medium | Planned | 060 | [Feature-068](features/phase-6/Feature-068-Slack-Add-Account.md) |
 | 069 | Audio settings missing Timer Volume slider | Bugfix | Medium | Planned | 060 | [Feature-069](features/phase-6/Feature-069-Timer-Volume-Slider.md) |

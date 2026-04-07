@@ -473,3 +473,8 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-7-Feature-076 (SetCharacterWidget) | RED+GREEN | Implementer | ~31s | ~30,228 | 9baaf56 |
 | Phase-7-Feature-076 (cue uat cmd) | RED+GREEN | Implementer | ~69s | ~38,507 | ea4f61a |
 | Phase-7-Feature-076 (old UAT removal) | REFACTOR | orchestrator | manual | — | d34faf4 |
+| Phase-6-Feature-077 (UI acceptance tests) | RED | Test Designer | ~30s | ~8,000 | 4028616 |
+| Phase-6-Feature-077 (PlanMyDay callback) | RED+GREEN | Test Designer + Implementer | ~45s | ~12,000 | 8f3ff39, abb1757 |
+| Phase-6-Feature-077 (AppBinder wiring) | RED+GREEN | Test Designer + Implementer | ~60s | ~18,000 | 88c9d5a, d7360cb |
+| Phase-6-Feature-077 (wizard idle state) | RED+GREEN | Test Designer + Implementer | ~40s | ~10,000 | 016be64, 460e498 |
+| Phase-6-Feature-077 (fyne.Do thread safety) | GREEN | Implementer | ~20s | ~5,000 | 18621bf |

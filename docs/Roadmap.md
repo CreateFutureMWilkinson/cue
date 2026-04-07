@@ -131,7 +131,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 065A | Calendar Add Account form is noop | Bugfix | Medium | Done | 065 | [Feature-065A](features/phase-6/Feature-065A-Calendar-Add-Account-Form.md) |
 | 067A | Email encryption setting missing | Bugfix | High | Done | 067 | [Feature-067A](features/phase-6/Feature-067A-Email-Encryption-Setting.md) |
 | 068A | Slack user authentication (bot→user token) | Bugfix | High | Done | 068 | [Feature-068A](features/phase-6/Feature-068A-Slack-User-Authentication.md) |
-| 077 | Plan > Plan my day does nothing | Bugfix | High | Planned | 056, 071 | [Feature-077](features/phase-6/Feature-077-Plan-My-Day-Noop.md) |
+| 077 | Plan > Plan my day does nothing | Bugfix | High | Done | 056, 071 | [Feature-077](features/phase-6/Feature-077-Plan-My-Day-Noop.md) |
 | 078 | Added service accounts don't appear in UI | Bugfix | Critical | Planned | 065, 067, 068 | [Feature-078](features/phase-6/Feature-078-Account-List-Not-Populated.md) |
 | 079 | Credential/calendar validation on save | Enhancement | Medium | Planned | 065, 067, 068 | [Feature-079](features/phase-6/Feature-079-Credential-Validation-On-Save.md) |
 | 080 | Default poll intervals per service type | Bugfix | Low | Planned | — | [Feature-080](features/phase-6/Feature-080-Default-Poll-Intervals.md) |

@@ -505,3 +505,17 @@ func (s *SettingsInteractionSuite) TestCalendarAddAccountSaveWithValidDataReplac
 	entriesAfterSave := uitest.FindAll[*widget.Entry](calContent, func(_ *widget.Entry) bool { return true })
 	s.Less(len(entriesAfterSave), 3, "after saving valid data, form should be replaced with account list (fewer than 3 Entry widgets)")
 }
+
+func (s *SettingsInteractionSuite) TestCalendarAddAccountCancelReturnsToList() {
+	root := s.sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	calContent := tabs.Items[2].Content
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), calContent, func(b *widget.Button) bool { return b.Text == "Add Account" })
+	addBtn.OnTapped()
+	calContent = tabs.Items[2].Content
+	cancelBtn := uitest.RequireWidget[*widget.Button](s.T(), calContent, func(b *widget.Button) bool { return b.Text == "Cancel" })
+	cancelBtn.OnTapped()
+	calContent = tabs.Items[2].Content
+	_, found := uitest.FindWidget[*widget.Button](calContent, func(b *widget.Button) bool { return b.Text == "Add Account" })
+	s.True(found, "after tapping Cancel, calendar tab should show the account list with 'Add Account' button")
+}

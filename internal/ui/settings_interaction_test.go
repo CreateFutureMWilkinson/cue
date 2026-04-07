@@ -342,6 +342,22 @@ func (s *SettingsInteractionSuite) TestSlackAddAccountShowsFormFields() {
 	s.GreaterOrEqual(len(entries), 3, "after tapping Add Account, Slack tab should contain at least 3 Entry widgets (bot token, workspace ID, poll interval)")
 }
 
+func (s *SettingsInteractionSuite) TestSlackAddAccountValidationShowsError() {
+	root := s.sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	slackContent := tabs.Items[0].Content
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool { return b.Text == "Add Account" })
+	addBtn.OnTapped()
+	slackContent = tabs.Items[0].Content
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool { return b.Text == "Save" })
+	saveBtn.OnTapped()
+	slackContent = tabs.Items[0].Content
+	_, found := uitest.FindWidget[*widget.Label](slackContent, func(l *widget.Label) bool {
+		return strings.Contains(strings.ToLower(l.Text), "required") || strings.Contains(strings.ToLower(l.Text), "error")
+	})
+	s.True(found, "after tapping Save with empty fields, a validation error label should appear in the form")
+}
+
 func (s *SettingsInteractionSuite) TestAudioSliderOnChangedCallsPresenterSetVolume() {
 	root := s.sv.Container()
 
@@ -360,4 +376,23 @@ func (s *SettingsInteractionSuite) TestAudioSliderOnChangedCallsPresenterSetVolu
 
 	s.Equal(75, s.sp.Volume(),
 		"presenter volume should be updated to 75 after slider change")
+}
+
+func (s *SettingsInteractionSuite) TestSlackAddAccountSaveWithValidDataReplacesForm() {
+	root := s.sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	slackContent := tabs.Items[0].Content
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool { return b.Text == "Add Account" })
+	addBtn.OnTapped()
+	slackContent = tabs.Items[0].Content
+	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 3, "form should have at least 3 Entry widgets")
+	entries[0].SetText("xoxp-test-token") // Bot Token
+	entries[1].SetText("T12345")          // Workspace ID
+	entries[2].SetText("600")             // Poll Interval
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool { return b.Text == "Save" })
+	saveBtn.OnTapped()
+	slackContent = tabs.Items[0].Content
+	entriesAfterSave := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
+	s.Less(len(entriesAfterSave), 3, "after saving valid data, form should be replaced with account list (fewer than 3 Entry widgets)")
 }

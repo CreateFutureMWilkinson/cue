@@ -40,4 +40,5 @@ type MessageRepository interface {
 	QueryOldestToNewest(ctx context.Context, limit int) ([]*Message, error)
 	CountBySource(ctx context.Context, source string) (int, error)
 	ExistsByMessageID(ctx context.Context, messageID string) (bool, error)
+	MaxSourceCursor(ctx context.Context, source, sourceAccount, channel string) (string, error)
 }

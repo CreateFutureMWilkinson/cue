@@ -824,6 +824,54 @@ func (s *MessageRepoSuite) TestSourceCursorPersisted() {
 	s.Equal("1711500000.000100", got.SourceCursor, "SourceCursor should round-trip through insert and query")
 }
 
+// --- Feature 088: MaxSourceCursor ---
+
+func (s *MessageRepoSuite) TestMaxSourceCursorReturnsHighestCursor() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	// Insert 3 slack messages in channel "general" with different SourceCursor values.
+	msg1 := makeTestMessage("slack", "Notified", now)
+	msg1.SourceAccount = "workspace-1"
+	msg1.Channel = "general"
+	msg1.SourceCursor = "100"
+	s.Require().NoError(repo.Insert(ctx, msg1))
+
+	msg2 := makeTestMessage("slack", "Notified", now.Add(time.Second))
+	msg2.SourceAccount = "workspace-1"
+	msg2.Channel = "general"
+	msg2.SourceCursor = "300"
+	s.Require().NoError(repo.Insert(ctx, msg2))
+
+	msg3 := makeTestMessage("slack", "Notified", now.Add(2*time.Second))
+	msg3.SourceAccount = "workspace-1"
+	msg3.Channel = "general"
+	msg3.SourceCursor = "200"
+	s.Require().NoError(repo.Insert(ctx, msg3))
+
+	cursor, err := repo.MaxSourceCursor(ctx, "slack", "workspace-1", "general")
+	s.Require().NoError(err)
+	s.Equal("300", cursor, "MaxSourceCursor should return the highest cursor value")
+}
+
+func (s *MessageRepoSuite) TestMaxSourceCursorReturnsEmptyForNoMatches() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+
+	cursor, err := repo.MaxSourceCursor(ctx, "slack", "workspace-1", "general")
+	s.Require().NoError(err)
+	s.Equal("", cursor, "MaxSourceCursor should return empty string when no matching records exist")
+}
+
 func (s *MessageRepoSuite) TestQueryByID_CancelledContext_ReturnsContextError() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")

@@ -99,6 +99,10 @@ func (r *mockRepo) ExistsByMessageID(_ context.Context, messageID string) (bool,
 	return r.existingMsgIDs[messageID], nil
 }
 
+func (r *mockRepo) MaxSourceCursor(_ context.Context, _, _, _ string) (string, error) {
+	return "", nil
+}
+
 func (r *mockRepo) insertedCount() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -142,6 +142,10 @@ func (m *mockMsgRepo) ExistsByMessageID(_ context.Context, _ string) (bool, erro
 	return false, nil
 }
 
+func (m *mockMsgRepo) MaxSourceCursor(_ context.Context, _, _, _ string) (string, error) {
+	return "", nil
+}
+
 // mockScorer implements decisionengine.Scorer for testing.
 type mockScorer struct {
 	result *decisionengine.ScorerResult

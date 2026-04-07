@@ -414,6 +414,23 @@ func (s *SettingsInteractionSuite) TestTimerVolumeSlider() {
 		"timer volume label should update to reflect new slider value")
 }
 
+func (s *SettingsInteractionSuite) TestCalendarAddAccountShowsFormFields() {
+	root := s.sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	calendarContent := tabs.Items[2].Content
+	btn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool { return b.Text == "Add Account" })
+	btn.OnTapped()
+	calendarContent = tabs.Items[2].Content
+	entries := uitest.FindAll[*widget.Entry](calendarContent, func(_ *widget.Entry) bool { return true })
+	s.GreaterOrEqual(len(entries), 3, "after tapping Add Account, Calendar tab should contain at least 3 Entry widgets (Name, ICS URL, Poll Interval)")
+
+	_, foundSave := uitest.FindWidget[*widget.Button](calendarContent, func(b *widget.Button) bool { return b.Text == "Save" })
+	s.True(foundSave, "Calendar form should contain a 'Save' button")
+
+	_, foundCancel := uitest.FindWidget[*widget.Button](calendarContent, func(b *widget.Button) bool { return b.Text == "Cancel" })
+	s.True(foundCancel, "Calendar form should contain a 'Cancel' button")
+}
+
 func (s *SettingsInteractionSuite) TestSlackAddAccountSaveWithValidDataReplacesForm() {
 	root := s.sv.Container()
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })

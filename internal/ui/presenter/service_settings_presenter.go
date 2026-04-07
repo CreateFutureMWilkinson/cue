@@ -9,6 +9,13 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 )
 
+// Default poll intervals (in seconds) per service type.
+const (
+	DefaultSlackPollInterval    = 0 // stub: will be 60
+	DefaultEmailPollInterval    = 0 // stub: will be 600
+	DefaultCalendarPollInterval = 0 // stub: will be 600
+)
+
 // WatcherRemover is the minimal interface the presenter needs for managing watchers.
 type WatcherRemover interface {
 	RemoveWatcher(name string)

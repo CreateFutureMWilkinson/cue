@@ -1016,3 +1016,33 @@ func (s *ServiceSettingsSuite) TestToggleCalendarDisable() {
 	s.Require().NoError(err)
 	s.False(upsertedAcct.Enabled)
 }
+
+// --- Default poll interval tests ---
+
+func (s *ServiceSettingsSuite) TestDefaultPollIntervalConstants() {
+	s.Equal(60, presenter.DefaultSlackPollInterval, "Slack default poll interval should be 60 seconds")
+	s.Equal(600, presenter.DefaultEmailPollInterval, "Email default poll interval should be 600 seconds")
+	s.Equal(600, presenter.DefaultCalendarPollInterval, "Calendar default poll interval should be 600 seconds")
+}
+
+func (s *ServiceSettingsSuite) TestSaveSlackAccountAppliesDefaultPollInterval() {
+	acct := validSlackAccount()
+	acct.PollIntervalSeconds = 0 // zero means "use default"
+
+	var upsertedAcct *repository.SlackAccount
+	repo := &mockServiceConfigRepo{
+		upsertSlackFn: func(ctx context.Context, a *repository.SlackAccount) error {
+			upsertedAcct = a
+			return nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+	factory := func(accountType string, accountID uuid.UUID) error { return nil }
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	err := p.SaveSlackAccount(context.Background(), acct)
+
+	s.Require().NoError(err, "SaveSlackAccount should not error when PollIntervalSeconds is 0")
+	s.Require().NotNil(upsertedAcct, "upsert should have been called")
+	s.Equal(60, upsertedAcct.PollIntervalSeconds, "PollIntervalSeconds should be set to Slack default (60)")
+}

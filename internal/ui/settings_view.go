@@ -123,9 +123,12 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 // onSaved is called after a successful save to restore the account list view.
 func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved func()) *fyne.Container {
 	tokenEntry := widget.NewEntry()
-	tokenEntry.SetPlaceHolder("Bot Token")
+	tokenEntry.SetPlaceHolder("User OAuth Token (xoxp-...)")
+	tokenEntry.Password = true
 	workspaceEntry := widget.NewEntry()
 	workspaceEntry.SetPlaceHolder("Workspace ID")
+	usernameEntry := widget.NewEntry()
+	usernameEntry.SetPlaceHolder("Your Slack Username (@handle)")
 	pollEntry := widget.NewEntry()
 	pollEntry.SetPlaceHolder("Poll Interval (seconds)")
 
@@ -138,7 +141,7 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 	})
 
 	saveBtn.OnTapped = func() {
-		if tokenEntry.Text == "" || workspaceEntry.Text == "" || pollEntry.Text == "" {
+		if tokenEntry.Text == "" || workspaceEntry.Text == "" || usernameEntry.Text == "" || pollEntry.Text == "" {
 			errorLabel.SetText("All fields are required")
 			errorLabel.Show()
 			return
@@ -154,6 +157,7 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 			Enabled:             true,
 			Token:               tokenEntry.Text,
 			WorkspaceID:         workspaceEntry.Text,
+			Username:            usernameEntry.Text,
 			PollIntervalSeconds: poll,
 		}
 		if err := ssp.SaveSlackAccount(context.Background(), acct); err != nil {
@@ -169,6 +173,7 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 		widget.NewLabel("Add Slack Account"),
 		tokenEntry,
 		workspaceEntry,
+		usernameEntry,
 		pollEntry,
 		errorLabel,
 		container.NewHBox(saveBtn, cancelBtn),

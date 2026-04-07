@@ -56,6 +56,7 @@ type RouterConfig struct {
 	ImportanceThreshold       int     `toml:"importance_threshold"`
 	ConfidenceThreshold       float64 `toml:"confidence_threshold"`
 	BufferSizePerSource       int     `toml:"buffer_size_per_source"`
+	QueueWarningThreshold     int     `toml:"queue_warning_threshold"`
 	VectorEnabled             bool    `toml:"vector_enabled"`
 	VectorSimilarityThreshold float64 `toml:"vector_similarity_threshold"`
 	VectorTopN                int     `toml:"vector_top_n"`

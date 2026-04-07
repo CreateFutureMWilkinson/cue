@@ -1607,3 +1607,19 @@ func (s *ConfigSuite) TestOrchestratorOllamaCooldownDefault() {
 	s.Equal(10, cfg.Orchestrator.OllamaCooldownSeconds,
 		"default ollama_cooldown_seconds should be 10")
 }
+
+// ---------------------------------------------------------------------------
+// 29. TestQueueWarningThresholdDefault — default queue_warning_threshold is 50
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestQueueWarningThresholdDefault() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "nonexistent", "config.toml")
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	s.Equal(50, cfg.Orchestrator.Router.QueueWarningThreshold,
+		"default queue_warning_threshold should be 50")
+}

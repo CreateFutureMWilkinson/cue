@@ -49,7 +49,7 @@ _check_deps := if os == "macos" {
 }
 
 # Build the binary
-build:
+build: clean
     {{ if _check_deps == "missing" { "@ echo 'WARNING: Build dependencies not found. Run just deps to see install instructions.'" } else { "" } }}
     {{ if os == "linux" { if _wayland_build == "missing" { "@ echo 'WARNING: Wayland headers not found — binary will only support X11. Run just deps to install.'" } else { "" } } else { "" } }}
     {{ if os == "linux" { if _x11_build == "missing" { "@ echo 'WARNING: X11 headers not found — binary will only support Wayland. Run just deps to install.'" } else { "" } } else { "" } }}

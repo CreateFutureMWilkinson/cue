@@ -273,8 +273,16 @@ func (r *SQLiteMessageRepository) CountBySource(ctx context.Context, source stri
 }
 
 // ExistsByMessageID checks whether a message with the given source-native message ID exists.
-func (r *SQLiteMessageRepository) ExistsByMessageID(_ context.Context, _ string) (bool, error) {
-	return false, repository.ErrNotImplemented
+func (r *SQLiteMessageRepository) ExistsByMessageID(ctx context.Context, messageID string) (bool, error) {
+	var one int
+	err := r.db.QueryRowContext(ctx, "SELECT 1 FROM messages WHERE message_id = ? LIMIT 1", messageID).Scan(&one)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("exists by message id: %w", err)
+	}
+	return true, nil
 }
 
 // evictOldestIfNeeded performs FIFO eviction for the given source if at capacity.

@@ -244,6 +244,157 @@ func (s *SettingsAcceptanceSuite) TestSlackAddAccountSaveWithValidDataReplacesFo
 		"after saving valid data, form should be replaced with account list (fewer than 3 Entry widgets)")
 }
 
+// AC: Clicking "Add Account" in Calendar tab opens a form with entry fields.
+func (s *SettingsAcceptanceSuite) TestCalendarAddAccountShowsFormFields() {
+	sv := newSettingsView()
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	calendarContent := tabs.Items[2].Content
+
+	btn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	btn.OnTapped()
+
+	// Re-read tab content after tap
+	calendarContent = tabs.Items[2].Content
+
+	entries := uitest.FindAll[*widget.Entry](calendarContent, func(_ *widget.Entry) bool {
+		return true
+	})
+
+	s.GreaterOrEqual(len(entries), 3,
+		"after tapping Add Account, Calendar tab should contain at least 3 Entry widgets "+
+			"(name, ICS URL, poll interval)")
+}
+
+// AC: Submitting Calendar form with empty fields shows validation error.
+func (s *SettingsAcceptanceSuite) TestCalendarAddAccountValidationShowsError() {
+	sv := newSettingsView()
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	calendarContent := tabs.Items[2].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	addBtn.OnTapped()
+
+	// Re-read tab content after tap (form is now shown)
+	calendarContent = tabs.Items[2].Content
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool {
+		return b.Text == "Save"
+	})
+
+	// Tap Save with all entries empty
+	saveBtn.OnTapped()
+
+	// Re-read tab content after save tap (validation error should appear)
+	calendarContent = tabs.Items[2].Content
+
+	_, found := uitest.FindWidget[*widget.Label](calendarContent, func(l *widget.Label) bool {
+		return strings.Contains(strings.ToLower(l.Text), "required") ||
+			strings.Contains(strings.ToLower(l.Text), "error")
+	})
+
+	s.True(found, "after tapping Save with empty fields, a validation error label should appear in the form")
+}
+
+// AC: Submitting Calendar form with valid data replaces form with account list.
+func (s *SettingsAcceptanceSuite) TestCalendarAddAccountSaveWithValidDataReplacesForm() {
+	sv := newSettingsView()
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	calendarContent := tabs.Items[2].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	addBtn.OnTapped()
+
+	// Re-read tab content after tap (form is now shown)
+	calendarContent = tabs.Items[2].Content
+
+	entries := uitest.FindAll[*widget.Entry](calendarContent, func(_ *widget.Entry) bool {
+		return true
+	})
+	s.Require().GreaterOrEqual(len(entries), 3, "form should have at least 3 Entry widgets")
+
+	// Fill in all 3 fields with valid data
+	entries[0].SetText("Work Calendar")                    // Name
+	entries[1].SetText("https://example.com/calendar.ics") // ICS URL
+	entries[2].SetText("600")                              // Poll Interval
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool {
+		return b.Text == "Save"
+	})
+
+	saveBtn.OnTapped()
+
+	// Re-read tab content after save
+	calendarContent = tabs.Items[2].Content
+
+	entriesAfterSave := uitest.FindAll[*widget.Entry](calendarContent, func(_ *widget.Entry) bool {
+		return true
+	})
+
+	s.Less(len(entriesAfterSave), 3,
+		"after saving valid data, form should be replaced with account list (fewer than 3 Entry widgets)")
+}
+
+// AC: Clicking Cancel in Calendar form returns to list view without saving.
+func (s *SettingsAcceptanceSuite) TestCalendarAddAccountCancelReturnsToList() {
+	sv := newSettingsView()
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	calendarContent := tabs.Items[2].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	addBtn.OnTapped()
+
+	// Re-read tab content after tap (form is now shown)
+	calendarContent = tabs.Items[2].Content
+
+	cancelBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool {
+		return b.Text == "Cancel"
+	})
+
+	cancelBtn.OnTapped()
+
+	// Re-read tab content after cancel
+	calendarContent = tabs.Items[2].Content
+
+	// Should be back to list view with "Add Account" button
+	_, found := uitest.FindWidget[*widget.Button](calendarContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	s.True(found, "after tapping Cancel, calendar tab should show the account list with 'Add Account' button")
+}
+
 // AC: Each tab has non-nil content.
 func (s *SettingsAcceptanceSuite) TestEachTabHasContent() {
 	sv := newSettingsView()

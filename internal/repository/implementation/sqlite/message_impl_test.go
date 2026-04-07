@@ -783,6 +783,26 @@ func (s *MessageRepoSuite) TestQueryByID_UnknownID_ReturnsErrNotFound() {
 	s.Nil(got, "message should be nil for unknown ID")
 }
 
+// --- Feature: ExistsByMessageID ---
+
+func (s *MessageRepoSuite) TestExistsByMessageIDReturnsTrueForExistingMessage() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	msg := makeTestMessage("slack", "Notified", now)
+	msg.MessageID = "slack-exists-001"
+	s.Require().NoError(repo.Insert(ctx, msg))
+
+	exists, err := repo.ExistsByMessageID(ctx, "slack-exists-001")
+	s.NoError(err)
+	s.True(exists, "ExistsByMessageID should return true for an inserted message's MessageID")
+}
+
 func (s *MessageRepoSuite) TestQueryByID_CancelledContext_ReturnsContextError() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")

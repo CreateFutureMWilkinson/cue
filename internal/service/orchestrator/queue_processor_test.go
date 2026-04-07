@@ -107,6 +107,10 @@ func (m *mockMsgRepo) CountBySource(_ context.Context, _ string) (int, error) {
 	return 0, nil
 }
 
+func (m *mockMsgRepo) ExistsByMessageID(_ context.Context, _ string) (bool, error) {
+	return false, nil
+}
+
 // mockScorer implements decisionengine.Scorer for testing.
 type mockScorer struct {
 	result *decisionengine.ScorerResult

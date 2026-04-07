@@ -123,6 +123,10 @@ func (r *mockRepo) CountBySource(_ context.Context, _ string) (int, error) {
 	return 0, nil
 }
 
+func (r *mockRepo) ExistsByMessageID(_ context.Context, _ string) (bool, error) {
+	return false, nil
+}
+
 func (r *mockRepo) insertedCount() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()

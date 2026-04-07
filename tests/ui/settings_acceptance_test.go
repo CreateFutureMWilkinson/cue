@@ -130,6 +130,120 @@ func (s *SettingsAcceptanceSuite) TestDoneButtonCallsOnClose() {
 	s.True(closeCalled, "tapping Done should invoke onClose callback")
 }
 
+// AC: Clicking "Add Account" in Slack tab opens a form with entry fields.
+func (s *SettingsAcceptanceSuite) TestSlackAddAccountShowsFormFields() {
+	sv := newSettingsView()
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	slackContent := tabs.Items[0].Content
+
+	btn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	btn.OnTapped()
+
+	// Re-read tab content after tap
+	slackContent = tabs.Items[0].Content
+
+	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool {
+		return true
+	})
+
+	s.GreaterOrEqual(len(entries), 3,
+		"after tapping Add Account, Slack tab should contain at least 3 Entry widgets "+
+			"(bot token, workspace ID, poll interval)")
+}
+
+// AC: Submitting Slack form with empty fields shows validation error.
+func (s *SettingsAcceptanceSuite) TestSlackAddAccountValidationShowsError() {
+	sv := newSettingsView()
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	slackContent := tabs.Items[0].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	addBtn.OnTapped()
+
+	// Re-read tab content after tap (form is now shown)
+	slackContent = tabs.Items[0].Content
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
+		return b.Text == "Save"
+	})
+
+	// Tap Save with all entries empty
+	saveBtn.OnTapped()
+
+	// Re-read tab content after save tap (validation error should appear)
+	slackContent = tabs.Items[0].Content
+
+	_, found := uitest.FindWidget[*widget.Label](slackContent, func(l *widget.Label) bool {
+		return strings.Contains(strings.ToLower(l.Text), "required") ||
+			strings.Contains(strings.ToLower(l.Text), "error")
+	})
+
+	s.True(found, "after tapping Save with empty fields, a validation error label should appear in the form")
+}
+
+// AC: Submitting Slack form with valid data replaces form with account list.
+func (s *SettingsAcceptanceSuite) TestSlackAddAccountSaveWithValidDataReplacesForm() {
+	sv := newSettingsView()
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	slackContent := tabs.Items[0].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	addBtn.OnTapped()
+
+	// Re-read tab content after tap (form is now shown)
+	slackContent = tabs.Items[0].Content
+
+	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool {
+		return true
+	})
+	s.Require().GreaterOrEqual(len(entries), 3, "form should have at least 3 Entry widgets")
+
+	// Fill in all 3 fields with valid data
+	entries[0].SetText("xoxp-test-token")  // Bot Token
+	entries[1].SetText("T12345")           // Workspace ID
+	entries[2].SetText("600")              // Poll Interval
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
+		return b.Text == "Save"
+	})
+
+	saveBtn.OnTapped()
+
+	// Re-read tab content after save
+	slackContent = tabs.Items[0].Content
+
+	entriesAfterSave := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool {
+		return true
+	})
+
+	s.Less(len(entriesAfterSave), 3,
+		"after saving valid data, form should be replaced with account list (fewer than 3 Entry widgets)")
+}
+
 // AC: Each tab has non-nil content.
 func (s *SettingsAcceptanceSuite) TestEachTabHasContent() {
 	sv := newSettingsView()

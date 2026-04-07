@@ -208,7 +208,8 @@ func run() error {
 	// Create orchestrator with zero watchers (populated dynamically from DB).
 	orch, err := orchestrator.NewOrchestrator(
 		orchestrator.OrchestratorConfig{
-			PollIntervalSeconds: cfg.Orchestrator.PollIntervalSeconds,
+			PollIntervalSeconds:   cfg.Orchestrator.PollIntervalSeconds,
+			QueueWarningThreshold: cfg.Orchestrator.Router.QueueWarningThreshold,
 		},
 		rulesEngine,
 		queueRepo,

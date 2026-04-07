@@ -222,6 +222,18 @@ func (o *Orchestrator) PollOnce(ctx context.Context) {
 			}
 		}
 	}
+
+	// Step 6: Queue health check.
+	if o.cfg.QueueWarningThreshold > 0 {
+		depth, err := o.queueRepo.PendingCount(ctx)
+		if err != nil {
+			o.emitEvent("queue", fmt.Sprintf("pending count error: %v", err), true)
+		} else if depth > o.cfg.QueueWarningThreshold {
+			o.emitEvent("queue", fmt.Sprintf("⚠ Ollama queue depth: %d — consider adding routing rules", depth), false)
+		} else {
+			o.emitEvent("queue", fmt.Sprintf("Ollama queue depth: %d", depth), false)
+		}
+	}
 }
 
 // Start launches background polling loops. It performs an immediate first poll,

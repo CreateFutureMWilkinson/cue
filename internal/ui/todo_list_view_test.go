@@ -3,11 +3,13 @@ package ui_test
 import (
 	"testing"
 
+	"fyne.io/fyne/v2/widget"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/uitest"
 )
 
 // --- Mock TodoListViewModel ---
@@ -226,6 +228,28 @@ func (s *TodoListViewSuite) TestEmptyTitlePreventsAdd() {
 	view.AddItem("", 1)
 
 	s.vm.AssertNotCalled(s.T(), "AddTask", mock.Anything, mock.Anything)
+}
+
+func (s *TodoListViewSuite) TestContainerHasEntryField() {
+	s.vm.On("AllTodos").Return([]ui.TodoListRow{}).Maybe()
+
+	view := ui.NewTodoListView(s.vm)
+
+	_, found := uitest.FindWidget[*widget.Entry](view.Container(), func(e *widget.Entry) bool {
+		return true
+	})
+	s.True(found, "Container should contain a *widget.Entry for inline task creation")
+}
+
+func (s *TodoListViewSuite) TestContainerHasAddButton() {
+	s.vm.On("AllTodos").Return([]ui.TodoListRow{}).Maybe()
+
+	view := ui.NewTodoListView(s.vm)
+
+	_, found := uitest.FindWidget[*widget.Button](view.Container(), func(b *widget.Button) bool {
+		return b.Text == "Add"
+	})
+	s.True(found, "Container should contain a *widget.Button with Text==\"Add\"")
 }
 
 func (s *TodoListViewSuite) TestRefreshUpdatesListFromViewModel() {

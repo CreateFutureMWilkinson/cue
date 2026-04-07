@@ -56,6 +56,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 024A | Wayland thread-safety in UAT harness | Done | [Feature-024A](features/phase-3/Feature-024A-Wayland-Thread-Safety.md) |
 | 024B | Fairy refresh thread safety | Done | [Feature-024B](features/phase-3/Feature-024B-Fairy-Refresh-Thread-Safety.md) |
 | 024C | refreshFunc wiring (movement animations) | Done | [Feature-024C](features/phase-3/Feature-024C-RefreshFunc-Wiring.md) |
+| 024D | Direct refresh removal (thread-safety fix) | Done | [Feature-024D](features/phase-3/Feature-024D-Direct-Refresh-Removal.md) |
 | 025 | Jar rendering (SVG layers, fairy body/glow) | Done | [Feature-025](features/phase-3/Feature-025-Jar-Rendering.md) |
 | 025A | Animator wiring in FairyCharacter | Done | [Feature-025A](features/phase-3/Feature-025A-Animator-Wiring.md) |
 | 026 | Fairy idle state (breathing glow) | Done | [Feature-026](features/phase-3/Feature-026-Fairy-Idle-State.md) |
@@ -127,3 +128,8 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 072 | Wizard step 3 Up/Down reorder buttons are noops | Bugfix | Medium | Done | 071 | [Feature-072](features/phase-6/Feature-072-Wizard-Reorder-Buttons.md) |
 | 073 | PlannerView navigation buttons not wired | Bugfix | High | Done | 071 | [Feature-073](features/phase-6/Feature-073-PlannerView-Button-Wiring.md) |
 | 070A | Activity log button fills entire center panel | Bugfix | Medium | Done | 070 | [Feature-070A](features/phase-6/Feature-070A-Activity-Log-Button-Layout.md) |
+| 065A | Calendar Add Account form is noop | Bugfix | Medium | Planned | 065 | [Feature-065A](features/phase-6/Feature-065A-Calendar-Add-Account-Form.md) |
+| 067A | Email encryption setting missing | Bugfix | High | Planned | 067 | [Feature-067A](features/phase-6/Feature-067A-Email-Encryption-Setting.md) |
+| 068A | Slack user authentication (bot→user token) | Bugfix | High | Planned | 068 | [Feature-068A](features/phase-6/Feature-068A-Slack-User-Authentication.md) |
+| 075 | WASM character plugins | Feature | — | Planned | 014, 041 | [Feature-075](features/phase-7/Feature-075-WASM-Character-Plugins.md) |
+| 076 | Integrated character UAT mode | Refactor | — | Planned | 075 | [Feature-076](features/phase-7/Feature-076-Integrated-Character-UAT.md) |

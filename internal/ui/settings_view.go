@@ -178,7 +178,17 @@ func createCalendarAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved 
 	})
 
 	saveBtn.OnTapped = func() {
-		// Validation and save logic will be added in a later micro-loop
+		if nameEntry.Text == "" || urlEntry.Text == "" || pollEntry.Text == "" {
+			errorLabel.SetText("All fields are required")
+			errorLabel.Show()
+			return
+		}
+		_, err := strconv.Atoi(pollEntry.Text)
+		if err != nil {
+			errorLabel.SetText("Poll interval must be a number")
+			errorLabel.Show()
+			return
+		}
 	}
 
 	return container.NewVBox(

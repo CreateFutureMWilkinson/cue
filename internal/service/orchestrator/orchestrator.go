@@ -239,6 +239,11 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 	}
 
 	o.wg.Go(func() {
+		// Import baseline messages before first poll.
+		if err := o.ImportBaseline(ctx); err != nil {
+			o.emitEvent("system", fmt.Sprintf("import baseline error: %v", err), true)
+		}
+
 		// Immediate first poll
 		o.PollOnce(ctx)
 

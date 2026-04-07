@@ -923,3 +923,64 @@ func (s *SettingsAcceptanceSuite) TestSlackValidationSuccessSavesAndReturnsToLis
 
 	s.Len(repo.slackAccounts, 1, "one Slack account should be persisted after successful validation")
 }
+
+// AC: Slack "Add Account" form includes token setup instructions with required OAuth scopes.
+func (s *SettingsAcceptanceSuite) TestSlackFormContainsTokenInstructions() {
+	sv := newSettingsView()
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	slackContent := tabs.Items[0].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+	addBtn.OnTapped()
+
+	slackContent = tabs.Items[0].Content
+
+	// Verify an Accordion widget exists with token instructions.
+	acc, found := uitest.FindWidget[*widget.Accordion](slackContent, func(_ *widget.Accordion) bool {
+		return true
+	})
+	s.True(found, "Slack Add Account form should contain an Accordion widget with token setup instructions")
+
+	// Verify the accordion has at least one item mentioning token setup.
+	s.Require().GreaterOrEqual(len(acc.Items), 1, "Accordion should have at least one item")
+	s.Contains(acc.Items[0].Title, "token",
+		"Accordion item title should mention 'token'")
+
+	// Verify required OAuth scopes are listed in the accordion detail.
+	detail := acc.Items[0].Detail
+	requiredScopes := []string{
+		"channels:history",
+		"channels:read",
+		"groups:history",
+		"groups:read",
+		"im:history",
+		"im:read",
+		"mpim:history",
+		"mpim:read",
+		"users:read",
+	}
+	for _, scope := range requiredScopes {
+		_, scopeFound := uitest.FindWidget[*widget.Label](detail, func(l *widget.Label) bool {
+			return strings.Contains(l.Text, scope)
+		})
+		if !scopeFound {
+			// Also check RichText widgets.
+			_, scopeFound = uitest.FindWidget[*widget.RichText](detail, func(r *widget.RichText) bool {
+				for _, seg := range r.Segments {
+					if ts, ok := seg.(*widget.TextSegment); ok && strings.Contains(ts.Text, scope) {
+						return true
+					}
+				}
+				return false
+			})
+		}
+		s.True(scopeFound, "Accordion detail should list required scope: %s", scope)
+	}
+}

@@ -26,6 +26,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/planner"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/validation"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/vector"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
@@ -296,8 +297,13 @@ func run() error {
 		return nil
 	}
 
-	// Create service settings presenter.
-	serviceSettingsPresenter := presenter.NewServiceSettingsPresenter(serviceConfigRepo, orch, watcherFactory)
+	// Create service settings presenter with credential validators.
+	serviceSettingsPresenter := presenter.NewServiceSettingsPresenter(
+		serviceConfigRepo, orch, watcherFactory,
+		presenter.WithSlackValidator(validation.NewSlackAPIValidator()),
+		presenter.WithEmailValidator(validation.NewIMAPValidator()),
+		presenter.WithCalendarValidator(validation.NewICSValidator()),
+	)
 
 	// === Phase 2: Day Planner Subsystem ===
 

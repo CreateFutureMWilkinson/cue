@@ -225,12 +225,12 @@ func (s *SettingsAcceptanceSuite) TestSlackAddAccountSaveWithValidDataReplacesFo
 	s.Require().GreaterOrEqual(len(entries), 6, "form should have at least 6 Entry widgets")
 
 	// Fill in all 6 fields with valid data
-	entries[0].SetText("My Slack")         // Friendly Name
+	entries[0].SetText("My Slack")          // Friendly Name
 	entries[1].SetText("https://slack.com") // Web URL
-	entries[2].SetText("xoxp-test-token")  // User OAuth Token
-	entries[3].SetText("T12345")           // Workspace ID
-	entries[4].SetText("testuser")         // Username
-	entries[5].SetText("600")              // Poll Interval
+	entries[2].SetText("xoxp-test-token")   // User OAuth Token
+	entries[3].SetText("T12345")            // Workspace ID
+	entries[4].SetText("testuser")          // Username
+	entries[5].SetText("600")               // Poll Interval
 
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
 		return b.Text == "Save"
@@ -454,7 +454,7 @@ func (s *SettingsAcceptanceSuite) TestEmailFormSaveIncludesEncryption() {
 	})
 	s.Require().GreaterOrEqual(len(entries), 7, "form should have at least 7 Entry widgets")
 
-	entries[0].SetText("Work Email")              // Friendly Name
+	entries[0].SetText("Work Email")               // Friendly Name
 	entries[1].SetText("https://mail.example.com") // Web URL
 	entries[2].SetText("imap.example.com")         // IMAP Host
 	entries[3].SetText("993")                      // IMAP Port
@@ -669,8 +669,8 @@ func (s *SettingsAcceptanceSuite) TestEmailAccountAppearsAfterSave() {
 	emailContent = tabs.Items[1].Content
 	entries := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool { return true })
 	s.Require().GreaterOrEqual(len(entries), 7)
-	entries[0].SetText("Test Email")              // Friendly Name
-	entries[1].SetText("https://mail.test.com")   // Web URL
+	entries[0].SetText("Test Email")            // Friendly Name
+	entries[1].SetText("https://mail.test.com") // Web URL
 	entries[2].SetText("imap.test.com")
 	entries[3].SetText("993")
 	entries[4].SetText("new@test.com")
@@ -765,8 +765,8 @@ func (s *SettingsAcceptanceSuite) TestSlackValidationFailureKeepsFormOpen() {
 	slackContent = tabs.Items[0].Content
 	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
 	s.Require().GreaterOrEqual(len(entries), 6)
-	entries[0].SetText("Bad Slack")          // Friendly Name
-	entries[1].SetText("https://slack.com")  // Web URL
+	entries[0].SetText("Bad Slack")         // Friendly Name
+	entries[1].SetText("https://slack.com") // Web URL
 	entries[2].SetText("xoxp-bad-token")
 	entries[3].SetText("T12345")
 	entries[4].SetText("testuser")
@@ -812,8 +812,8 @@ func (s *SettingsAcceptanceSuite) TestEmailValidationFailureKeepsFormOpen() {
 	emailContent = tabs.Items[1].Content
 	entries := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool { return true })
 	s.Require().GreaterOrEqual(len(entries), 7)
-	entries[0].SetText("Fail Email")                // Friendly Name
-	entries[1].SetText("https://mail.example.com")  // Web URL
+	entries[0].SetText("Fail Email")               // Friendly Name
+	entries[1].SetText("https://mail.example.com") // Web URL
 	entries[2].SetText("imap.example.com")
 	entries[3].SetText("993")
 	entries[4].SetText("user@example.com")
@@ -898,8 +898,8 @@ func (s *SettingsAcceptanceSuite) TestSlackValidationSuccessSavesAndReturnsToLis
 	slackContent = tabs.Items[0].Content
 	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
 	s.Require().GreaterOrEqual(len(entries), 6)
-	entries[0].SetText("Valid Slack")        // Friendly Name
-	entries[1].SetText("https://slack.com")  // Web URL
+	entries[0].SetText("Valid Slack")       // Friendly Name
+	entries[1].SetText("https://slack.com") // Web URL
 	entries[2].SetText("xoxp-valid-token")
 	entries[3].SetText("T-VALID")
 	entries[4].SetText("validuser")

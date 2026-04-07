@@ -49,6 +49,7 @@ type NotificationCard struct {
 	Opacity         float64
 	FriendlyName    string
 	DisplayLine     string
+	WebURL          string
 }
 
 // FormatDisplayLine produces a source-appropriate display line for a notification card.

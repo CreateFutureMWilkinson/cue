@@ -16,13 +16,25 @@ import (
 
 // NotificationPanel is the redesigned notification panel widget.
 type NotificationPanel struct {
-	presenter *presenter.NotificationPresenter
-	window    fyne.Window
-	root      fyne.CanvasObject
+	presenter           *presenter.NotificationPresenter
+	window              fyne.Window
+	root                fyne.CanvasObject
+	onNotificationClick func(url string)
+}
+
+// SetOnNotificationClick sets a callback invoked with the notification's WebURL
+// when a notification list item is selected.
+func (p *NotificationPanel) SetOnNotificationClick(fn func(url string)) {
+	p.onNotificationClick = fn
 }
 
 // NewNotificationPanel creates a new notification panel.
 func NewNotificationPanel(np *presenter.NotificationPresenter, win fyne.Window) *NotificationPanel {
+	panel := &NotificationPanel{
+		presenter: np,
+		window:    win,
+	}
+
 	// Create the notification list widget
 	list := widget.NewList(
 		func() int {
@@ -74,8 +86,20 @@ func NewNotificationPanel(np *presenter.NotificationPresenter, win fyne.Window) 
 		},
 	)
 
-	// Add click handler for detail dialog
+	// Add click handler: invoke onNotificationClick if set, otherwise show detail dialog
 	list.OnSelected = func(id widget.ListItemID) {
+		cards := np.Cards()
+		if id >= len(cards) {
+			return
+		}
+		card := cards[id]
+
+		if panel.onNotificationClick != nil {
+			panel.onNotificationClick(card.WebURL)
+			list.UnselectAll()
+			return
+		}
+
 		detail, err := np.Select(id)
 		if err != nil {
 			return
@@ -111,11 +135,8 @@ func NewNotificationPanel(np *presenter.NotificationPresenter, win fyne.Window) 
 	header := container.NewHBox(headerLabel, expandBtn)
 	root := container.NewBorder(header, nil, nil, nil, list)
 
-	return &NotificationPanel{
-		presenter: np,
-		window:    win,
-		root:      root,
-	}
+	panel.root = root
+	return panel
 }
 
 // IsExpanded delegates to the presenter's IsExpanded.

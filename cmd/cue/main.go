@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -389,7 +390,19 @@ func run() error {
 
 	// Create character from config, with fallback to "none".
 	character.Register("fairy", func() character.Character {
-		return fairy.NewFairyCharacter()
+		f := fairy.NewFairyCharacter()
+		// Coalesced refresh: multiple SetPosition/SetBodyColor/SetGlowIntensity calls
+		// per frame mark dirty, but ForceRefresh runs at most once per 16ms via fyne.Do.
+		var dirty atomic.Bool
+		f.SetRefreshHook(func() {
+			if dirty.CompareAndSwap(false, true) {
+				fyne.Do(func() {
+					dirty.Store(false)
+					f.ForceRefresh()
+				})
+			}
+		})
+		return f
 	})
 	// Discover and register WASM character plugins from the configured directory.
 	if err := wasmhost.RegisterDiscoveredPlugins(cfg.GUI.CharacterDir); err != nil {

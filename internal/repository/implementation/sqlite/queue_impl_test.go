@@ -1,10 +1,12 @@
 package sqlite_test
 
 import (
+	"context"
 	"database/sql"
 	"path/filepath"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
@@ -58,6 +60,35 @@ func (s *QueueRepositorySuite) TearDownTest() {
 
 func (s *QueueRepositorySuite) TestConstructorReturnsNonNilRepository() {
 	s.NotNil(s.repo)
+}
+
+func (s *QueueRepositorySuite) TestEnqueueInsertsEntryWithPendingStatus() {
+	ctx := context.Background()
+	messageID := uuid.New()
+
+	// Insert a message row to satisfy the foreign key constraint.
+	_, err := s.db.Exec("INSERT INTO messages (id) VALUES (?)", messageID.String())
+	s.Require().NoError(err)
+
+	// Enqueue the message.
+	err = s.repo.Enqueue(ctx, messageID)
+	s.Require().NoError(err)
+
+	// Query the ollama_queue table directly to verify the entry.
+	var id, msgID, status, enqueuedAt string
+	err = s.db.QueryRow(
+		"SELECT id, message_id, status, enqueued_at FROM ollama_queue WHERE message_id = ?",
+		messageID.String(),
+	).Scan(&id, &msgID, &status, &enqueuedAt)
+	s.Require().NoError(err, "expected one row in ollama_queue")
+
+	s.Equal(messageID.String(), msgID)
+	s.Equal("pending", status)
+	s.NotEmpty(enqueuedAt)
+
+	// Verify id is a valid UUID.
+	_, err = uuid.Parse(id)
+	s.NoError(err, "id should be a valid UUID")
 }
 
 // Compile-time interface satisfaction check.

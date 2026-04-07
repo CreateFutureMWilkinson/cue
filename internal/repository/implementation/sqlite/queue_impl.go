@@ -39,7 +39,16 @@ func NewSQLiteQueueRepository(db *sql.DB) (*SQLiteQueueRepository, error) {
 }
 
 func (r *SQLiteQueueRepository) Enqueue(ctx context.Context, messageID uuid.UUID) error {
-	return repository.ErrNotImplemented
+	id := uuid.New()
+	enqueuedAt := time.Now().UTC().Format(time.RFC3339)
+	_, err := r.db.ExecContext(ctx,
+		"INSERT INTO ollama_queue (id, message_id, enqueued_at, status) VALUES (?, ?, ?, ?)",
+		id.String(), messageID.String(), enqueuedAt, "pending",
+	)
+	if err != nil {
+		return fmt.Errorf("enqueue message %s: %w", messageID, err)
+	}
+	return nil
 }
 
 func (r *SQLiteQueueRepository) DequeueOldest(ctx context.Context) (*repository.QueueEntry, error) {

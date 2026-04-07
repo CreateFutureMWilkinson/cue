@@ -10,6 +10,7 @@ const (
 	StatusNotified = "Notified"
 	StatusBuffered = "Buffered"
 	StatusIgnored  = "Ignored"
+	StatusImported = "" // stub: not yet implemented
 )
 
 // Deterministic rule constants

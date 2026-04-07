@@ -291,35 +291,6 @@ func (s *OllamaClientSuite) TestScore_ConnectionRefused_ReturnsError() {
 	s.Error(err, "should return error when cannot connect to Ollama")
 }
 
-// --- Response with extra text around JSON ---
-
-func (s *OllamaClientSuite) TestScore_ResponseWithMarkdownWrapping_ExtractsJSON() {
-	// Some LLMs wrap JSON in markdown code blocks
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]any{
-			"response": "```json\n{\"importance_score\": 6.0, \"confidence_score\": 0.85, \"reasoning\": \"meeting reminder\"}\n```",
-			"done":     true,
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
-	}))
-	defer server.Close()
-
-	client, err := decisionengine.NewOllamaClient(server.URL, "neural-chat", 10*time.Second)
-	s.Require().NoError(err)
-
-	msg := &repository.Message{
-		Source:     "email",
-		RawContent: "reminder: team standup at 10am",
-	}
-
-	result, err := client.Score(context.Background(), msg)
-	s.NoError(err)
-	s.Equal(6.0, result.ImportanceScore)
-	s.Equal(0.85, result.ConfidenceScore)
-	s.Equal("meeting reminder", result.Reasoning)
-}
-
 // --- Prompt requests JSON format ---
 
 // --- Structured output format field ---

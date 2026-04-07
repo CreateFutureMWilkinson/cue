@@ -67,7 +67,9 @@ type PlannerView struct {
 }
 
 // NewPlannerView creates a new PlannerView bound to the given view models.
-func NewPlannerView(plannerModel PlannerViewModel, timerModel TimerViewModel, router *CenterViewRouter) *PlannerView {
+// The todoVM parameter, when non-nil, provides the data source for the trailing
+// todo list pane in the horizontal split layout.
+func NewPlannerView(plannerModel PlannerViewModel, timerModel TimerViewModel, router *CenterViewRouter, todoVM TodoListViewModel) *PlannerView {
 	v := &PlannerView{
 		plannerModel: plannerModel,
 		timerModel:   timerModel,

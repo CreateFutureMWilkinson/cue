@@ -61,7 +61,7 @@ func (s *PlanViewAcceptanceSuite) TestPlanViewIsNotPlaceholder() {
 func (s *PlanViewAcceptanceSuite) TestPlanViewContainsSplit() {
 	router := ui.NewCenterViewRouter()
 	vm := &stubPlannerTimerVM{}
-	pv := ui.NewPlannerView(vm, vm, router)
+	pv := ui.NewPlannerView(vm, vm, router, vm)
 	root := pv.Container()
 
 	split, found := uitest.FindWidget[*container.Split](root, func(sp *container.Split) bool {
@@ -77,7 +77,7 @@ func (s *PlanViewAcceptanceSuite) TestPlanViewContainsSplit() {
 func (s *PlanViewAcceptanceSuite) TestNoPlanStateShowsPlanMyDayButton() {
 	router := ui.NewCenterViewRouter()
 	vm := &stubPlannerTimerVM{hasActivePlan: false}
-	pv := ui.NewPlannerView(vm, vm, router)
+	pv := ui.NewPlannerView(vm, vm, router, vm)
 	root := pv.Container()
 
 	_, found := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
@@ -91,7 +91,7 @@ func (s *PlanViewAcceptanceSuite) TestNoPlanStateShowsPlanMyDayButton() {
 func (s *PlanViewAcceptanceSuite) TestNoPlanStateShowsPlaceholderText() {
 	router := ui.NewCenterViewRouter()
 	vm := &stubPlannerTimerVM{hasActivePlan: false}
-	pv := ui.NewPlannerView(vm, vm, router)
+	pv := ui.NewPlannerView(vm, vm, router, vm)
 
 	validMessages := []string{
 		"Who even knows",
@@ -125,7 +125,7 @@ func (s *PlanViewAcceptanceSuite) TestActivePlanShowsAbandonButton() {
 			CurrentIndex: 0,
 		},
 	}
-	pv := ui.NewPlannerView(vm, vm, router)
+	pv := ui.NewPlannerView(vm, vm, router, vm)
 	root := pv.Container()
 
 	_, found := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
@@ -139,7 +139,7 @@ func (s *PlanViewAcceptanceSuite) TestActivePlanShowsAbandonButton() {
 func (s *PlanViewAcceptanceSuite) TestPlanViewContainsTodoSection() {
 	router := ui.NewCenterViewRouter()
 	vm := &stubPlannerTimerVM{hasActivePlan: false}
-	pv := ui.NewPlannerView(vm, vm, router)
+	pv := ui.NewPlannerView(vm, vm, router, vm)
 	root := pv.Container()
 
 	// The todo list section should be in the split's trailing area.
@@ -153,7 +153,7 @@ func (s *PlanViewAcceptanceSuite) TestPlanViewContainsTodoSection() {
 func (s *PlanViewAcceptanceSuite) TestTodoListHasInlineCreation() {
 	router := ui.NewCenterViewRouter()
 	vm := &stubPlannerTimerVM{hasActivePlan: false}
-	pv := ui.NewPlannerView(vm, vm, router)
+	pv := ui.NewPlannerView(vm, vm, router, vm)
 	root := pv.Container()
 
 	// Find Add button.
@@ -167,7 +167,7 @@ func (s *PlanViewAcceptanceSuite) TestTodoListHasInlineCreation() {
 func (s *PlanViewAcceptanceSuite) TestTodoListHasEntryFields() {
 	router := ui.NewCenterViewRouter()
 	vm := &stubPlannerTimerVM{hasActivePlan: false}
-	pv := ui.NewPlannerView(vm, vm, router)
+	pv := ui.NewPlannerView(vm, vm, router, vm)
 	root := pv.Container()
 
 	entries := uitest.FindAll[*widget.Entry](root, func(_ *widget.Entry) bool {
@@ -203,7 +203,7 @@ func (s *PlanViewAcceptanceSuite) TestPlanViewContentNotNilWithTasks() {
 			{Title: "Test task", Priority: 1},
 		},
 	}
-	pv := ui.NewPlannerView(vm, vm, router)
+	pv := ui.NewPlannerView(vm, vm, router, vm)
 	root := pv.Container()
 
 	s.NotNil(root, "plan view with tasks should have non-nil content")

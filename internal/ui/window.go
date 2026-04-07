@@ -105,7 +105,7 @@ func NewMainWindow(
 	// Build planner view content.
 	var planContent fyne.CanvasObject
 	if plannerVM != nil && timerVM != nil {
-		pv := NewPlannerView(plannerVM, timerVM, viewRouter)
+		pv := NewPlannerView(plannerVM, timerVM, viewRouter, nil)
 		planContent = pv.Container()
 	} else {
 		planContent = widget.NewLabel("Plan")

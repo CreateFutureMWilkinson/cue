@@ -55,7 +55,7 @@ func LoadPlugin(wasmBytes []byte, canvas CanvasHost) (*WASMCharacterHost, error)
 	hostMod := rt.NewHostModuleBuilder(HostModuleName)
 	hostMod.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, id int32, x, y, diameter float64, r, g, b, a int32) {
-			canvas.SetCircle(id, x, y, diameter, uint8(r), uint8(g), uint8(b), uint8(a))
+			canvas.SetCircle(id, x, y, diameter, uint8(r), uint8(g), uint8(b), uint8(a)) // #nosec G115 — WASM ABI color values are always 0-255
 		}).Export(ImportHostSetCircle)
 	hostMod.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, id int32) {
@@ -67,7 +67,7 @@ func LoadPlugin(wasmBytes []byte, canvas CanvasHost) (*WASMCharacterHost, error)
 			if mod == nil {
 				return
 			}
-			data, ok := mod.Memory().Read(uint32(ptr), uint32(length))
+			data, ok := mod.Memory().Read(uint32(ptr), uint32(length)) // #nosec G115 — WASM i32 values are non-negative by ABI contract
 			if !ok {
 				return
 			}
@@ -84,7 +84,7 @@ func LoadPlugin(wasmBytes []byte, canvas CanvasHost) (*WASMCharacterHost, error)
 		}).Export(ImportHostLog)
 
 	if _, err := hostMod.Instantiate(ctx); err != nil {
-		rt.Close(ctx)
+		_ = rt.Close(ctx) // #nosec G104 — best-effort cleanup
 		cancel()
 		return nil, fmt.Errorf("instantiating host module: %w", err)
 	}
@@ -92,7 +92,7 @@ func LoadPlugin(wasmBytes []byte, canvas CanvasHost) (*WASMCharacterHost, error)
 	// Compile the guest module.
 	compiled, err := rt.CompileModule(ctx, wasmBytes)
 	if err != nil {
-		rt.Close(ctx)
+		_ = rt.Close(ctx) // #nosec G104 — best-effort cleanup
 		cancel()
 		return nil, fmt.Errorf("compiling WASM module: %w", err)
 	}
@@ -103,7 +103,7 @@ func LoadPlugin(wasmBytes []byte, canvas CanvasHost) (*WASMCharacterHost, error)
 	modConfig := wazero.NewModuleConfig().WithStartFunctions("_initialize")
 	mod, err := rt.InstantiateModule(ctx, compiled, modConfig)
 	if err != nil {
-		rt.Close(ctx)
+		_ = rt.Close(ctx) // #nosec G104 — best-effort cleanup
 		cancel()
 		return nil, fmt.Errorf("instantiating WASM module: %w", err)
 	}
@@ -112,7 +112,7 @@ func LoadPlugin(wasmBytes []byte, canvas CanvasHost) (*WASMCharacterHost, error)
 	// Read the plugin name from the guest.
 	name, err := host.readPluginName()
 	if err != nil {
-		rt.Close(ctx)
+		_ = rt.Close(ctx) // #nosec G104 — best-effort cleanup
 		cancel()
 		return nil, fmt.Errorf("reading plugin name: %w", err)
 	}
@@ -169,7 +169,7 @@ func (h *WASMCharacterHost) TransitionTo(state character.CharacterState) {
 	if fn == nil {
 		return
 	}
-	_, _ = fn.Call(h.ctx, uint64(state))
+	_, _ = fn.Call(h.ctx, uint64(state)) // #nosec G115 — CharacterState is a small enum (0-5)
 }
 
 // CurrentState returns the current state as reported by the WASM plugin.
@@ -185,7 +185,7 @@ func (h *WASMCharacterHost) CurrentState() character.CharacterState {
 	if err != nil || len(results) == 0 {
 		return h.state
 	}
-	return character.CharacterState(results[0])
+	return character.CharacterState(results[0]) // #nosec G115 — CharacterState is a small enum (0-5)
 }
 
 // Tick advances the plugin animation by the given number of elapsed milliseconds
@@ -198,7 +198,7 @@ func (h *WASMCharacterHost) Tick(elapsedMs int64) bool {
 	if fn == nil {
 		return false
 	}
-	results, err := fn.Call(h.ctx, uint64(elapsedMs))
+	results, err := fn.Call(h.ctx, uint64(elapsedMs)) // #nosec G115 — elapsed time is always non-negative
 	if err != nil || len(results) == 0 {
 		return false
 	}

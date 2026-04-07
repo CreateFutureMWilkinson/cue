@@ -56,7 +56,7 @@ func RegisterDiscoveredPlugins(dir string) error {
 		pluginName := plugin.Name
 
 		character.Register(pluginName, func() character.Character {
-			wasmBytes, err := os.ReadFile(pluginPath)
+			wasmBytes, err := os.ReadFile(pluginPath) // #nosec G304 — path comes from configured plugin directory
 			if err != nil {
 				log.Printf("WARNING: failed to read WASM plugin %s: %v", pluginPath, err)
 				return character.NewNoOpCharacter()

@@ -30,7 +30,7 @@ func newAccountTab(title string, onAdd func()) *container.TabItem {
 	return container.NewTabItem(title, content)
 }
 
-// NewSettingsView creates a SettingsView with tabs for Slack, Email, Audio, and Ollama.
+// NewSettingsView creates a SettingsView with tabs for Slack, Email, Calendar, Audio, and Ollama.
 // The onClose callback is invoked when the user taps the Done button to exit settings.
 func NewSettingsView(
 	sp *presenter.SettingsPresenter,
@@ -40,6 +40,7 @@ func NewSettingsView(
 ) *SettingsView {
 	slackTab := newAccountTab("Slack", func() {})
 	emailTab := newAccountTab("Email", func() {})
+	calendarTab := newAccountTab("Calendar", func() {})
 	volumeLabel := widget.NewLabel(fmt.Sprintf("Notification Volume: %d%%", sp.Volume()))
 	volumeSlider := &widget.Slider{
 		Min:   0,
@@ -68,7 +69,6 @@ func NewSettingsView(
 	)
 	ollamaTab := container.NewTabItem("Ollama", ollamaContent)
 
-	calendarTab := newAccountTab("Calendar", func() {})
 	tabs := container.NewAppTabs(slackTab, emailTab, calendarTab, audioTab, ollamaTab)
 
 	doneBtn := widget.NewButton("Done", onClose)

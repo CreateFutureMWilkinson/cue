@@ -533,3 +533,41 @@ func (s *SettingsInteractionSuite) TestCalendarAddAccountCancelReturnsToList() {
 	_, found := uitest.FindWidget[*widget.Button](calContent, func(b *widget.Button) bool { return b.Text == "Add Account" })
 	s.True(found, "after tapping Cancel, calendar tab should show the account list with 'Add Account' button")
 }
+
+func (s *SettingsInteractionSuite) TestEmailFormSavesMappedEncryptionValue() {
+	// Create a fresh settings view with a capturing repo
+	repo := &stubServiceConfigRepo{}
+	mgr := &stubWatcherRemover{}
+	factory := func(_ string, _ uuid.UUID) error { return nil }
+	ssp := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	vc := &stubVolumeController{}
+	sp, _ := presenter.NewSettingsPresenter(vc, 50, &stubVolumeController{}, 50)
+	sv := ui.NewSettingsView(sp, ssp, config.OllamaConfig{}, func() {})
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	emailContent := tabs.Items[1].Content
+	btn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool { return b.Text == "Add Account" })
+	btn.OnTapped()
+	emailContent = tabs.Items[1].Content
+
+	// Fill entries
+	entries := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 5)
+	entries[0].SetText("imap.example.com")
+	entries[1].SetText("993")
+	entries[2].SetText("user@example.com")
+	entries[3].SetText("secret")
+	entries[4].SetText("600")
+
+	// Select STARTTLS
+	sel := uitest.RequireWidget[*widget.Select](s.T(), emailContent, func(_ *widget.Select) bool { return true })
+	sel.SetSelected("STARTTLS")
+
+	// Save
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool { return b.Text == "Save" })
+	saveBtn.OnTapped()
+
+	s.Require().NotNil(repo.lastSavedEmail, "repo should have received a saved email account")
+	s.Equal("starttls", repo.lastSavedEmail.Encryption, "encryption should be mapped from display value to stored value")
+}

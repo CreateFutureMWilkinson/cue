@@ -78,6 +78,15 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 			errorLabel.Show()
 			return
 		}
+		encMap := map[string]string{
+			"SSL/TLS (Recommended)": "ssl_tls",
+			"STARTTLS":              "starttls",
+			"None":                  "none",
+		}
+		encryption := encMap[encryptionSelect.Selected]
+		if encryption == "" {
+			encryption = "ssl_tls"
+		}
 		acct := &repository.EmailAccount{
 			ID:                  uuid.New(),
 			Enabled:             true,
@@ -85,6 +94,7 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 			IMAPPort:            port,
 			Username:            userEntry.Text,
 			Password:            passEntry.Text,
+			Encryption:          encryption,
 			PollIntervalSeconds: poll,
 		}
 		if err := ssp.SaveEmailAccount(context.Background(), acct); err != nil {

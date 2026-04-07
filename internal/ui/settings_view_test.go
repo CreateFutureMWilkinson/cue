@@ -19,7 +19,9 @@ type stubVolumeController struct{}
 
 func (s *stubVolumeController) SetVolume(_ int) {}
 
-type stubServiceConfigRepo struct{}
+type stubServiceConfigRepo struct {
+	lastSavedEmail *repository.EmailAccount
+}
 
 func (s *stubServiceConfigRepo) ListSlackAccounts(_ context.Context) ([]*repository.SlackAccount, error) {
 	return nil, nil
@@ -39,7 +41,8 @@ func (s *stubServiceConfigRepo) ListEmailAccounts(_ context.Context) ([]*reposit
 func (s *stubServiceConfigRepo) GetEmailAccount(_ context.Context, _ uuid.UUID) (*repository.EmailAccount, error) {
 	return nil, nil
 }
-func (s *stubServiceConfigRepo) UpsertEmailAccount(_ context.Context, _ *repository.EmailAccount) error {
+func (s *stubServiceConfigRepo) UpsertEmailAccount(_ context.Context, acct *repository.EmailAccount) error {
+	s.lastSavedEmail = acct
 	return nil
 }
 func (s *stubServiceConfigRepo) DeleteEmailAccount(_ context.Context, _ uuid.UUID) error {

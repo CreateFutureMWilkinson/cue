@@ -338,6 +338,79 @@ func listAccountWidgets(ssp *presenter.ServiceSettingsPresenter, accountType str
 	return widgets
 }
 
+// buildAddRuleForm creates the form UI for adding a new routing rule.
+func buildAddRuleForm(rp *presenter.RulesPresenter, rulesTab *container.TabItem, buildList func() fyne.CanvasObject) fyne.CanvasObject {
+	sourceMap := map[string]string{"Email": "email", "Slack": "slack"}
+	actionMap := map[string]string{"Notified": "notified", "Ignored": "ignored"}
+	emailFields := []string{"sender", "subject"}
+	slackFields := []string{"sender", "channel", "content", "message_type"}
+
+	fieldSelect := widget.NewSelect([]string{}, nil)
+	sourceSelect := widget.NewSelect([]string{"Email", "Slack"}, func(selected string) {
+		switch selected {
+		case "Email":
+			fieldSelect.Options = emailFields
+		case "Slack":
+			fieldSelect.Options = slackFields
+		}
+		fieldSelect.ClearSelected()
+		fieldSelect.Refresh()
+	})
+
+	patternEntry := widget.NewEntry()
+	patternEntry.SetPlaceHolder("Regex Pattern")
+
+	negateCheck := widget.NewCheck("Negate (not matches)", nil)
+
+	actionSelect := widget.NewSelect([]string{"Notified", "Ignored"}, nil)
+
+	errorLabel := widget.NewLabel("")
+	errorLabel.Hide()
+
+	saveBtn := widget.NewButton("Save", nil)
+	cancelBtn := widget.NewButton("Cancel", func() {
+		rulesTab.Content = buildList()
+	})
+
+	saveBtn.OnTapped = func() {
+		source := sourceMap[sourceSelect.Selected]
+		field := fieldSelect.Selected
+		action := actionMap[actionSelect.Selected]
+
+		rules, _ := rp.ListRules(context.Background())
+
+		rule := &repository.RoutingRule{
+			ID:       uuid.New(),
+			Priority: len(rules),
+			Source:   source,
+			Field:    field,
+			Negate:   negateCheck.Checked,
+			Pattern:  patternEntry.Text,
+			Action:   action,
+			Enabled:  true,
+		}
+
+		if err := rp.SaveRule(context.Background(), rule); err != nil {
+			errorLabel.SetText(fmt.Sprintf("Error: %s", err))
+			errorLabel.Show()
+			return
+		}
+		errorLabel.Hide()
+		rulesTab.Content = buildList()
+	}
+
+	return container.NewVBox(
+		widget.NewLabel("Add Rule"),
+		sourceSelect,
+		fieldSelect,
+		patternEntry,
+		negateCheck,
+		actionSelect,
+		errorLabel,
+		container.NewHBox(saveBtn, cancelBtn),
+	)
+}
+
 // NewSettingsView creates a SettingsView with tabs for Slack, Email, Calendar, Rules, Audio, and Ollama.
 // The onClose callback is invoked when the user taps the Done button to exit settings.
 func NewSettingsView(
@@ -424,10 +497,86 @@ func NewSettingsView(
 		})
 	}
 
-	// Rules tab — placeholder; implementation added via TDD micro-loops
-	rulesContent := container.NewVBox(widget.NewLabel("Rules"))
-	rulesTab := container.NewTabItem("Rules", rulesContent)
-	_ = rp // will be wired during implementation
+	// Rules tab with dynamic content switching between rule list and add form
+	rulesTab := container.NewTabItem("Rules", widget.NewLabel("Loading..."))
+
+	var buildRulesListContent func() fyne.CanvasObject
+	buildRulesListContent = func() fyne.CanvasObject {
+		if rp == nil {
+			return container.NewVBox(widget.NewLabel("Rules"))
+		}
+		ruleList := container.NewVBox()
+
+		// Queue depth label at top
+		depth, _ := rp.QueueDepth(context.Background())
+		threshold := rp.QueueWarningThreshold()
+		var queueLabel *widget.Label
+		if depth > threshold {
+			queueLabel = widget.NewLabel(fmt.Sprintf("\u26a0 Ollama queue: %d pending \u2014 consider adding more rules", depth))
+		} else {
+			queueLabel = widget.NewLabel(fmt.Sprintf("Ollama queue: %d pending", depth))
+		}
+
+		rules, _ := rp.ListRules(context.Background())
+		if len(rules) == 0 {
+			ruleList.Add(widget.NewLabel("No routing rules configured"))
+		} else {
+			for idx, rule := range rules {
+				ruleIdx := idx
+				r := rule
+				// Summary label
+				actionStr := r.Action
+				summary := fmt.Sprintf("%s matches %s \u2192 %s", r.Field, r.Pattern, actionStr)
+				summaryLabel := widget.NewLabel(summary)
+
+				// Enabled checkbox
+				enabledCheck := widget.NewCheck("", func(checked bool) {
+					_ = rp.ToggleRule(context.Background(), r.ID, checked)
+				})
+				enabledCheck.Checked = r.Enabled
+
+				// Up button
+				upBtn := widget.NewButton("Up", func() {
+					_ = rp.ReorderRule(context.Background(), r.ID, ruleIdx-1)
+					rulesTab.Content = buildRulesListContent()
+				})
+				if ruleIdx == 0 {
+					upBtn.Disable()
+				}
+
+				// Down button
+				downBtn := widget.NewButton("Down", func() {
+					_ = rp.ReorderRule(context.Background(), r.ID, ruleIdx+1)
+					rulesTab.Content = buildRulesListContent()
+				})
+				if ruleIdx == len(rules)-1 {
+					downBtn.Disable()
+				}
+
+				// Delete button
+				deleteBtn := widget.NewButton("Delete", func() {
+					_ = rp.DeleteRule(context.Background(), r.ID)
+					rulesTab.Content = buildRulesListContent()
+				})
+
+				row := container.NewHBox(summaryLabel, enabledCheck, upBtn, downBtn, deleteBtn)
+				ruleList.Add(row)
+			}
+		}
+
+		addBtn := widget.NewButton("Add Rule", func() {
+			rulesTab.Content = buildAddRuleForm(rp, rulesTab, buildRulesListContent)
+		})
+
+		return container.NewBorder(
+			queueLabel,
+			addBtn,
+			nil, nil,
+			container.NewVScroll(ruleList),
+		)
+	}
+
+	rulesTab.Content = buildRulesListContent()
 
 	volumeLabel := widget.NewLabel(fmt.Sprintf("Notification Volume: %d%%", sp.Volume()))
 	volumeSlider := &widget.Slider{

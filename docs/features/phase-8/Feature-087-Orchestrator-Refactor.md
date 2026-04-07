@@ -130,3 +130,4 @@ Emit structured events for observability:
 - `"fetched N messages, M new"` (after dedup)
 - `"rules: N notified, M ignored, P queued"` (after rule evaluation)
 - `"queue depth: N pending"` (after enqueue)
+- When constructing the `RulesEngine`, any rules with invalid regex patterns are silently excluded with an `slog.Warn` in the engine itself. The orchestrator should surface these as `ActivityEvent` warnings (one per invalid rule) so the user sees them in the activity log. This only happens at construction time (startup or `RefreshRules()`), not per-evaluation.

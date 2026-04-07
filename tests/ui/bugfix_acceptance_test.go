@@ -225,8 +225,8 @@ func (s *Bug069Suite) TestAudioTabHasTwoSliders() {
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	s.Require().GreaterOrEqual(len(tabs.Items), 3)
-	audioContent := tabs.Items[2].Content
+	s.Require().GreaterOrEqual(len(tabs.Items), 4)
+	audioContent := tabs.Items[3].Content
 
 	sliders := uitest.FindAll[*widget.Slider](audioContent, func(_ *widget.Slider) bool {
 		return true
@@ -244,7 +244,7 @@ func (s *Bug069Suite) TestAudioTabHasTimerVolumeLabel() {
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	audioContent := tabs.Items[2].Content
+	audioContent := tabs.Items[3].Content
 
 	_, found := uitest.FindWidget[*widget.Label](audioContent, func(l *widget.Label) bool {
 		return strings.Contains(l.Text, "Timer Volume")
@@ -262,7 +262,7 @@ func (s *Bug069Suite) TestTimerVolumeSliderUpdatesLabel() {
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	audioContent := tabs.Items[2].Content
+	audioContent := tabs.Items[3].Content
 
 	sliders := uitest.FindAll[*widget.Slider](audioContent, func(_ *widget.Slider) bool {
 		return true

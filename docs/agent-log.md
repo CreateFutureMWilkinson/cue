@@ -491,3 +491,12 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-079 (concrete validators) | GREEN | Implementer (x3 parallel) | ~325s | ~89,000 | 1c0c8bf |
 | Phase-6-Feature-079 (UI indicator) | GREEN | Implementer | ~20s | ~3,000 | 7fc2867 |
 | Phase-6-Feature-079 (wiring) | GREEN | Implementer | ~10s | ~2,000 | 201b609 |
+| Phase-6-Feature-080 (constants + Slack) | RED | Test Designer | ~67s | ~40,000 | 2955c86 |
+| Phase-6-Feature-080 (constants + Slack) | GREEN | Implementer + orchestrator | ~54s | ~25,000 | 7bf2fc6 |
+| Phase-6-Feature-080 (Email) | RED | Test Designer | ~49s | ~24,000 | 9e8b2d9 |
+| Phase-6-Feature-080 (Email) | GREEN | orchestrator | ~5s | ~1,000 | 578acfc |
+| Phase-6-Feature-080 (Calendar) | RED | Test Designer | ~46s | ~25,000 | 0867329 |
+| Phase-6-Feature-080 (Calendar) | GREEN | orchestrator | ~5s | ~1,000 | 5c65134 |
+| Phase-6-Feature-080 (DefaultPollInterval + UI) | RED | Test Designer | ~48s | ~24,000 | 43a4fcd |
+| Phase-6-Feature-080 (DefaultPollInterval + UI) | GREEN | orchestrator | ~5s | ~1,000 | 8af39a1 |
+| Phase-6-Feature-080 | REFACTOR | Refactorer | ~45s | ~27,000 | (no changes) |

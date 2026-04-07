@@ -758,6 +758,24 @@ func (s *WizardViewSuite) TestIdleStateShowsPromptLabel() {
 		"StepIdle should show a prompt label guiding the user")
 }
 
+// =====================================================================
+// Step 1: Cancel resets wizard state (Bug 084)
+// =====================================================================
+
+func (s *WizardViewSuite) TestStep1CancelCallsPreviousStepBeforeNavigating() {
+	s.setupStep1Defaults()
+	s.vm.On("PreviousStep").Once()
+
+	view := ui.NewWizardView(s.vm, s.router)
+
+	cancelBtn := findNthButton(view.Container(), "Cancel", 0)
+	s.Require().NotNil(cancelBtn, "Should find the Cancel button on step 1")
+
+	cancelBtn.OnTapped()
+
+	s.vm.AssertCalled(s.T(), "PreviousStep")
+}
+
 // filterCallsByMethod returns all mock expected calls except those for the given method.
 func filterCallsByMethod(calls []*mock.Call, method string) []*mock.Call {
 	var filtered []*mock.Call

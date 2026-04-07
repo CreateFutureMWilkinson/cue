@@ -373,7 +373,10 @@ func (v *WizardView) renderStep1() {
 			v.Refresh()
 		}),
 		widget.NewButton("Next", func() { v.vm.NextStep(context.Background()) }), // #nosec G104 -- GUI callback; error logged by presenter
-		widget.NewButton("Cancel", func() { v.router.NavigateTo(ViewPlan) }),
+		widget.NewButton("Cancel", func() {
+			v.vm.PreviousStep()
+			v.router.NavigateTo(ViewPlan)
+		}),
 	)
 }
 

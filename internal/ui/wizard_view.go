@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -368,7 +369,11 @@ func (v *WizardView) renderStep1() {
 
 	v.container.Objects = append(v.container.Objects,
 		widget.NewButton("Add Task", func() {
-			v.vm.AddTask(context.Background(), entry.Text, 0) // #nosec G104 -- GUI callback; error logged by presenter
+			text := strings.TrimSpace(entry.Text)
+			if text == "" {
+				return
+			}
+			v.vm.AddTask(context.Background(), text, 0) // #nosec G104 -- GUI callback; error logged by presenter
 			entry.SetText("")
 			v.Refresh()
 		}),

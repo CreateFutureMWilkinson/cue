@@ -776,6 +776,32 @@ func (s *WizardViewSuite) TestStep1CancelCallsPreviousStepBeforeNavigating() {
 	s.vm.AssertCalled(s.T(), "PreviousStep")
 }
 
+// =====================================================================
+// Step 1: Empty task name guard (Feature 085)
+// =====================================================================
+
+func (s *WizardViewSuite) TestStep1AddTaskEmptyNameDoesNotCallAddTask() {
+	s.setupStep1Defaults()
+	// Do NOT set up AddTask expectation — it should never be called.
+
+	view := ui.NewWizardView(s.vm, s.router)
+
+	// Find the entry and ensure it is empty.
+	entries := uitest.FindAll[*widget.Entry](view.Container(), func(_ *widget.Entry) bool {
+		return true
+	})
+	s.Require().NotEmpty(entries, "Should find at least one Entry widget on step 1")
+	entries[0].SetText("")
+
+	// Tap "Add Task" with empty entry text.
+	addBtn := findNthButton(view.Container(), "Add Task", 0)
+	s.Require().NotNil(addBtn, "Should find the Add Task button on step 1")
+
+	addBtn.OnTapped()
+
+	s.vm.AssertNotCalled(s.T(), "AddTask", mock.Anything, mock.Anything, mock.Anything)
+}
+
 // filterCallsByMethod returns all mock expected calls except those for the given method.
 func filterCallsByMethod(calls []*mock.Call, method string) []*mock.Call {
 	var filtered []*mock.Call

@@ -431,6 +431,43 @@ func (s *SettingsInteractionSuite) TestCalendarAddAccountShowsFormFields() {
 	s.True(foundCancel, "Calendar form should contain a 'Cancel' button")
 }
 
+func (s *SettingsInteractionSuite) TestCalendarAddAccountValidationShowsError() {
+	root := s.sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	calendarContent := tabs.Items[2].Content
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool { return b.Text == "Add Account" })
+	addBtn.OnTapped()
+	calendarContent = tabs.Items[2].Content
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool { return b.Text == "Save" })
+	saveBtn.OnTapped()
+	calendarContent = tabs.Items[2].Content
+	_, found := uitest.FindWidget[*widget.Label](calendarContent, func(l *widget.Label) bool {
+		return strings.Contains(strings.ToLower(l.Text), "required") || strings.Contains(strings.ToLower(l.Text), "error")
+	})
+	s.True(found, "after tapping Save with empty fields, a validation error label should appear in the form")
+}
+
+func (s *SettingsInteractionSuite) TestCalendarAddAccountNonNumericPollShowsError() {
+	root := s.sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	calendarContent := tabs.Items[2].Content
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool { return b.Text == "Add Account" })
+	addBtn.OnTapped()
+	calendarContent = tabs.Items[2].Content
+	entries := uitest.FindAll[*widget.Entry](calendarContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 3, "form should have at least 3 Entry widgets")
+	entries[0].SetText("Test")                        // Name
+	entries[1].SetText("https://example.com/cal.ics") // ICS URL
+	entries[2].SetText("abc")                         // Poll Interval (non-numeric)
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool { return b.Text == "Save" })
+	saveBtn.OnTapped()
+	calendarContent = tabs.Items[2].Content
+	_, found := uitest.FindWidget[*widget.Label](calendarContent, func(l *widget.Label) bool {
+		return strings.Contains(strings.ToLower(l.Text), "number") || strings.Contains(strings.ToLower(l.Text), "error")
+	})
+	s.True(found, "after tapping Save with non-numeric poll interval, a validation error label should appear in the form")
+}
+
 func (s *SettingsInteractionSuite) TestSlackAddAccountSaveWithValidDataReplacesForm() {
 	root := s.sv.Container()
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })

@@ -284,6 +284,53 @@ func (s *SettingsInteractionSuite) TestEmailAddAccountValidationShowsError() {
 	s.True(found, "after tapping Save with empty fields, a validation error label should appear in the form")
 }
 
+func (s *SettingsInteractionSuite) TestEmailAddAccountSaveWithValidDataReplacesForm() {
+	root := s.sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	emailContent := tabs.Items[1].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	addBtn.OnTapped()
+
+	// Re-read tab content after tap (form is now shown)
+	emailContent = tabs.Items[1].Content
+
+	entries := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool {
+		return true
+	})
+	s.Require().GreaterOrEqual(len(entries), 5, "form should have at least 5 Entry widgets")
+
+	// Fill in all 5 fields with valid data
+	entries[0].SetText("imap.example.com") // IMAP Host
+	entries[1].SetText("993")              // IMAP Port
+	entries[2].SetText("user@example.com") // Username
+	entries[3].SetText("secret")           // Password
+	entries[4].SetText("600")              // Poll Interval
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
+		return b.Text == "Save"
+	})
+
+	saveBtn.OnTapped()
+
+	// Re-read tab content after save
+	emailContent = tabs.Items[1].Content
+
+	entriesAfterSave := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool {
+		return true
+	})
+
+	s.Less(len(entriesAfterSave), 5,
+		"after saving valid data, form should be replaced with account list (fewer than 5 Entry widgets)")
+}
+
 func (s *SettingsInteractionSuite) TestAudioSliderOnChangedCallsPresenterSetVolume() {
 	root := s.sv.Container()
 

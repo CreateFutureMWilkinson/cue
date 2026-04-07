@@ -172,11 +172,20 @@ func (s *AppBinderSuite) TestAppBinderNilViewRouterReturnsError() {
 	s.Error(err)
 }
 
+// expectBindCalls sets up mock expectations for all calls made by Bind().
+func (s *AppBinderSuite) expectBindCalls() {
+	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
+	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnNext", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnBack", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnCompleteTask", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnAbandonPlan", mock.AnythingOfType("func()")).Return()
+}
+
 // --- Bind wiring ---
 
 func (s *AppBinderSuite) TestBindWiresDoneToCompleteCurrentTask() {
-	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
-	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
+	s.expectBindCalls()
 
 	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
 	s.Require().NoError(err)
@@ -193,8 +202,7 @@ func (s *AppBinderSuite) TestBindWiresDoneToCompleteCurrentTask() {
 }
 
 func (s *AppBinderSuite) TestBindDoneCallbackDoesNotPanicOnError() {
-	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
-	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
+	s.expectBindCalls()
 
 	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
 	s.Require().NoError(err)
@@ -213,8 +221,7 @@ func (s *AppBinderSuite) TestBindDoneCallbackDoesNotPanicOnError() {
 }
 
 func (s *AppBinderSuite) TestBindWiresStepChangeToWizardRefresh() {
-	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
-	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
+	s.expectBindCalls()
 
 	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
 	s.Require().NoError(err)
@@ -231,8 +238,7 @@ func (s *AppBinderSuite) TestBindWiresStepChangeToWizardRefresh() {
 }
 
 func (s *AppBinderSuite) TestBindWiresStepActiveToNavigatePlan() {
-	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
-	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
+	s.expectBindCalls()
 
 	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
 	s.Require().NoError(err)
@@ -253,8 +259,7 @@ func (s *AppBinderSuite) TestBindWiresStepActiveToNavigatePlan() {
 }
 
 func (s *AppBinderSuite) TestBindWiresStepIdleToDeactivatePlan() {
-	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
-	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
+	s.expectBindCalls()
 
 	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
 	s.Require().NoError(err)
@@ -321,12 +326,7 @@ func (s *AppBinderSuite) TestAutoLoadError() {
 // --- Bug 073: Bind wires planner view buttons ---
 
 func (s *AppBinderSuite) TestBindWiresNextButtonToPresenterNextStep() {
-	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
-	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnNext", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnBack", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnCompleteTask", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnAbandonPlan", mock.AnythingOfType("func()")).Return()
+	s.expectBindCalls()
 
 	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
 	s.Require().NoError(err)
@@ -342,12 +342,7 @@ func (s *AppBinderSuite) TestBindWiresNextButtonToPresenterNextStep() {
 }
 
 func (s *AppBinderSuite) TestBindWiresBackButtonToPresenterPreviousStep() {
-	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
-	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnNext", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnBack", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnCompleteTask", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnAbandonPlan", mock.AnythingOfType("func()")).Return()
+	s.expectBindCalls()
 
 	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
 	s.Require().NoError(err)
@@ -363,12 +358,7 @@ func (s *AppBinderSuite) TestBindWiresBackButtonToPresenterPreviousStep() {
 }
 
 func (s *AppBinderSuite) TestBindWiresCompleteTaskButtonToPresenterCompleteCurrentTask() {
-	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
-	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnNext", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnBack", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnCompleteTask", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnAbandonPlan", mock.AnythingOfType("func()")).Return()
+	s.expectBindCalls()
 
 	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
 	s.Require().NoError(err)
@@ -384,12 +374,7 @@ func (s *AppBinderSuite) TestBindWiresCompleteTaskButtonToPresenterCompleteCurre
 }
 
 func (s *AppBinderSuite) TestBindWiresAbandonButtonToPresenterAbandonPlan() {
-	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
-	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnNext", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnBack", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnCompleteTask", mock.AnythingOfType("func()")).Return()
-	s.plannerView.On("SetOnAbandonPlan", mock.AnythingOfType("func()")).Return()
+	s.expectBindCalls()
 
 	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
 	s.Require().NoError(err)

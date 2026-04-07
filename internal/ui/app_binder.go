@@ -106,6 +106,22 @@ func (b *AppBinder) Bind() {
 		// Intentionally discard error - UI callback should not panic on task completion failure
 		_ = b.plannerP.CompleteCurrentTask(context.Background())
 	})
+
+	b.plannerView.SetOnNext(func() {
+		_ = b.plannerP.NextStep(context.Background())
+	})
+
+	b.plannerView.SetOnBack(func() {
+		b.plannerP.PreviousStep()
+	})
+
+	b.plannerView.SetOnCompleteTask(func() {
+		_ = b.plannerP.CompleteCurrentTask(context.Background())
+	})
+
+	b.plannerView.SetOnAbandonPlan(func() {
+		_ = b.plannerP.AbandonPlan(context.Background())
+	})
 }
 
 // AutoLoad loads an existing plan and updates focus rail state.

@@ -161,25 +161,22 @@ func run() error {
 		return fmt.Errorf("creating vector store: %w", err)
 	}
 
-	// Build vector score advisor (nil when vector scoring is disabled).
-	vectorAdvisor, err := buildVectorAdvisor(cfg.Orchestrator.Router, vectorStore, repo)
+	// Create queue repository (shares the same DB connection).
+	queueRepo, err := sqlite.NewSQLiteQueueRepository(repo.DB())
 	if err != nil {
-		return fmt.Errorf("creating vector advisor: %w", err)
+		return fmt.Errorf("creating queue repository: %w", err)
 	}
 
-	// Create router with Ollama scorer and optional vector advisor.
-	router, err := decisionengine.NewRouter(
-		ollamaClient,
-		[]string{"user"},
-		decisionengine.RouterConfig{
-			ImportanceThreshold: cfg.Orchestrator.Router.ImportanceThreshold,
-			ConfidenceThreshold: cfg.Orchestrator.Router.ConfidenceThreshold,
-		},
-		vectorAdvisor,
-	)
+	// Create routing rule repository and build rules engine.
+	ruleRepo, err := sqlite.NewSQLiteRoutingRuleRepository(repo.DB())
 	if err != nil {
-		return fmt.Errorf("creating router: %w", err)
+		return fmt.Errorf("creating routing rule repository: %w", err)
 	}
+	ruleList, err := ruleRepo.ListRules(ctx)
+	if err != nil {
+		return fmt.Errorf("loading routing rules: %w", err)
+	}
+	rulesEngine := decisionengine.NewRulesEngine(ruleList)
 
 	// Create buffer service with vector embedder.
 	bufferSvc, err := buffer.NewBufferService(repo, vectorStore)
@@ -213,7 +210,8 @@ func run() error {
 		orchestrator.OrchestratorConfig{
 			PollIntervalSeconds: cfg.Orchestrator.PollIntervalSeconds,
 		},
-		router,
+		rulesEngine,
+		queueRepo,
 		repo,
 		nil,
 		orchEventCh,
@@ -221,6 +219,21 @@ func run() error {
 	)
 	if err != nil {
 		return fmt.Errorf("creating orchestrator: %w", err)
+	}
+
+	// Create queue processor for background Ollama scoring.
+	queueProcessor, err := orchestrator.NewQueueProcessor(
+		queueRepo,
+		repo,
+		ollamaClient,
+		alertSvc,
+		orchEventCh,
+		float64(cfg.Orchestrator.Router.ImportanceThreshold),
+		cfg.Orchestrator.Router.ConfidenceThreshold,
+		time.Duration(cfg.Orchestrator.OllamaCooldownSeconds)*time.Second,
+	)
+	if err != nil {
+		return fmt.Errorf("creating queue processor: %w", err)
 	}
 
 	// Build watchers from enabled service accounts in the DB.
@@ -429,6 +442,9 @@ func run() error {
 		return fmt.Errorf("starting orchestrator: %w", err)
 	}
 
+	// Start queue processor for background Ollama scoring.
+	queueProcessor.Start(ctx)
+
 	// Start app presenter.
 	if err := appPresenter.Start(ctx); err != nil {
 		return fmt.Errorf("starting app presenter: %w", err)
@@ -500,6 +516,9 @@ func run() error {
 		return nil
 	}, func() error {
 		return appPresenter.Shutdown(ctx)
+	}, func() error {
+		queueProcessor.Stop()
+		return nil
 	}, func() error {
 		return orch.Stop()
 	}); err != nil {

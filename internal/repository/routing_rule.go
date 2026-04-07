@@ -22,15 +22,16 @@ type RoutingRule struct {
 	UpdatedAt time.Time
 }
 
-// Valid fields per source.
-var validFields = map[string]map[string]bool{
+// validSourceFields maps each source to its set of valid fields.
+var validSourceFields = map[string]map[string]bool{
 	"email": {"sender": true, "subject": true},
 	"slack": {"sender": true, "channel": true, "content": true, "message_type": true},
 }
 
 // Validate checks that all fields of the routing rule are valid.
 func (r *RoutingRule) Validate() error {
-	fields, ok := validFields[r.Source]
+	// Validate source and field combination
+	fields, ok := validSourceFields[r.Source]
 	if !ok {
 		return fmt.Errorf("invalid source %q: %w", r.Source, ErrInvalidRoutingRule)
 	}
@@ -39,14 +40,17 @@ func (r *RoutingRule) Validate() error {
 		return fmt.Errorf("invalid field %q for source %q: %w", r.Field, r.Source, ErrInvalidRoutingRule)
 	}
 
+	// Validate action
 	if r.Action != "notified" && r.Action != "ignored" {
 		return fmt.Errorf("invalid action %q: %w", r.Action, ErrInvalidRoutingRule)
 	}
 
+	// Validate priority
 	if r.Priority < 0 {
 		return fmt.Errorf("negative priority %d: %w", r.Priority, ErrInvalidRoutingRule)
 	}
 
+	// Validate regex pattern
 	if _, err := regexp.Compile(r.Pattern); err != nil {
 		return fmt.Errorf("invalid regex pattern %q: %w", r.Pattern, ErrInvalidRoutingRule)
 	}

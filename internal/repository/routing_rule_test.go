@@ -17,7 +17,8 @@ func TestRoutingRule(t *testing.T) {
 	suite.Run(t, new(RoutingRuleSuite))
 }
 
-func validRule() *repository.RoutingRule {
+// validRule returns a valid routing rule for testing purposes.
+func (s *RoutingRuleSuite) validRule() *repository.RoutingRule {
 	return &repository.RoutingRule{
 		ID:        uuid.New(),
 		Priority:  0,
@@ -32,20 +33,20 @@ func validRule() *repository.RoutingRule {
 }
 
 func (s *RoutingRuleSuite) TestValidateValidRule() {
-	r := validRule()
+	r := s.validRule()
 	err := r.Validate()
 	s.NoError(err)
 }
 
 func (s *RoutingRuleSuite) TestValidateInvalidSource() {
-	r := validRule()
+	r := s.validRule()
 	r.Source = "ftp"
 	err := r.Validate()
 	s.ErrorIs(err, repository.ErrInvalidRoutingRule)
 }
 
 func (s *RoutingRuleSuite) TestValidateInvalidFieldForEmail() {
-	r := validRule()
+	r := s.validRule()
 	r.Source = "email"
 	r.Field = "channel"
 	err := r.Validate()
@@ -53,7 +54,7 @@ func (s *RoutingRuleSuite) TestValidateInvalidFieldForEmail() {
 }
 
 func (s *RoutingRuleSuite) TestValidateInvalidFieldForSlack() {
-	r := validRule()
+	r := s.validRule()
 	r.Source = "slack"
 	r.Field = "subject"
 	err := r.Validate()
@@ -61,21 +62,21 @@ func (s *RoutingRuleSuite) TestValidateInvalidFieldForSlack() {
 }
 
 func (s *RoutingRuleSuite) TestValidateInvalidAction() {
-	r := validRule()
+	r := s.validRule()
 	r.Action = "buffered"
 	err := r.Validate()
 	s.ErrorIs(err, repository.ErrInvalidRoutingRule)
 }
 
 func (s *RoutingRuleSuite) TestValidateNegativePriority() {
-	r := validRule()
+	r := s.validRule()
 	r.Priority = -1
 	err := r.Validate()
 	s.ErrorIs(err, repository.ErrInvalidRoutingRule)
 }
 
 func (s *RoutingRuleSuite) TestValidateInvalidRegex() {
-	r := validRule()
+	r := s.validRule()
 	r.Pattern = "[invalid"
 	err := r.Validate()
 	s.ErrorIs(err, repository.ErrInvalidRoutingRule)
@@ -83,7 +84,7 @@ func (s *RoutingRuleSuite) TestValidateInvalidRegex() {
 
 func (s *RoutingRuleSuite) TestValidateValidEmailFields() {
 	for _, field := range []string{"sender", "subject"} {
-		r := validRule()
+		r := s.validRule()
 		r.Source = "email"
 		r.Field = field
 		err := r.Validate()
@@ -93,7 +94,7 @@ func (s *RoutingRuleSuite) TestValidateValidEmailFields() {
 
 func (s *RoutingRuleSuite) TestValidateValidSlackFields() {
 	for _, field := range []string{"sender", "channel", "content", "message_type"} {
-		r := validRule()
+		r := s.validRule()
 		r.Source = "slack"
 		r.Field = field
 		err := r.Validate()

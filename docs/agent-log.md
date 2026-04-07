@@ -512,3 +512,13 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-083 (wiring) | GREEN | orchestrator | manual | — | 1195e61 |
 | Phase-6-Feature-081 | RED | Test Designer | ~55s | ~37,800 | 5e121fd |
 | Phase-6-Feature-081 | GREEN | Implementer | ~63s | ~26,000 | 963c110 |
+| Phase-8-Feature-084 (Validate) | RED | Test Designer | ~42s | ~26,500 | b181f51 |
+| Phase-8-Feature-084 (Validate) | GREEN | Implementer | ~30s | ~24,700 | 21d3e2f |
+| Phase-8-Feature-084 (Validate) | REFACTOR | Refactorer | ~72s | ~28,400 | 2dfa301 |
+| Phase-8-Feature-084 (SQLite constructor+upsert) | RED | Test Designer | ~63s | ~44,800 | 98218ea |
+| Phase-8-Feature-084 (SQLite constructor+upsert) | GREEN | Implementer | ~42s | ~27,900 | bea52d5 |
+| Phase-8-Feature-084 (GetRule) | RED | Test Designer | ~29s | ~26,300 | dc0f047 |
+| Phase-8-Feature-084 (GetRule) | GREEN | Implementer | ~37s | ~31,000 | eb5cf8b |
+| Phase-8-Feature-084 (List+Delete) | RED | Test Designer | ~61s | ~32,800 | 79dbe47 |
+| Phase-8-Feature-084 (List+Delete) | GREEN | Implementer | ~34s | ~28,500 | ba8d789 |
+| Phase-8-Feature-084 (all SQLite) | REFACTOR | Refactorer | ~79s | ~39,100 | f2b252e |

@@ -120,7 +120,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 065 | Settings view missing Calendar tab | Bugfix | Medium | Done | 060, 074 | [Feature-065](features/phase-6/Feature-065-Calendar-Settings-Tab.md) |
 | 066 | PlannerView no-plan content not rendered | Bugfix | High | Done | 063, 071 | [Feature-066](features/phase-6/Feature-066-PlannerView-Content-Rendering.md) |
 | 067 | Email settings Add Account callback is noop | Bugfix | Medium | Done | 060 | [Feature-067](features/phase-6/Feature-067-Email-Add-Account.md) |
-| 068 | Slack settings Add Account callback is noop | Bugfix | Medium | Planned | 060 | [Feature-068](features/phase-6/Feature-068-Slack-Add-Account.md) |
+| 068 | Slack settings Add Account callback is noop | Bugfix | Medium | Done | 060 | [Feature-068](features/phase-6/Feature-068-Slack-Add-Account.md) |
 | 069 | Audio settings missing Timer Volume slider | Bugfix | Medium | Planned | 060 | [Feature-069](features/phase-6/Feature-069-Timer-Volume-Slider.md) |
 | 070 | Activity log drawer uses split instead of overlay | Bugfix | High | Planned | 019 | [Feature-070](features/phase-6/Feature-070-Activity-Log-Overlay.md) |
 | 071 | Planner subsystem not wired in main.go | Bugfix | Critical | Done | — | [Feature-071](features/phase-6/Feature-071-Planner-Subsystem-Wiring.md) |

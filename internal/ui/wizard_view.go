@@ -322,6 +322,8 @@ func (v *WizardView) renderContainer() {
 	v.container.Objects = nil
 
 	switch v.vm.CurrentStep() {
+	case presenter.StepIdle:
+		v.renderIdle()
 	case presenter.StepTaskSelect:
 		v.renderStep1()
 	case presenter.StepEstimates:
@@ -333,6 +335,12 @@ func (v *WizardView) renderContainer() {
 	}
 
 	v.container.Refresh()
+}
+
+// renderIdle renders the idle state prompt when no wizard step is active.
+func (v *WizardView) renderIdle() {
+	v.container.Objects = append(v.container.Objects,
+		widget.NewLabel("Use \"Plan My Day\" to start planning your day."))
 }
 
 // renderStep1 renders the task selection step (step 1) widgets into the container.

@@ -82,6 +82,11 @@ func children(obj fyne.CanvasObject) []fyne.CanvasObject {
 		return result
 	}
 
+	// Support Scroll containers by traversing their Content.
+	if sc, ok := obj.(*container.Scroll); ok && sc.Content != nil {
+		return []fyne.CanvasObject{sc.Content}
+	}
+
 	// Support any widget or object that exposes an Objects() method.
 	type hasObjects interface {
 		Objects() []fyne.CanvasObject

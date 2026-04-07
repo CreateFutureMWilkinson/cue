@@ -236,6 +236,59 @@ func createCalendarAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved 
 	)
 }
 
+// refreshAccountList clears the VBox and repopulates it from the presenter.
+// Shows an empty state message if no accounts exist.
+func refreshAccountList(list *fyne.Container, emptyMsg string, items []fyne.CanvasObject) {
+	list.RemoveAll()
+	if len(items) == 0 {
+		list.Add(widget.NewLabel(emptyMsg))
+	} else {
+		for _, item := range items {
+			list.Add(item)
+		}
+	}
+}
+
+// listAccountWidgets queries the presenter and returns label widgets for each account.
+// Returns nil on error or if no accounts exist. Safe to call with nil presenter.
+func listAccountWidgets(ssp *presenter.ServiceSettingsPresenter, accountType string) (widgets []fyne.CanvasObject) {
+	if ssp == nil {
+		return nil
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			widgets = nil
+		}
+	}()
+	switch accountType {
+	case "slack":
+		accts, err := ssp.ListSlackAccounts(context.Background())
+		if err != nil {
+			return nil
+		}
+		for _, a := range accts {
+			widgets = append(widgets, widget.NewLabel(fmt.Sprintf("Slack: %s (@%s)", a.WorkspaceID, a.Username)))
+		}
+	case "email":
+		accts, err := ssp.ListEmailAccounts(context.Background())
+		if err != nil {
+			return nil
+		}
+		for _, a := range accts {
+			widgets = append(widgets, widget.NewLabel(fmt.Sprintf("Email: %s (%s:%d)", a.Username, a.IMAPHost, a.IMAPPort)))
+		}
+	case "calendar":
+		accts, err := ssp.ListCalendarAccounts(context.Background())
+		if err != nil {
+			return nil
+		}
+		for _, a := range accts {
+			widgets = append(widgets, widget.NewLabel(fmt.Sprintf("Calendar: %s", a.Name)))
+		}
+	}
+	return widgets
+}
+
 // NewSettingsView creates a SettingsView with tabs for Slack, Email, Calendar, Audio, and Ollama.
 // The onClose callback is invoked when the user taps the Done button to exit settings.
 func NewSettingsView(
@@ -248,7 +301,12 @@ func NewSettingsView(
 	slackAccountList := container.NewVBox()
 	slackAddBtn := widget.NewButton("Add Account", nil)
 
+	refreshSlack := func() {
+		refreshAccountList(slackAccountList, "No Slack accounts configured. Tap Add Account to get started.", listAccountWidgets(ssp, "slack"))
+	}
+
 	buildSlackListContent := func() fyne.CanvasObject {
+		refreshSlack()
 		return container.NewBorder(
 			widget.NewLabel("Slack Accounts"),
 			slackAddBtn,
@@ -269,8 +327,12 @@ func NewSettingsView(
 	emailAccountList := container.NewVBox()
 	emailAddBtn := widget.NewButton("Add Account", nil)
 
-	// Function to build the email account list view
+	refreshEmail := func() {
+		refreshAccountList(emailAccountList, "No Email accounts configured. Tap Add Account to get started.", listAccountWidgets(ssp, "email"))
+	}
+
 	buildEmailListContent := func() fyne.CanvasObject {
+		refreshEmail()
 		return container.NewBorder(
 			widget.NewLabel("Email Accounts"),
 			emailAddBtn,
@@ -281,7 +343,6 @@ func NewSettingsView(
 
 	emailTab := container.NewTabItem("Email", buildEmailListContent())
 
-	// Set up the "Add Account" button handler
 	emailAddBtn.OnTapped = func() {
 		emailTab.Content = createEmailAccountForm(ssp, func() {
 			emailTab.Content = buildEmailListContent()
@@ -291,7 +352,12 @@ func NewSettingsView(
 	calendarAccountList := container.NewVBox()
 	calendarAddBtn := widget.NewButton("Add Account", nil)
 
+	refreshCalendar := func() {
+		refreshAccountList(calendarAccountList, "No Calendar accounts configured. Tap Add Account to get started.", listAccountWidgets(ssp, "calendar"))
+	}
+
 	buildCalendarListContent := func() fyne.CanvasObject {
+		refreshCalendar()
 		return container.NewBorder(
 			widget.NewLabel("Calendar Accounts"),
 			calendarAddBtn,

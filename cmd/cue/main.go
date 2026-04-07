@@ -384,7 +384,7 @@ func run() error {
 	character.Register("fairy", func() character.Character {
 		f := fairy.NewFairyCharacter()
 		f.SetRefreshHook(func() {
-			fyne.Do(func() { f.Widget().Refresh() })
+			fyne.Do(func() { f.ForceRefresh() })
 		})
 		return f
 	})

@@ -210,11 +210,16 @@ func (f *FairyCharacter) DisableRefresh() {
 	f.isNoopRefresh = true
 }
 
-// ForceRefresh triggers a full layout recalculation and repaint of the fairy's container.
-// This is needed because Fyne's container.Refresh() only repaints without re-running
-// the custom layout, so position changes from SetPosition would not take effect.
+// ForceRefresh re-runs the custom layout and triggers a repaint. Fyne's
+// container.Refresh() only repaints without re-running Layout(), so position
+// changes from SetPosition are invisible until the container is resized.
+// This method bridges the gap by explicitly calling Layout() with the
+// current container size, then requesting a repaint.
 func (f *FairyCharacter) ForceRefresh() {
-	// stub — not implemented
+	s := f.container.Size()
+	if s.Width > 0 && s.Height > 0 {
+		f.container.Layout.Layout(f.container.Objects, s)
+	}
 }
 
 // SetRefreshHook replaces the refresh function with a caller-provided function for test observability.

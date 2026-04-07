@@ -400,6 +400,64 @@ func (s *ServiceConfigSuite) TestSlackAccountUsernameRoundTrip() {
 	s.Equal("testuser", got.Username, "Username must survive upsert/get round-trip")
 }
 
+func (s *ServiceConfigSuite) TestSlackAccountFriendlyNameAndWebURLRoundTrip() {
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	acct := &repository.SlackAccount{
+		ID:                  uuid.New(),
+		Enabled:             true,
+		Token:               "xoxb-friendly-test",
+		WorkspaceID:         "T-FRIENDLY",
+		Username:            "friendlyuser",
+		FriendlyName:        "Work Slack",
+		WebURL:              "https://myworkspace.slack.com",
+		PollIntervalSeconds: 600,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	err := s.repo.UpsertSlackAccount(ctx, acct)
+	s.Require().NoError(err)
+
+	got, err := s.repo.GetSlackAccount(ctx, acct.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+
+	s.Equal("Work Slack", got.FriendlyName, "FriendlyName must survive upsert/get round-trip")
+	s.Equal("https://myworkspace.slack.com", got.WebURL, "WebURL must survive upsert/get round-trip")
+}
+
+func (s *ServiceConfigSuite) TestEmailAccountFriendlyNameAndWebURLRoundTrip() {
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	acct := &repository.EmailAccount{
+		ID:                  uuid.New(),
+		Enabled:             true,
+		IMAPHost:            "imap.friendly.com",
+		IMAPPort:            993,
+		Username:            "friendly@test.com",
+		Password:            "friendly-password",
+		Encryption:          "ssl_tls",
+		FriendlyName:        "Work Email",
+		WebURL:              "https://mail.google.com",
+		PollIntervalSeconds: 600,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	err := s.repo.UpsertEmailAccount(ctx, acct)
+	s.Require().NoError(err)
+
+	got, err := s.repo.GetEmailAccount(ctx, acct.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+
+	s.Equal("Work Email", got.FriendlyName, "FriendlyName must survive upsert/get round-trip")
+	s.Equal("https://mail.google.com", got.WebURL, "WebURL must survive upsert/get round-trip")
+}
+
 func (s *ServiceConfigSuite) TestSlackAccountUniqueWorkspaceID() {
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)

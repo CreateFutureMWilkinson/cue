@@ -14,6 +14,8 @@ type SlackAccount struct {
 	Token               string
 	WorkspaceID         string
 	Username            string
+	FriendlyName        string
+	WebURL              string
 	PollIntervalSeconds int
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
@@ -28,6 +30,8 @@ type EmailAccount struct {
 	Username            string
 	Password            string
 	Encryption          string
+	FriendlyName        string
+	WebURL              string
 	PollIntervalSeconds int
 	CreatedAt           time.Time
 	UpdatedAt           time.Time

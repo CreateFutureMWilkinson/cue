@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS slack_accounts (
     token_encrypted BLOB NOT NULL,
     workspace_id TEXT NOT NULL UNIQUE,
     poll_interval_seconds INTEGER NOT NULL,
+    friendly_name TEXT NOT NULL DEFAULT '',
+    web_url TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -34,6 +36,8 @@ CREATE TABLE IF NOT EXISTS email_accounts (
     username TEXT NOT NULL UNIQUE,
     password_encrypted BLOB NOT NULL,
     poll_interval_seconds INTEGER NOT NULL,
+    friendly_name TEXT NOT NULL DEFAULT '',
+    web_url TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -52,8 +56,8 @@ CREATE TABLE IF NOT EXISTS calendar_accounts (
 `
 
 const (
-	slackAccountColumns    = "id, enabled, token_encrypted, workspace_id, username, poll_interval_seconds, created_at, updated_at"
-	emailAccountColumns    = "id, enabled, imap_host, imap_port, username, password_encrypted, encryption, poll_interval_seconds, created_at, updated_at"
+	slackAccountColumns    = "id, enabled, token_encrypted, workspace_id, username, poll_interval_seconds, friendly_name, web_url, created_at, updated_at"
+	emailAccountColumns    = "id, enabled, imap_host, imap_port, username, password_encrypted, encryption, poll_interval_seconds, friendly_name, web_url, created_at, updated_at"
 	calendarAccountColumns = "id, enabled, name, ics_url_encrypted, poll_interval_seconds, created_at, updated_at"
 )
 
@@ -84,6 +88,10 @@ func NewSQLiteServiceConfigRepository(db *sql.DB, enc secret.Encryptor) (*SQLite
 	_, _ = db.Exec("ALTER TABLE email_accounts RENAME COLUMN password_env TO password_encrypted")
 	_, _ = db.Exec("ALTER TABLE email_accounts ADD COLUMN encryption TEXT NOT NULL DEFAULT 'ssl_tls'")
 	_, _ = db.Exec("ALTER TABLE slack_accounts ADD COLUMN username TEXT NOT NULL DEFAULT ''")
+	_, _ = db.Exec("ALTER TABLE slack_accounts ADD COLUMN friendly_name TEXT NOT NULL DEFAULT ''")
+	_, _ = db.Exec("ALTER TABLE slack_accounts ADD COLUMN web_url TEXT NOT NULL DEFAULT ''")
+	_, _ = db.Exec("ALTER TABLE email_accounts ADD COLUMN friendly_name TEXT NOT NULL DEFAULT ''")
+	_, _ = db.Exec("ALTER TABLE email_accounts ADD COLUMN web_url TEXT NOT NULL DEFAULT ''")
 
 	return &SQLiteServiceConfigRepository{db: db, enc: enc}, nil
 }
@@ -99,14 +107,16 @@ func (r *SQLiteServiceConfigRepository) UpsertSlackAccount(ctx context.Context, 
 	}
 
 	_, err = r.db.ExecContext(ctx, `
-		INSERT INTO slack_accounts (id, enabled, token_encrypted, workspace_id, username, poll_interval_seconds, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO slack_accounts (id, enabled, token_encrypted, workspace_id, username, poll_interval_seconds, friendly_name, web_url, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			enabled = excluded.enabled,
 			token_encrypted = excluded.token_encrypted,
 			workspace_id = excluded.workspace_id,
 			username = excluded.username,
 			poll_interval_seconds = excluded.poll_interval_seconds,
+			friendly_name = excluded.friendly_name,
+			web_url = excluded.web_url,
 			updated_at = excluded.updated_at
 	`,
 		acct.ID.String(),
@@ -115,6 +125,8 @@ func (r *SQLiteServiceConfigRepository) UpsertSlackAccount(ctx context.Context, 
 		acct.WorkspaceID,
 		acct.Username,
 		acct.PollIntervalSeconds,
+		acct.FriendlyName,
+		acct.WebURL,
 		acct.CreatedAt.Format(time.RFC3339),
 		acct.UpdatedAt.Format(time.RFC3339),
 	)
@@ -188,8 +200,8 @@ func (r *SQLiteServiceConfigRepository) UpsertEmailAccount(ctx context.Context, 
 	}
 
 	_, err = r.db.ExecContext(ctx, `
-		INSERT INTO email_accounts (id, enabled, imap_host, imap_port, username, password_encrypted, encryption, poll_interval_seconds, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO email_accounts (id, enabled, imap_host, imap_port, username, password_encrypted, encryption, poll_interval_seconds, friendly_name, web_url, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			enabled = excluded.enabled,
 			imap_host = excluded.imap_host,
@@ -198,6 +210,8 @@ func (r *SQLiteServiceConfigRepository) UpsertEmailAccount(ctx context.Context, 
 			password_encrypted = excluded.password_encrypted,
 			encryption = excluded.encryption,
 			poll_interval_seconds = excluded.poll_interval_seconds,
+			friendly_name = excluded.friendly_name,
+			web_url = excluded.web_url,
 			updated_at = excluded.updated_at
 	`,
 		acct.ID.String(),
@@ -208,6 +222,8 @@ func (r *SQLiteServiceConfigRepository) UpsertEmailAccount(ctx context.Context, 
 		encPassword,
 		acct.Encryption,
 		acct.PollIntervalSeconds,
+		acct.FriendlyName,
+		acct.WebURL,
 		acct.CreatedAt.Format(time.RFC3339),
 		acct.UpdatedAt.Format(time.RFC3339),
 	)
@@ -377,7 +393,7 @@ func (r *SQLiteServiceConfigRepository) scanSlackAccount(scanner interface {
 		updatedAtStr string
 	)
 
-	err := scanner.Scan(&idStr, &enabled, &tokenEnc, &acct.WorkspaceID, &acct.Username, &acct.PollIntervalSeconds, &createdAtStr, &updatedAtStr)
+	err := scanner.Scan(&idStr, &enabled, &tokenEnc, &acct.WorkspaceID, &acct.Username, &acct.PollIntervalSeconds, &acct.FriendlyName, &acct.WebURL, &createdAtStr, &updatedAtStr)
 	if err != nil {
 		return nil, err
 	}
@@ -421,7 +437,7 @@ func (r *SQLiteServiceConfigRepository) scanEmailAccount(scanner interface {
 		updatedAtStr string
 	)
 
-	err := scanner.Scan(&idStr, &enabled, &acct.IMAPHost, &acct.IMAPPort, &acct.Username, &passwordEnc, &acct.Encryption, &acct.PollIntervalSeconds, &createdAtStr, &updatedAtStr)
+	err := scanner.Scan(&idStr, &enabled, &acct.IMAPHost, &acct.IMAPPort, &acct.Username, &passwordEnc, &acct.Encryption, &acct.PollIntervalSeconds, &acct.FriendlyName, &acct.WebURL, &createdAtStr, &updatedAtStr)
 	if err != nil {
 		return nil, err
 	}

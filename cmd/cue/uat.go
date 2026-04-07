@@ -16,6 +16,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/fairy"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/wasmhost"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/uat"
 )
 
@@ -61,6 +62,16 @@ func runUAT() error {
 		char, _ = character.Create(character.NoneCharacterName)
 	}
 
+	// Create activity presenter for the activity log drawer.
+	activityCh := make(chan presenter.ActivityEvent, 100)
+	activityPresenter, err := presenter.NewActivityPresenter(
+		&channelActivitySource{ch: activityCh}, 500,
+	)
+	if err != nil {
+		return fmt.Errorf("creating activity presenter: %w", err)
+	}
+	activityPresenter.Start(context.Background())
+
 	// Create Fyne app.
 	fyneApp := app.New()
 
@@ -84,12 +95,23 @@ func runUAT() error {
 		}
 	})
 
+	// Set the initial character so buttons work without dropdown selection.
+	uatPanel.SetInitialCharacter(char, charName)
+
+	// Log state changes to the activity log.
+	uatPanel.SetOnStateChange(func(label string) {
+		activityCh <- presenter.ActivityEvent{
+			Source:  "UAT",
+			Message: fmt.Sprintf("State → %s", label),
+		}
+	})
+
 	// Create main window with UAT panel as right column override.
 	mainWindow = ui.NewMainWindow(
 		fyneApp,
 		cfg.GUI,
 		nil, // no notification presenter
-		nil, // no activity presenter
+		activityPresenter,
 		nil, // no feedback presenter
 		nil, // no app presenter
 		nil, // no settings presenter
@@ -106,11 +128,16 @@ func runUAT() error {
 	// Trigger startup animation.
 	fyneApp.Lifecycle().SetOnStarted(func() {
 		char.TransitionTo(character.StateStarting)
+		activityCh <- presenter.ActivityEvent{
+			Source:  "UAT",
+			Message: "State → Starting",
+		}
 	})
 
 	mainWindow.Run()
 
 	// Graceful shutdown.
+	activityPresenter.Stop()
 	char.Close()
 
 	return nil

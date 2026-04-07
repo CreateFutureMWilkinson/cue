@@ -19,18 +19,12 @@ const (
 )
 
 // LLM prompt template for message scoring
-const promptTemplate = `You are an ADHD-friendly message importance scorer. Evaluate the following message and return a JSON object with these fields:
-- importance_score: a float from 0 to 10 indicating how important/urgent this message is
-- confidence_score: a float from 0.0 to 1.0 indicating your confidence in the rating
-- reasoning: a brief explanation of your rating
+const promptTemplate = `Score this message's importance for an ADHD user who needs to catch critical items (deadlines, outages, @mentions) without noise.
 
-Message details:
-- Source: %s
-- Sender: %s
-- Channel: %s
-- Content: %s
+Source: %s | Sender: %s | Channel: %s
+Content: %s
 
-Respond ONLY with valid JSON. Do not include any other text.`
+{"importance_score": 0-10, "confidence_score": 0.0-1.0, "reasoning": "one sentence"}`
 
 // OllamaClient communicates with a local Ollama instance to score messages.
 type OllamaClient struct {

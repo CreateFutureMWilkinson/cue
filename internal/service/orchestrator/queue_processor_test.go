@@ -198,6 +198,40 @@ func (s *QueueProcessorSuite) TestProcessOneSuccessNotified() {
 	s.Equal(1, alerter.playCount)
 }
 
+func (s *QueueProcessorSuite) TestProcessOneEmptyQueueReturnsFalse() {
+	// Arrange
+	queueRepo := &mockQueueRepo{
+		dequeueEntry: nil,
+		dequeueErr:   nil,
+	}
+
+	msgRepo := &mockMsgRepo{}
+	scorer := &mockScorer{}
+	alerter := &mockQueueAlerter{}
+	eventCh := make(chan orchestrator.ActivityEvent, 10)
+
+	processor, err := orchestrator.NewQueueProcessor(
+		queueRepo,
+		msgRepo,
+		scorer,
+		alerter,
+		eventCh,
+		7,   // importanceThreshold
+		0.8, // confidenceThreshold
+		time.Second,
+	)
+	s.Require().NoError(err)
+
+	// Act
+	processed, err := processor.ProcessOne(context.Background())
+
+	// Assert
+	s.NoError(err)
+	s.False(processed)
+	s.Nil(msgRepo.updatedMsg, "no message should be updated when queue is empty")
+	s.Equal(0, alerter.playCount, "no alert should play when queue is empty")
+}
+
 func (s *QueueProcessorSuite) TestProcessOneScorerErrorMarksBUFFERED() {
 	// Arrange
 	entryID := uuid.New()

@@ -11,9 +11,9 @@ import (
 
 // Default poll intervals (in seconds) per service type.
 const (
-	DefaultSlackPollInterval    = 0 // stub: will be 60
-	DefaultEmailPollInterval    = 0 // stub: will be 600
-	DefaultCalendarPollInterval = 0 // stub: will be 600
+	DefaultSlackPollInterval    = 60
+	DefaultEmailPollInterval    = 600
+	DefaultCalendarPollInterval = 600
 )
 
 // WatcherRemover is the minimal interface the presenter needs for managing watchers.
@@ -98,6 +98,9 @@ func (p *ServiceSettingsPresenter) ListEmailAccounts(ctx context.Context) ([]*re
 
 // SaveSlackAccount validates and persists a new Slack account, then starts its watcher.
 func (p *ServiceSettingsPresenter) SaveSlackAccount(ctx context.Context, acct *repository.SlackAccount) error {
+	if acct.PollIntervalSeconds == 0 {
+		acct.PollIntervalSeconds = DefaultSlackPollInterval
+	}
 	if err := validateSlackAccount(acct); err != nil {
 		return err
 	}

@@ -585,7 +585,7 @@ func (s *ServiceSettingsSuite) TestValidationSlackEmptyWorkspaceID() {
 
 func (s *ServiceSettingsSuite) TestValidationSlackInvalidPollInterval() {
 	acct := validSlackAccount()
-	acct.PollIntervalSeconds = 0
+	acct.PollIntervalSeconds = -1
 	repo := &mockServiceConfigRepo{
 		upsertSlackFn: func(ctx context.Context, a *repository.SlackAccount) error {
 			s.Fail("upsert should not be called on validation failure")
@@ -695,7 +695,7 @@ func (s *ServiceSettingsSuite) TestValidationEmailEmptyPassword() {
 
 func (s *ServiceSettingsSuite) TestValidationEmailInvalidPollInterval() {
 	acct := validEmailAccount()
-	acct.PollIntervalSeconds = 0
+	acct.PollIntervalSeconds = -1
 	repo := &mockServiceConfigRepo{
 		upsertEmailFn: func(ctx context.Context, a *repository.EmailAccount) error {
 			s.Fail("upsert should not be called on validation failure")

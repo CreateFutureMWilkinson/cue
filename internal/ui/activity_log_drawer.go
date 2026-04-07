@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"image/color"
+
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
@@ -53,7 +56,12 @@ func (d *ActivityLogDrawer) ToggleOpen() {
 	}
 	d.drawerBox.Refresh()
 	if d.stackContainer != nil && d.character != nil {
-		d.stackContainer.Objects = []fyne.CanvasObject{d.character, d.drawerBox}
+		if d.open {
+			overlay := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 77})
+			d.stackContainer.Objects = []fyne.CanvasObject{d.character, overlay, d.drawerBox}
+		} else {
+			d.stackContainer.Objects = []fyne.CanvasObject{d.character, d.drawerBox}
+		}
 		d.stackContainer.Refresh()
 	}
 }
@@ -70,6 +78,11 @@ func (d *ActivityLogDrawer) ContainerWithCharacter(character fyne.CanvasObject) 
 		character = widget.NewLabel("")
 	}
 	d.character = character
-	d.stackContainer = container.NewStack(character, d.drawerBox)
+	if d.open {
+		overlay := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 77})
+		d.stackContainer = container.NewStack(character, overlay, d.drawerBox)
+	} else {
+		d.stackContainer = container.NewStack(character, d.drawerBox)
+	}
 	return d.stackContainer
 }

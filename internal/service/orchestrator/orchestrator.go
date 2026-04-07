@@ -241,8 +241,12 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 }
 
 // ReloadRules rebuilds the rules engine from the given routing rules.
+// Invalid regex patterns are logged and skipped by NewRulesEngine.
 func (o *Orchestrator) ReloadRules(rules []*repository.RoutingRule) {
-	// TODO(087): stub
+	engine := decisionengine.NewRulesEngine(rules)
+	o.rulesMu.Lock()
+	o.rules = engine
+	o.rulesMu.Unlock()
 }
 
 // Stop gracefully shuts down the orchestrator. It is idempotent.

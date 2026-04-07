@@ -33,7 +33,7 @@ Run a single test method within a suite:
 go test -count=1 -v -run TestRouter/TestDeterministicChannelJoin ./internal/service/decisionengine/
 ```
 
-Validation sequence before marking work complete: `just fmt && just lint && just tidy && just test && just test-ui && just security && just vulncheck`
+Validation sequence before marking work complete: `just fmt && just lint && just tidy && just test && just test-ui && just security && just vulncheck` + wiring verification (see "Wiring Verification" below)
 
 For UI features, UI tests are updated and committed **before** TDD micro-loops. See "UI Feature Workflow" below.
 
@@ -134,17 +134,25 @@ Feature Requirement (UI-affecting)
 3. VERIFY UI TESTS PASS (`just test-ui`)
    - If FAIL → return to step 2 for additional micro-loops
     ↓
-4. SECURITY + VULN CHECKS (`just security && just vulncheck`)
+4. WIRING VERIFICATION (required for all features)
+   - Grep production code for `ErrNotImplemented` — none may remain
+   - Grep for empty function bodies (return zero values with no logic)
+   - Trace new code from composition root (`cmd/cue/main.go`) to output
+   - Verify new components are instantiated AND passed to consumers
+   - Verify new interfaces are implemented by concrete types AND injected
+   - If gaps found → TDD micro-loops to fix, then re-verify from step 3
+    ↓
+5. SECURITY + VULN CHECKS (`just security && just vulncheck`)
    - If issues found → TDD micro-loops to fix, then re-verify
     ↓
-5. FORMAT + LINT (`just fmt && just lint && just tidy`)
+6. FORMAT + LINT (`just fmt && just lint && just tidy`)
    - Commit: chore(scope): fmt and lint
     ↓
-6. DOCUMENTATION
+7. DOCUMENTATION
    - Commit: docs(scope): ...
 ```
 
-**Non-UI features** skip step 1 and the UI test gate in step 3, but otherwise follow the same flow.
+**Non-UI features** skip step 1 and the UI test gate in step 3, but otherwise follow the same flow (micro-loops → wiring verification → security → fmt/lint → docs).
 
 ### Per-Behavior Micro-Loop
 
@@ -179,6 +187,18 @@ One commit per phase per behavior. **Run `just fmt` as the last step before ever
 - `test(scope): failing test for ...` — ONE failing test + stubs
 - `feat(scope): implement ... [tests pass]` — minimal code to pass ONE test
 - `refactor(scope): improve ...` — cleanup, tests stay green
+
+### Wiring Verification (Required)
+
+After all micro-loops complete, before security checks, verify end-to-end integration:
+
+1. **No leftover stubs** — grep production code (non-test files) for `ErrNotImplemented`. None may remain.
+2. **No empty functions** — grep for function bodies that return only zero values with no meaningful logic. Intentional no-ops (e.g., `Close()` on a no-op impl) are acceptable only if documented with a comment explaining why.
+3. **Composition root wiring** — trace new code from `cmd/cue/main.go` through to its consumer. Every new component must be instantiated AND passed to its consumer.
+4. **Interface injection** — every new interface must have a concrete implementation AND that implementation must be injected where needed (not just defined).
+5. **Event/channel connectivity** — if the feature introduces new event channels or callbacks, verify producers and consumers are both connected.
+
+If any gaps are found, fix them via additional TDD micro-loops, then re-run verification.
 
 ### Post-Feature Docs Commit (Required)
 

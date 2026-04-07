@@ -401,17 +401,25 @@ Feature Requirement (UI-affecting)
   3. VERIFY UI TESTS PASS (`just test-ui`)
      - If FAIL → return to step 2 for additional micro-loops
         ↓
-  4. SECURITY + VULN CHECKS (`just security && just vulncheck`)
+  4. WIRING VERIFICATION (required for all features)
+     - Grep production code for `ErrNotImplemented` — none may remain
+     - Grep for empty function bodies (return zero values with no logic)
+     - Trace new code from composition root (`cmd/cue/main.go`) to output
+     - Verify new components are instantiated AND passed to consumers
+     - Verify new interfaces are implemented by concrete types AND injected
+     - If gaps found → TDD micro-loops to fix, then re-verify from step 3
+        ↓
+  5. SECURITY + VULN CHECKS (`just security && just vulncheck`)
      - If issues found → TDD micro-loops to fix, then re-verify
         ↓
-  5. FORMAT + LINT (`just fmt && just lint && just tidy`)
+  6. FORMAT + LINT (`just fmt && just lint && just tidy`)
      - Commit: chore(scope): fmt and lint
         ↓
-  6. DOCUMENTATION
+  7. DOCUMENTATION
      - Commit: docs(scope): ...
 ```
 
-**Non-UI features** skip step 1 and the UI test gate in step 3, but otherwise follow the same flow (micro-loops → security → fmt/lint → docs).
+**Non-UI features** skip step 1 and the UI test gate in step 3, but otherwise follow the same flow (micro-loops → wiring verification → security → fmt/lint → docs).
 
 ### Per-Behavior Micro-Loop
 
@@ -572,19 +580,32 @@ All feature and phase references use **3-digit zero-padded numbers** everywhere:
 
 ## 17. Validation Sequence
 
-For **UI features**, follow the UI Feature Workflow in section 13 — UI tests are updated and committed first, then TDD micro-loops drive implementation, followed by security/vuln checks, fmt/lint, and documentation. Commits happen at each stage.
+For **UI features**, follow the UI Feature Workflow in section 13 — UI tests are updated and committed first, then TDD micro-loops drive implementation, followed by wiring verification, security/vuln checks, fmt/lint, and documentation. Commits happen at each stage.
 
 For **non-UI features**, the validation sequence before marking work complete is:
 
 1. TDD micro-loops (with commits at each RED/GREEN/REFACTOR phase)
-2. `just security` — gosec static analysis
-3. `just vulncheck` — vulnerability scan
-4. TDD micro-loops to fix any issues found in steps 2–3
-5. `just fmt` — format all Go code
-6. `just lint` — formatting check + go vet
-7. `just tidy` — module hygiene
-8. Commit: `chore(scope): fmt and lint`
-9. Documentation commit: `docs(scope): ...`
+2. Wiring verification (see below)
+3. `just security` — gosec static analysis
+4. `just vulncheck` — vulnerability scan
+5. TDD micro-loops to fix any issues found in steps 2–4
+6. `just fmt` — format all Go code
+7. `just lint` — formatting check + go vet
+8. `just tidy` — module hygiene
+9. Commit: `chore(scope): fmt and lint`
+10. Documentation commit: `docs(scope): ...`
+
+### Wiring Verification (Required)
+
+After all micro-loops complete, before security checks, verify end-to-end integration:
+
+1. **No leftover stubs** — grep production code (non-test files) for `ErrNotImplemented`. None may remain.
+2. **No empty functions** — grep for function bodies that return only zero values with no meaningful logic. Intentional no-ops (e.g., `Close()` on a no-op impl) are acceptable only if documented with a comment explaining why.
+3. **Composition root wiring** — trace new code from `cmd/cue/main.go` through to its consumer. Every new component must be instantiated AND passed to its consumer.
+4. **Interface injection** — every new interface must have a concrete implementation AND that implementation must be injected where needed (not just defined).
+5. **Event/channel connectivity** — if the feature introduces new event channels or callbacks, verify producers and consumers are both connected.
+
+If any gaps are found, fix them via additional TDD micro-loops, then re-run verification.
 
 ---
 

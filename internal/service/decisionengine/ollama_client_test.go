@@ -393,6 +393,63 @@ func (s *OllamaClientSuite) TestGenerateReturnsResponseText() {
 	s.Equal(expectedText, result)
 }
 
+func (s *OllamaClientSuite) TestScore_SimplifiedPromptFormat() {
+	var receivedBody map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &receivedBody)
+
+		resp := map[string]any{
+			"response": `{"importance_score": 6.0, "confidence_score": 0.8, "reasoning": "moderate importance"}`,
+			"done":     true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client, err := decisionengine.NewOllamaClient(server.URL, "neural-chat", 10*time.Second)
+	s.Require().NoError(err)
+
+	msg := &repository.Message{
+		Source:     "slack",
+		Sender:     "alice",
+		Channel:    "ops-alerts",
+		RawContent: "deployment completed successfully",
+	}
+
+	_, err = client.Score(context.Background(), msg)
+	s.NoError(err)
+
+	prompt, ok := receivedBody["prompt"].(string)
+	s.Require().True(ok, "prompt should be a string")
+
+	// 1. New context phrase present
+	s.Contains(prompt, "ADHD user", "prompt should contain 'ADHD user' context phrase")
+
+	// 2. Pipe-delimited format: sender and channel on same line separated by |
+	found := false
+	for _, line := range strings.Split(prompt, "\n") {
+		if strings.Contains(line, "alice") && strings.Contains(line, "ops-alerts") && strings.Contains(line, "|") {
+			found = true
+			break
+		}
+	}
+	s.True(found, "prompt should have sender and channel on the same line separated by |")
+
+	// 3. JSON schema hint contains all three fields
+	s.Contains(prompt, `"importance_score"`, "prompt should contain JSON schema hint for importance_score")
+	s.Contains(prompt, `"confidence_score"`, "prompt should contain JSON schema hint for confidence_score")
+	s.Contains(prompt, `"reasoning"`, "prompt should contain JSON schema hint for reasoning")
+
+	// 4. Removed verbose instruction (now enforced by format:json)
+	s.NotContains(prompt, "Respond ONLY with valid JSON", "prompt should not contain 'Respond ONLY with valid JSON' — enforced by format:json")
+
+	// 5. Removed verbose header
+	s.NotContains(prompt, "Message details:", "prompt should not contain verbose 'Message details:' header")
+}
+
 func (s *OllamaClientSuite) TestScore_PromptRequestsJSONFormat() {
 	var receivedBody map[string]any
 

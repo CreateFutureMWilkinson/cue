@@ -46,6 +46,11 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 	passEntry := widget.NewEntry()
 	passEntry.SetPlaceHolder("Password")
 	passEntry.Password = true
+	encryptionSelect := widget.NewSelect(
+		[]string{"SSL/TLS (Recommended)", "STARTTLS", "None"},
+		nil,
+	)
+	encryptionSelect.SetSelected("SSL/TLS (Recommended)")
 	pollEntry := widget.NewEntry()
 	pollEntry.SetPlaceHolder("Poll Interval (seconds)")
 
@@ -97,6 +102,7 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 		portEntry,
 		userEntry,
 		passEntry,
+		encryptionSelect,
 		pollEntry,
 		errorLabel,
 		container.NewHBox(saveBtn, cancelBtn),

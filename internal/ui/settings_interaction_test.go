@@ -506,6 +506,20 @@ func (s *SettingsInteractionSuite) TestCalendarAddAccountSaveWithValidDataReplac
 	s.Less(len(entriesAfterSave), 3, "after saving valid data, form should be replaced with account list (fewer than 3 Entry widgets)")
 }
 
+func (s *SettingsInteractionSuite) TestEmailFormHasEncryptionDropdown() {
+	root := s.sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	emailContent := tabs.Items[1].Content
+	btn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool { return b.Text == "Add Account" })
+	btn.OnTapped()
+	emailContent = tabs.Items[1].Content
+
+	sel, found := uitest.FindWidget[*widget.Select](emailContent, func(_ *widget.Select) bool { return true })
+	s.Require().True(found, "email form should contain an encryption Select widget")
+	s.Equal("SSL/TLS (Recommended)", sel.Selected, "encryption dropdown should default to 'SSL/TLS (Recommended)'")
+	s.Equal([]string{"SSL/TLS (Recommended)", "STARTTLS", "None"}, sel.Options, "encryption dropdown should have correct options")
+}
+
 func (s *SettingsInteractionSuite) TestCalendarAddAccountCancelReturnsToList() {
 	root := s.sv.Container()
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })

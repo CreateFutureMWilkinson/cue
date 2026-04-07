@@ -29,6 +29,10 @@ CREATE INDEX IF NOT EXISTS idx_routing_rules_priority ON routing_rules(priority)
 CREATE INDEX IF NOT EXISTS idx_routing_rules_source ON routing_rules(source);
 `
 
+const (
+	routingRuleColumns = "id, priority, source, field, negate, pattern, action, enabled, created_at, updated_at"
+)
+
 const upsertRoutingRuleSQL = `
 INSERT INTO routing_rules (id, priority, source, field, negate, pattern, action, enabled, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -62,7 +66,7 @@ func NewSQLiteRoutingRuleRepository(db *sql.DB) (*SQLiteRoutingRuleRepository, e
 
 func (r *SQLiteRoutingRuleRepository) ListRules(ctx context.Context) ([]*repository.RoutingRule, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, priority, source, field, negate, pattern, action, enabled, created_at, updated_at
+		`SELECT `+routingRuleColumns+`
 		 FROM routing_rules ORDER BY priority ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("listing routing rules: %w", err)
@@ -85,7 +89,7 @@ func (r *SQLiteRoutingRuleRepository) ListRules(ctx context.Context) ([]*reposit
 
 func (r *SQLiteRoutingRuleRepository) ListRulesBySource(ctx context.Context, source string) ([]*repository.RoutingRule, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, priority, source, field, negate, pattern, action, enabled, created_at, updated_at
+		`SELECT `+routingRuleColumns+`
 		 FROM routing_rules WHERE source = ? ORDER BY priority ASC`, source)
 	if err != nil {
 		return nil, fmt.Errorf("listing routing rules by source: %w", err)
@@ -109,7 +113,7 @@ func (r *SQLiteRoutingRuleRepository) ListRulesBySource(ctx context.Context, sou
 // GetRule retrieves a routing rule by ID. Returns ErrNotFound if not found.
 func (r *SQLiteRoutingRuleRepository) GetRule(ctx context.Context, id uuid.UUID) (*repository.RoutingRule, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, priority, source, field, negate, pattern, action, enabled, created_at, updated_at
+		`SELECT `+routingRuleColumns+`
 		 FROM routing_rules WHERE id = ?`, id.String())
 
 	rule, err := r.scanRoutingRule(row)

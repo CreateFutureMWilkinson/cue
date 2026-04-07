@@ -119,6 +119,9 @@ func NewPlannerView(plannerModel PlannerViewModel, timerModel TimerViewModel, ro
 // initializeButtons creates all the buttons with their default text and empty callbacks.
 func (v *PlannerView) initializeButtons() {
 	v.planBtn = widget.NewButton("Plan My Day", func() {
+		if v.onPlanMyDay != nil {
+			v.onPlanMyDay()
+		}
 		if v.router != nil {
 			v.router.NavigateTo(ViewWizard)
 		}

@@ -33,6 +33,8 @@ type MainWindow struct {
 	focusRail    *FocusRail
 	centerStack  *fyne.Container
 	viewContents map[CenterView]fyne.CanvasObject
+	plannerView  *PlannerView
+	wizardView   *WizardView
 }
 
 // NewMainWindow creates the main application window with a three-column layout:
@@ -104,8 +106,9 @@ func NewMainWindow(
 
 	// Build planner view content.
 	var planContent fyne.CanvasObject
+	var pv *PlannerView
 	if plannerVM != nil && timerVM != nil {
-		pv := NewPlannerView(plannerVM, timerVM, viewRouter, nil)
+		pv = NewPlannerView(plannerVM, timerVM, viewRouter, nil)
 		planContent = pv.Container()
 	} else {
 		planContent = widget.NewLabel("Plan")
@@ -113,8 +116,9 @@ func NewMainWindow(
 
 	// Build wizard view content.
 	var wizardContent fyne.CanvasObject
+	var wv *WizardView
 	if wizardVM != nil {
-		wv := NewWizardView(wizardVM, viewRouter)
+		wv = NewWizardView(wizardVM, viewRouter)
 		wizardContent = wv.Container()
 	} else {
 		wizardContent = widget.NewLabel("Wizard")
@@ -180,6 +184,8 @@ func NewMainWindow(
 		focusRail:    fr,
 		centerStack:  centerStack,
 		viewContents: viewContents,
+		plannerView:  pv,
+		wizardView:   wv,
 	}
 
 	// Register a view-change listener to swap center content on navigation.
@@ -217,10 +223,20 @@ func (m *MainWindow) switchCenterView(view CenterView) {
 func (m *MainWindow) FocusRail() *FocusRail { return m.focusRail }
 
 // PlannerViewRef returns the PlannerView as a RefreshableView, or nil.
-func (m *MainWindow) PlannerViewRef() RefreshableView { return nil }
+func (m *MainWindow) PlannerViewRef() RefreshableView {
+	if m.plannerView == nil {
+		return nil
+	}
+	return m.plannerView
+}
 
 // WizardViewRef returns the WizardView as a RefreshableView, or nil.
-func (m *MainWindow) WizardViewRef() RefreshableView { return nil }
+func (m *MainWindow) WizardViewRef() RefreshableView {
+	if m.wizardView == nil {
+		return nil
+	}
+	return m.wizardView
+}
 
 // Run shows the window and starts the Fyne event loop. Blocks until quit.
 func (m *MainWindow) Run() {

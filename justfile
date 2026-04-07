@@ -115,8 +115,13 @@ build-uat:
 run-uat: build-uat
     ./_build/character-uat
 
-# Build both binaries for current platform
-build-all: build build-uat
+# Build WASM character plugins
+build-plugins:
+    @mkdir -p _build/characters
+    GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o _build/characters/echo.wasm ./cmd/echo-plugin
+
+# Build both binaries and plugins for current platform
+build-all: build build-uat build-plugins
 
 # Show required system packages for current platform
 deps:

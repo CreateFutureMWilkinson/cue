@@ -305,14 +305,16 @@ func (s *SettingsInteractionSuite) TestEmailAddAccountSaveWithValidDataReplacesF
 	entries := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool {
 		return true
 	})
-	s.Require().GreaterOrEqual(len(entries), 5, "form should have at least 5 Entry widgets")
+	s.Require().GreaterOrEqual(len(entries), 7, "form should have at least 7 Entry widgets")
 
-	// Fill in all 5 fields with valid data
-	entries[0].SetText("imap.example.com") // IMAP Host
-	entries[1].SetText("993")              // IMAP Port
-	entries[2].SetText("user@example.com") // Username
-	entries[3].SetText("secret")           // Password
-	entries[4].SetText("600")              // Poll Interval
+	// Fill in all 7 fields with valid data
+	entries[0].SetText("Work Email")              // Friendly Name
+	entries[1].SetText("https://mail.google.com") // Web URL
+	entries[2].SetText("imap.example.com")        // IMAP Host
+	entries[3].SetText("993")                     // IMAP Port
+	entries[4].SetText("user@example.com")        // Username
+	entries[5].SetText("secret")                  // Password
+	entries[6].SetText("600")                     // Poll Interval
 
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
 		return b.Text == "Save"
@@ -327,8 +329,8 @@ func (s *SettingsInteractionSuite) TestEmailAddAccountSaveWithValidDataReplacesF
 		return true
 	})
 
-	s.Less(len(entriesAfterSave), 5,
-		"after saving valid data, form should be replaced with account list (fewer than 5 Entry widgets)")
+	s.Less(len(entriesAfterSave), 7,
+		"after saving valid data, form should be replaced with account list (fewer than 7 Entry widgets)")
 }
 
 func (s *SettingsInteractionSuite) TestSlackAddAccountShowsFormFields() {
@@ -476,16 +478,18 @@ func (s *SettingsInteractionSuite) TestSlackAddAccountSaveWithValidDataReplacesF
 	addBtn.OnTapped()
 	slackContent = tabs.Items[0].Content
 	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
-	s.Require().GreaterOrEqual(len(entries), 4, "form should have at least 4 Entry widgets")
-	entries[0].SetText("xoxp-test-token") // User OAuth Token
-	entries[1].SetText("T12345")          // Workspace ID
-	entries[2].SetText("testuser")        // Username
-	entries[3].SetText("600")             // Poll Interval
+	s.Require().GreaterOrEqual(len(entries), 6, "form should have at least 6 Entry widgets")
+	entries[0].SetText("My Slack")          // Friendly Name
+	entries[1].SetText("https://slack.com") // Web URL
+	entries[2].SetText("xoxp-test-token")   // User OAuth Token
+	entries[3].SetText("T12345")            // Workspace ID
+	entries[4].SetText("testuser")          // Username
+	entries[5].SetText("600")               // Poll Interval
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool { return b.Text == "Save" })
 	saveBtn.OnTapped()
 	slackContent = tabs.Items[0].Content
 	entriesAfterSave := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
-	s.Less(len(entriesAfterSave), 4, "after saving valid data, form should be replaced with account list (fewer than 4 Entry widgets)")
+	s.Less(len(entriesAfterSave), 6, "after saving valid data, form should be replaced with account list (fewer than 6 Entry widgets)")
 }
 
 func (s *SettingsInteractionSuite) TestCalendarAddAccountSaveWithValidDataReplacesForm() {
@@ -570,12 +574,14 @@ func (s *SettingsInteractionSuite) TestEmailFormSavesMappedEncryptionValue() {
 
 	// Fill entries
 	entries := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool { return true })
-	s.Require().GreaterOrEqual(len(entries), 5)
-	entries[0].SetText("imap.example.com")
-	entries[1].SetText("993")
-	entries[2].SetText("user@example.com")
-	entries[3].SetText("secret")
-	entries[4].SetText("600")
+	s.Require().GreaterOrEqual(len(entries), 7)
+	entries[0].SetText("Work Email")              // Friendly Name
+	entries[1].SetText("https://mail.google.com") // Web URL
+	entries[2].SetText("imap.example.com")
+	entries[3].SetText("993")
+	entries[4].SetText("user@example.com")
+	entries[5].SetText("secret")
+	entries[6].SetText("600")
 
 	// Select STARTTLS
 	sel := uitest.RequireWidget[*widget.Select](s.T(), emailContent, func(_ *widget.Select) bool { return true })
@@ -587,4 +593,23 @@ func (s *SettingsInteractionSuite) TestEmailFormSavesMappedEncryptionValue() {
 
 	s.Require().NotNil(repo.lastSavedEmail, "repo should have received a saved email account")
 	s.Equal("starttls", repo.lastSavedEmail.Encryption, "encryption should be mapped from display value to stored value")
+}
+
+func (s *SettingsInteractionSuite) TestSlackFormHasFriendlyNameAndWebURLEntries() {
+	root := s.sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	slackContent := tabs.Items[0].Content
+	btn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool { return b.Text == "Add Account" })
+	btn.OnTapped()
+	slackContent = tabs.Items[0].Content
+
+	_, foundFriendly := uitest.FindWidget[*widget.Entry](slackContent, func(e *widget.Entry) bool {
+		return e.PlaceHolder == "Friendly Name"
+	})
+	s.True(foundFriendly, "Slack account form should contain an Entry with placeholder 'Friendly Name'")
+
+	_, foundWebURL := uitest.FindWidget[*widget.Entry](slackContent, func(e *widget.Entry) bool {
+		return e.PlaceHolder == "Web URL"
+	})
+	s.True(foundWebURL, "Slack account form should contain an Entry with placeholder 'Web URL'")
 }

@@ -24,6 +24,10 @@ type SettingsView struct {
 // createEmailAccountForm creates the form UI for adding a new email account.
 // onSaved is called after a successful save to restore the account list view.
 func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved func()) *fyne.Container {
+	friendlyNameEntry := widget.NewEntry()
+	friendlyNameEntry.SetPlaceHolder("Friendly Name")
+	webURLEntry := widget.NewEntry()
+	webURLEntry.SetPlaceHolder("Web URL")
 	hostEntry := widget.NewEntry()
 	hostEntry.SetPlaceHolder("IMAP Host")
 	portEntry := widget.NewEntry()
@@ -80,6 +84,8 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 		acct := &repository.EmailAccount{
 			ID:                  uuid.New(),
 			Enabled:             true,
+			FriendlyName:        friendlyNameEntry.Text,
+			WebURL:              webURLEntry.Text,
 			IMAPHost:            hostEntry.Text,
 			IMAPPort:            port,
 			Username:            userEntry.Text,
@@ -100,6 +106,8 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 
 	return container.NewVBox(
 		widget.NewLabel("Add Email Account"),
+		friendlyNameEntry,
+		webURLEntry,
 		hostEntry,
 		portEntry,
 		userEntry,
@@ -114,6 +122,10 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 // createSlackAccountForm creates the form UI for adding a new Slack account.
 // onSaved is called after a successful save to restore the account list view.
 func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved func()) *fyne.Container {
+	friendlyNameEntry := widget.NewEntry()
+	friendlyNameEntry.SetPlaceHolder("Friendly Name")
+	webURLEntry := widget.NewEntry()
+	webURLEntry.SetPlaceHolder("Web URL")
 	tokenEntry := widget.NewEntry()
 	tokenEntry.SetPlaceHolder("User OAuth Token (xoxp-...)")
 	tokenEntry.Password = true
@@ -148,6 +160,8 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 		acct := &repository.SlackAccount{
 			ID:                  uuid.New(),
 			Enabled:             true,
+			FriendlyName:        friendlyNameEntry.Text,
+			WebURL:              webURLEntry.Text,
 			Token:               tokenEntry.Text,
 			WorkspaceID:         workspaceEntry.Text,
 			Username:            usernameEntry.Text,
@@ -166,6 +180,8 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 
 	return container.NewVBox(
 		widget.NewLabel("Add Slack Account"),
+		friendlyNameEntry,
+		webURLEntry,
 		tokenEntry,
 		workspaceEntry,
 		usernameEntry,

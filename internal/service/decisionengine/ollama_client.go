@@ -149,7 +149,45 @@ func buildPrompt(msg *repository.Message) string {
 
 // Generate sends a raw prompt to Ollama and returns the response text.
 func (c *OllamaClient) Generate(ctx context.Context, prompt string) (string, error) {
-	return "", ErrNotImplemented
+	reqBody := ollamaRequest{
+		Model:  c.model,
+		Prompt: prompt,
+		Stream: false,
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("marshalling Ollama request: %w", err)
+	}
+
+	url := c.baseURL + ollamaGenerateEndpoint
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return "", fmt.Errorf("creating HTTP request: %w", err)
+	}
+	req.Header.Set("Content-Type", jsonContentType)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("sending HTTP request to Ollama: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("Ollama API returned non-200 status: %d", resp.StatusCode)
+	}
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("reading Ollama response body: %w", err)
+	}
+
+	var outerResp ollamaResponse
+	if err := json.Unmarshal(respBytes, &outerResp); err != nil {
+		return "", fmt.Errorf("parsing Ollama response JSON: %w", err)
+	}
+
+	return outerResp.Response, nil
 }
 
 // extractJSON strips markdown code block wrapping if present.

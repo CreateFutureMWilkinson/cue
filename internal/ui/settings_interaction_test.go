@@ -378,6 +378,42 @@ func (s *SettingsInteractionSuite) TestAudioSliderOnChangedCallsPresenterSetVolu
 		"presenter volume should be updated to 75 after slider change")
 }
 
+func (s *SettingsInteractionSuite) TestTimerVolumeSlider() {
+	root := s.sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	s.Require().Greater(len(tabs.Items), 3, "should have at least 4 tabs (Audio is index 3)")
+	audioContent := tabs.Items[3].Content
+
+	// There should be 2 sliders: notification volume and timer volume
+	sliders := uitest.FindAll[*widget.Slider](audioContent, func(_ *widget.Slider) bool {
+		return true
+	})
+	s.Equal(2, len(sliders), "Audio tab should contain exactly 2 sliders (notification + timer)")
+
+	// Find the timer volume label
+	timerLabel, found := uitest.FindWidget[*widget.Label](audioContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "Timer Volume:")
+	})
+	s.Require().True(found, "Audio tab should contain a 'Timer Volume:' label")
+
+	// Find the timer slider (second slider)
+	timerSlider := sliders[1]
+	s.Equal(float64(0), timerSlider.Min, "timer slider Min should be 0")
+	s.Equal(float64(100), timerSlider.Max, "timer slider Max should be 100")
+	s.Equal(float64(1), timerSlider.Step, "timer slider Step should be 1")
+
+	// Simulate dragging the timer slider
+	s.Require().NotNil(timerSlider.OnChanged, "timer slider OnChanged should be wired")
+	timerSlider.OnChanged(70)
+
+	s.Equal("Timer Volume: 70%", timerLabel.Text,
+		"timer volume label should update to reflect new slider value")
+}
+
 func (s *SettingsInteractionSuite) TestSlackAddAccountSaveWithValidDataReplacesForm() {
 	root := s.sv.Container()
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })

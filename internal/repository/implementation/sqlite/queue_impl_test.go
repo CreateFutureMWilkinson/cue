@@ -158,5 +158,70 @@ func (s *QueueRepositorySuite) TestDequeueOldestSkipsNonPendingEntries() {
 	s.Equal(secondID, entry.MessageID)
 }
 
+func (s *QueueRepositorySuite) TestMarkDoneSetsStatusToDone() {
+	ctx := context.Background()
+	messageID := uuid.New()
+
+	// Insert a message row to satisfy the foreign key constraint.
+	_, err := s.db.Exec("INSERT INTO messages (id) VALUES (?)", messageID.String())
+	s.Require().NoError(err)
+
+	// Enqueue, then dequeue to move to "processing".
+	err = s.repo.Enqueue(ctx, messageID)
+	s.Require().NoError(err)
+
+	entry, err := s.repo.DequeueOldest(ctx)
+	s.Require().NoError(err)
+	s.Require().NotNil(entry)
+
+	// Mark done.
+	err = s.repo.MarkDone(ctx, entry.ID)
+	s.Require().NoError(err)
+
+	// Verify status is "done" directly in the database.
+	var status string
+	err = s.db.QueryRow(
+		"SELECT status FROM ollama_queue WHERE id = ?", entry.ID.String(),
+	).Scan(&status)
+	s.Require().NoError(err)
+	s.Equal("done", status)
+}
+
+func (s *QueueRepositorySuite) TestMarkFailedSetsStatusToFailed() {
+	ctx := context.Background()
+	messageID := uuid.New()
+
+	// Insert a message row to satisfy the foreign key constraint.
+	_, err := s.db.Exec("INSERT INTO messages (id) VALUES (?)", messageID.String())
+	s.Require().NoError(err)
+
+	// Enqueue, then dequeue to move to "processing".
+	err = s.repo.Enqueue(ctx, messageID)
+	s.Require().NoError(err)
+
+	entry, err := s.repo.DequeueOldest(ctx)
+	s.Require().NoError(err)
+	s.Require().NotNil(entry)
+
+	// Mark failed.
+	err = s.repo.MarkFailed(ctx, entry.ID)
+	s.Require().NoError(err)
+
+	// Verify status is "failed" directly in the database.
+	var status string
+	err = s.db.QueryRow(
+		"SELECT status FROM ollama_queue WHERE id = ?", entry.ID.String(),
+	).Scan(&status)
+	s.Require().NoError(err)
+	s.Equal("failed", status)
+}
+
+func (s *QueueRepositorySuite) TestMarkDoneNonExistentIDReturnsError() {
+	ctx := context.Background()
+
+	err := s.repo.MarkDone(ctx, uuid.New())
+	s.Error(err)
+}
+
 // Compile-time interface satisfaction check.
 var _ repository.QueueRepository = (*sqlite.SQLiteQueueRepository)(nil)

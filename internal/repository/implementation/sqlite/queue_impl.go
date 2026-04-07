@@ -102,11 +102,37 @@ func (r *SQLiteQueueRepository) DequeueOldest(ctx context.Context) (*repository.
 }
 
 func (r *SQLiteQueueRepository) MarkDone(ctx context.Context, id uuid.UUID) error {
-	return repository.ErrNotImplemented
+	res, err := r.db.ExecContext(ctx,
+		"UPDATE ollama_queue SET status = 'done' WHERE id = ?", id.String(),
+	)
+	if err != nil {
+		return fmt.Errorf("mark done %s: %w", id, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("mark done rows affected: %w", err)
+	}
+	if n == 0 {
+		return repository.ErrNotFound
+	}
+	return nil
 }
 
 func (r *SQLiteQueueRepository) MarkFailed(ctx context.Context, id uuid.UUID) error {
-	return repository.ErrNotImplemented
+	res, err := r.db.ExecContext(ctx,
+		"UPDATE ollama_queue SET status = 'failed' WHERE id = ?", id.String(),
+	)
+	if err != nil {
+		return fmt.Errorf("mark failed %s: %w", id, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("mark failed rows affected: %w", err)
+	}
+	if n == 0 {
+		return repository.ErrNotFound
+	}
+	return nil
 }
 
 func (r *SQLiteQueueRepository) PendingCount(ctx context.Context) (int, error) {

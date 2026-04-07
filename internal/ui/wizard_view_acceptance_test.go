@@ -173,6 +173,47 @@ func (s *WizardViewAcceptanceSuite) TestWizardStep3HasTaskLabels() {
 		"Step 3 container should contain at least 2 Label widgets (one per priority list item from sampleEstimates)")
 }
 
+// --- Step 4 widget rendering ---
+
+func (s *WizardViewAcceptanceSuite) TestWizardStep4HasScheduleSelectionButtons() {
+	s.setupStep4Defaults()
+
+	view := ui.NewWizardView(s.vm, s.router)
+	root := view.Container()
+
+	buttons := uitest.FindAll[*widget.Button](root, func(b *widget.Button) bool {
+		return strings.Contains(b.Text, "focus-maximized") ||
+			strings.Contains(b.Text, "recovery-balanced")
+	})
+
+	s.GreaterOrEqual(len(buttons), 2,
+		"Step 4 container should contain at least 2 Button widgets for schedule selection (one per strategy)")
+}
+
+func (s *WizardViewAcceptanceSuite) TestWizardStep4HasBackButton() {
+	s.setupStep4Defaults()
+
+	view := ui.NewWizardView(s.vm, s.router)
+	root := view.Container()
+
+	_, foundBack := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
+		return b.Text == "Back"
+	})
+	s.True(foundBack, "Step 4 container should have a 'Back' button widget")
+}
+
+func (s *WizardViewAcceptanceSuite) TestWizardStep4NoNextButton() {
+	s.setupStep4Defaults()
+
+	view := ui.NewWizardView(s.vm, s.router)
+	root := view.Container()
+
+	_, foundNext := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
+		return b.Text == "Next"
+	})
+	s.False(foundNext, "Step 4 container should NOT have a 'Next' button (schedule selection replaces it)")
+}
+
 // --- Helpers ---
 
 func (s *WizardViewAcceptanceSuite) setupStep2Defaults() {
@@ -207,4 +248,14 @@ func (s *WizardViewAcceptanceSuite) setupStep1Defaults() {
 	s.vm.On("EstimateSummary").Return(presenter.EstimateSummary{}).Maybe()
 	s.vm.On("FocusSchedule").Return((*presenter.SchedulePreview)(nil)).Maybe()
 	s.vm.On("RecoverySchedule").Return((*presenter.SchedulePreview)(nil)).Maybe()
+}
+
+func (s *WizardViewAcceptanceSuite) setupStep4Defaults() {
+	s.vm.On("CurrentStep").Return(presenter.StepSchedule).Maybe()
+	s.vm.On("AvailableTasks").Return([]presenter.TodoRow{}).Maybe()
+	s.vm.On("SelectedCount").Return(0).Maybe()
+	s.vm.On("Estimates").Return([]presenter.TaskEstimateRow{}).Maybe()
+	s.vm.On("EstimateSummary").Return(presenter.EstimateSummary{}).Maybe()
+	s.vm.On("FocusSchedule").Return(sampleFocusSchedule()).Maybe()
+	s.vm.On("RecoverySchedule").Return(sampleRecoverySchedule()).Maybe()
 }

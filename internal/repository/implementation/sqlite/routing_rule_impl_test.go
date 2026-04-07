@@ -199,3 +199,101 @@ func (s *RoutingRuleSQLiteSuite) TestGetRuleNotFound() {
 	s.ErrorIs(err, repository.ErrNotFound)
 	s.Nil(got)
 }
+
+// --- Behavior 5: ListRules ---
+
+func (s *RoutingRuleSQLiteSuite) TestListRulesEmpty() {
+	ctx := context.Background()
+
+	rules, err := s.repo.ListRules(ctx)
+	s.Require().NoError(err)
+	s.NotNil(rules, "ListRules should return non-nil slice when empty")
+	s.Empty(rules)
+}
+
+func (s *RoutingRuleSQLiteSuite) TestListRulesSortedByPriority() {
+	ctx := context.Background()
+
+	r1 := s.validRule()
+	r1.Priority = 5
+	r2 := s.validRule()
+	r2.Priority = 1
+	r3 := s.validRule()
+	r3.Priority = 10
+
+	s.Require().NoError(s.repo.UpsertRule(ctx, r1))
+	s.Require().NoError(s.repo.UpsertRule(ctx, r2))
+	s.Require().NoError(s.repo.UpsertRule(ctx, r3))
+
+	rules, err := s.repo.ListRules(ctx)
+	s.Require().NoError(err)
+	s.Require().Len(rules, 3)
+
+	s.Equal(1, rules[0].Priority)
+	s.Equal(5, rules[1].Priority)
+	s.Equal(10, rules[2].Priority)
+}
+
+// --- Behavior 6: ListRulesBySource ---
+
+func (s *RoutingRuleSQLiteSuite) TestListRulesBySourceFiltered() {
+	ctx := context.Background()
+
+	slack1 := s.validRule()
+	slack1.Source = "slack"
+	slack1.Priority = 5
+
+	slack2 := s.validRule()
+	slack2.Source = "slack"
+	slack2.Priority = 1
+
+	email1 := s.validRule()
+	email1.Source = "email"
+	email1.Field = "sender"
+	email1.Priority = 3
+
+	s.Require().NoError(s.repo.UpsertRule(ctx, slack1))
+	s.Require().NoError(s.repo.UpsertRule(ctx, slack2))
+	s.Require().NoError(s.repo.UpsertRule(ctx, email1))
+
+	rules, err := s.repo.ListRulesBySource(ctx, "slack")
+	s.Require().NoError(err)
+	s.Require().Len(rules, 2)
+
+	s.Equal("slack", rules[0].Source)
+	s.Equal("slack", rules[1].Source)
+	s.Equal(1, rules[0].Priority, "results should be sorted by priority ascending")
+	s.Equal(5, rules[1].Priority)
+}
+
+func (s *RoutingRuleSQLiteSuite) TestListRulesBySourceEmpty() {
+	ctx := context.Background()
+
+	rules, err := s.repo.ListRulesBySource(ctx, "email")
+	s.Require().NoError(err)
+	s.NotNil(rules, "ListRulesBySource should return non-nil slice when empty")
+	s.Empty(rules)
+}
+
+// --- Behavior 7: DeleteRule ---
+
+func (s *RoutingRuleSQLiteSuite) TestDeleteRule() {
+	ctx := context.Background()
+	rule := s.validRule()
+
+	s.Require().NoError(s.repo.UpsertRule(ctx, rule))
+
+	err := s.repo.DeleteRule(ctx, rule.ID)
+	s.Require().NoError(err)
+
+	got, err := s.repo.GetRule(ctx, rule.ID)
+	s.ErrorIs(err, repository.ErrNotFound)
+	s.Nil(got)
+}
+
+func (s *RoutingRuleSQLiteSuite) TestDeleteRuleIdempotent() {
+	ctx := context.Background()
+
+	err := s.repo.DeleteRule(ctx, uuid.New())
+	s.NoError(err, "deleting a non-existent rule should not return an error")
+}

@@ -145,3 +145,4 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 |---|---|---|---|---|---|---|
 | 075 | WASM character plugins | Feature | — | Done | 014, 041 | [Feature-075](features/phase-7/Feature-075-WASM-Character-Plugins.md) |
 | 076 | Integrated character UAT mode | Refactor | — | Done | 075 | [Feature-076](features/phase-7/Feature-076-Integrated-Character-UAT.md) |
+| 076A | UAT: activity log, initial char, motion | Bugfix | High | Done | 076 | [Feature-076A](features/phase-7/Feature-076A-UAT-Bugs.md) |

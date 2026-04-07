@@ -148,6 +148,14 @@ func (v *TodoListView) isValidTaskTitle(title string) bool {
 // buildContainer rebuilds the container with current widgets.
 func (v *TodoListView) buildContainer() {
 	v.container.Objects = nil
+	for i, item := range v.items {
+		idx := i
+		check := widget.NewCheck(item.Title, func(checked bool) {
+			v.vm.ToggleComplete(v.items[idx].ID)
+		})
+		check.Checked = item.Completed
+		v.container.Objects = append(v.container.Objects, check)
+	}
 	v.container.Objects = append(v.container.Objects, container.NewHBox(v.titleEntry, v.addBtn))
 	v.container.Refresh()
 }

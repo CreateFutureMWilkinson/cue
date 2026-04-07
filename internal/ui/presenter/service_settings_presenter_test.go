@@ -1046,3 +1046,25 @@ func (s *ServiceSettingsSuite) TestSaveSlackAccountAppliesDefaultPollInterval() 
 	s.Require().NotNil(upsertedAcct, "upsert should have been called")
 	s.Equal(60, upsertedAcct.PollIntervalSeconds, "PollIntervalSeconds should be set to Slack default (60)")
 }
+
+func (s *ServiceSettingsSuite) TestSaveEmailAccountAppliesDefaultPollInterval() {
+	acct := validEmailAccount()
+	acct.PollIntervalSeconds = 0 // zero means "use default"
+
+	var upsertedAcct *repository.EmailAccount
+	repo := &mockServiceConfigRepo{
+		upsertEmailFn: func(ctx context.Context, a *repository.EmailAccount) error {
+			upsertedAcct = a
+			return nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+	factory := func(accountType string, accountID uuid.UUID) error { return nil }
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	err := p.SaveEmailAccount(context.Background(), acct)
+
+	s.Require().NoError(err, "SaveEmailAccount should not error when PollIntervalSeconds is 0")
+	s.Require().NotNil(upsertedAcct, "upsert should have been called")
+	s.Equal(600, upsertedAcct.PollIntervalSeconds, "PollIntervalSeconds should be set to Email default (600)")
+}

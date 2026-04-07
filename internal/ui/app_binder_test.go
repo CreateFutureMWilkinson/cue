@@ -24,6 +24,10 @@ func (m *mockPlannerCallbacks) SetOnStepChange(fn func(presenter.WizardStep)) {
 	m.stepChangeCallback = fn
 }
 
+func (m *mockPlannerCallbacks) StartPlanning(ctx context.Context) error {
+	return m.Called(ctx).Error(0)
+}
+
 func (m *mockPlannerCallbacks) HasActivePlan() bool {
 	return m.Called().Bool(0)
 }
@@ -84,6 +88,7 @@ func (m *mockRefreshableView) Refresh() {
 
 type mockPlannerViewBindable struct {
 	mock.Mock
+	planMyDayCallback    func()
 	nextCallback         func()
 	backCallback         func()
 	completeTaskCallback func()
@@ -92,6 +97,11 @@ type mockPlannerViewBindable struct {
 
 func (m *mockPlannerViewBindable) Refresh() {
 	m.Called()
+}
+
+func (m *mockPlannerViewBindable) SetOnPlanMyDay(fn func()) {
+	m.Called(fn)
+	m.planMyDayCallback = fn
 }
 
 func (m *mockPlannerViewBindable) SetOnNext(fn func()) {
@@ -176,6 +186,7 @@ func (s *AppBinderSuite) TestAppBinderNilViewRouterReturnsError() {
 func (s *AppBinderSuite) expectBindCalls() {
 	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
 	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
+	s.plannerView.On("SetOnPlanMyDay", mock.AnythingOfType("func()")).Return()
 	s.plannerView.On("SetOnNext", mock.AnythingOfType("func()")).Return()
 	s.plannerView.On("SetOnBack", mock.AnythingOfType("func()")).Return()
 	s.plannerView.On("SetOnCompleteTask", mock.AnythingOfType("func()")).Return()
@@ -371,6 +382,25 @@ func (s *AppBinderSuite) TestBindWiresCompleteTaskButtonToPresenterCompleteCurre
 	s.plannerView.completeTaskCallback()
 
 	s.plannerP.AssertCalled(s.T(), "CompleteCurrentTask", mock.Anything)
+}
+
+func (s *AppBinderSuite) TestBindWiresPlanMyDayToStartPlanningAndNavigate() {
+	s.expectBindCalls()
+
+	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
+	s.Require().NoError(err)
+
+	binder.Bind()
+
+	s.Require().NotNil(s.plannerView.planMyDayCallback, "Bind should wire a PlanMyDay callback on plannerView")
+
+	s.plannerP.On("StartPlanning", mock.Anything).Return(nil)
+	s.viewRouter.On("NavigateTo", ui.ViewWizard).Return()
+
+	s.plannerView.planMyDayCallback()
+
+	s.plannerP.AssertCalled(s.T(), "StartPlanning", mock.Anything)
+	s.viewRouter.AssertCalled(s.T(), "NavigateTo", ui.ViewWizard)
 }
 
 func (s *AppBinderSuite) TestBindWiresAbandonButtonToPresenterAbandonPlan() {

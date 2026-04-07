@@ -10,6 +10,7 @@ import (
 // PlannerCallbacks abstracts the planner presenter for binding.
 type PlannerCallbacks interface {
 	SetOnStepChange(func(presenter.WizardStep))
+	StartPlanning(ctx context.Context) error
 	HasActivePlan() bool
 	LoadExistingPlan(ctx context.Context) error
 	CompleteCurrentTask(ctx context.Context) error
@@ -34,6 +35,7 @@ type RefreshableView interface {
 // and have button callbacks wired.
 type PlannerViewBindable interface {
 	RefreshableView
+	SetOnPlanMyDay(fn func())
 	SetOnNext(fn func())
 	SetOnBack(fn func())
 	SetOnCompleteTask(fn func())

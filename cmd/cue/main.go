@@ -31,6 +31,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/fairy"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/wasmhost"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
 
@@ -386,6 +387,11 @@ func run() error {
 		})
 		return f
 	})
+	// Discover and register WASM character plugins from the configured directory.
+	if err := wasmhost.RegisterDiscoveredPlugins(cfg.GUI.CharacterDir); err != nil {
+		log.Printf("warning: WASM plugin discovery failed: %v", err)
+	}
+
 	charName := cfg.GUI.Character
 	char, charErr := character.Create(charName)
 	if charErr != nil {

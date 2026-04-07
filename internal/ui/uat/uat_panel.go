@@ -18,6 +18,7 @@ type UATPanel struct {
 	charLabel       *widget.Label
 	currentChar     character.Character
 	onCharChanged   func(character.Character)
+	onStateChange   func(string)
 }
 
 // NewUATPanel creates a UAT control panel with a character dropdown populated
@@ -72,6 +73,9 @@ func NewUATPanel(onCharChanged func(character.Character)) *UATPanel {
 			if p.currentChar != nil {
 				p.currentChar.TransitionTo(state)
 				p.stateLabel.SetText("Current State: " + label)
+				if p.onStateChange != nil {
+					p.onStateChange(label)
+				}
 			}
 		})
 		buttonObjects[i] = p.stateButtons[i]
@@ -94,14 +98,21 @@ func NewUATPanel(onCharChanged func(character.Character)) *UATPanel {
 	return p
 }
 
-// SetInitialCharacter sets the panel's current character without using the dropdown.
-func (p *UATPanel) SetInitialCharacter(_ character.Character, _ string) {
-	// stub — not implemented
+// SetInitialCharacter sets the panel's current character without using the dropdown,
+// enabling state trigger buttons immediately.
+func (p *UATPanel) SetInitialCharacter(ch character.Character, name string) {
+	p.currentChar = ch
+	p.charLabel.SetText("Character: " + name)
+	if name != character.NoneCharacterName {
+		for _, btn := range p.stateButtons {
+			btn.Enable()
+		}
+	}
 }
 
 // SetOnStateChange registers a callback fired when a state trigger button is tapped.
-func (p *UATPanel) SetOnStateChange(_ func(string)) {
-	// stub — not implemented
+func (p *UATPanel) SetOnStateChange(fn func(string)) {
+	p.onStateChange = fn
 }
 
 // Container returns the root canvas object of the UAT panel.

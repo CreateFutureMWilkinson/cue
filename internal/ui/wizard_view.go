@@ -381,15 +381,29 @@ func (v *WizardView) renderStep3() {
 	v.container.Objects = append(v.container.Objects, widget.NewLabel(v.stepIndicator))
 
 	for i, title := range v.priorityList {
+		idx := i // capture for closure
 		v.container.Objects = append(v.container.Objects,
 			widget.NewLabel(fmt.Sprintf("%d. %s", i+1, title)))
-	}
 
-	if v.hasUpDownButtons {
-		v.container.Objects = append(v.container.Objects,
-			widget.NewButton("Up", func() {}),
-			widget.NewButton("Down", func() {}),
-		)
+		if v.hasUpDownButtons {
+			upBtn := widget.NewButton("Up", func() {
+				v.vm.ReorderTask(idx, idx-1)
+				v.Refresh()
+			})
+			if idx == 0 {
+				upBtn.Disable()
+			}
+
+			downBtn := widget.NewButton("Down", func() {
+				v.vm.ReorderTask(idx, idx+1)
+				v.Refresh()
+			})
+			if idx == len(v.priorityList)-1 {
+				downBtn.Disable()
+			}
+
+			v.container.Objects = append(v.container.Objects, upBtn, downBtn)
+		}
 	}
 
 	v.container.Objects = append(v.container.Objects,

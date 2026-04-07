@@ -103,6 +103,62 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 	)
 }
 
+// createSlackAccountForm creates the form UI for adding a new Slack account.
+// onSaved is called after a successful save to restore the account list view.
+func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved func()) *fyne.Container {
+	tokenEntry := widget.NewEntry()
+	tokenEntry.SetPlaceHolder("Bot Token")
+	workspaceEntry := widget.NewEntry()
+	workspaceEntry.SetPlaceHolder("Workspace ID")
+	pollEntry := widget.NewEntry()
+	pollEntry.SetPlaceHolder("Poll Interval (seconds)")
+
+	errorLabel := widget.NewLabel("")
+	errorLabel.Hide()
+
+	saveBtn := widget.NewButton("Save", nil)
+	cancelBtn := widget.NewButton("Cancel", func() {
+		onSaved()
+	})
+
+	saveBtn.OnTapped = func() {
+		if tokenEntry.Text == "" || workspaceEntry.Text == "" || pollEntry.Text == "" {
+			errorLabel.SetText("All fields are required")
+			errorLabel.Show()
+			return
+		}
+		poll, err := strconv.Atoi(pollEntry.Text)
+		if err != nil {
+			errorLabel.SetText("Poll interval must be a number")
+			errorLabel.Show()
+			return
+		}
+		acct := &repository.SlackAccount{
+			ID:                  uuid.New(),
+			Enabled:             true,
+			Token:               tokenEntry.Text,
+			WorkspaceID:         workspaceEntry.Text,
+			PollIntervalSeconds: poll,
+		}
+		if err := ssp.SaveSlackAccount(context.Background(), acct); err != nil {
+			errorLabel.SetText(fmt.Sprintf("Error: %s", err))
+			errorLabel.Show()
+			return
+		}
+		errorLabel.Hide()
+		onSaved()
+	}
+
+	return container.NewVBox(
+		widget.NewLabel("Add Slack Account"),
+		tokenEntry,
+		workspaceEntry,
+		pollEntry,
+		errorLabel,
+		container.NewHBox(saveBtn, cancelBtn),
+	)
+}
+
 // NewSettingsView creates a SettingsView with tabs for Slack, Email, Calendar, Audio, and Ollama.
 // The onClose callback is invoked when the user taps the Done button to exit settings.
 func NewSettingsView(
@@ -111,7 +167,26 @@ func NewSettingsView(
 	ollamaCfg config.OllamaConfig,
 	onClose func(),
 ) *SettingsView {
-	slackTab := newAccountTab("Slack", func() {})
+	// Slack tab with dynamic content switching between account list and add form
+	slackAccountList := container.NewVBox()
+	slackAddBtn := widget.NewButton("Add Account", nil)
+
+	buildSlackListContent := func() fyne.CanvasObject {
+		return container.NewBorder(
+			widget.NewLabel("Slack Accounts"),
+			slackAddBtn,
+			nil, nil,
+			container.NewVScroll(slackAccountList),
+		)
+	}
+
+	slackTab := container.NewTabItem("Slack", buildSlackListContent())
+
+	slackAddBtn.OnTapped = func() {
+		slackTab.Content = createSlackAccountForm(ssp, func() {
+			slackTab.Content = buildSlackListContent()
+		})
+	}
 
 	// Email tab with dynamic content switching between account list and add form
 	emailAccountList := container.NewVBox()

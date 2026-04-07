@@ -223,9 +223,9 @@ func (s *SettingsAcceptanceSuite) TestSlackAddAccountSaveWithValidDataReplacesFo
 	s.Require().GreaterOrEqual(len(entries), 3, "form should have at least 3 Entry widgets")
 
 	// Fill in all 3 fields with valid data
-	entries[0].SetText("xoxp-test-token")  // Bot Token
-	entries[1].SetText("T12345")           // Workspace ID
-	entries[2].SetText("600")              // Poll Interval
+	entries[0].SetText("xoxp-test-token") // Bot Token
+	entries[1].SetText("T12345")          // Workspace ID
+	entries[2].SetText("600")             // Poll Interval
 
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
 		return b.Text == "Save"

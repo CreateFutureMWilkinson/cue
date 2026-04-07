@@ -448,6 +448,7 @@ func run() error {
 			if err != nil {
 				log.Printf("warning: failed to create app binder: %v", err)
 			} else {
+				appBinder.SetUIScheduler(fyne.Do)
 				appBinder.Bind()
 				if err := appBinder.AutoLoad(ctx); err != nil {
 					log.Printf("warning: failed to auto-load plan: %v", err)
@@ -461,6 +462,7 @@ func run() error {
 	if err != nil {
 		log.Printf("warning: failed to create timer loop: %v", err)
 	} else {
+		timerLoop.SetUIScheduler(fyne.Do)
 		timerLoop.Start(ctx)
 		defer timerLoop.Stop()
 	}

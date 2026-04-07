@@ -430,7 +430,7 @@ func (s *OllamaClientSuite) TestScore_SimplifiedPromptFormat() {
 
 	// 2. Pipe-delimited format: sender and channel on same line separated by |
 	found := false
-	for _, line := range strings.Split(prompt, "\n") {
+	for line := range strings.SplitSeq(prompt, "\n") {
 		if strings.Contains(line, "alice") && strings.Contains(line, "ops-alerts") && strings.Contains(line, "|") {
 			found = true
 			break

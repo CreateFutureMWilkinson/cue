@@ -123,7 +123,7 @@ func (c *OllamaClient) createJSONRequest(ctx context.Context, prompt string) (*h
 }
 
 // sendRequest sends an HTTP request and returns the response body bytes.
-func (c *OllamaClient) sendRequest(ctx context.Context, req *http.Request) ([]byte, error) {
+func (c *OllamaClient) sendRequest(req *http.Request) ([]byte, error) {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("sending HTTP request to Ollama: %w", err)
@@ -180,7 +180,7 @@ func (c *OllamaClient) Score(ctx context.Context, msg *repository.Message) (*Sco
 		return nil, err
 	}
 
-	body, err := c.sendRequest(ctx, req)
+	body, err := c.sendRequest(req)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func (c *OllamaClient) Generate(ctx context.Context, prompt string) (string, err
 		return "", err
 	}
 
-	body, err := c.sendRequest(ctx, req)
+	body, err := c.sendRequest(req)
 	if err != nil {
 		return "", err
 	}

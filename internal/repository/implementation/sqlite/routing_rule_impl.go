@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -67,8 +68,58 @@ func (r *SQLiteRoutingRuleRepository) ListRulesBySource(ctx context.Context, sou
 	return nil, repository.ErrNotImplemented
 }
 
+// GetRule retrieves a routing rule by ID. Returns ErrNotFound if not found.
 func (r *SQLiteRoutingRuleRepository) GetRule(ctx context.Context, id uuid.UUID) (*repository.RoutingRule, error) {
-	return nil, repository.ErrNotImplemented
+	row := r.db.QueryRowContext(ctx,
+		`SELECT id, priority, source, field, negate, pattern, action, enabled, created_at, updated_at
+		 FROM routing_rules WHERE id = ?`, id.String())
+
+	rule, err := r.scanRoutingRule(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("routing rule %s: %w", id, repository.ErrNotFound)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("getting routing rule: %w", err)
+	}
+	return rule, nil
+}
+
+func (r *SQLiteRoutingRuleRepository) scanRoutingRule(scanner interface {
+	Scan(dest ...any) error
+}) (*repository.RoutingRule, error) {
+	var (
+		rule         repository.RoutingRule
+		idStr        string
+		negate       int
+		enabled      int
+		createdAtStr string
+		updatedAtStr string
+	)
+
+	err := scanner.Scan(&idStr, &rule.Priority, &rule.Source, &rule.Field, &negate, &rule.Pattern, &rule.Action, &enabled, &createdAtStr, &updatedAtStr)
+	if err != nil {
+		return nil, err
+	}
+
+	rule.ID, err = uuid.Parse(idStr)
+	if err != nil {
+		return nil, fmt.Errorf("parsing routing rule ID: %w", err)
+	}
+
+	rule.Negate = negate != 0
+	rule.Enabled = enabled != 0
+
+	rule.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
+	if err != nil {
+		return nil, fmt.Errorf("parsing created_at: %w", err)
+	}
+
+	rule.UpdatedAt, err = time.Parse(time.RFC3339, updatedAtStr)
+	if err != nil {
+		return nil, fmt.Errorf("parsing updated_at: %w", err)
+	}
+
+	return &rule, nil
 }
 
 // UpsertRule validates the rule and inserts or updates it in the database.

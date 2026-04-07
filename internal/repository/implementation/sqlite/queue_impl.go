@@ -52,7 +52,53 @@ func (r *SQLiteQueueRepository) Enqueue(ctx context.Context, messageID uuid.UUID
 }
 
 func (r *SQLiteQueueRepository) DequeueOldest(ctx context.Context) (*repository.QueueEntry, error) {
-	return nil, repository.ErrNotImplemented
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	var idStr, messageIDStr, enqueuedAtStr string
+	err = tx.QueryRowContext(ctx,
+		"SELECT id, message_id, enqueued_at FROM ollama_queue WHERE status = 'pending' ORDER BY enqueued_at ASC LIMIT 1",
+	).Scan(&idStr, &messageIDStr, &enqueuedAtStr)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("select oldest pending: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx,
+		"UPDATE ollama_queue SET status = 'processing' WHERE id = ?", idStr,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("update status to processing: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit transaction: %w", err)
+	}
+
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return nil, fmt.Errorf("parse queue entry id: %w", err)
+	}
+	messageID, err := uuid.Parse(messageIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("parse message id: %w", err)
+	}
+	enqueuedAt, err := time.Parse(time.RFC3339, enqueuedAtStr)
+	if err != nil {
+		return nil, fmt.Errorf("parse enqueued_at: %w", err)
+	}
+
+	return &repository.QueueEntry{
+		ID:         id,
+		MessageID:  messageID,
+		EnqueuedAt: enqueuedAt,
+		Status:     "processing",
+	}, nil
 }
 
 func (r *SQLiteQueueRepository) MarkDone(ctx context.Context, id uuid.UUID) error {

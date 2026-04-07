@@ -91,5 +91,72 @@ func (s *QueueRepositorySuite) TestEnqueueInsertsEntryWithPendingStatus() {
 	s.NoError(err, "id should be a valid UUID")
 }
 
+func (s *QueueRepositorySuite) TestDequeueOldestReturnsNilWhenEmpty() {
+	ctx := context.Background()
+
+	entry, err := s.repo.DequeueOldest(ctx)
+	s.NoError(err)
+	s.Nil(entry)
+}
+
+func (s *QueueRepositorySuite) TestDequeueOldestReturnsOldestPendingEntry() {
+	ctx := context.Background()
+
+	firstID := uuid.New()
+	secondID := uuid.New()
+
+	// Insert message rows to satisfy the foreign key constraint.
+	_, err := s.db.Exec("INSERT INTO messages (id) VALUES (?)", firstID.String())
+	s.Require().NoError(err)
+	_, err = s.db.Exec("INSERT INTO messages (id) VALUES (?)", secondID.String())
+	s.Require().NoError(err)
+
+	// Enqueue first, then second.
+	err = s.repo.Enqueue(ctx, firstID)
+	s.Require().NoError(err)
+	err = s.repo.Enqueue(ctx, secondID)
+	s.Require().NoError(err)
+
+	// Dequeue should return the first (oldest) entry.
+	entry, err := s.repo.DequeueOldest(ctx)
+	s.Require().NoError(err)
+	s.Require().NotNil(entry)
+
+	s.Equal(firstID, entry.MessageID)
+	s.Equal("processing", entry.Status)
+	s.NotEqual(uuid.Nil, entry.ID, "entry ID should be a valid non-nil UUID")
+	s.False(entry.EnqueuedAt.IsZero(), "EnqueuedAt should not be zero")
+}
+
+func (s *QueueRepositorySuite) TestDequeueOldestSkipsNonPendingEntries() {
+	ctx := context.Background()
+
+	firstID := uuid.New()
+	secondID := uuid.New()
+
+	// Insert message rows to satisfy the foreign key constraint.
+	_, err := s.db.Exec("INSERT INTO messages (id) VALUES (?)", firstID.String())
+	s.Require().NoError(err)
+	_, err = s.db.Exec("INSERT INTO messages (id) VALUES (?)", secondID.String())
+	s.Require().NoError(err)
+
+	// Enqueue first, then second.
+	err = s.repo.Enqueue(ctx, firstID)
+	s.Require().NoError(err)
+	err = s.repo.Enqueue(ctx, secondID)
+	s.Require().NoError(err)
+
+	// Dequeue once — first message becomes "processing".
+	_, err = s.repo.DequeueOldest(ctx)
+	s.Require().NoError(err)
+
+	// Dequeue again — should skip the first (now "processing") and return the second.
+	entry, err := s.repo.DequeueOldest(ctx)
+	s.Require().NoError(err)
+	s.Require().NotNil(entry)
+
+	s.Equal(secondID, entry.MessageID)
+}
+
 // Compile-time interface satisfaction check.
 var _ repository.QueueRepository = (*sqlite.SQLiteQueueRepository)(nil)

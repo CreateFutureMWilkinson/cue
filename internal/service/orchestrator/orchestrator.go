@@ -240,6 +240,11 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 	return nil
 }
 
+// ReloadRules rebuilds the rules engine from the given routing rules.
+func (o *Orchestrator) ReloadRules(rules []*repository.RoutingRule) {
+	// TODO(087): stub
+}
+
 // Stop gracefully shuts down the orchestrator. It is idempotent.
 func (o *Orchestrator) Stop() error {
 	o.mu.Lock()

@@ -977,3 +977,72 @@ func (s *OrchestratorSuite) TestConcurrentAddAndPoll() {
 	names := orch.ListWatcherNames()
 	s.NotNil(names) // should return a valid slice (possibly empty)
 }
+
+// ---------------------------------------------------------------------------
+// ReloadRules
+// ---------------------------------------------------------------------------
+
+func (s *OrchestratorSuite) TestReloadRulesChangesRouting() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	repo := newMockRepo()
+	queueRepo := &mockQueueRepo{}
+
+	// First poll: message goes to "queue" (no rules match)
+	firstMsg := &repository.Message{
+		ID:         uuid.New(),
+		Source:     "slack",
+		Channel:    "alerts",
+		Sender:     "user-1",
+		MessageID:  "slack-reload-1",
+		RawContent: "first alert",
+		Status:     "Pending",
+	}
+	firstWatcher := &mockWatcher{messages: []*repository.Message{firstMsg}}
+
+	rules := decisionengine.NewRulesEngine(nil) // no rules — everything queued
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+	orch, err := orchestrator.NewOrchestrator(cfg, rules, queueRepo, repo, map[string]orchestrator.Watcher{"slack": firstWatcher}, eventCh, nil)
+	s.Require().NoError(err)
+
+	orch.PollOnce(context.Background())
+
+	// First message should be Pending (queued, no rule match)
+	s.Require().Equal(1, repo.insertedCount())
+	s.Equal("Pending", repo.inserted[0].Status, "before ReloadRules: message should be Pending (no rules)")
+
+	// Reload rules: now channel "alerts" → notified
+	orch.ReloadRules([]*repository.RoutingRule{
+		{
+			ID:       uuid.New(),
+			Priority: 1,
+			Source:   "slack",
+			Field:    "channel",
+			Pattern:  "alerts",
+			Action:   "notified",
+			Enabled:  true,
+		},
+	})
+
+	// Second poll with a new message on the same channel
+	secondMsg := &repository.Message{
+		ID:         uuid.New(),
+		Source:     "slack",
+		Channel:    "alerts",
+		Sender:     "user-2",
+		MessageID:  "slack-reload-2",
+		RawContent: "second alert",
+		Status:     "Pending",
+	}
+	// Replace watcher messages for second poll
+	orch.RemoveWatcher("slack")
+	orch.AddWatcher("slack", &mockWatcher{messages: []*repository.Message{secondMsg}})
+
+	orch.PollOnce(context.Background())
+
+	// Second message should be Notified with rule-set scores
+	s.Require().Equal(2, repo.insertedCount(), "second message should be inserted")
+	second := repo.inserted[1]
+	s.Equal("Notified", second.Status, "after ReloadRules: message should be Notified")
+	s.Equal(8.0, second.ImportanceScore, "after ReloadRules: IS should be 8.0")
+	s.Equal(1.0, second.ConfidenceScore, "after ReloadRules: CS should be 1.0")
+}

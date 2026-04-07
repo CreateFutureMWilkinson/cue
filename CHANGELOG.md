@@ -13,6 +13,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Orchestrator refactor** — Replaced batch `RouteBatch` pipeline with two-stage dedup → rules → queue flow. Messages are deduplicated via `ExistsByMessageID`, evaluated against the `RulesEngine` (rule-matched NOTIFIED: IS=8.0, CS=1.0; IGNORED: IS=0.0, CS=1.0), and unmatched messages enqueued for background Ollama scoring. `ReloadRules` method enables hot-reload of routing rules. Queue startup purges stale entries and recovers stuck processing entries. `Router` struct removed; `QueueProcessor` wired into `main.go` with graceful shutdown. (Phase-8-Feature-087)
+
+### Breaking
+
+- **Router removed** — `decisionengine.Router`, `RouterConfig`, `NewRouter()`, `Route()`, and `RouteBatch()` deleted. Deterministic routing now handled by `RulesEngine`; Ollama scoring by `QueueProcessor`. `Orchestrator.NewOrchestrator` signature changed: accepts `*decisionengine.RulesEngine` and `repository.QueueRepository` instead of `BatchRouter`. (Phase-8-Feature-087)
+
+### Added
+
 - **Ollama queue + processor** — Persistent DB-backed FIFO queue (`ollama_queue` table) for messages needing Ollama scoring. `QueueRepository` with 9 methods: enqueue, dequeue (atomic pending→processing), mark done/failed, pending count, purge completed/older-than/all, and reset processing (crash recovery). `QueueProcessor` runs a background loop with configurable cooldown (`ollama_cooldown_seconds`), scores one message at a time, assigns status via importance/confidence thresholds, and plays alerts for NOTIFIED messages. Scorer failures fall back to IS=7, CS=0, BUFFERED. (Phase-8-Feature-086)
 - **Rules engine** — `RulesEngine` evaluates messages against user-configurable routing rules in priority order. Pre-compiles regex patterns at construction, filters disabled rules, skips invalid patterns with logged warning. Supports source scoping, field extraction (sender, subject, channel, content, message\_type), regex matching with negation, and first-match-wins semantics. Unmatched messages return "queue" for Ollama scoring. (Phase-8-Feature-085)
 - **Routing rule model + DB table** — `RoutingRule` data model with `Validate()` method and `RoutingRuleRepository` interface for user-configurable deterministic routing rules. SQLite persistence layer with full CRUD (list, list by source, get, upsert, delete). Rules are regex-based pattern matchers on source-specific fields (email: sender/subject; slack: sender/channel/content/message\_type) that route to NOTIFIED or IGNORED without LLM involvement. Validation covers source, field, action, priority, and regex compilation. (Phase-8-Feature-084)

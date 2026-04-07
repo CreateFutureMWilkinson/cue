@@ -544,3 +544,15 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-8-Feature-086 (start/stop) | RED | Test Designer | ~79s | ~32,200 | 1e875f7 |
 | Phase-8-Feature-086 (start/stop) | GREEN | Implementer | ~32s | ~27,300 | 1e875f7 |
 | Phase-8-Feature-086 | REFACTOR | Refactorer | ~62s | ~29,000 | 74ac99c |
+| Phase-8-Feature-087 (ExistsByMessageID) | RED | Test Designer | ~88s | ~46,800 | 2f73ac2 |
+| Phase-8-Feature-087 (ExistsByMessageID) | GREEN | Implementer | ~36s | ~23,200 | 802acdc |
+| Phase-8-Feature-087 (extract types) | REFACTOR | orchestrator | — | — | 0064518 |
+| Phase-8-Feature-087 (constructor) | RED | Test Designer | ~323s | ~75,300 | 3091749 |
+| Phase-8-Feature-087 (PollOnce) | RED | Test Designer | ~181s | ~52,700 | 2822705 |
+| Phase-8-Feature-087 (PollOnce) | GREEN | Implementer | ~52s | ~38,200 | 3d2fc3a |
+| Phase-8-Feature-087 (PollOnce) | REFACTOR | orchestrator | — | — | 43c97ef |
+| Phase-8-Feature-087 (ReloadRules) | RED | Test Designer | ~65s | ~40,300 | 783cc4e |
+| Phase-8-Feature-087 (ReloadRules) | GREEN | orchestrator | — | — | 7f65b02 |
+| Phase-8-Feature-087 (queue startup) | RED | Test Designer | ~103s | ~46,300 | e5b0819 |
+| Phase-8-Feature-087 (queue startup) | GREEN | orchestrator | — | — | 80c74d5 |
+| Phase-8-Feature-087 (wiring) | GREEN | orchestrator | — | — | 1df25a8 |

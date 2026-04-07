@@ -1,7 +1,7 @@
 # Feature 087: Orchestrator Refactor
 
 **Phase:** Phase-8-Feature-087
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/service/orchestrator/`
 **Depends on:** Features 085, 086
 

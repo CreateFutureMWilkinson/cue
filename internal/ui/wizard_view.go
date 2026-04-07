@@ -324,6 +324,8 @@ func (v *WizardView) renderContainer() {
 	switch v.vm.CurrentStep() {
 	case presenter.StepTaskSelect:
 		v.renderStep1()
+	case presenter.StepEstimates:
+		v.renderStep2()
 	}
 
 	v.container.Refresh()
@@ -348,6 +350,25 @@ func (v *WizardView) renderStep1() {
 	v.container.Objects = append(v.container.Objects,
 		widget.NewButton("Next", func() { v.vm.NextStep(context.Background()) }),
 		widget.NewButton("Cancel", func() { v.router.NavigateTo(ViewPlan) }),
+	)
+}
+
+// renderStep2 renders the estimate editing step (step 2) widgets into the container.
+func (v *WizardView) renderStep2() {
+	v.container.Objects = append(v.container.Objects, widget.NewLabel(v.stepIndicator))
+
+	for _, row := range v.estimateRows {
+		v.container.Objects = append(v.container.Objects, widget.NewLabel(row.Title))
+		entry := widget.NewEntry()
+		entry.SetText(fmt.Sprintf("%d", row.EffectivePomos))
+		v.container.Objects = append(v.container.Objects, entry)
+	}
+
+	v.container.Objects = append(v.container.Objects, widget.NewLabel(v.summaryText))
+
+	v.container.Objects = append(v.container.Objects,
+		widget.NewButton("Back", func() { v.vm.PreviousStep() }),
+		widget.NewButton("Next", func() { v.vm.NextStep(context.Background()) }),
 	)
 }
 

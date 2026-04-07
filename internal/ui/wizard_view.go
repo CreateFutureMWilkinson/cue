@@ -352,7 +352,7 @@ func (v *WizardView) renderStep1() {
 	v.container.Objects = append(v.container.Objects, entry)
 
 	v.container.Objects = append(v.container.Objects,
-		widget.NewButton("Next", func() { v.vm.NextStep(context.Background()) }),
+		widget.NewButton("Next", func() { v.vm.NextStep(context.Background()) }), // #nosec G104 -- GUI callback; error logged by presenter
 		widget.NewButton("Cancel", func() { v.router.NavigateTo(ViewPlan) }),
 	)
 }
@@ -372,7 +372,7 @@ func (v *WizardView) renderStep2() {
 
 	v.container.Objects = append(v.container.Objects,
 		widget.NewButton("Back", func() { v.vm.PreviousStep() }),
-		widget.NewButton("Next", func() { v.vm.NextStep(context.Background()) }),
+		widget.NewButton("Next", func() { v.vm.NextStep(context.Background()) }), // #nosec G104 -- GUI callback; error logged by presenter
 	)
 }
 
@@ -394,7 +394,7 @@ func (v *WizardView) renderStep3() {
 
 	v.container.Objects = append(v.container.Objects,
 		widget.NewButton("Back", func() { v.vm.PreviousStep() }),
-		widget.NewButton("Next", func() { v.vm.NextStep(context.Background()) }),
+		widget.NewButton("Next", func() { v.vm.NextStep(context.Background()) }), // #nosec G104 -- GUI callback; error logged by presenter
 	)
 }
 
@@ -406,14 +406,14 @@ func (v *WizardView) renderStep4() {
 		strategy := v.focusCardStrategy
 		v.container.Objects = append(v.container.Objects,
 			widget.NewButton("Select "+strategy, func() {
-				v.vm.SelectSchedule(context.Background(), strategy)
+				v.vm.SelectSchedule(context.Background(), strategy) // #nosec G104 -- GUI callback; error logged by presenter
 			}))
 	}
 	if v.recoveryCardStrategy != "" {
 		strategy := v.recoveryCardStrategy
 		v.container.Objects = append(v.container.Objects,
 			widget.NewButton("Select "+strategy, func() {
-				v.vm.SelectSchedule(context.Background(), strategy)
+				v.vm.SelectSchedule(context.Background(), strategy) // #nosec G104 -- GUI callback; error logged by presenter
 			}))
 	}
 

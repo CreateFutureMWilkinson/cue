@@ -326,6 +326,8 @@ func (v *WizardView) renderContainer() {
 		v.renderStep1()
 	case presenter.StepEstimates:
 		v.renderStep2()
+	case presenter.StepPriority:
+		v.renderStep3()
 	}
 
 	v.container.Refresh()
@@ -365,6 +367,28 @@ func (v *WizardView) renderStep2() {
 	}
 
 	v.container.Objects = append(v.container.Objects, widget.NewLabel(v.summaryText))
+
+	v.container.Objects = append(v.container.Objects,
+		widget.NewButton("Back", func() { v.vm.PreviousStep() }),
+		widget.NewButton("Next", func() { v.vm.NextStep(context.Background()) }),
+	)
+}
+
+// renderStep3 renders the priority reordering step (step 3) widgets into the container.
+func (v *WizardView) renderStep3() {
+	v.container.Objects = append(v.container.Objects, widget.NewLabel(v.stepIndicator))
+
+	for i, title := range v.priorityList {
+		v.container.Objects = append(v.container.Objects,
+			widget.NewLabel(fmt.Sprintf("%d. %s", i+1, title)))
+	}
+
+	if v.hasUpDownButtons {
+		v.container.Objects = append(v.container.Objects,
+			widget.NewButton("Up", func() {}),
+			widget.NewButton("Down", func() {}),
+		)
+	}
 
 	v.container.Objects = append(v.container.Objects,
 		widget.NewButton("Back", func() { v.vm.PreviousStep() }),

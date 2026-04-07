@@ -232,6 +232,40 @@ func (s *NotificationCardSuite) TestHighImportanceCardHasDarkBackground() {
 	s.Equal(parseHexColor("#ef4444"), card.BadgeColor, "IS>=9 badge should remain red")
 }
 
+// --- FormatDisplayLine Tests ---
+
+func (s *NotificationCardSuite) TestFormatDisplayLineBySource() {
+	tests := []struct {
+		name       string
+		source     string
+		channel    string
+		rawContent string
+		expected   string
+	}{
+		{
+			name:       "email returns subject line only",
+			source:     "email",
+			channel:    "inbox",
+			rawContent: "Important Subject\n<html>body...</html>",
+			expected:   "Important Subject",
+		},
+		{
+			name:       "slack returns channel prefix with truncated preview",
+			source:     "slack",
+			channel:    "general",
+			rawContent: "Hey everyone check this out",
+			expected:   "#general: Hey everyone che...",
+		},
+	}
+
+	for _, tc := range tests {
+		s.Run(tc.name, func() {
+			result := presenter.FormatDisplayLine(tc.source, tc.channel, tc.rawContent)
+			s.Equal(tc.expected, result)
+		})
+	}
+}
+
 // --- Empty Input Test ---
 
 func (s *NotificationCardSuite) TestEmptyMessagesReturnsEmptySlice() {

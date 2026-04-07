@@ -3,6 +3,7 @@ package presenter
 import (
 	"fmt"
 	"image/color"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,6 +47,34 @@ type NotificationCard struct {
 	CardColor       color.Color
 	BadgeColor      color.Color
 	Opacity         float64
+	FriendlyName    string
+	DisplayLine     string
+}
+
+// FormatDisplayLine produces a source-appropriate display line for a notification card.
+// For email: returns the subject (first line of rawContent).
+// For slack: returns "#channel: preview..." (truncated).
+func FormatDisplayLine(source, channel, rawContent string) string {
+	switch source {
+	case "email":
+		if idx := strings.Index(rawContent, "\n"); idx >= 0 {
+			return rawContent[:idx]
+		}
+		return rawContent
+	case "slack":
+		prefix := "#" + channel + ": "
+		maxLen := 29
+		available := maxLen - len(prefix)
+		if available <= 3 {
+			return prefix + "..."
+		}
+		if len(rawContent) <= available {
+			return prefix + rawContent
+		}
+		return prefix + rawContent[:available-3] + "..."
+	default:
+		return truncateWithEllipsis(rawContent, 28)
+	}
 }
 
 // BuildNotificationCards converts repository messages into presentation-ready notification cards.

@@ -223,7 +223,9 @@ func (m *MainWindow) Run() {
 		ticker := time.NewTicker(refreshInterval)
 		defer ticker.Stop()
 		for range ticker.C {
-			m.window.Canvas().Refresh(m.window.Canvas().Content())
+			fyne.Do(func() {
+				m.window.Canvas().Refresh(m.window.Canvas().Content())
+			})
 		}
 	}()
 

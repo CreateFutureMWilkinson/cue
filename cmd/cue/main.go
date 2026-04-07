@@ -330,14 +330,17 @@ func run() error {
 	// Start character presenter.
 	charPresenter.Start(ctx)
 
-	// Trigger startup animation (fairy fades from dormant to idle over 1.5s).
-	char.TransitionTo(character.StateStarting)
-
 	// Create center view router for three-column layout.
 	viewRouter := ui.NewCenterViewRouter()
 
-	// Create and run the Fyne window (blocks until quit).
+	// Create Fyne app before any UI operations that require the event loop.
 	fyneApp := app.New()
+
+	// Trigger startup animation after the event loop starts (fyne.Do requires it).
+	fyneApp.Lifecycle().SetOnStarted(func() {
+		char.TransitionTo(character.StateStarting)
+	})
+
 	mainWindow := ui.NewMainWindow(fyneApp, cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, serviceSettingsPresenter, cfg.Ollama, char.Widget(), viewRouter, nil, nil, nil)
 	mainWindow.Run()
 

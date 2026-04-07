@@ -13,6 +13,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Startup import** — On launch, the orchestrator seeds watcher cursors from stored `source_cursor` values via `CursorSeedable` interface, then polls each watcher and inserts unseen messages as "Imported" status (no scoring, routing, or alerting). `SourceCursor` field persisted in SQLite for cursor resumption across restarts. New `MaxSourceCursor` and `DistinctChannels` repository methods support cursor seeding. IMAP UID stored alongside Message-ID for email cursor recovery. (Phase-8-Feature-088)
 - **Orchestrator refactor** — Replaced batch `RouteBatch` pipeline with two-stage dedup → rules → queue flow. Messages are deduplicated via `ExistsByMessageID`, evaluated against the `RulesEngine` (rule-matched NOTIFIED: IS=8.0, CS=1.0; IGNORED: IS=0.0, CS=1.0), and unmatched messages enqueued for background Ollama scoring. `ReloadRules` method enables hot-reload of routing rules. Queue startup purges stale entries and recovers stuck processing entries. `Router` struct removed; `QueueProcessor` wired into `main.go` with graceful shutdown. (Phase-8-Feature-087)
 
 ### Breaking

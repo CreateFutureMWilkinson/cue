@@ -556,3 +556,21 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-8-Feature-087 (queue startup) | RED | Test Designer | ~103s | ~46,300 | e5b0819 |
 | Phase-8-Feature-087 (queue startup) | GREEN | orchestrator | — | — | 80c74d5 |
 | Phase-8-Feature-087 (wiring) | GREEN | orchestrator | — | — | 1df25a8 |
+| Phase-8-Feature-088 (StatusImported) | RED | Test Designer | ~374s | ~22,900 | c0677dd |
+| Phase-8-Feature-088 (StatusImported) | GREEN | orchestrator | — | — | 4311c97 |
+| Phase-8-Feature-088 (SourceCursor) | RED | Test Designer | ~28s | ~34,200 | bb947e0 |
+| Phase-8-Feature-088 (SourceCursor) | GREEN | Implementer | ~59s | ~29,900 | 4e8e617 |
+| Phase-8-Feature-088 (MaxSourceCursor) | RED | Test Designer | ~83s | ~49,200 | 464442a |
+| Phase-8-Feature-088 (MaxSourceCursor) | GREEN | orchestrator | — | — | a38a31f |
+| Phase-8-Feature-088 (SlackCursor) | RED | Test Designer | ~48s | ~31,800 | 7efab6e |
+| Phase-8-Feature-088 (SlackCursor) | GREEN | orchestrator | — | — | 9cfc2ad |
+| Phase-8-Feature-088 (EmailCursor) | RED | Test Designer | ~52s | ~30,800 | 31f8026 |
+| Phase-8-Feature-088 (EmailCursor) | GREEN | orchestrator | — | — | 61dc9d8 |
+| Phase-8-Feature-088 (ImportBaseline) | RED | Test Designer | ~70s | ~36,200 | e70add7 |
+| Phase-8-Feature-088 (ImportBaseline) | GREEN | orchestrator | — | — | b3de2e2 |
+| Phase-8-Feature-088 (CursorSeeding) | RED | Test Designer | ~144s | ~40,900 | f9ae6e2 |
+| Phase-8-Feature-088 (CursorSeeding) | GREEN | orchestrator | — | — | 27d17bc |
+| Phase-8-Feature-088 (Seedable+Channels) | RED | Test Designer | ~58s | ~34,000 | 642d67c |
+| Phase-8-Feature-088 (Seedable+Channels) | GREEN | orchestrator | — | — | c5b4372 |
+| Phase-8-Feature-088 (Start integration) | RED | Test Designer | ~55s | ~34,700 | 5c4d5e5 |
+| Phase-8-Feature-088 (Start integration) | GREEN | orchestrator | — | — | 90f8764 |

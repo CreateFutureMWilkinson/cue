@@ -103,17 +103,9 @@ security:
 vulncheck:
     govulncheck ./...
 
-# Build the character UAT harness
-build-uat:
-    {{ if _check_deps == "missing" { "@ echo 'WARNING: Build dependencies not found. Run just deps to see install instructions.'" } else { "" } }}
-    {{ if os == "linux" { if _wayland_build == "missing" { "@ echo 'WARNING: Wayland headers not found — binary will only support X11. Run just deps to install.'" } else { "" } } else { "" } }}
-    {{ if os == "linux" { if _x11_build == "missing" { "@ echo 'WARNING: X11 headers not found — binary will only support Wayland. Run just deps to install.'" } else { "" } } else { "" } }}
-    @mkdir -p _build
-    CGO_ENABLED=1 go build -o _build/character-uat ./cmd/cue-uat
-
-# Build and run the character UAT harness
-run-uat: build-uat
-    ./_build/character-uat
+# Run the character UAT harness via main binary
+run-uat: build
+    ./_build/cue uat
 
 # Build WASM character plugins
 build-plugins:
@@ -121,7 +113,7 @@ build-plugins:
     GOOS=wasip1 GOARCH=wasm go build -buildmode=c-shared -o _build/characters/echo.wasm ./cmd/echo-plugin
 
 # Build both binaries and plugins for current platform
-build-all: build build-uat build-plugins
+build-all: build build-plugins
 
 # Show required system packages for current platform
 deps:

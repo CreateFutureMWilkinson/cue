@@ -107,9 +107,8 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -o dist/cue ./cmd/cue
-          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -o dist/cue-uat ./cmd/cue-uat
           VERSION="${GITHUB_REF_NAME#v}"
-          tar czf "dist/cue_${VERSION}_darwin_arm64.tar.gz" -C dist cue cue-uat
+          tar czf "dist/cue_${VERSION}_darwin_arm64.tar.gz" -C dist cue
 
       - name: Upload darwin artifacts
         uses: actions/upload-artifact@v4

@@ -207,4 +207,3 @@ jobs:
           set -euo pipefail
           mkdir -p _build
           go build -o _build/cue ./cmd/cue
-          go build -o _build/cue-uat ./cmd/cue-uat

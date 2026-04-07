@@ -248,6 +248,42 @@ func (s *SettingsInteractionSuite) TestEmailAddAccountShowsFormFields() {
 			"(IMAP host, port, username, password, poll interval)")
 }
 
+func (s *SettingsInteractionSuite) TestEmailAddAccountValidationShowsError() {
+	root := s.sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	emailContent := tabs.Items[1].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	addBtn.OnTapped()
+
+	// Re-read tab content after tap (form is now shown)
+	emailContent = tabs.Items[1].Content
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
+		return b.Text == "Save"
+	})
+
+	// Tap Save with all entries empty
+	saveBtn.OnTapped()
+
+	// Re-read tab content after save tap (validation error should appear)
+	emailContent = tabs.Items[1].Content
+
+	_, found := uitest.FindWidget[*widget.Label](emailContent, func(l *widget.Label) bool {
+		return strings.Contains(strings.ToLower(l.Text), "required") ||
+			strings.Contains(strings.ToLower(l.Text), "error")
+	})
+
+	s.True(found, "after tapping Save with empty fields, a validation error label should appear in the form")
+}
+
 func (s *SettingsInteractionSuite) TestAudioSliderOnChangedCallsPresenterSetVolume() {
 	root := s.sv.Container()
 

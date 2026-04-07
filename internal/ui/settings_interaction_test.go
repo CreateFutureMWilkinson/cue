@@ -535,6 +535,22 @@ func (s *SettingsInteractionSuite) TestCalendarAddAccountCancelReturnsToList() {
 	s.True(found, "after tapping Cancel, calendar tab should show the account list with 'Add Account' button")
 }
 
+func (s *SettingsInteractionSuite) TestSlackTabShowsEmptyStateWhenNoAccounts() {
+	root := s.sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	slackContent := tabs.Items[0].Content
+
+	_, found := uitest.FindWidget[*widget.Label](slackContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "No Slack accounts configured")
+	})
+
+	s.True(found, "Slack tab should contain a label with 'No Slack accounts configured' when no accounts exist")
+}
+
 func (s *SettingsInteractionSuite) TestEmailFormSavesMappedEncryptionValue() {
 	// Create a fresh settings view with a capturing repo
 	repo := &stubServiceConfigRepo{}

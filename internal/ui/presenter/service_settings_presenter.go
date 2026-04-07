@@ -247,6 +247,9 @@ func (p *ServiceSettingsPresenter) ListCalendarAccounts(ctx context.Context) ([]
 
 // SaveCalendarAccount validates and persists a new calendar account.
 func (p *ServiceSettingsPresenter) SaveCalendarAccount(ctx context.Context, acct *repository.CalendarAccount) error {
+	if acct.PollIntervalSeconds == 0 {
+		acct.PollIntervalSeconds = DefaultCalendarPollInterval
+	}
 	if p.calendarValidator != nil {
 		if err := p.calendarValidator.ValidateCalendar(ctx, acct.ICSURL); err != nil {
 			return fmt.Errorf("calendar credential validation failed: %w", err)

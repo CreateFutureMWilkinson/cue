@@ -168,3 +168,34 @@ func (s *RoutingRuleSQLiteSuite) TestUpsertRuleValidationError() {
 	err := s.repo.UpsertRule(ctx, rule)
 	s.ErrorIs(err, repository.ErrInvalidRoutingRule)
 }
+
+func (s *RoutingRuleSQLiteSuite) TestGetRuleFound() {
+	ctx := context.Background()
+	rule := s.validRule()
+
+	err := s.repo.UpsertRule(ctx, rule)
+	s.Require().NoError(err)
+
+	got, err := s.repo.GetRule(ctx, rule.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+
+	s.Equal(rule.ID, got.ID)
+	s.Equal(rule.Priority, got.Priority)
+	s.Equal(rule.Source, got.Source)
+	s.Equal(rule.Field, got.Field)
+	s.Equal(rule.Negate, got.Negate)
+	s.Equal(rule.Pattern, got.Pattern)
+	s.Equal(rule.Action, got.Action)
+	s.Equal(rule.Enabled, got.Enabled)
+	s.False(got.CreatedAt.IsZero(), "CreatedAt should not be zero")
+	s.False(got.UpdatedAt.IsZero(), "UpdatedAt should not be zero")
+}
+
+func (s *RoutingRuleSQLiteSuite) TestGetRuleNotFound() {
+	ctx := context.Background()
+
+	got, err := s.repo.GetRule(ctx, uuid.New())
+	s.ErrorIs(err, repository.ErrNotFound)
+	s.Nil(got)
+}

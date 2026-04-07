@@ -23,5 +23,18 @@ func NewTimerAlerterAdapter(player TimerPlayer) *TimerAlerterAdapter {
 
 // PlayBlockComplete converts BlockType to string and fires the alert (fire-and-forget).
 func (a *TimerAlerterAdapter) PlayBlockComplete(blockType planner.BlockType) {
-	// stub: no-op
+	var bt string
+	switch blockType {
+	case planner.BlockFocus:
+		bt = "focus"
+	case planner.BlockShortBreak:
+		bt = "short_break"
+	case planner.BlockLongBreak:
+		bt = "long_break"
+	case planner.BlockMeeting:
+		bt = "meeting"
+	default:
+		bt = "unknown"
+	}
+	_, _ = a.player.PlayTimerEnd(context.Background(), bt, "", false)
 }

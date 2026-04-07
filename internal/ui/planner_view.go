@@ -63,6 +63,9 @@ type PlannerView struct {
 	// Todo list (trailing pane)
 	todoList *TodoListView
 
+	// Callbacks
+	onPlanMyDay func()
+
 	// Content state
 	placeholderText string
 	scheduleTree    *ScheduleTree
@@ -155,6 +158,11 @@ func (v *PlannerView) PlaceholderText() string {
 // ScheduleTree returns the schedule tree widget, or nil when there is no active plan.
 func (v *PlannerView) ScheduleTree() *ScheduleTree {
 	return v.scheduleTree
+}
+
+// SetOnPlanMyDay sets the callback invoked when the "Plan My Day" button is tapped.
+func (v *PlannerView) SetOnPlanMyDay(fn func()) {
+	v.onPlanMyDay = fn
 }
 
 // SetOnNext sets the callback invoked when the "Next" button is tapped.

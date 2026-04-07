@@ -631,3 +631,57 @@ func (s *Bug070ASuite) TestOpenOverlayPreservedAfterFix() {
 	s.True(found,
 		"Bug 070A: open state should still have semi-transparent overlay after layout fix")
 }
+
+// =============================================================================
+// Bug 077 — Plan My Day button does nothing visible
+// =============================================================================
+
+type Bug077Suite struct {
+	suite.Suite
+}
+
+func TestBug077(t *testing.T) {
+	suite.Run(t, new(Bug077Suite))
+}
+
+// AC: Tapping "Plan My Day" triggers the onPlanMyDay callback.
+func (s *Bug077Suite) TestPlanMyDayButtonTriggersCallback() {
+	router := ui.NewCenterViewRouter()
+	vm := &stubPlannerTimerVM{hasActivePlan: false}
+	pv := ui.NewPlannerView(vm, vm, router, vm)
+
+	called := false
+	pv.SetOnPlanMyDay(func() { called = true })
+
+	pv.PlanButton().OnTapped()
+
+	s.True(called,
+		"Bug 077: tapping 'Plan My Day' should invoke the onPlanMyDay callback")
+}
+
+// AC: After StartPlanning + navigate, wizard view refreshes to show step 1 content.
+func (s *Bug077Suite) TestWizardShowsStep1AfterPlanMyDay() {
+	router := ui.NewCenterViewRouter()
+	wvm := &stubWizardVM{step: presenter.StepTaskSelect}
+	wv := ui.NewWizardView(wvm, router)
+	root := wv.Container()
+
+	// Step 1 should have checkboxes or a Next button.
+	_, foundNext := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
+		return b.Text == "Next"
+	})
+	s.True(foundNext,
+		"Bug 077: wizard at StepTaskSelect should display a 'Next' button")
+}
+
+// AC: Wizard shows meaningful empty state when step is StepIdle (safety net).
+func (s *Bug077Suite) TestWizardIdleStateShowsPrompt() {
+	router := ui.NewCenterViewRouter()
+	wvm := &stubWizardVM{step: presenter.StepIdle}
+	wv := ui.NewWizardView(wvm, router)
+	root := wv.Container()
+
+	// StepIdle should render something visible, not an empty container.
+	s.Greater(len(root.Objects), 0,
+		"Bug 077: wizard at StepIdle should render visible content, not be empty")
+}

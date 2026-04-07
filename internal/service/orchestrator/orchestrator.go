@@ -29,11 +29,6 @@ type Alerter interface {
 	PlayNotification(ctx context.Context) error
 }
 
-// BatchRouter routes a batch of messages, assigning importance/confidence/status.
-type BatchRouter interface {
-	RouteBatch(ctx context.Context, msgs []*repository.Message) ([]*repository.Message, error)
-}
-
 // ActivityEvent represents a system event for the activity log.
 type ActivityEvent struct {
 	Source  string
@@ -48,24 +43,29 @@ type OrchestratorConfig struct {
 
 // Orchestrator coordinates polling, routing, and storing of messages.
 type Orchestrator struct {
-	cfg      OrchestratorConfig
-	router   BatchRouter
-	repo     repository.MessageRepository
-	watchers map[string]Watcher
-	eventCh  chan<- ActivityEvent
-	alerter  Alerter
+	cfg       OrchestratorConfig
+	rules     *decisionengine.RulesEngine
+	queueRepo repository.QueueRepository
+	repo      repository.MessageRepository
+	watchers  map[string]Watcher
+	eventCh   chan<- ActivityEvent
+	alerter   Alerter
 
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
 	mu        sync.Mutex
 	watcherMu sync.RWMutex
+	rulesMu   sync.RWMutex
 	stopped   bool
 }
 
 // NewOrchestrator creates a new Orchestrator, validating all required dependencies.
-func NewOrchestrator(cfg OrchestratorConfig, router BatchRouter, repo repository.MessageRepository, watchers map[string]Watcher, eventCh chan<- ActivityEvent, alerter Alerter) (*Orchestrator, error) {
-	if router == nil {
-		return nil, fmt.Errorf("router is required")
+func NewOrchestrator(cfg OrchestratorConfig, rules *decisionengine.RulesEngine, queueRepo repository.QueueRepository, repo repository.MessageRepository, watchers map[string]Watcher, eventCh chan<- ActivityEvent, alerter Alerter) (*Orchestrator, error) {
+	if rules == nil {
+		return nil, fmt.Errorf("rules engine is required")
+	}
+	if queueRepo == nil {
+		return nil, fmt.Errorf("queue repository is required")
 	}
 	if repo == nil {
 		return nil, fmt.Errorf("repo is required")
@@ -75,12 +75,13 @@ func NewOrchestrator(cfg OrchestratorConfig, router BatchRouter, repo repository
 	}
 
 	return &Orchestrator{
-		cfg:      cfg,
-		router:   router,
-		repo:     repo,
-		watchers: watchers,
-		eventCh:  eventCh,
-		alerter:  alerter,
+		cfg:       cfg,
+		rules:     rules,
+		queueRepo: queueRepo,
+		repo:      repo,
+		watchers:  watchers,
+		eventCh:   eventCh,
+		alerter:   alerter,
 	}, nil
 }
 
@@ -145,27 +146,7 @@ func (o *Orchestrator) PollOnce(ctx context.Context) {
 
 		o.emitEvent(name, fmt.Sprintf("fetched %d messages", len(msgs)), false)
 
-		routed, err := o.router.RouteBatch(ctx, msgs)
-		if err != nil {
-			o.emitEvent(name, fmt.Sprintf("routing error: %s", err.Error()), true)
-			continue
-		}
-
-		notified, buffered, ignored := countByStatus(routed)
-		for _, msg := range routed {
-			if err := o.repo.Insert(ctx, msg); err != nil {
-				o.emitEvent(name, fmt.Sprintf("failed to store %s message: %v", msg.Source, err), true)
-				continue
-			}
-		}
-
-		o.emitEvent(name, fmt.Sprintf("Routed %d NOTIFIED, %d BUFFERED, %d IGNORED", notified, buffered, ignored), false)
-
-		if notified > 0 && o.alerter != nil {
-			if err := o.alerter.PlayNotification(ctx); err != nil {
-				o.emitEvent(name, fmt.Sprintf("alert error: %s", err.Error()), false)
-			}
-		}
+		// TODO(087): dedup → rules → queue pipeline
 	}
 }
 

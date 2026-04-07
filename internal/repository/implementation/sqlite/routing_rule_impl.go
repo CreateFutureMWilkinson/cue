@@ -61,11 +61,49 @@ func NewSQLiteRoutingRuleRepository(db *sql.DB) (*SQLiteRoutingRuleRepository, e
 }
 
 func (r *SQLiteRoutingRuleRepository) ListRules(ctx context.Context) ([]*repository.RoutingRule, error) {
-	return nil, repository.ErrNotImplemented
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, priority, source, field, negate, pattern, action, enabled, created_at, updated_at
+		 FROM routing_rules ORDER BY priority ASC`)
+	if err != nil {
+		return nil, fmt.Errorf("listing routing rules: %w", err)
+	}
+	defer rows.Close()
+
+	rules := make([]*repository.RoutingRule, 0)
+	for rows.Next() {
+		rule, err := r.scanRoutingRule(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scanning routing rule: %w", err)
+		}
+		rules = append(rules, rule)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating routing rules: %w", err)
+	}
+	return rules, nil
 }
 
 func (r *SQLiteRoutingRuleRepository) ListRulesBySource(ctx context.Context, source string) ([]*repository.RoutingRule, error) {
-	return nil, repository.ErrNotImplemented
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, priority, source, field, negate, pattern, action, enabled, created_at, updated_at
+		 FROM routing_rules WHERE source = ? ORDER BY priority ASC`, source)
+	if err != nil {
+		return nil, fmt.Errorf("listing routing rules by source: %w", err)
+	}
+	defer rows.Close()
+
+	rules := make([]*repository.RoutingRule, 0)
+	for rows.Next() {
+		rule, err := r.scanRoutingRule(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scanning routing rule: %w", err)
+		}
+		rules = append(rules, rule)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating routing rules: %w", err)
+	}
+	return rules, nil
 }
 
 // GetRule retrieves a routing rule by ID. Returns ErrNotFound if not found.
@@ -147,5 +185,9 @@ func (r *SQLiteRoutingRuleRepository) UpsertRule(ctx context.Context, rule *repo
 }
 
 func (r *SQLiteRoutingRuleRepository) DeleteRule(ctx context.Context, id uuid.UUID) error {
-	return repository.ErrNotImplemented
+	_, err := r.db.ExecContext(ctx, `DELETE FROM routing_rules WHERE id = ?`, id.String())
+	if err != nil {
+		return fmt.Errorf("deleting routing rule: %w", err)
+	}
+	return nil
 }

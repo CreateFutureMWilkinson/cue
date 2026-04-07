@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,9 +12,6 @@ import (
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 )
-
-// ErrNotImplemented is returned by stub methods that have not yet been implemented.
-var ErrNotImplemented = errors.New("not implemented")
 
 // Ollama API constants
 const (
@@ -86,69 +82,8 @@ type scorerResponse struct {
 	Reasoning       string  `json:"reasoning"`
 }
 
-// Score sends a message to Ollama for scoring and returns the result.
-func (c *OllamaClient) Score(ctx context.Context, msg *repository.Message) (*ScorerResult, error) {
-	prompt := buildPrompt(msg)
-
-	reqBody := ollamaRequest{
-		Model:  c.model,
-		Prompt: prompt,
-		Stream: false,
-	}
-
-	bodyBytes, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("marshalling Ollama request: %w", err)
-	}
-
-	url := c.baseURL + ollamaGenerateEndpoint
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return nil, fmt.Errorf("creating HTTP request: %w", err)
-	}
-	req.Header.Set("Content-Type", jsonContentType)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("sending HTTP request to Ollama: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Ollama API returned non-200 status: %d", resp.StatusCode)
-	}
-
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading Ollama response body: %w", err)
-	}
-
-	var outerResp ollamaResponse
-	if err := json.Unmarshal(respBytes, &outerResp); err != nil {
-		return nil, fmt.Errorf("parsing Ollama response JSON: %w", err)
-	}
-
-	innerJSON := extractJSON(outerResp.Response)
-
-	var inner scorerResponse
-	if err := json.Unmarshal([]byte(innerJSON), &inner); err != nil {
-		return nil, fmt.Errorf("parsing scorer response JSON: %w", err)
-	}
-
-	return &ScorerResult{
-		ImportanceScore: inner.ImportanceScore,
-		ConfidenceScore: inner.ConfidenceScore,
-		Reasoning:       inner.Reasoning,
-	}, nil
-}
-
-// buildPrompt constructs the LLM prompt from the message fields.
-func buildPrompt(msg *repository.Message) string {
-	return fmt.Sprintf(promptTemplate, msg.Source, msg.Sender, msg.Channel, msg.RawContent)
-}
-
-// Generate sends a raw prompt to Ollama and returns the response text.
-func (c *OllamaClient) Generate(ctx context.Context, prompt string) (string, error) {
+// sendRequest sends a prompt to Ollama and returns the response field from the JSON.
+func (c *OllamaClient) sendRequest(ctx context.Context, prompt string) (string, error) {
 	reqBody := ollamaRequest{
 		Model:  c.model,
 		Prompt: prompt,
@@ -188,6 +123,39 @@ func (c *OllamaClient) Generate(ctx context.Context, prompt string) (string, err
 	}
 
 	return outerResp.Response, nil
+}
+
+// Score sends a message to Ollama for scoring and returns the result.
+func (c *OllamaClient) Score(ctx context.Context, msg *repository.Message) (*ScorerResult, error) {
+	prompt := buildPrompt(msg)
+
+	response, err := c.sendRequest(ctx, prompt)
+	if err != nil {
+		return nil, err
+	}
+
+	innerJSON := extractJSON(response)
+
+	var inner scorerResponse
+	if err := json.Unmarshal([]byte(innerJSON), &inner); err != nil {
+		return nil, fmt.Errorf("parsing scorer response JSON: %w", err)
+	}
+
+	return &ScorerResult{
+		ImportanceScore: inner.ImportanceScore,
+		ConfidenceScore: inner.ConfidenceScore,
+		Reasoning:       inner.Reasoning,
+	}, nil
+}
+
+// buildPrompt constructs the LLM prompt from the message fields.
+func buildPrompt(msg *repository.Message) string {
+	return fmt.Sprintf(promptTemplate, msg.Source, msg.Sender, msg.Channel, msg.RawContent)
+}
+
+// Generate sends a raw prompt to Ollama and returns the response text.
+func (c *OllamaClient) Generate(ctx context.Context, prompt string) (string, error) {
+	return c.sendRequest(ctx, prompt)
 }
 
 // extractJSON strips markdown code block wrapping if present.

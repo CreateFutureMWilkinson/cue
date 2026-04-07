@@ -126,3 +126,4 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 071 | Planner subsystem not wired in main.go | Bugfix | Critical | Done | — | [Feature-071](features/phase-6/Feature-071-Planner-Subsystem-Wiring.md) |
 | 072 | Wizard step 3 Up/Down reorder buttons are noops | Bugfix | Medium | Done | 071 | [Feature-072](features/phase-6/Feature-072-Wizard-Reorder-Buttons.md) |
 | 073 | PlannerView navigation buttons not wired | Bugfix | High | Done | 071 | [Feature-073](features/phase-6/Feature-073-PlannerView-Button-Wiring.md) |
+| 070A | Activity log button fills entire center panel | Bugfix | Medium | Done | 070 | [Feature-070A](features/phase-6/Feature-070A-Activity-Log-Button-Layout.md) |

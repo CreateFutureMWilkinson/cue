@@ -3,7 +3,7 @@
 **Phase:** Phase-6-Feature-070A
 **Type:** Bugfix (Hotfix)
 **Severity:** Medium
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/`
 **Related:** Feature 070 (Activity Log Overlay), Feature 019 (Activity Log Drawer)
 
@@ -167,9 +167,9 @@ func (d *ActivityLogDrawer) ContainerWithCharacter(character fyne.CanvasObject) 
 
 ## Acceptance Criteria
 
-- [ ] When closed, "Activity Log" button anchored at bottom of center panel at natural button height
-- [ ] When closed, character widget fills remaining space above the button (not behind it)
-- [ ] When opened, overlay behaviour unchanged from Feature 070 (semi-transparent bg, log list, close button)
-- [ ] Button height matches focus rail buttons (standard `widget.Button` MinSize)
-- [ ] Existing overlay tests remain green (semi-transparent background, no Split)
-- [ ] Character animations render correctly in the reduced space
+- [x] When closed, "Activity Log" button anchored at bottom of center panel at natural button height
+- [x] When closed, character widget fills remaining space above the button (not behind it)
+- [x] When opened, overlay behaviour unchanged from Feature 070 (semi-transparent bg, log list, close button)
+- [x] Button height matches focus rail buttons (standard `widget.Button` MinSize)
+- [x] Existing overlay tests remain green (semi-transparent background, no Split)
+- [x] Character animations render correctly in the reduced space

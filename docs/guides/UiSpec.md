@@ -125,8 +125,8 @@ Only one center view is active at a time. The focus rail and notification column
 | `activity-max-entries`   | 500      | Activity log circular buffer           |
 | `feedback-window-width`  | 600      | Feedback review modal width            |
 | `feedback-window-height` | 400      | Feedback review modal height           |
-| `settings-window-width`  | 400      | Settings modal width                   |
-| `settings-window-height` | 280      | Settings modal height                  |
+| `settings-window-width`  | 400      | Legacy settings modal width (unused)   |
+| `settings-window-height` | 280      | Legacy settings modal height (unused)  |
 | `refresh-interval`       | 30s      | Canvas refresh interval                |
 | `timer-segments`         | 45       | Countdown timer line count             |
 | `timer-flash-hz`         | 1        | Countdown timer flash rate (Hz)        |
@@ -930,28 +930,154 @@ for i := 0; i < 45; i++ {
 
 ---
 
-## Settings Modal (Menu → Settings)
+## Settings View (Center Column)
+
+The Settings view occupies the center column (60%) when navigated to via the Settings button in the focus rail. It uses a tabbed layout (`container.AppTabs`) with a Done button at the bottom that returns to the character view.
 
 ### Layout
 
 ```
-┌──────────────────────────────────┐
-│  Audio Settings           400×280 │
-│                                   │
-│  Notification Volume: 75%         │
-│  ┌───────────────────────────┐   │
-│  │ ████████████░░░░░░░░░░░░░ │   │  ← slider 0–100
-│  └───────────────────────────┘   │
-│                                   │
-│  Timer Volume: 75%                │
-│  ┌───────────────────────────┐   │
-│  │ ████████████░░░░░░░░░░░░░ │   │  ← slider 0–100
-│  └───────────────────────────┘   │
-│                                   │
-└──────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  [Slack] [Email] [Calendar] [Audio] [Ollama]        Tab bar │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  (Active tab content — see per-tab specs below)             │
+│                                                             │
+│                                                             │
+│                                                             │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                    [Done]   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Widgets
+### Tab Order
+
+| Position | Tab        | Content                                      |
+|----------|------------|----------------------------------------------|
+| 1        | Slack      | Slack account management (list + add form)    |
+| 2        | Email      | Email account management (list + add form)    |
+| 3        | Calendar   | Calendar account management (list + add form) |
+| 4        | Audio      | Notification and timer volume sliders         |
+| 5        | Ollama     | Ollama connection settings (read-only)        |
+
+### Slack Tab
+
+Displays a list of configured Slack accounts with a button to add new ones.
+
+**Account List View:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Slack Accounts                                     │
+├─────────────────────────────────────────────────────┤
+│  Slack: T12345 (@alice)                   [Delete]  │
+│  Slack: T67890 (@bob)                     [Delete]  │
+│                                                     │
+│                              [Add Account]          │
+└─────────────────────────────────────────────────────┘
+```
+
+**Empty State:** `"No Slack accounts configured. Tap Add Account to get started."`
+
+**Add Account Form** (replaces list when tapped):
+
+| Field             | Widget              | Notes                                         |
+|-------------------|---------------------|-----------------------------------------------|
+| Friendly Name     | `widget.Entry`      | Placeholder: `"Friendly Name"`                |
+| Web URL           | `widget.Entry`      | Placeholder: `"Web URL"`                      |
+| Token             | `widget.Entry`      | Placeholder: `"User OAuth Token (xoxp-...)"`, password masked |
+| Workspace ID      | `widget.Entry`      | Placeholder: `"Workspace ID"`                 |
+| Username          | `widget.Entry`      | Placeholder: `"Your Slack Username (@handle)"`|
+| Poll Interval     | `widget.Entry`      | Placeholder: `"Poll Interval (seconds)"`, default: 60 |
+| Error             | `widget.Label`      | Hidden by default, shown on validation failure|
+| Save / Cancel     | `widget.Button` ×2  | Save validates + persists; Cancel returns to list |
+
+**Validation:** Token, Workspace ID, Username, and Poll Interval are required. Poll Interval must be a number. If a `SlackValidator` is configured, credentials are validated before save. Inline error shown on failure.
+
+### Email Tab
+
+Displays a list of configured email accounts with a button to add new ones. Same list/form switching pattern as Slack.
+
+**Account List View:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Email Accounts                                     │
+├─────────────────────────────────────────────────────┤
+│  Email: user@gmail.com (imap.gmail.com:993) [Delete]│
+│                                                     │
+│                              [Add Account]          │
+└─────────────────────────────────────────────────────┘
+```
+
+**Empty State:** `"No Email accounts configured. Tap Add Account to get started."`
+
+**Add Account Form:**
+
+| Field             | Widget              | Notes                                         |
+|-------------------|---------------------|-----------------------------------------------|
+| Friendly Name     | `widget.Entry`      | Placeholder: `"Friendly Name"`                |
+| Web URL           | `widget.Entry`      | Placeholder: `"Web URL"`                      |
+| IMAP Host         | `widget.Entry`      | Placeholder: `"IMAP Host"`                    |
+| IMAP Port         | `widget.Entry`      | Placeholder: `"IMAP Port"`                    |
+| Username          | `widget.Entry`      | Placeholder: `"Username"`                     |
+| Password          | `widget.Entry`      | Placeholder: `"Password"`, password masked    |
+| Encryption        | `widget.Select`     | Options: `"SSL/TLS (Recommended)"`, `"STARTTLS"`, `"None"`. Default: SSL/TLS |
+| Poll Interval     | `widget.Entry`      | Placeholder: `"Poll Interval (seconds)"`, default: 600 |
+| Error             | `widget.Label`      | Hidden by default, shown on validation failure|
+| Save / Cancel     | `widget.Button` ×2  | Save validates + persists; Cancel returns to list |
+
+**Validation:** IMAP Host, Port, Username, Password, and Poll Interval are required. Port and Poll Interval must be numbers. If an `EmailValidator` is configured, credentials are validated before save. Inline error shown on failure.
+
+### Calendar Tab
+
+Displays a list of configured calendar accounts with a button to add new ones. Same list/form switching pattern as Slack and Email.
+
+**Account List View:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Calendar Accounts                                  │
+├─────────────────────────────────────────────────────┤
+│  Calendar: Work Calendar                  [Delete]  │
+│                                                     │
+│                              [Add Account]          │
+└─────────────────────────────────────────────────────┘
+```
+
+**Empty State:** `"No Calendar accounts configured. Tap Add Account to get started."`
+
+**Add Account Form:**
+
+| Field             | Widget              | Notes                                         |
+|-------------------|---------------------|-----------------------------------------------|
+| Account Name      | `widget.Entry`      | Placeholder: `"Account Name"`                 |
+| ICS URL           | `widget.Entry`      | Placeholder: `"ICS Calendar URL"`             |
+| Poll Interval     | `widget.Entry`      | Placeholder: `"Poll Interval (seconds)"`, default: 600 |
+| Error             | `widget.Label`      | Hidden by default, shown on validation failure|
+| Save / Cancel     | `widget.Button` ×2  | Save validates + persists; Cancel returns to list |
+
+**Validation:** Name, URL, and Poll Interval are required. Poll Interval must be a number. If a `CalendarValidator` is configured, the URL is validated before save. Inline error shown on failure.
+
+### Audio Tab
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Audio Settings                                     │
+│                                                     │
+│  Notification Volume: 75%                           │
+│  ┌───────────────────────────────────────────────┐  │
+│  │ ████████████░░░░░░░░░░░░░                     │  │  ← slider 0–100
+│  └───────────────────────────────────────────────┘  │
+│                                                     │
+│  Timer Volume: 75%                                  │
+│  ┌───────────────────────────────────────────────┐  │
+│  │ ████████████░░░░░░░░░░░░░                     │  │  ← slider 0–100
+│  └───────────────────────────────────────────────┘  │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
 
 | Widget               | Type            | Notes                                     |
 |----------------------|-----------------|-------------------------------------------|
@@ -961,12 +1087,44 @@ for i := 0; i < 45; i++ {
 | Timer label          | `widget.Label`  | Updates live: `"Timer Volume: {N}%"`      |
 | Timer slider         | `widget.Slider` | Min=0, Max=100, Step=1                    |
 
-### Interactions
+### Ollama Tab
+
+Displays the current Ollama configuration as read-only labels.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Ollama Settings                                    │
+│                                                     │
+│  Host: localhost                                    │
+│  Port: 11434                                        │
+│  Inference Model: neural-chat                       │
+│  Embedding Model: nomic-embed-text                  │
+│  Timeout: 10s                                       │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+| Widget           | Type            | Notes                              |
+|------------------|-----------------|------------------------------------|
+| Title            | `widget.Label`  | `"Ollama Settings"`                |
+| Host             | `widget.Label`  | From `config.OllamaConfig.Host`    |
+| Port             | `widget.Label`  | From `config.OllamaConfig.Port`    |
+| Inference Model  | `widget.Label`  | From `config.OllamaConfig.InferenceModel` |
+| Embedding Model  | `widget.Label`  | From `config.OllamaConfig.EmbeddingModel` |
+| Timeout          | `widget.Label`  | From `config.OllamaConfig.TimeoutSeconds` |
+
+### Settings — Interactions
 
 | Action                    | Behavior                                              |
 |---------------------------|-------------------------------------------------------|
+| Switch tab                | Display selected tab content; previous tab state preserved |
 | Drag notification slider  | Update label live, call `AlertService.SetVolume()`    |
 | Drag timer slider         | Update label live, call `TimerAlertService.SetVolume()` |
+| Tap Add Account           | Replace account list with add form                    |
+| Tap Save (account form)   | Validate fields, persist account, return to list      |
+| Tap Cancel (account form) | Discard form, return to account list                  |
+| Tap Delete (account row)  | Remove account and its watcher                        |
+| Tap Done                  | Navigate back to character view                       |
 
 ---
 
@@ -974,7 +1132,7 @@ for i := 0; i < 45; i++ {
 
 ```
 Cue
- ├── Settings    → Open settings modal
+ ├── Settings    → Navigate to settings view (center column)
  ├── About       → Show version dialog
  └── Quit        → Graceful shutdown
 ```
@@ -993,7 +1151,8 @@ Repository ──query──→ NotificationPresenter ──→ Notification Pan
 BufferService ──load──→ FeedbackPresenter ──→ Feedback Review Modal
                                                    (on-demand, from expanded view)
 
-AlertService ──volume──→ SettingsPresenter ──→ Settings Modal
+AlertService ──volume──→ SettingsPresenter ──→ Settings View (center column, Audio tab)
+ServiceConfigRepo ─────→ ServiceSettingsPresenter ──→ Settings View (Slack/Email/Calendar tabs)
 
 TodoRepo ─────query───→ PlannerPresenter ──→ Plan View / Wizard (center area)
 CalendarProvider ─fetch─╯     │                    │
@@ -1067,7 +1226,38 @@ CenterViewRouter ──state──→ Character | Plan View | Wizard
 - [ ] Rating click saves and advances; Skip advances without saving; Delete removes and advances
 - [ ] Modal scrolls vertically for long content
 
-### Settings
+### Settings View
+- [ ] Rendered in center column (60%) via CenterViewRouter
+- [ ] Contains 5 tabs in order: Slack, Email, Calendar, Audio, Ollama
+- [ ] Defaults to first tab (Slack) on open
+- [ ] Done button at bottom navigates back to character view
+
+### Settings — Slack Tab
+- [ ] Shows list of configured Slack accounts with Delete button per row
+- [ ] Empty state message when no accounts configured
+- [ ] Add Account button shows inline form (replaces list)
+- [ ] Form requires Token, Workspace ID, Username, Poll Interval
+- [ ] Poll Interval must be a number; inline error on invalid input
+- [ ] Save persists account and starts watcher; Cancel returns to list
+
+### Settings — Email Tab
+- [ ] Shows list of configured email accounts with Delete button per row
+- [ ] Empty state message when no accounts configured
+- [ ] Add Account button shows inline form (replaces list)
+- [ ] Form requires IMAP Host, Port, Username, Password, Poll Interval
+- [ ] Port and Poll Interval must be numbers; inline error on invalid input
+- [ ] Encryption dropdown defaults to SSL/TLS (Recommended)
+- [ ] Save persists account and starts watcher; Cancel returns to list
+
+### Settings — Calendar Tab
+- [ ] Shows list of configured calendar accounts with Delete button per row
+- [ ] Empty state message when no accounts configured
+- [ ] Add Account button shows inline form (replaces list)
+- [ ] Form requires Name, ICS URL, Poll Interval
+- [ ] Poll Interval must be a number; inline error on invalid input
+- [ ] Save persists account; Cancel returns to list
+
+### Settings — Audio Tab
 - [ ] Notification volume slider range 0–100 with step 1
 - [ ] Notification volume label updates live during drag
 - [ ] Notification volume clamped to [0, 100]
@@ -1075,6 +1265,10 @@ CenterViewRouter ──state──→ Character | Plan View | Wizard
 - [ ] Timer volume label updates live during drag
 - [ ] Timer volume clamped to [0, 100]
 - [ ] Both sliders operate independently
+
+### Settings — Ollama Tab
+- [ ] Displays Host, Port, Inference Model, Embedding Model, Timeout as read-only labels
+- [ ] Values sourced from config.OllamaConfig
 
 ### Plan View — Layout
 - [ ] Displayed in center area (60%) when Plan button clicked in focus rail

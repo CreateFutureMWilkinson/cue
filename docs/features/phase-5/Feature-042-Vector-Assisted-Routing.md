@@ -1,11 +1,13 @@
 # Feature 042: Vector-Assisted Routing
 
 **Phase:** Phase-5-Feature-042
-**Status:** Done
+**Status:** Done — **implementation incorrect, redesigned in Feature 094**
 **Packages:** `internal/service/decisionengine/`, `internal/service/vector/`, `internal/service/buffer/`, `cmd/cue/`
 **Depends on:** Feature 043 (chromem-go Vector Database), Feature 044 (Ollama Scorer Wiring)
 
 ---
+
+> **Note:** The implementation of this feature diverged from the intended design. The original intent was to inject similar rated messages as few-shot examples in the Ollama scoring prompt, allowing the LLM to reason about user feedback directly. The actual implementation uses an arithmetic post-processing approach (`VectorScoreAdvisor`) that computes a weighted adjustment and applies it after Ollama scoring, bypassing the LLM entirely. Feature 094 replaces this with the correct few-shot prompt injection design.
 
 ## Overview
 

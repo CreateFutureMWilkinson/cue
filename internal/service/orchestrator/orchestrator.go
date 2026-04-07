@@ -261,6 +261,45 @@ func (o *Orchestrator) ReloadRules(rules []*repository.RoutingRule) {
 // ImportBaseline fetches all available messages from each watcher and inserts
 // them as "Imported" without scoring, routing, or alerting.
 func (o *Orchestrator) ImportBaseline(ctx context.Context) error {
+	o.watcherMu.RLock()
+	snapshot := make(map[string]Watcher, len(o.watchers))
+	maps.Copy(snapshot, o.watchers)
+	o.watcherMu.RUnlock()
+
+	for name, watcher := range snapshot {
+		msgs, err := watcher.Poll(ctx)
+		if err != nil {
+			o.emitEvent(name, fmt.Sprintf("import error: %v", err), true)
+			continue
+		}
+
+		o.emitEvent(name, fmt.Sprintf("importing %s: %d messages...", name, len(msgs)), false)
+
+		var newCount int
+		for _, msg := range msgs {
+			exists, err := o.repo.ExistsByMessageID(ctx, msg.MessageID)
+			if err != nil {
+				o.emitEvent(name, fmt.Sprintf("import dedup error: %v", err), true)
+				continue
+			}
+			if exists {
+				continue
+			}
+
+			msg.Status = decisionengine.StatusImported
+			msg.ImportanceScore = 0
+			msg.ConfidenceScore = 0
+
+			if err := o.repo.Insert(ctx, msg); err != nil {
+				o.emitEvent(name, fmt.Sprintf("import insert error: %v", err), true)
+				continue
+			}
+			newCount++
+		}
+
+		o.emitEvent(name, fmt.Sprintf("import complete: %d new from %s", newCount, name), false)
+	}
+
 	return nil
 }
 

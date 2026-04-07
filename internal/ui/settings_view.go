@@ -1,13 +1,17 @@
 package ui
 
 import (
+	"context"
 	"fmt"
+	"strconv"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
+	"github.com/google/uuid"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
+	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
 
@@ -31,7 +35,8 @@ func newAccountTab(title string, onAdd func()) *container.TabItem {
 }
 
 // createEmailAccountForm creates the form UI for adding a new email account.
-func createEmailAccountForm() *fyne.Container {
+// onSaved is called after a successful save to restore the account list view.
+func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved func()) *fyne.Container {
 	hostEntry := widget.NewEntry()
 	hostEntry.SetPlaceHolder("IMAP Host")
 	portEntry := widget.NewEntry()
@@ -56,7 +61,34 @@ func createEmailAccountForm() *fyne.Container {
 			errorLabel.Show()
 			return
 		}
+		port, err := strconv.Atoi(portEntry.Text)
+		if err != nil {
+			errorLabel.SetText("IMAP port must be a number")
+			errorLabel.Show()
+			return
+		}
+		poll, err := strconv.Atoi(pollEntry.Text)
+		if err != nil {
+			errorLabel.SetText("Poll interval must be a number")
+			errorLabel.Show()
+			return
+		}
+		acct := &repository.EmailAccount{
+			ID:                  uuid.New(),
+			Enabled:             true,
+			IMAPHost:            hostEntry.Text,
+			IMAPPort:            port,
+			Username:            userEntry.Text,
+			Password:            passEntry.Text,
+			PollIntervalSeconds: poll,
+		}
+		if err := ssp.SaveEmailAccount(context.Background(), acct); err != nil {
+			errorLabel.SetText(fmt.Sprintf("Error: %s", err))
+			errorLabel.Show()
+			return
+		}
 		errorLabel.Hide()
+		onSaved()
 	}
 
 	return container.NewVBox(
@@ -81,14 +113,20 @@ func NewSettingsView(
 ) *SettingsView {
 	slackTab := newAccountTab("Slack", func() {})
 	emailAddBtn := widget.NewButton("Add Account", nil)
-	emailTab := container.NewTabItem("Email", container.NewBorder(
-		widget.NewLabel("Email Accounts"),
-		emailAddBtn,
-		nil, nil,
-		container.NewVScroll(container.NewVBox()),
-	))
+	emailAccountList := container.NewVBox()
+	buildEmailListContent := func() fyne.CanvasObject {
+		return container.NewBorder(
+			widget.NewLabel("Email Accounts"),
+			emailAddBtn,
+			nil, nil,
+			container.NewVScroll(emailAccountList),
+		)
+	}
+	emailTab := container.NewTabItem("Email", buildEmailListContent())
 	emailAddBtn.OnTapped = func() {
-		emailTab.Content = createEmailAccountForm()
+		emailTab.Content = createEmailAccountForm(ssp, func() {
+			emailTab.Content = buildEmailListContent()
+		})
 	}
 	calendarTab := newAccountTab("Calendar", func() {})
 	volumeLabel := widget.NewLabel(fmt.Sprintf("Notification Volume: %d%%", sp.Volume()))

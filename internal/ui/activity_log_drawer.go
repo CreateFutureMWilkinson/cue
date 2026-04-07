@@ -60,7 +60,9 @@ func (d *ActivityLogDrawer) ToggleOpen() {
 			overlay := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 77})
 			d.stackContainer.Objects = []fyne.CanvasObject{d.character, overlay, d.drawerBox}
 		} else {
-			d.stackContainer.Objects = []fyne.CanvasObject{d.character, d.drawerBox}
+			d.stackContainer.Objects = []fyne.CanvasObject{
+				container.NewBorder(nil, d.toggleBtn, nil, nil, d.character),
+			}
 		}
 		d.stackContainer.Refresh()
 	}

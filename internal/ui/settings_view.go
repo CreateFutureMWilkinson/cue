@@ -112,8 +112,12 @@ func NewSettingsView(
 	onClose func(),
 ) *SettingsView {
 	slackTab := newAccountTab("Slack", func() {})
-	emailAddBtn := widget.NewButton("Add Account", nil)
+
+	// Email tab with dynamic content switching between account list and add form
 	emailAccountList := container.NewVBox()
+	emailAddBtn := widget.NewButton("Add Account", nil)
+
+	// Function to build the email account list view
 	buildEmailListContent := func() fyne.CanvasObject {
 		return container.NewBorder(
 			widget.NewLabel("Email Accounts"),
@@ -122,7 +126,10 @@ func NewSettingsView(
 			container.NewVScroll(emailAccountList),
 		)
 	}
+
 	emailTab := container.NewTabItem("Email", buildEmailListContent())
+
+	// Set up the "Add Account" button handler
 	emailAddBtn.OnTapped = func() {
 		emailTab.Content = createEmailAccountForm(ssp, func() {
 			emailTab.Content = buildEmailListContent()

@@ -146,3 +146,18 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 075 | WASM character plugins | Feature | — | Done | 014, 041 | [Feature-075](features/phase-7/Feature-075-WASM-Character-Plugins.md) |
 | 076 | Integrated character UAT mode | Refactor | — | Done | 075 | [Feature-076](features/phase-7/Feature-076-Integrated-Character-UAT.md) |
 | 076A | UAT: activity log, initial char, motion | Bugfix | High | Done | 076 | [Feature-076A](features/phase-7/Feature-076A-UAT-Bugs.md) |
+
+## Phase 8 — Deterministic Routing + Ollama Queue
+
+Replaces the batch-score-everything approach with a two-stage pipeline: configurable deterministic rules run first, unmatched messages trickle through Ollama one at a time via a persistent FIFO queue. Prevents GPU/CPU overload from large batch scoring and gives users direct control over routing decisions.
+
+| # | Component | Type | Status | Depends on | Doc |
+|---|---|---|---|---|---|
+| 084 | Routing rule model + DB table + CRUD | Feature | Planned | 031, 032 | [Feature-084](features/phase-8/Feature-084-Routing-Rule-Model.md) |
+| 085 | Rules engine (evaluate rules against messages) | Feature | Planned | 084 | [Feature-085](features/phase-8/Feature-085-Rules-Engine.md) |
+| 086 | Ollama queue model + DB table + processor | Feature | Planned | — | [Feature-086](features/phase-8/Feature-086-Ollama-Queue.md) |
+| 087 | Orchestrator refactor (dedup → rules → queue) | Feature | Planned | 085, 086 | [Feature-087](features/phase-8/Feature-087-Orchestrator-Refactor.md) |
+| 088 | Startup import (unseen → "Imported", INBOX only) | Feature | Planned | 087 | [Feature-088](features/phase-8/Feature-088-Startup-Import.md) |
+| 089 | Settings UI: Rules tab | Feature | Planned | 084 | [Feature-089](features/phase-8/Feature-089-Rules-Settings-UI.md) |
+| 090 | Default rules migration (channel_join, @mention) | Feature | Planned | 084 | [Feature-090](features/phase-8/Feature-090-Default-Rules-Migration.md) |
+| 091 | Queue health monitoring (depth warnings) | Feature | Planned | 086, 087 | [Feature-091](features/phase-8/Feature-091-Queue-Health-Monitoring.md) |

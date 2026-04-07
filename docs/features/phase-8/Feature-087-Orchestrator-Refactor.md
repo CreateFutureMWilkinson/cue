@@ -123,6 +123,18 @@ The `Router` struct, `Route()`, and `RouteBatch()` should be removed as part of 
 
 The `Scorer` interface and `OllamaClient` remain unchanged — they are used directly by the `QueueProcessor`.
 
+## Wiring Note
+
+Feature 086 builds the `QueueRepository` (SQLite) and `QueueProcessor` as standalone, fully tested components. This feature (087) is responsible for wiring them into the orchestrator and `cmd/cue/main.go` composition root: instantiating the `SQLiteQueueRepository`, constructing the `QueueProcessor` with injected dependencies, and starting/stopping the processor alongside the orchestrator lifecycle.
+
+### Startup Sequence
+
+At application launch, before the processor starts and before polling begins:
+
+1. **`queue.PurgeOlderThan(ctx, cutoff)`** — clear defunct entries that accumulated while the app was offline. The cutoff should be derived from the polling interval (entries older than one poll cycle are stale and should not be scored).
+2. **`queue.ResetProcessing(ctx)`** — recover any entries left in `processing` state from a crashed session back to `pending`.
+3. **`processor.Start(ctx)`** — begin the background processing loop.
+
 ## Activity Events
 
 Emit structured events for observability:

@@ -1,7 +1,7 @@
 # Feature 086: Ollama Queue Model + Processor
 
 **Phase:** Phase-8-Feature-086
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/repository/`, `internal/repository/implementation/sqlite/`, `internal/service/orchestrator/`
 **Depends on:** None (parallel with 084, 085)
 
@@ -31,7 +31,9 @@ type QueueRepository interface {
     MarkDone(ctx context.Context, id uuid.UUID) error
     MarkFailed(ctx context.Context, id uuid.UUID) error
     PendingCount(ctx context.Context) (int, error)
-    PurgeCompleted(ctx context.Context) error  // remove done/failed entries
+    PurgeCompleted(ctx context.Context) error              // remove done/failed entries
+    PurgeOlderThan(ctx context.Context, cutoff time.Time) error  // remove all entries older than cutoff
+    PurgeAll(ctx context.Context) error                    // remove all entries
 }
 ```
 
@@ -118,6 +120,7 @@ ollama_cooldown_seconds = 10
 - Ollama timeout/error: message marked BUFFERED (safe default — user reviews manually), queue entry marked `failed`
 - `failed` entries are not retried automatically — user can review them in the feedback buffer
 - `processing` entries from a crashed session are reset to `pending` on startup
+- On application launch, `PurgeOlderThan` is called to clear defunct entries that accumulated while the app was offline (prevents scoring stale messages). The cutoff age is derived from the polling interval — entries older than one poll cycle are stale
 
 ## Relationship to Other Features
 

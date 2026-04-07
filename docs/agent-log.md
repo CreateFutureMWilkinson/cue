@@ -527,3 +527,20 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-8-Feature-085 (construction) | REFACTOR | Refactorer | ~69s | ~30,500 | 3056de0 |
 | Phase-8-Feature-085 (evaluate) | RED | Test Designer | ~54s | ~31,400 | 28bfaf2 |
 | Phase-8-Feature-085 (evaluate) | REFACTOR | Refactorer | ~148s | ~37,200 | 596a433 |
+| Phase-8-Feature-086 (model+stubs) | RED | Test Designer | ~66s | ~31,000 | 6ec0403 |
+| Phase-8-Feature-086 (enqueue) | RED | Test Designer | ~32s | ~24,900 | 33b3f47 |
+| Phase-8-Feature-086 (enqueue) | GREEN | Implementer | ~19s | ~23,600 | 33b3f47 |
+| Phase-8-Feature-086 (dequeue) | RED | Test Designer | ~46s | ~26,200 | 4c2eb62 |
+| Phase-8-Feature-086 (dequeue) | GREEN | Implementer | ~22s | ~23,100 | 4c2eb62 |
+| Phase-8-Feature-086 (mark done/failed) | RED | Test Designer | ~57s | ~26,300 | 82f77aa |
+| Phase-8-Feature-086 (mark done/failed) | GREEN | Implementer | ~77s | ~23,900 | 82f77aa |
+| Phase-8-Feature-086 (pending+purge+reset) | RED | Test Designer | ~56s | ~31,300 | b67ede5 |
+| Phase-8-Feature-086 (pending+purge+reset) | GREEN | Implementer | ~34s | ~25,400 | b67ede5 |
+| Phase-8-Feature-086 (config) | RED+GREEN | Test Designer | ~83s | ~44,800 | 9ae9042 |
+| Phase-8-Feature-086 (processor success) | RED | Test Designer | ~54s | ~29,100 | 7eb42a9 |
+| Phase-8-Feature-086 (processor success) | GREEN | Implementer | ~48s | ~29,900 | 7eb42a9 |
+| Phase-8-Feature-086 (processor failure) | RED | Test Designer | ~27s | ~24,500 | 3d6a5d8 |
+| Phase-8-Feature-086 (empty queue) | RED | Test Designer | ~20s | ~24,300 | 112ff81 |
+| Phase-8-Feature-086 (start/stop) | RED | Test Designer | ~79s | ~32,200 | 1e875f7 |
+| Phase-8-Feature-086 (start/stop) | GREEN | Implementer | ~32s | ~27,300 | 1e875f7 |
+| Phase-8-Feature-086 | REFACTOR | Refactorer | ~62s | ~29,000 | 74ac99c |

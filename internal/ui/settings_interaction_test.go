@@ -221,6 +221,33 @@ func (s *SettingsInteractionSuite) TestDoneButtonCallsOnClose() {
 	s.True(closeCalled, "tapping Done button should invoke onClose callback")
 }
 
+func (s *SettingsInteractionSuite) TestEmailAddAccountShowsFormFields() {
+	root := s.sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	emailContent := tabs.Items[1].Content
+
+	btn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+
+	btn.OnTapped()
+
+	// Re-read tab content after tap
+	emailContent = tabs.Items[1].Content
+
+	entries := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool {
+		return true
+	})
+
+	s.GreaterOrEqual(len(entries), 5,
+		"after tapping Add Account, email tab should contain at least 5 Entry widgets "+
+			"(IMAP host, port, username, password, poll interval)")
+}
+
 func (s *SettingsInteractionSuite) TestAudioSliderOnChangedCallsPresenterSetVolume() {
 	root := s.sv.Container()
 

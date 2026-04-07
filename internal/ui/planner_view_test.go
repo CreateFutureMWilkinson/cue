@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
@@ -555,6 +556,25 @@ func (s *PlannerViewSuite) TestRefreshUpdatesContent() {
 }
 
 // --- Behavior 3: Horizontal Split Layout ---
+
+func (s *PlannerViewSuite) TestNoPlanPlaceholderLabelInWidgetTree() {
+	s.setupIdleDefaults()
+
+	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
+
+	expectedText := view.PlaceholderText()
+	s.Require().NotEmpty(expectedText, "PlaceholderText should be non-empty in idle state")
+
+	root := view.Container()
+	label, found := uitest.FindWidget[*widget.Label](root, func(l *widget.Label) bool {
+		return l.Text == expectedText
+	})
+
+	s.Require().True(found,
+		"Container widget tree should contain a *widget.Label with the placeholder text %q", expectedText)
+	s.Equal(expectedText, label.Text,
+		"Found label text should match PlaceholderText()")
+}
 
 func (s *PlannerViewSuite) TestContainerHasHorizontalSplit() {
 	s.setupIdleDefaults()

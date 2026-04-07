@@ -2,6 +2,7 @@ package watcher
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"strings"
@@ -56,18 +57,47 @@ func (c *IMAPClient) FetchNewMessages(ctx context.Context, lastUID uint32) ([]Em
 
 	addr := fmt.Sprintf("%s:%d", c.host, c.port)
 
-	dialer := &net.Dialer{}
-	conn, err := dialer.DialContext(ctx, "tcp", addr)
-	if err != nil {
-		return nil, fmt.Errorf("connecting to IMAP server %s: %w", addr, err)
+	var imapClient *imapclient.Client
+	switch c.encryption {
+	case "ssl_tls":
+		tlsConf := &tls.Config{ServerName: c.host}
+		dialer := &net.Dialer{}
+		tlsConn, dialErr := tls.DialWithDialer(dialer, "tcp", addr, tlsConf)
+		if dialErr != nil {
+			return nil, fmt.Errorf("TLS connecting to IMAP server %s: %w", addr, dialErr)
+		}
+		imapClient = imapclient.New(tlsConn, nil)
+		if err := imapClient.WaitGreeting(); err != nil {
+			imapClient.Close()
+			return nil, fmt.Errorf("waiting for IMAP greeting: %w", err)
+		}
+	case "starttls":
+		dialer := &net.Dialer{}
+		plainConn, dialErr := dialer.DialContext(ctx, "tcp", addr)
+		if dialErr != nil {
+			return nil, fmt.Errorf("connecting to IMAP server %s: %w", addr, dialErr)
+		}
+		opts := &imapclient.Options{
+			TLSConfig: &tls.Config{ServerName: c.host},
+		}
+		var startTLSErr error
+		imapClient, startTLSErr = imapclient.NewStartTLS(plainConn, opts)
+		if startTLSErr != nil {
+			return nil, fmt.Errorf("STARTTLS upgrade: %w", startTLSErr)
+		}
+	default: // "none" or unrecognized
+		dialer := &net.Dialer{}
+		plainConn, dialErr := dialer.DialContext(ctx, "tcp", addr)
+		if dialErr != nil {
+			return nil, fmt.Errorf("connecting to IMAP server %s: %w", addr, dialErr)
+		}
+		imapClient = imapclient.New(plainConn, nil)
+		if err := imapClient.WaitGreeting(); err != nil {
+			imapClient.Close()
+			return nil, fmt.Errorf("waiting for IMAP greeting: %w", err)
+		}
 	}
-
-	imapClient := imapclient.New(conn, nil)
 	defer imapClient.Close()
-
-	if err := imapClient.WaitGreeting(); err != nil {
-		return nil, fmt.Errorf("waiting for IMAP greeting: %w", err)
-	}
 
 	if err := imapClient.Login(c.username, c.password).Wait(); err != nil {
 		return nil, fmt.Errorf("IMAP login: %w", err)

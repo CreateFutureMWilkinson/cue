@@ -3,6 +3,7 @@ package watcher_test
 import (
 	"context"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
@@ -79,6 +80,31 @@ func (s *IMAPClientSuite) TestFetchNewMessages_ConnectionRefused() {
 
 	_, fetchErr := client.FetchNewMessages(context.Background(), 0)
 	s.Error(fetchErr)
+}
+
+func (s *IMAPClientSuite) TestFetchNewMessages_SSLTLSAttemptsTLS() {
+	// Start a plain TCP listener that accepts and immediately closes
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	s.Require().NoError(err)
+	defer ln.Close()
+	port := ln.Addr().(*net.TCPAddr).Port
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		conn.Close()
+	}()
+
+	client, err := watcher.NewIMAPClient("127.0.0.1", port, "user@example.com", "secret", "ssl_tls")
+	s.Require().NoError(err)
+
+	_, fetchErr := client.FetchNewMessages(context.Background(), 0)
+	s.Error(fetchErr)
+	// When ssl_tls is used, the error should be TLS-related, not a plain TCP error
+	s.Contains(strings.ToLower(fetchErr.Error()), "tls",
+		"ssl_tls mode should attempt a TLS connection")
 }
 
 func (s *IMAPClientSuite) TestFetchNewMessages_ContextCancelled() {

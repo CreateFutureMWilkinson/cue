@@ -17,20 +17,27 @@ func NewSettingsPresenter(vc VolumeController, initialVolume int, timerVC Volume
 	if vc == nil {
 		return nil, fmt.Errorf("volume controller must not be nil")
 	}
+	if timerVC == nil {
+		return nil, fmt.Errorf("timer volume controller must not be nil")
+	}
 	return &SettingsPresenter{
-		vc:     vc,
-		volume: initialVolume,
+		vc:          vc,
+		volume:      initialVolume,
+		timerVC:     timerVC,
+		timerVolume: initialTimerVolume,
 	}, nil
 }
 
 // TimerVolume returns the current timer volume level.
 func (p *SettingsPresenter) TimerVolume() int {
-	return 0
+	return p.timerVolume
 }
 
 // SetTimerVolume updates the timer volume, clamping to 0-100, and delegates
 // to the timer volume controller.
 func (p *SettingsPresenter) SetTimerVolume(volume int) {
+	p.timerVolume = clampVolume(volume)
+	p.timerVC.SetVolume(p.timerVolume)
 }
 
 // Volume returns the current volume level.

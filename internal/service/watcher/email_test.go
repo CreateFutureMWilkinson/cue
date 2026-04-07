@@ -11,11 +11,13 @@ import (
 
 // mockEmailAPI implements watcher.EmailAPI for testing.
 type mockEmailAPI struct {
-	messages    []watcher.EmailMessage
-	messagesErr error
+	messages        []watcher.EmailMessage
+	messagesErr     error
+	lastSeenLastUID uint32 // records the lastUID argument from the most recent call
 }
 
 func (m *mockEmailAPI) FetchNewMessages(ctx context.Context, lastUID uint32) ([]watcher.EmailMessage, error) {
+	m.lastSeenLastUID = lastUID
 	if m.messagesErr != nil {
 		return nil, m.messagesErr
 	}
@@ -290,6 +292,40 @@ func (s *EmailWatcherSuite) TestPoll_MultipleMessages_TracksHighestUID() {
 	msgs, err = w.Poll(context.Background())
 	s.NoError(err)
 	s.Empty(msgs)
+}
+
+// --- SetLastUID: seeds cursor for poll ---
+
+func (s *EmailWatcherSuite) TestSetLastUID_SeedsCursorForPoll() {
+	api := &mockEmailAPI{
+		messages: []watcher.EmailMessage{
+			{UID: 50, From: "alice@example.com", Subject: "New", Folder: "INBOX", Body: "new msg", To: []string{"user@example.com"}},
+		},
+	}
+
+	w := s.mustNewWatcher(api, "user@example.com")
+	w.SetLastUID(42)
+
+	msgs, err := w.Poll(context.Background())
+	s.NoError(err)
+	s.Len(msgs, 1)
+	s.Equal(uint32(42), api.lastSeenLastUID, "Poll should use the lastUID seeded by SetLastUID")
+}
+
+// --- Poll: SourceCursor population ---
+
+func (s *EmailWatcherSuite) TestPoll_SetsSourceCursorOnMessages() {
+	api := &mockEmailAPI{
+		messages: []watcher.EmailMessage{
+			{UID: 55, From: "bob@example.com", Subject: "Test", Folder: "INBOX", Body: "body", To: []string{"user@example.com"}},
+		},
+	}
+
+	w := s.mustNewWatcher(api, "user@example.com")
+	msgs, err := w.Poll(context.Background())
+	s.NoError(err)
+	s.Require().Len(msgs, 1)
+	s.Equal("55", msgs[0].SourceCursor, "SourceCursor should be the email UID as a string")
 }
 
 // --- Helpers ---

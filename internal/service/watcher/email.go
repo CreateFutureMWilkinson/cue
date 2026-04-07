@@ -57,6 +57,12 @@ func NewEmailWatcher(api EmailAPI, cfg EmailWatcherConfig) (*EmailWatcher, error
 	}, nil
 }
 
+// SetLastUID seeds the UID high-water mark so that the next Poll only fetches
+// messages newer than uid. Used at startup to resume from the last stored cursor.
+func (w *EmailWatcher) SetLastUID(uid uint32) {
+	// stub: not yet implemented
+}
+
 // Poll fetches new email messages and returns them as repository messages.
 func (w *EmailWatcher) Poll(ctx context.Context) ([]*repository.Message, error) {
 	if err := ctx.Err(); err != nil {

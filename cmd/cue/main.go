@@ -29,6 +29,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/service/validation"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/vector"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
+	"github.com/CreateFutureMWilkinson/cue/internal/shutdown"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/fairy"
@@ -464,20 +465,35 @@ func run() error {
 		defer timerLoop.Stop()
 	}
 
+	// Install signal handler: SIGINT/SIGTERM → fyneApp.Quit().
+	sigHandler := shutdown.NewSignalHandler(fyneApp.Quit)
+	sigHandler.Start(ctx)
+
 	mainWindow.Run()
 
-	// Graceful shutdown: play shutdown animation if character supports it.
-	type shutdownable interface {
-		Shutdown() <-chan struct{}
+	// Graceful shutdown with 5-second timeout guard.
+	const shutdownTimeout = 5 * time.Second
+	if err := shutdown.RunCleanup(shutdownTimeout, func() error {
+		// Play shutdown animation if character supports it.
+		type shutdownable interface {
+			Shutdown() <-chan struct{}
+		}
+		if s, ok := char.(shutdownable); ok {
+			<-s.Shutdown()
+		} else {
+			char.Close()
+		}
+		return nil
+	}, func() error {
+		charPresenter.Stop()
+		return nil
+	}, func() error {
+		return appPresenter.Shutdown(ctx)
+	}, func() error {
+		return orch.Stop()
+	}); err != nil {
+		log.Printf("warning: shutdown cleanup: %v", err)
 	}
-	if s, ok := char.(shutdownable); ok {
-		<-s.Shutdown()
-	} else {
-		char.Close()
-	}
-	charPresenter.Stop()
-	_ = appPresenter.Shutdown(ctx)
-	_ = orch.Stop()
 
 	return nil
 }

@@ -136,7 +136,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 079 | Credential/calendar validation on save | Enhancement | Medium | Done | 065, 067, 068 | [Feature-079](features/phase-6/Feature-079-Credential-Validation-On-Save.md) |
 | 080 | Default poll intervals per service type | Bugfix | Low | Done | — | [Feature-080](features/phase-6/Feature-080-Default-Poll-Intervals.md) |
 | 081 | Slack token setup instructions in settings | Enhancement | Low | Planned | 068 | [Feature-081](features/phase-6/Feature-081-Slack-Token-Instructions.md) |
-| 082 | Graceful shutdown (SIGINT + clean exit) | Bugfix | Critical | Planned | — | [Feature-082](features/phase-6/Feature-082-Graceful-Shutdown.md) |
+| 082 | Graceful shutdown (SIGINT + clean exit) | Bugfix | Critical | Done | — | [Feature-082](features/phase-6/Feature-082-Graceful-Shutdown.md) |
 | 083 | Fyne call thread safety violations | Bugfix | High | Planned | — | [Feature-083](features/phase-6/Feature-083-Fyne-Thread-Safety.md) |
 
 ## Phase 7 — WASM Character Plugins

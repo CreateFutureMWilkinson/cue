@@ -500,3 +500,7 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-080 (DefaultPollInterval + UI) | RED | Test Designer | ~48s | ~24,000 | 43a4fcd |
 | Phase-6-Feature-080 (DefaultPollInterval + UI) | GREEN | orchestrator | ~5s | ~1,000 | 8af39a1 |
 | Phase-6-Feature-080 | REFACTOR | Refactorer | ~45s | ~27,000 | (no changes) |
+| Phase-6-Feature-082 (SignalHandler) | RED | Test Designer | ~47s | ~23,500 | f549da9 |
+| Phase-6-Feature-082 (SignalHandler) | GREEN | Implementer | ~20s | ~22,700 | 21b132c |
+| Phase-6-Feature-082 (RunCleanup) | RED | Test Designer | ~39s | ~25,000 | d30feaf |
+| Phase-6-Feature-082 (RunCleanup) | GREEN | Implementer | ~21s | ~22,100 | 72306da |

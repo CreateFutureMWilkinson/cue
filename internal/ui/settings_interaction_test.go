@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
+	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/uitest"
@@ -612,4 +614,78 @@ func (s *SettingsInteractionSuite) TestSlackFormHasFriendlyNameAndWebURLEntries(
 		return e.PlaceHolder == "Web URL"
 	})
 	s.True(foundWebURL, "Slack account form should contain an Entry with placeholder 'Web URL'")
+}
+
+func (s *SettingsInteractionSuite) TestSlackAccountListRendersDeleteButton() {
+	// Create a stub repo that returns one Slack account
+	repo := &stubServiceConfigRepoWithSlack{
+		slackAccounts: []*repository.SlackAccount{
+			{
+				ID:          uuid.New(),
+				Enabled:     true,
+				Token:       "xoxp-test",
+				WorkspaceID: "T12345",
+				Username:    "testuser",
+			},
+		},
+	}
+	mgr := &stubWatcherRemover{}
+	factory := func(_ string, _ uuid.UUID) error { return nil }
+	ssp := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	vc := &stubVolumeController{}
+	sp, _ := presenter.NewSettingsPresenter(vc, 50, &stubVolumeController{}, 50)
+	sv := ui.NewSettingsView(sp, ssp, config.OllamaConfig{}, func() {})
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	slackContent := tabs.Items[0].Content
+
+	_, found := uitest.FindWidget[*widget.Button](slackContent, func(b *widget.Button) bool {
+		return b.Text == "Delete"
+	})
+
+	s.True(found, "Slack account list should contain a 'Delete' button for each configured account")
+}
+
+// stubServiceConfigRepoWithSlack is a stub that returns pre-configured Slack accounts.
+// All other account types return empty lists.
+type stubServiceConfigRepoWithSlack struct {
+	slackAccounts []*repository.SlackAccount
+}
+
+func (s *stubServiceConfigRepoWithSlack) ListSlackAccounts(_ context.Context) ([]*repository.SlackAccount, error) {
+	return s.slackAccounts, nil
+}
+func (s *stubServiceConfigRepoWithSlack) GetSlackAccount(_ context.Context, _ uuid.UUID) (*repository.SlackAccount, error) {
+	return nil, nil
+}
+func (s *stubServiceConfigRepoWithSlack) UpsertSlackAccount(_ context.Context, _ *repository.SlackAccount) error {
+	return nil
+}
+func (s *stubServiceConfigRepoWithSlack) DeleteSlackAccount(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+func (s *stubServiceConfigRepoWithSlack) ListEmailAccounts(_ context.Context) ([]*repository.EmailAccount, error) {
+	return nil, nil
+}
+func (s *stubServiceConfigRepoWithSlack) GetEmailAccount(_ context.Context, _ uuid.UUID) (*repository.EmailAccount, error) {
+	return nil, nil
+}
+func (s *stubServiceConfigRepoWithSlack) UpsertEmailAccount(_ context.Context, _ *repository.EmailAccount) error {
+	return nil
+}
+func (s *stubServiceConfigRepoWithSlack) DeleteEmailAccount(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+func (s *stubServiceConfigRepoWithSlack) ListCalendarAccounts(_ context.Context) ([]*repository.CalendarAccount, error) {
+	return nil, nil
+}
+func (s *stubServiceConfigRepoWithSlack) GetCalendarAccount(_ context.Context, _ uuid.UUID) (*repository.CalendarAccount, error) {
+	return nil, nil
+}
+func (s *stubServiceConfigRepoWithSlack) UpsertCalendarAccount(_ context.Context, _ *repository.CalendarAccount) error {
+	return nil
+}
+func (s *stubServiceConfigRepoWithSlack) DeleteCalendarAccount(_ context.Context, _ uuid.UUID) error {
+	return nil
 }

@@ -281,7 +281,12 @@ func listAccountWidgets(ssp *presenter.ServiceSettingsPresenter, accountType str
 			return nil
 		}
 		for _, a := range accts {
-			widgets = append(widgets, widget.NewLabel(fmt.Sprintf("Slack: %s (@%s)", a.WorkspaceID, a.Username)))
+			id := a.ID // capture for closure
+			label := widget.NewLabel(fmt.Sprintf("Slack: %s (@%s)", a.WorkspaceID, a.Username))
+			deleteBtn := widget.NewButton("Delete", func() {
+				_ = ssp.DeleteSlackAccount(context.Background(), id)
+			})
+			widgets = append(widgets, container.NewHBox(label, deleteBtn))
 		}
 	case "email":
 		accts, err := ssp.ListEmailAccounts(context.Background())
@@ -289,7 +294,12 @@ func listAccountWidgets(ssp *presenter.ServiceSettingsPresenter, accountType str
 			return nil
 		}
 		for _, a := range accts {
-			widgets = append(widgets, widget.NewLabel(fmt.Sprintf("Email: %s (%s:%d)", a.Username, a.IMAPHost, a.IMAPPort)))
+			id := a.ID // capture for closure
+			label := widget.NewLabel(fmt.Sprintf("Email: %s (%s:%d)", a.Username, a.IMAPHost, a.IMAPPort))
+			deleteBtn := widget.NewButton("Delete", func() {
+				_ = ssp.DeleteEmailAccount(context.Background(), id)
+			})
+			widgets = append(widgets, container.NewHBox(label, deleteBtn))
 		}
 	case "calendar":
 		accts, err := ssp.ListCalendarAccounts(context.Background())
@@ -297,7 +307,12 @@ func listAccountWidgets(ssp *presenter.ServiceSettingsPresenter, accountType str
 			return nil
 		}
 		for _, a := range accts {
-			widgets = append(widgets, widget.NewLabel(fmt.Sprintf("Calendar: %s", a.Name)))
+			id := a.ID // capture for closure
+			label := widget.NewLabel(fmt.Sprintf("Calendar: %s", a.Name))
+			deleteBtn := widget.NewButton("Delete", func() {
+				_ = ssp.DeleteCalendarAccount(context.Background(), id)
+			})
+			widgets = append(widgets, container.NewHBox(label, deleteBtn))
 		}
 	}
 	return widgets

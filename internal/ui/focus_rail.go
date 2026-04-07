@@ -18,6 +18,7 @@ type FocusRail struct {
 	settingsBtn *widget.Button
 	taskLabel   *widget.Label
 	timer       *CountdownTimer
+	onBack      func()
 	onDone      func()
 	onReview    func()
 }
@@ -35,6 +36,9 @@ func NewFocusRail(router *CenterViewRouter) *FocusRail {
 	})
 
 	rail.backBtn = widget.NewButton("Back", func() {
+		if rail.onBack != nil {
+			rail.onBack()
+		}
 		router.NavigateTo(ViewCharacter)
 	})
 
@@ -137,6 +141,12 @@ func (r *FocusRail) SetNotificationsExpanded(expanded bool) {
 	} else {
 		r.reviewBtn.Hide()
 	}
+}
+
+// SetOnBack registers a callback invoked when the Back button is tapped,
+// before navigation occurs.
+func (r *FocusRail) SetOnBack(fn func()) {
+	r.onBack = fn
 }
 
 // SetOnDone registers a callback invoked when the Done button is tapped.

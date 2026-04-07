@@ -258,6 +258,23 @@ func (s *FocusRailSuite) TestFocusRailContainerIncludesSettingsButton() {
 	s.True(found, "Container should include the settings button")
 }
 
+func (s *FocusRailSuite) TestFocusRailBackButtonCallbackFiresOnTap() {
+	rail := ui.NewFocusRail(s.router)
+
+	called := false
+	rail.SetOnBack(func() {
+		called = true
+	})
+
+	// Navigate to Plan so the Back button is active.
+	s.router.NavigateTo(ui.ViewPlan)
+
+	// Simulate tapping the Back button.
+	rail.BackButton().OnTapped()
+
+	s.True(called, "tapping Back button should invoke the onBack callback before navigating")
+}
+
 func (s *FocusRailSuite) TestFocusRailDoneButtonCallback() {
 	rail := ui.NewFocusRail(s.router)
 

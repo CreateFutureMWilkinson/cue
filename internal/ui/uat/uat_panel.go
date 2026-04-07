@@ -40,13 +40,40 @@ func NewUATPanel(onCharChanged func(character.Character)) *UATPanel {
 			p.onCharChanged(ch)
 		}
 		p.charLabel.SetText("Character: " + name)
+		if name == character.NoneCharacterName {
+			for _, btn := range p.stateButtons {
+				btn.Disable()
+			}
+		} else {
+			for _, btn := range p.stateButtons {
+				btn.Enable()
+			}
+		}
 	})
 
-	stateNames := []string{"Idle", "Starting", "Working", "Notifying", "Error", "Shutdown"}
-	p.stateButtons = make([]*widget.Button, len(stateNames))
-	buttonObjects := make([]fyne.CanvasObject, len(stateNames))
-	for i, name := range stateNames {
-		p.stateButtons[i] = widget.NewButton(name, func() {})
+	type stateEntry struct {
+		label string
+		state character.CharacterState
+	}
+	states := []stateEntry{
+		{"Idle", character.StateIdle},
+		{"Starting", character.StateStarting},
+		{"Working", character.StateWorking},
+		{"Notifying", character.StateNotifying},
+		{"Error", character.StateError},
+		{"Shutdown", character.StateShuttingDown},
+	}
+	p.stateButtons = make([]*widget.Button, len(states))
+	buttonObjects := make([]fyne.CanvasObject, len(states))
+	for i, entry := range states {
+		label := entry.label
+		state := entry.state
+		p.stateButtons[i] = widget.NewButton(label, func() {
+			if p.currentChar != nil {
+				p.currentChar.TransitionTo(state)
+				p.stateLabel.SetText("Current State: " + label)
+			}
+		})
 		buttonObjects[i] = p.stateButtons[i]
 	}
 
@@ -79,5 +106,5 @@ func (p *UATPanel) CharacterLabel() string {
 
 // StateLabel returns the text of the state diagnostic label.
 func (p *UATPanel) StateLabel() string {
-	return ""
+	return p.stateLabel.Text
 }

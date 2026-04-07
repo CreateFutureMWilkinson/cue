@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 	"github.com/stretchr/testify/suite"
 
@@ -13,6 +14,10 @@ import (
 
 type UATPanelSuite struct {
 	suite.Suite
+}
+
+func (s *UATPanelSuite) SetupSuite() {
+	test.NewApp()
 }
 
 func TestUATPanel(t *testing.T) {

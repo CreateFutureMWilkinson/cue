@@ -362,15 +362,19 @@ func (s *Bug072Suite) TestUpButtonCallsReorderTask() {
 				{Title: "Task A", Priority: 1},
 				{Title: "Task B", Priority: 2},
 			},
+			estimates: []presenter.TaskEstimateRow{
+				{Title: "Task A", EstimatedPomos: 2, EffectivePomos: 2},
+				{Title: "Task B", EstimatedPomos: 3, EffectivePomos: 3},
+			},
 		},
 	}
 	wv := ui.NewWizardView(vm, router)
 	root := wv.Container()
 
 	btn, found := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
-		return b.Text == "Up"
+		return b.Text == "Up" && !b.Disabled()
 	})
-	s.Require().True(found, "step 3 should have an 'Up' button")
+	s.Require().True(found, "step 3 should have an enabled 'Up' button")
 
 	btn.OnTapped()
 
@@ -388,15 +392,19 @@ func (s *Bug072Suite) TestDownButtonCallsReorderTask() {
 				{Title: "Task A", Priority: 1},
 				{Title: "Task B", Priority: 2},
 			},
+			estimates: []presenter.TaskEstimateRow{
+				{Title: "Task A", EstimatedPomos: 2, EffectivePomos: 2},
+				{Title: "Task B", EstimatedPomos: 3, EffectivePomos: 3},
+			},
 		},
 	}
 	wv := ui.NewWizardView(vm, router)
 	root := wv.Container()
 
 	btn, found := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
-		return b.Text == "Down"
+		return b.Text == "Down" && !b.Disabled()
 	})
-	s.Require().True(found, "step 3 should have a 'Down' button")
+	s.Require().True(found, "step 3 should have an enabled 'Down' button")
 
 	btn.OnTapped()
 

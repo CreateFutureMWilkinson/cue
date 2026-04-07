@@ -1,7 +1,7 @@
 # Feature 085: Rules Engine
 
 **Phase:** Phase-8-Feature-085
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/service/decisionengine/`
 **Depends on:** Feature 084
 
@@ -79,3 +79,29 @@ func extractField(msg *repository.Message, field string) string {
 ## Unmatched Default
 
 Messages not matched by any rule always return `"queue"`. This is not configurable.
+
+## Test Coverage
+
+14 tests (9 top-level + 5 subtests in table-driven field extraction):
+
+| Test | Behavior |
+|---|---|
+| TestNewRulesEngineFiltersDisabledRules | Disabled rules excluded at construction |
+| TestNewRulesEngineSkipsInvalidPatterns | Invalid regex logged via slog.Warn, rule skipped |
+| TestNewRulesEngineSortsByPriority | Rules sorted by priority ascending regardless of input order |
+| TestNewRulesEngineEmptyRules | Nil/empty input returns engine that evaluates to "queue" |
+| TestEvaluateSourceScopeMismatch | Rule source != message source → skip |
+| TestEvaluateFieldExtraction (table) | sender, channel, content, message_type, subject (first line) |
+| TestEvaluateSubjectExtractionNoNewline | Subject = full RawContent when no newline |
+| TestEvaluateNegation | Negate inverts match: non-match → true, match → false |
+| TestEvaluateFirstMatchWins | Lowest priority number wins after sorting |
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED (construction) | Test Designer | ~59s | ~31,500 | 37f6f98 |
+| GREEN (construction + evaluate) | Implementer | ~35s | ~26,300 | 687575c |
+| REFACTOR (extractField, sort) | Refactorer | ~69s | ~30,500 | 3056de0 |
+| RED (evaluate behaviors) | Test Designer | ~54s | ~31,400 | 28bfaf2 |
+| REFACTOR (test helpers) | Refactorer | ~148s | ~37,200 | 596a433 |

@@ -522,3 +522,8 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-8-Feature-084 (List+Delete) | RED | Test Designer | ~61s | ~32,800 | 79dbe47 |
 | Phase-8-Feature-084 (List+Delete) | GREEN | Implementer | ~34s | ~28,500 | ba8d789 |
 | Phase-8-Feature-084 (all SQLite) | REFACTOR | Refactorer | ~79s | ~39,100 | f2b252e |
+| Phase-8-Feature-085 (construction) | RED | Test Designer | ~59s | ~31,500 | 37f6f98 |
+| Phase-8-Feature-085 (construction) | GREEN | Implementer | ~35s | ~26,300 | 687575c |
+| Phase-8-Feature-085 (construction) | REFACTOR | Refactorer | ~69s | ~30,500 | 3056de0 |
+| Phase-8-Feature-085 (evaluate) | RED | Test Designer | ~54s | ~31,400 | 28bfaf2 |
+| Phase-8-Feature-085 (evaluate) | REFACTOR | Refactorer | ~148s | ~37,200 | 596a433 |

@@ -142,6 +142,24 @@ func (s *ActivityLogDrawerSuite) TestClosedDrawerStackHasSingleChild() {
 		"closed drawer stack should have exactly 1 child (a Border wrapping character+button), not separate character and drawerBox objects")
 }
 
+func (s *ActivityLogDrawerSuite) TestToggleClosedDrawerStackHasSingleChild() {
+	ap := s.newPresenter()
+
+	drawer := ui.NewActivityLogDrawer(ap)
+	characterWidget := widget.NewLabel("Fairy placeholder")
+
+	result := drawer.ContainerWithCharacter(characterWidget)
+
+	// Open then close — the stack should return to 1 child, same as initial closed state.
+	drawer.ToggleOpen()
+	drawer.ToggleOpen()
+
+	topContainer, ok := result.(*fyne.Container)
+	s.Require().True(ok, "ContainerWithCharacter should return a *fyne.Container")
+	s.Equal(1, len(topContainer.Objects),
+		"after toggling open then closed, the stack should have exactly 1 child (same as initial closed state)")
+}
+
 func (s *ActivityLogDrawerSuite) TestOpenDrawerOverlayHasSemiTransparentBackground() {
 	ap := s.newPresenter()
 

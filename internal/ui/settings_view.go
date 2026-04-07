@@ -31,7 +31,7 @@ func newAccountTab(title string, onAdd func()) *container.TabItem {
 }
 
 // createEmailAccountForm creates the form UI for adding a new email account.
-func createEmailAccountForm() fyne.CanvasObject {
+func createEmailAccountForm() *fyne.Container {
 	hostEntry := widget.NewEntry()
 	hostEntry.SetPlaceHolder("IMAP Host")
 	portEntry := widget.NewEntry()
@@ -44,8 +44,20 @@ func createEmailAccountForm() fyne.CanvasObject {
 	pollEntry := widget.NewEntry()
 	pollEntry.SetPlaceHolder("Poll Interval (seconds)")
 
-	saveBtn := widget.NewButton("Save", func() {})
+	errorLabel := widget.NewLabel("")
+	errorLabel.Hide()
+
+	saveBtn := widget.NewButton("Save", nil)
 	cancelBtn := widget.NewButton("Cancel", func() {})
+
+	saveBtn.OnTapped = func() {
+		if hostEntry.Text == "" || portEntry.Text == "" || userEntry.Text == "" || passEntry.Text == "" || pollEntry.Text == "" {
+			errorLabel.SetText("All fields are required")
+			errorLabel.Show()
+			return
+		}
+		errorLabel.Hide()
+	}
 
 	return container.NewVBox(
 		widget.NewLabel("Add Email Account"),
@@ -54,6 +66,7 @@ func createEmailAccountForm() fyne.CanvasObject {
 		userEntry,
 		passEntry,
 		pollEntry,
+		errorLabel,
 		container.NewHBox(saveBtn, cancelBtn),
 	)
 }

@@ -156,9 +156,9 @@ func (s *SettingsAcceptanceSuite) TestSlackAddAccountShowsFormFields() {
 		return true
 	})
 
-	s.GreaterOrEqual(len(entries), 4,
-		"after tapping Add Account, Slack tab should contain at least 4 Entry widgets "+
-			"(user OAuth token, workspace ID, username, poll interval)")
+	s.GreaterOrEqual(len(entries), 6,
+		"after tapping Add Account, Slack tab should contain at least 6 Entry widgets "+
+			"(friendly name, web URL, user OAuth token, workspace ID, username, poll interval)")
 }
 
 // AC: Submitting Slack form with empty fields shows validation error.
@@ -222,13 +222,15 @@ func (s *SettingsAcceptanceSuite) TestSlackAddAccountSaveWithValidDataReplacesFo
 	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool {
 		return true
 	})
-	s.Require().GreaterOrEqual(len(entries), 4, "form should have at least 4 Entry widgets")
+	s.Require().GreaterOrEqual(len(entries), 6, "form should have at least 6 Entry widgets")
 
-	// Fill in all 4 fields with valid data
-	entries[0].SetText("xoxp-test-token") // User OAuth Token
-	entries[1].SetText("T12345")          // Workspace ID
-	entries[2].SetText("testuser")        // Username
-	entries[3].SetText("600")             // Poll Interval
+	// Fill in all 6 fields with valid data
+	entries[0].SetText("My Slack")         // Friendly Name
+	entries[1].SetText("https://slack.com") // Web URL
+	entries[2].SetText("xoxp-test-token")  // User OAuth Token
+	entries[3].SetText("T12345")           // Workspace ID
+	entries[4].SetText("testuser")         // Username
+	entries[5].SetText("600")              // Poll Interval
 
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
 		return b.Text == "Save"
@@ -243,8 +245,8 @@ func (s *SettingsAcceptanceSuite) TestSlackAddAccountSaveWithValidDataReplacesFo
 		return true
 	})
 
-	s.Less(len(entriesAfterSave), 4,
-		"after saving valid data, form should be replaced with account list (fewer than 4 Entry widgets)")
+	s.Less(len(entriesAfterSave), 6,
+		"after saving valid data, form should be replaced with account list (fewer than 6 Entry widgets)")
 }
 
 // AC: Clicking "Add Account" in Calendar tab opens a form with entry fields.
@@ -450,13 +452,15 @@ func (s *SettingsAcceptanceSuite) TestEmailFormSaveIncludesEncryption() {
 	entries := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool {
 		return true
 	})
-	s.Require().GreaterOrEqual(len(entries), 5, "form should have at least 5 Entry widgets")
+	s.Require().GreaterOrEqual(len(entries), 7, "form should have at least 7 Entry widgets")
 
-	entries[0].SetText("imap.example.com") // IMAP Host
-	entries[1].SetText("993")              // IMAP Port
-	entries[2].SetText("user@example.com") // Username
-	entries[3].SetText("secret")           // Password
-	entries[4].SetText("600")              // Poll Interval
+	entries[0].SetText("Work Email")              // Friendly Name
+	entries[1].SetText("https://mail.example.com") // Web URL
+	entries[2].SetText("imap.example.com")         // IMAP Host
+	entries[3].SetText("993")                      // IMAP Port
+	entries[4].SetText("user@example.com")         // Username
+	entries[5].SetText("secret")                   // Password
+	entries[6].SetText("600")                      // Poll Interval
 
 	// Select STARTTLS encryption
 	sel := uitest.RequireWidget[*widget.Select](s.T(), emailContent, func(_ *widget.Select) bool {
@@ -477,7 +481,7 @@ func (s *SettingsAcceptanceSuite) TestEmailFormSaveIncludesEncryption() {
 		return true
 	})
 
-	s.Less(len(entriesAfterSave), 5,
+	s.Less(len(entriesAfterSave), 7,
 		"after saving valid data with encryption set, form should be replaced with account list")
 }
 
@@ -623,11 +627,13 @@ func (s *SettingsAcceptanceSuite) TestSlackAccountAppearsAfterSave() {
 
 	slackContent = tabs.Items[0].Content
 	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
-	s.Require().GreaterOrEqual(len(entries), 4)
-	entries[0].SetText("xoxp-new-token")
-	entries[1].SetText("T-NEW-WS")
-	entries[2].SetText("newuser")
-	entries[3].SetText("600")
+	s.Require().GreaterOrEqual(len(entries), 6)
+	entries[0].SetText("New Slack")         // Friendly Name
+	entries[1].SetText("https://slack.com") // Web URL
+	entries[2].SetText("xoxp-new-token")
+	entries[3].SetText("T-NEW-WS")
+	entries[4].SetText("newuser")
+	entries[5].SetText("600")
 
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
 		return b.Text == "Save"
@@ -662,12 +668,14 @@ func (s *SettingsAcceptanceSuite) TestEmailAccountAppearsAfterSave() {
 
 	emailContent = tabs.Items[1].Content
 	entries := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool { return true })
-	s.Require().GreaterOrEqual(len(entries), 5)
-	entries[0].SetText("imap.test.com")
-	entries[1].SetText("993")
-	entries[2].SetText("new@test.com")
-	entries[3].SetText("password")
-	entries[4].SetText("600")
+	s.Require().GreaterOrEqual(len(entries), 7)
+	entries[0].SetText("Test Email")              // Friendly Name
+	entries[1].SetText("https://mail.test.com")   // Web URL
+	entries[2].SetText("imap.test.com")
+	entries[3].SetText("993")
+	entries[4].SetText("new@test.com")
+	entries[5].SetText("password")
+	entries[6].SetText("600")
 
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
 		return b.Text == "Save"
@@ -756,11 +764,13 @@ func (s *SettingsAcceptanceSuite) TestSlackValidationFailureKeepsFormOpen() {
 
 	slackContent = tabs.Items[0].Content
 	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
-	s.Require().GreaterOrEqual(len(entries), 4)
-	entries[0].SetText("xoxp-bad-token")
-	entries[1].SetText("T12345")
-	entries[2].SetText("testuser")
-	entries[3].SetText("600")
+	s.Require().GreaterOrEqual(len(entries), 6)
+	entries[0].SetText("Bad Slack")          // Friendly Name
+	entries[1].SetText("https://slack.com")  // Web URL
+	entries[2].SetText("xoxp-bad-token")
+	entries[3].SetText("T12345")
+	entries[4].SetText("testuser")
+	entries[5].SetText("600")
 
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
 		return b.Text == "Save"
@@ -770,7 +780,7 @@ func (s *SettingsAcceptanceSuite) TestSlackValidationFailureKeepsFormOpen() {
 	// Form should still be showing (entries still present)
 	slackContent = tabs.Items[0].Content
 	entriesAfter := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
-	s.GreaterOrEqual(len(entriesAfter), 4, "form should remain open after validation failure")
+	s.GreaterOrEqual(len(entriesAfter), 6, "form should remain open after validation failure")
 
 	// Error label should contain the validation error
 	_, found := uitest.FindWidget[*widget.Label](slackContent, func(l *widget.Label) bool {
@@ -801,12 +811,14 @@ func (s *SettingsAcceptanceSuite) TestEmailValidationFailureKeepsFormOpen() {
 
 	emailContent = tabs.Items[1].Content
 	entries := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool { return true })
-	s.Require().GreaterOrEqual(len(entries), 5)
-	entries[0].SetText("imap.example.com")
-	entries[1].SetText("993")
-	entries[2].SetText("user@example.com")
-	entries[3].SetText("wrong-password")
-	entries[4].SetText("600")
+	s.Require().GreaterOrEqual(len(entries), 7)
+	entries[0].SetText("Fail Email")                // Friendly Name
+	entries[1].SetText("https://mail.example.com")  // Web URL
+	entries[2].SetText("imap.example.com")
+	entries[3].SetText("993")
+	entries[4].SetText("user@example.com")
+	entries[5].SetText("wrong-password")
+	entries[6].SetText("600")
 
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
 		return b.Text == "Save"
@@ -815,7 +827,7 @@ func (s *SettingsAcceptanceSuite) TestEmailValidationFailureKeepsFormOpen() {
 
 	emailContent = tabs.Items[1].Content
 	entriesAfter := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool { return true })
-	s.GreaterOrEqual(len(entriesAfter), 5, "form should remain open after validation failure")
+	s.GreaterOrEqual(len(entriesAfter), 7, "form should remain open after validation failure")
 
 	_, found := uitest.FindWidget[*widget.Label](emailContent, func(l *widget.Label) bool {
 		return strings.Contains(l.Text, "authentication failed")
@@ -885,11 +897,13 @@ func (s *SettingsAcceptanceSuite) TestSlackValidationSuccessSavesAndReturnsToLis
 
 	slackContent = tabs.Items[0].Content
 	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
-	s.Require().GreaterOrEqual(len(entries), 4)
-	entries[0].SetText("xoxp-valid-token")
-	entries[1].SetText("T-VALID")
-	entries[2].SetText("validuser")
-	entries[3].SetText("600")
+	s.Require().GreaterOrEqual(len(entries), 6)
+	entries[0].SetText("Valid Slack")        // Friendly Name
+	entries[1].SetText("https://slack.com")  // Web URL
+	entries[2].SetText("xoxp-valid-token")
+	entries[3].SetText("T-VALID")
+	entries[4].SetText("validuser")
+	entries[5].SetText("600")
 
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
 		return b.Text == "Save"
@@ -899,7 +913,7 @@ func (s *SettingsAcceptanceSuite) TestSlackValidationSuccessSavesAndReturnsToLis
 	// Should be back to list view (fewer entries)
 	slackContent = tabs.Items[0].Content
 	entriesAfter := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
-	s.Less(len(entriesAfter), 4, "after successful validation and save, form should be replaced with account list")
+	s.Less(len(entriesAfter), 6, "after successful validation and save, form should be replaced with account list")
 
 	// Account should appear in list
 	_, found := uitest.FindWidget[*widget.Label](slackContent, func(l *widget.Label) bool {

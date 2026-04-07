@@ -581,16 +581,17 @@ func (s *NotificationPresenterCardsSuite) TestCardsHasCorrectColors() {
 	cards := s.presenter.Cards()
 	s.Require().Len(cards, 2)
 
-	// IS=9.0 -> red tier
-	expectedHighCard := color.NRGBA{R: 0xff, G: 0xc9, B: 0xc9, A: 0xff}
+	// All tiers use dark card background
+	expectedDarkCard := color.NRGBA{R: 0x2d, G: 0x2d, B: 0x2d, A: 0xff}
+
+	// IS=9.0 -> red badge
 	expectedHighBadge := color.NRGBA{R: 0xef, G: 0x44, B: 0x44, A: 0xff}
-	s.Equal(expectedHighCard, cards[0].CardColor, "IS=9.0 card should have red background")
+	s.Equal(expectedDarkCard, cards[0].CardColor, "IS=9.0 card should have dark background")
 	s.Equal(expectedHighBadge, cards[0].BadgeColor, "IS=9.0 badge should be red")
 
-	// IS=7.5 -> blue tier
-	expectedLowCard := color.NRGBA{R: 0xdb, G: 0xe4, B: 0xff, A: 0xff}
+	// IS=7.5 -> blue badge
 	expectedLowBadge := color.NRGBA{R: 0x4a, G: 0x9e, B: 0xed, A: 0xff}
-	s.Equal(expectedLowCard, cards[1].CardColor, "IS=7.5 card should have blue background")
+	s.Equal(expectedDarkCard, cards[1].CardColor, "IS=7.5 card should have dark background")
 	s.Equal(expectedLowBadge, cards[1].BadgeColor, "IS=7.5 badge should be blue")
 }
 

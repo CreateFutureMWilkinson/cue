@@ -7,6 +7,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
 	"github.com/google/uuid"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
@@ -72,6 +73,7 @@ func NewWizardView(vm WizardViewModel, router *CenterViewRouter) *WizardView {
 		container: container.NewVBox(),
 	}
 	v.buildState()
+	v.renderContainer()
 	return v
 }
 
@@ -315,7 +317,43 @@ func (v *WizardView) HasNextButton() bool {
 	return v.hasNextButton
 }
 
+// renderContainer clears the container and dispatches to step-specific render methods.
+func (v *WizardView) renderContainer() {
+	v.container.Objects = nil
+
+	switch v.vm.CurrentStep() {
+	case presenter.StepTaskSelect:
+		v.renderStep1()
+	}
+
+	v.container.Refresh()
+}
+
+// renderStep1 renders the task selection step (step 1) widgets into the container.
+func (v *WizardView) renderStep1() {
+	v.container.Objects = append(v.container.Objects, widget.NewLabel(v.stepIndicator))
+
+	for _, item := range v.taskCheckboxes {
+		item := item
+		check := widget.NewCheck(item.Title, func(checked bool) {
+			v.vm.SelectTask(item.ID, checked)
+		})
+		check.Checked = item.Selected
+		v.container.Objects = append(v.container.Objects, check)
+	}
+
+	entry := widget.NewEntry()
+	entry.SetPlaceHolder("New task")
+	v.container.Objects = append(v.container.Objects, entry)
+
+	v.container.Objects = append(v.container.Objects,
+		widget.NewButton("Next", func() { v.vm.NextStep(context.Background()) }),
+		widget.NewButton("Cancel", func() { v.router.NavigateTo(ViewPlan) }),
+	)
+}
+
 // Refresh updates the wizard view from the current model state.
 func (v *WizardView) Refresh() {
 	v.buildState()
+	v.renderContainer()
 }

@@ -3,6 +3,7 @@ package ui_test
 import (
 	"testing"
 
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 	"github.com/stretchr/testify/suite"
@@ -124,4 +125,21 @@ func (s *ActivityLogDrawerSuite) TestContainerWithCharacterUsesStackNotSplit() {
 		return true
 	})
 	s.False(found, "ContainerWithCharacter should use a Stack layout, not a Split")
+}
+
+func (s *ActivityLogDrawerSuite) TestOpenDrawerOverlayHasSemiTransparentBackground() {
+	ap := s.newPresenter()
+
+	drawer := ui.NewActivityLogDrawer(ap)
+	drawer.ToggleOpen()
+	characterWidget := widget.NewLabel("Fairy placeholder")
+
+	result := drawer.ContainerWithCharacter(characterWidget)
+
+	rect, found := uitest.FindWidget[*canvas.Rectangle](result, func(r *canvas.Rectangle) bool {
+		_, _, _, alpha := r.FillColor.RGBA()
+		return alpha > 0 && alpha < 0xFFFF
+	})
+	s.True(found, "open drawer overlay should contain a canvas.Rectangle with semi-transparent fill")
+	s.NotNil(rect)
 }

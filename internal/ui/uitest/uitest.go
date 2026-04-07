@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 )
 
 // FindWidget walks a fyne.CanvasObject tree depth-first and returns the first
@@ -68,6 +69,17 @@ func children(obj fyne.CanvasObject) []fyne.CanvasObject {
 
 	if c, ok := obj.(*fyne.Container); ok {
 		return c.Objects
+	}
+
+	if sp, ok := obj.(*container.Split); ok {
+		var result []fyne.CanvasObject
+		if sp.Leading != nil {
+			result = append(result, sp.Leading)
+		}
+		if sp.Trailing != nil {
+			result = append(result, sp.Trailing)
+		}
+		return result
 	}
 
 	// Support any widget or object that exposes an Objects() method.

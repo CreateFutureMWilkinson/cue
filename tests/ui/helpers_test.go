@@ -166,10 +166,10 @@ func (s *stubPlannerTimerVM) CurrentTaskName() string      { return "" }
 func (s *stubPlannerTimerVM) BlockType() planner.BlockType { return planner.BlockFocus }
 
 // TodoListViewModel implementation for stubPlannerTimerVM.
-func (s *stubPlannerTimerVM) AllTodos() []ui.TodoListRow    { return nil }
-func (s *stubPlannerTimerVM) ToggleComplete(_ uuid.UUID)    {}
-func (s *stubPlannerTimerVM) AddTask(_ string, _ int)       {}
-func (s *stubPlannerTimerVM) UpdateTask(_ ui.TodoListRow)   {}
+func (s *stubPlannerTimerVM) AllTodos() []ui.TodoListRow  { return nil }
+func (s *stubPlannerTimerVM) ToggleComplete(_ uuid.UUID)  {}
+func (s *stubPlannerTimerVM) AddTask(_ string, _ int)     {}
+func (s *stubPlannerTimerVM) UpdateTask(_ ui.TodoListRow) {}
 
 // stubWizardVM satisfies WizardViewModel.
 type stubWizardVM struct {

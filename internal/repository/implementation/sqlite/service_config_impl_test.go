@@ -375,6 +375,31 @@ func (s *ServiceConfigSuite) TestListEmailAccountsMultiple() {
 
 // --- Unique Constraint Tests ---
 
+func (s *ServiceConfigSuite) TestSlackAccountUsernameRoundTrip() {
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	acct := &repository.SlackAccount{
+		ID:                  uuid.New(),
+		Enabled:             true,
+		Token:               "xoxb-username-test",
+		WorkspaceID:         "T-USERNAME",
+		Username:            "testuser",
+		PollIntervalSeconds: 600,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	err := s.repo.UpsertSlackAccount(ctx, acct)
+	s.Require().NoError(err)
+
+	got, err := s.repo.GetSlackAccount(ctx, acct.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+
+	s.Equal("testuser", got.Username, "Username must survive upsert/get round-trip")
+}
+
 func (s *ServiceConfigSuite) TestSlackAccountUniqueWorkspaceID() {
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)

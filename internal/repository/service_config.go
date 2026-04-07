@@ -13,6 +13,7 @@ type SlackAccount struct {
 	Enabled             bool
 	Token               string
 	WorkspaceID         string
+	Username            string
 	PollIntervalSeconds int
 	CreatedAt           time.Time
 	UpdatedAt           time.Time

@@ -46,9 +46,9 @@ func (s *SettingsAcceptanceSuite) TestNotificationVolumeSliderRange() {
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	s.Require().Greater(len(tabs.Items), 2, "should have at least 3 tabs (Audio is index 2)")
+	s.Require().Greater(len(tabs.Items), 3, "should have at least 4 tabs (Audio is index 3)")
 
-	audioContent := tabs.Items[2].Content
+	audioContent := tabs.Items[3].Content
 	slider := uitest.RequireWidget[*widget.Slider](s.T(), audioContent, func(_ *widget.Slider) bool {
 		return true
 	})
@@ -66,7 +66,7 @@ func (s *SettingsAcceptanceSuite) TestVolumeSliderOnChangedUpdatesLabel() {
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	audioContent := tabs.Items[2].Content
+	audioContent := tabs.Items[3].Content
 
 	slider := uitest.RequireWidget[*widget.Slider](s.T(), audioContent, func(_ *widget.Slider) bool {
 		return true
@@ -91,7 +91,7 @@ func (s *SettingsAcceptanceSuite) TestSlidersOperateIndependently() {
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	audioContent := tabs.Items[2].Content
+	audioContent := tabs.Items[3].Content
 
 	sliders := uitest.FindAll[*widget.Slider](audioContent, func(_ *widget.Slider) bool {
 		return true

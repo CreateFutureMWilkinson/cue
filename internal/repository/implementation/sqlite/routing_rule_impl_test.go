@@ -297,3 +297,103 @@ func (s *RoutingRuleSQLiteSuite) TestDeleteRuleIdempotent() {
 	err := s.repo.DeleteRule(ctx, uuid.New())
 	s.NoError(err, "deleting a non-existent rule should not return an error")
 }
+
+// --- Behavior: Default rules seeding ---
+
+func (s *RoutingRuleSQLiteSuite) TestNewSeedsDefaultRulesWhenEmpty() {
+	// Create an isolated DB so we don't rely on SetupTest's repo.
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "seed-test.db")
+
+	db, err := sql.Open("sqlite", dbPath)
+	s.Require().NoError(err)
+	defer db.Close()
+
+	_, err = db.Exec("PRAGMA journal_mode=WAL")
+	s.Require().NoError(err)
+
+	// Calling the constructor on a fresh DB should seed default rules.
+	repo, err := sqlite.NewSQLiteRoutingRuleRepository(db)
+	s.Require().NoError(err)
+	s.Require().NotNil(repo)
+
+	ctx := context.Background()
+	rules, err := repo.ListRules(ctx)
+	s.Require().NoError(err)
+	s.Require().Len(rules, 2, "expected 2 default rules seeded into empty table")
+
+	// Rule 0: channel_join
+	r0 := rules[0]
+	s.Equal(0, r0.Priority)
+	s.Equal("slack", r0.Source)
+	s.Equal("message_type", r0.Field)
+	s.Equal("^channel_join$", r0.Pattern)
+	s.False(r0.Negate)
+	s.Equal("notified", r0.Action)
+	s.True(r0.Enabled)
+	s.NotEqual(uuid.Nil, r0.ID, "seeded rule should have a non-zero UUID")
+	s.False(r0.CreatedAt.IsZero(), "seeded rule should have a non-zero CreatedAt")
+	s.False(r0.UpdatedAt.IsZero(), "seeded rule should have a non-zero UpdatedAt")
+
+	// Rule 1: @username mention
+	r1 := rules[1]
+	s.Equal(1, r1.Priority)
+	s.Equal("slack", r1.Source)
+	s.Equal("content", r1.Field)
+	s.Equal("@username", r1.Pattern)
+	s.False(r1.Negate)
+	s.Equal("notified", r1.Action)
+	s.True(r1.Enabled)
+	s.NotEqual(uuid.Nil, r1.ID, "seeded rule should have a non-zero UUID")
+	s.False(r1.CreatedAt.IsZero(), "seeded rule should have a non-zero CreatedAt")
+	s.False(r1.UpdatedAt.IsZero(), "seeded rule should have a non-zero UpdatedAt")
+}
+
+func (s *RoutingRuleSQLiteSuite) TestNewDoesNotSeedWhenRulesExist() {
+	// Create an isolated DB and manually insert a rule before calling the constructor.
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "no-seed-test.db")
+
+	db, err := sql.Open("sqlite", dbPath)
+	s.Require().NoError(err)
+	defer db.Close()
+
+	_, err = db.Exec("PRAGMA journal_mode=WAL")
+	s.Require().NoError(err)
+
+	// Manually create the table so we can insert a rule before the constructor runs.
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS routing_rules (
+			id TEXT PRIMARY KEY,
+			priority INTEGER NOT NULL,
+			source TEXT NOT NULL,
+			field TEXT NOT NULL,
+			negate INTEGER NOT NULL DEFAULT 0,
+			pattern TEXT NOT NULL,
+			action TEXT NOT NULL,
+			enabled INTEGER NOT NULL DEFAULT 1,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`)
+	s.Require().NoError(err)
+
+	// Insert a pre-existing rule.
+	now := time.Now().Truncate(time.Second).Format(time.RFC3339)
+	preExistingID := uuid.New().String()
+	_, err = db.Exec(
+		"INSERT INTO routing_rules (id, priority, source, field, negate, pattern, action, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		preExistingID, 5, "slack", "channel", 0, "^general$", "notified", 1, now, now,
+	)
+	s.Require().NoError(err)
+
+	// Now call the constructor — it should NOT seed defaults because rules already exist.
+	repo, err := sqlite.NewSQLiteRoutingRuleRepository(db)
+	s.Require().NoError(err)
+	s.Require().NotNil(repo)
+
+	ctx := context.Background()
+	rules, err := repo.ListRules(ctx)
+	s.Require().NoError(err)
+	s.Require().Len(rules, 1, "constructor should not seed defaults when rules already exist")
+	s.Equal(preExistingID, rules[0].ID.String())
+}

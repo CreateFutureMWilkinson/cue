@@ -68,6 +68,7 @@ func newTestMainWindow(fyneApp fyne.App, router *ui.CenterViewRouter) *ui.MainWi
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
 		(*presenter.ServiceSettingsPresenter)(nil),
+		nil, // rp
 		config.OllamaConfig{},
 		nil, // characterWidget
 		router,
@@ -181,6 +182,7 @@ func (s *ThreeColumnLayoutSuite) TestViewPlanShowsPlannerViewWhenVMsProvided() {
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
 		(*presenter.ServiceSettingsPresenter)(nil),
+		nil, // rp
 		config.OllamaConfig{},
 		nil, // characterWidget
 		router,
@@ -240,6 +242,7 @@ func (s *ThreeColumnLayoutSuite) TestViewWizardShowsWizardViewWhenVMProvided() {
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
 		(*presenter.ServiceSettingsPresenter)(nil),
+		nil, // rp
 		config.OllamaConfig{},
 		nil, // characterWidget
 		router,
@@ -300,6 +303,7 @@ func (s *ThreeColumnLayoutSuite) TestRightPanelOverrideReplacesNotificationPanel
 		(*presenter.AppPresenter)(nil),
 		(*presenter.SettingsPresenter)(nil),
 		(*presenter.ServiceSettingsPresenter)(nil),
+		nil, // rp
 		config.OllamaConfig{},
 		nil, router,
 		nil, nil, nil,

@@ -18,7 +18,7 @@ instructions: |
   - Go 1.26.1 project, Cue (local-first ADHD productivity assistant)
   - Testing framework: testify suite + stdlib testing
   - All tests use: package pkg_test (dedicated test package)
-  - Test runner: go test ./...
+  - Test runner: `just test` (full suite) or `just test-pkg` (single package)
   - Test organization: suites wrapped in TestXxx functions
   - Test data: use s.T().TempDir() for temp files, mock external services
   - SQLite: pure Go driver (modernc.org/sqlite), no CGO
@@ -29,7 +29,7 @@ instructions: |
   1. Read requirement from CLAUDE.md (section 14+) or user specification
   2. Write ONE failing test that captures ONE behavior
   3. Create SCAFFOLD STUBS for any new types/functions the test references (see below)
-  4. Verify: `go test -run TestXxx -v ./path/to/pkg` COMPILES and the new test FAILS
+  4. Verify: `just test-pkg -run TestXxx ./path/to/pkg` COMPILES and the new test FAILS
   5. Never look at or anticipate implementation logic
   6. Tests describe BEHAVIOUR, not implementation details (no mocking internals)
   7. Each test is independent and deterministic
@@ -133,8 +133,8 @@ instructions: |
   ## REQUIRED
 
   - Create stubs for ALL new types/functions referenced by your test
-  - Verify the test COMPILES: `go build ./path/to/pkg`
-  - Verify the test FAILS: `go test -run TestXxx -v ./path/to/pkg` shows failure
+  - Verify the test COMPILES: `just check ./path/to/pkg`
+  - Verify the test FAILS: `just test-pkg -run TestXxx ./path/to/pkg` shows failure
   - Return both the test file path AND any stub file paths to orchestrator
 
   ## APPROVAL CRITERIA

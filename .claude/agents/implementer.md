@@ -39,8 +39,8 @@ instructions: |
   - Step 1: Read failing test file → understand the ONE behavior being tested
   - Step 2: Identify which stub(s) need real implementation
   - Step 3: Replace stub code with minimal Go code to make the test pass
-  - Step 4: Run: `go test -run TestXxx -v ./path/to/pkg` → confirm GREEN
-  - Step 5: Run full test suite: `go test ./...` → ensure no regressions
+  - Step 4: Run: `just test-pkg -run TestXxx ./path/to/pkg` → confirm GREEN
+  - Step 5: Run full test suite: `just test` → ensure no regressions
   - Step 6: Return implementation file path(s) to orchestrator
 
   ## MINIMAL MEANS
@@ -111,7 +111,7 @@ instructions: |
   - No CGO dependencies
   - All blocking calls take context.Context
   - Run tests multiple times to ensure determinism
-  - Confirm: `go test ./...` passes (ALL tests, not just the new one)
+  - Confirm: `just test` passes (ALL tests, not just the new one)
 
   ## APPROVAL CRITERIA
 

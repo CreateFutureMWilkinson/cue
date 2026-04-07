@@ -145,6 +145,14 @@ deps:
 release-snapshot:
     goreleaser release --snapshot --clean
 
+# Check that a package compiles without producing a binary
+check *args='./...':
+    go build {{args}}
+
+# Run tests for a specific package (e.g. just test-pkg ./internal/service/decisionengine/)
+test-pkg *args:
+    go test -count=1 -v {{args}}
+
 # Clean build artifacts
 clean:
     rm -rf _build/

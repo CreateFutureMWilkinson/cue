@@ -28,6 +28,9 @@ Go version: `1.26.1`
 | Audio | `github.com/gen2brain/beeep` | Cross-platform OS alerts |
 | CLI | `github.com/urfave/cli/v3` | Config/auth commands |
 | Testing | `github.com/stretchr/testify` + stdlib | Suite-based TDD required |
+| Build tooling | `just` (justfile) | **All** compilation MUST go through `just` commands |
+
+**NEVER run `go build -o`, `go test -c`, or any Go command that produces a binary directly.** All build and test-compile commands MUST go through the justfile so that outputs land in `_build/`. Use `just check ./path/...` for compilation checks, `just test-pkg` for single-package tests, `just build` for binaries, and `just build-plugins` for WASM. Raw `go test` (without `-c`) is acceptable as it does not produce files.
 
 ---
 
@@ -563,10 +566,14 @@ All feature and phase references use **3-digit zero-padded numbers** everywhere:
 | Command | What it does |
 |---|---|
 | `just build` | Clean, compile to `_build/cue` |
+| `just build-plugins` | Compile WASM plugins to `_build/characters/` |
+| `just build-all` | Build binary + WASM plugins |
 | `just test` | Run tests with short output |
 | `just test-ui` | Run UI acceptance tests (headless, build-tagged) |
 | `just test-verbose` | Run tests with verbose output |
+| `just test-pkg <args>` | Run tests for a specific package |
 | `just test-coverage` | Run tests, generate HTML report, check gates |
+| `just check <path>` | Compilation check (no binary output) |
 | `just watch` | Watch `.go` changes, re-run tests |
 | `just run` | `go run ./cmd/cue` with example config |
 | `just fmt` | `go fmt ./...` |

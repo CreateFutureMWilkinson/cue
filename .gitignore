@@ -1,4 +1,6 @@
 _build/*
 /cue
+*.test
+coverage.out
 .remember/*
 .claude/settings.local.json

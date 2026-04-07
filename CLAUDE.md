@@ -15,23 +15,29 @@ just test                # run all tests (short output)
 just test-ui             # run UI acceptance tests (headless, build-tagged)
 just test-verbose        # run all tests (verbose)
 just test-coverage       # tests + HTML coverage report in _build/coverage.html
+just test-pkg ./path/... # run tests for a specific package
 just fmt                 # go fmt ./...
 just lint                # gofmt check + go vet
 just tidy                # go mod tidy && go mod verify
 just build               # compile to _build/cue
+just build-plugins       # compile WASM plugins to _build/characters/
+just build-all           # build binary + plugins
+just check ./path/...    # compilation check (no binary output)
 just security            # gosec ./...
 just vulncheck           # govulncheck ./...
 ```
 
 Run a single test suite:
 ```bash
-go test -count=1 -v -run TestRouter ./internal/service/decisionengine/
+just test-pkg -run TestRouter ./internal/service/decisionengine/
 ```
 
 Run a single test method within a suite:
 ```bash
-go test -count=1 -v -run TestRouter/TestDeterministicChannelJoin ./internal/service/decisionengine/
+just test-pkg -run TestRouter/TestDeterministicChannelJoin ./internal/service/decisionengine/
 ```
+
+**NEVER run `go build` or `go test -c` directly.** All compilation and test commands that produce binaries MUST go through `just` commands so that outputs land in `_build/`. Raw `go test -count=1` (without `-c`) is acceptable as it does not produce files.
 
 Validation sequence before marking work complete: `just fmt && just lint && just tidy && just test && just test-ui && just security && just vulncheck` + wiring verification (see "Wiring Verification" below)
 

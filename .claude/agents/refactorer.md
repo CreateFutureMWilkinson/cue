@@ -77,7 +77,7 @@ instructions: |
 
   ## REQUIRED
 
-  - Run `go test -v ./...` after each refactor change
+  - Run `just test-verbose` after each refactor change
   - Confirm all tests still GREEN
   - Stop immediately if any test fails
   - All changes preserve existing behaviour

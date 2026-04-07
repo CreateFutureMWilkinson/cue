@@ -16,6 +16,7 @@ type Message struct {
 	Sender          string
 	MessageID       string // Source-native message ID
 	MessageType     string // "message", "channel_join", etc.
+	SourceCursor    string // Source-native cursor (Slack ts, IMAP UID)
 	RawContent      string
 	ImportanceScore float64 // 0–10
 	ConfidenceScore float64 // 0.0–1.0

@@ -803,6 +803,27 @@ func (s *MessageRepoSuite) TestExistsByMessageIDReturnsTrueForExistingMessage() 
 	s.True(exists, "ExistsByMessageID should return true for an inserted message's MessageID")
 }
 
+// --- Feature: SourceCursor Persistence ---
+
+func (s *MessageRepoSuite) TestSourceCursorPersisted() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	msg := makeTestMessage("slack", "Notified", now)
+	msg.SourceCursor = "1711500000.000100"
+	s.Require().NoError(repo.Insert(ctx, msg))
+
+	got, err := repo.QueryByID(ctx, msg.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+	s.Equal("1711500000.000100", got.SourceCursor, "SourceCursor should round-trip through insert and query")
+}
+
 func (s *MessageRepoSuite) TestQueryByID_CancelledContext_ReturnsContextError() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")

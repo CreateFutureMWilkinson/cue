@@ -407,6 +407,33 @@ func (s *ServiceConfigSuite) TestSlackAccountUniqueWorkspaceID() {
 	s.Error(err, "upserting a second account with the same workspace_id should fail")
 }
 
+func (s *ServiceConfigSuite) TestEmailAccountEncryptionFieldRoundTrip() {
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	acct := &repository.EmailAccount{
+		ID:                  uuid.New(),
+		Enabled:             true,
+		IMAPHost:            "imap.encryption.com",
+		IMAPPort:            993,
+		Username:            "encrypt@test.com",
+		Password:            "enc-password",
+		Encryption:          "starttls",
+		PollIntervalSeconds: 600,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+
+	err := s.repo.UpsertEmailAccount(ctx, acct)
+	s.Require().NoError(err)
+
+	got, err := s.repo.GetEmailAccount(ctx, acct.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+
+	s.Equal("starttls", got.Encryption)
+}
+
 func (s *ServiceConfigSuite) TestEmailAccountUniqueUsername() {
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)

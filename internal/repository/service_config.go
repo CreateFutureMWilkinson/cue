@@ -26,6 +26,7 @@ type EmailAccount struct {
 	IMAPPort            int
 	Username            string
 	Password            string
+	Encryption          string
 	PollIntervalSeconds int
 	CreatedAt           time.Time
 	UpdatedAt           time.Time

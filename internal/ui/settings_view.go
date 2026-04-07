@@ -21,19 +21,6 @@ type SettingsView struct {
 	container fyne.CanvasObject
 }
 
-// newAccountTab creates a tab with a list of accounts and an "Add Account" button.
-func newAccountTab(title string, onAdd func()) *container.TabItem {
-	accountList := container.NewVBox()
-	addBtn := widget.NewButton("Add Account", onAdd)
-	content := container.NewBorder(
-		widget.NewLabel(title+" Accounts"),
-		addBtn,
-		nil, nil,
-		container.NewVScroll(accountList),
-	)
-	return container.NewTabItem(title, content)
-}
-
 // createEmailAccountForm creates the form UI for adding a new email account.
 // onSaved is called after a successful save to restore the account list view.
 func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved func()) *fyne.Container {

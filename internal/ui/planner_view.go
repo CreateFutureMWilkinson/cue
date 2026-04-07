@@ -168,10 +168,14 @@ func (v *PlannerView) SetOnBack(fn func()) {
 }
 
 // SetOnCompleteTask sets the callback invoked when the "Complete Task" button is tapped.
-func (v *PlannerView) SetOnCompleteTask(_ func()) {}
+func (v *PlannerView) SetOnCompleteTask(fn func()) {
+	v.completeTaskBtn.OnTapped = fn
+}
 
 // SetOnAbandonPlan sets the callback invoked when the "Abandon Plan" button is tapped.
-func (v *PlannerView) SetOnAbandonPlan(_ func()) {}
+func (v *PlannerView) SetOnAbandonPlan(fn func()) {
+	v.abandonBtn.OnTapped = fn
+}
 
 // SetPlannerModel replaces the planner view model and updates button visibility.
 func (v *PlannerView) SetPlannerModel(model PlannerViewModel) {

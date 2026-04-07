@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"time"
@@ -20,6 +21,17 @@ type RoutingRule struct {
 	Enabled   bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+// RoutingRuleRepository defines the contract for routing rule persistence.
+// Get returns ErrNotFound for unknown IDs. Delete is idempotent (no-op for unknown IDs).
+// List methods return rules sorted by priority ascending.
+type RoutingRuleRepository interface {
+	ListRules(ctx context.Context) ([]*RoutingRule, error)
+	ListRulesBySource(ctx context.Context, source string) ([]*RoutingRule, error)
+	GetRule(ctx context.Context, id uuid.UUID) (*RoutingRule, error)
+	UpsertRule(ctx context.Context, rule *RoutingRule) error
+	DeleteRule(ctx context.Context, id uuid.UUID) error
 }
 
 // validSourceFields maps each source to its set of valid fields.

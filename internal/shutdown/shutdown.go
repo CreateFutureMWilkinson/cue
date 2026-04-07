@@ -2,6 +2,7 @@ package shutdown
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -41,6 +42,22 @@ func (h *SignalHandler) Start(ctx context.Context) {
 // RunCleanup runs cleanup functions sequentially with a timeout. If the total
 // elapsed time exceeds timeout, it returns immediately with a timeout error.
 // Otherwise it returns the first error from any cleanup function.
-func RunCleanup(_ time.Duration, _ ...func() error) error {
-	return nil
+func RunCleanup(timeout time.Duration, fns ...func() error) error {
+	done := make(chan error, 1)
+	go func() {
+		var firstErr error
+		for _, fn := range fns {
+			if err := fn(); err != nil && firstErr == nil {
+				firstErr = err
+			}
+		}
+		done <- firstErr
+	}()
+
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(timeout):
+		return fmt.Errorf("shutdown cleanup timeout after %s", timeout)
+	}
 }

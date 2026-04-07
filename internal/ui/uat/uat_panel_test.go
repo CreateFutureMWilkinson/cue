@@ -187,3 +187,78 @@ func (s *UATPanelSuite) TestButtonsDisabledForNone() {
 			"button %d (%s) should be disabled after selecting none", i, buttons[i].Text)
 	}
 }
+
+func (s *UATPanelSuite) TestSetInitialCharacterEnablesButtons() {
+	character.Register("test-char", func() character.Character {
+		return character.NewNoOpCharacter()
+	})
+	defer character.ResetRegistry()
+
+	panel := uat.NewUATPanel(func(_ character.Character) {})
+	ch := character.NewNoOpCharacter()
+	panel.SetInitialCharacter(ch, "test-char")
+
+	s.Equal("Character: test-char", panel.CharacterLabel(),
+		"SetInitialCharacter should update character label")
+}
+
+func (s *UATPanelSuite) TestSetInitialCharacterAllowsStateTrigger() {
+	character.Register("test-char", func() character.Character {
+		return character.NewNoOpCharacter()
+	})
+	defer character.ResetRegistry()
+
+	panel := uat.NewUATPanel(func(_ character.Character) {})
+	ch := character.NewNoOpCharacter()
+	panel.SetInitialCharacter(ch, "test-char")
+
+	container := panel.Container()
+	widgets := collectWidgets(container)
+	var buttons []*widget.Button
+	for _, w := range widgets {
+		if b, ok := w.(*widget.Button); ok {
+			buttons = append(buttons, b)
+		}
+	}
+	s.Require().GreaterOrEqual(len(buttons), 6)
+
+	// Tap Idle button — should work because currentChar is set.
+	buttons[0].OnTapped()
+
+	s.Equal("Current State: Idle", panel.StateLabel(),
+		"State trigger should work after SetInitialCharacter")
+}
+
+func (s *UATPanelSuite) TestStateTriggerPublishesActivityEvent() {
+	character.Register("test-char", func() character.Character {
+		return character.NewNoOpCharacter()
+	})
+	defer character.ResetRegistry()
+
+	eventCh := make(chan string, 10)
+	panel := uat.NewUATPanel(func(_ character.Character) {})
+	panel.SetOnStateChange(func(label string) {
+		eventCh <- label
+	})
+	ch := character.NewNoOpCharacter()
+	panel.SetInitialCharacter(ch, "test-char")
+
+	container := panel.Container()
+	widgets := collectWidgets(container)
+	var buttons []*widget.Button
+	for _, w := range widgets {
+		if b, ok := w.(*widget.Button); ok {
+			buttons = append(buttons, b)
+		}
+	}
+	s.Require().GreaterOrEqual(len(buttons), 6)
+
+	buttons[2].OnTapped() // Working
+
+	select {
+	case label := <-eventCh:
+		s.Equal("Working", label)
+	default:
+		s.Fail("expected state change event to be published")
+	}
+}

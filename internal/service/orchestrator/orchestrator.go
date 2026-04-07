@@ -213,21 +213,6 @@ func (o *Orchestrator) PollOnce(ctx context.Context) {
 	}
 }
 
-// countByStatus tallies routed messages by their status.
-func countByStatus(msgs []*repository.Message) (notified, buffered, ignored int) {
-	for _, msg := range msgs {
-		switch msg.Status {
-		case decisionengine.StatusNotified:
-			notified++
-		case decisionengine.StatusBuffered:
-			buffered++
-		case decisionengine.StatusIgnored:
-			ignored++
-		}
-	}
-	return
-}
-
 // Start launches background polling loops. It performs an immediate first poll,
 // then polls at the configured interval. Non-blocking.
 func (o *Orchestrator) Start(ctx context.Context) error {

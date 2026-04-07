@@ -1225,3 +1225,67 @@ func (s *OrchestratorSuite) TestImportBaselineSeedsCursorsFromDB() {
 	s.Equal("1711600000.000200", watcher.seededCursors["alerts"],
 		"alerts channel cursor should be seeded from DB")
 }
+
+// ---------------------------------------------------------------------------
+// sequentialMockWatcher — returns different messages per Poll call
+// ---------------------------------------------------------------------------
+
+type sequentialMockWatcher struct {
+	calls   [][]*repository.Message // messages to return per call index
+	callIdx int
+	mu      sync.Mutex
+}
+
+func (m *sequentialMockWatcher) Poll(_ context.Context) ([]*repository.Message, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.callIdx >= len(m.calls) {
+		return nil, nil
+	}
+	msgs := m.calls[m.callIdx]
+	m.callIdx++
+	return msgs, nil
+}
+
+// ---------------------------------------------------------------------------
+// Start → ImportBaseline Integration
+// ---------------------------------------------------------------------------
+
+func (s *OrchestratorSuite) TestStartCallsImportBaselineBeforeFirstPoll() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	repo := newMockRepo()
+
+	baselineMsgs := makeMessages("slack", 2)
+	watcher := &sequentialMockWatcher{
+		calls: [][]*repository.Message{
+			baselineMsgs, // first call: ImportBaseline consumes these
+			nil,          // second call: PollOnce gets nothing
+		},
+	}
+	watchers := map[string]orchestrator.Watcher{"slack": watcher}
+
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+	rules := decisionengine.NewRulesEngine(nil)
+	queueRepo := &mockQueueRepo{}
+	orch, err := orchestrator.NewOrchestrator(cfg, rules, queueRepo, repo, watchers, eventCh, nil)
+	s.Require().NoError(err)
+
+	err = orch.Start(context.Background())
+	s.Require().NoError(err)
+
+	// Allow goroutine to run ImportBaseline + PollOnce.
+	time.Sleep(100 * time.Millisecond)
+
+	err = orch.Stop()
+	s.Require().NoError(err)
+
+	// ImportBaseline should have inserted 2 messages with Status="Imported".
+	s.Equal(2, repo.insertedCount(),
+		"expected 2 messages inserted via ImportBaseline before first poll")
+	repo.mu.Lock()
+	for _, msg := range repo.inserted {
+		s.Equal(decisionengine.StatusImported, msg.Status,
+			"messages from ImportBaseline should have Status=Imported")
+	}
+	repo.mu.Unlock()
+}

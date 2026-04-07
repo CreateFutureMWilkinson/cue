@@ -180,11 +180,11 @@ func (v *PlannerView) buildContent() {
 
 	if step == presenter.StepIdle && !hasActivePlan {
 		v.buildNoActivePlanContent()
-		return
+	} else {
+		v.placeholderText = ""
+		v.scheduleTree = v.buildScheduleTree(hasActivePlan)
 	}
 
-	v.placeholderText = ""
-	v.scheduleTree = v.buildScheduleTree(hasActivePlan)
 	v.updateCenterContent()
 }
 
@@ -212,7 +212,6 @@ func (v *PlannerView) updateCenterContent() {
 func (v *PlannerView) buildNoActivePlanContent() {
 	v.placeholderText = placeholderMessages[rand.Intn(len(placeholderMessages))] // #nosec G404 -- math/rand is fine for placeholder text selection
 	v.scheduleTree = nil
-	v.updateCenterContent()
 }
 
 // buildScheduleTree creates a schedule tree if there's an active plan with blocks.

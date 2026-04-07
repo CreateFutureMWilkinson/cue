@@ -1046,3 +1046,45 @@ func (s *OrchestratorSuite) TestReloadRulesChangesRouting() {
 	s.Equal(8.0, second.ImportanceScore, "after ReloadRules: IS should be 8.0")
 	s.Equal(1.0, second.ConfidenceScore, "after ReloadRules: CS should be 1.0")
 }
+
+// ---------------------------------------------------------------------------
+// Queue Startup Sequence
+// ---------------------------------------------------------------------------
+
+func (s *OrchestratorSuite) TestStartPurgesAndResetsQueue() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	repo := newMockRepo()
+	queueRepo := &mockQueueRepo{}
+	rules := decisionengine.NewRulesEngine(nil)
+
+	// Use a long poll interval so only the immediate first poll fires.
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 3600}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, rules, queueRepo, repo, nil, eventCh, nil)
+	s.Require().NoError(err)
+
+	beforeStart := time.Now()
+	err = orch.Start(context.Background())
+	s.Require().NoError(err)
+
+	// Give the goroutine a moment to execute.
+	time.Sleep(200 * time.Millisecond)
+
+	err = orch.Stop()
+	s.Require().NoError(err)
+
+	// Assert PurgeOlderThan was called with a cutoff approximately now - pollInterval.
+	queueRepo.mu.Lock()
+	purged := queueRepo.purgeOlderThanCalled
+	cutoff := queueRepo.purgeOlderThanCutoff
+	reset := queueRepo.resetProcessingCalled
+	queueRepo.mu.Unlock()
+
+	s.True(purged, "Start should call PurgeOlderThan before poll loop")
+	s.True(reset, "Start should call ResetProcessing before poll loop")
+
+	// The cutoff should be approximately beforeStart - 3600s (within 5s tolerance).
+	expectedCutoff := beforeStart.Add(-3600 * time.Second)
+	s.InDelta(expectedCutoff.Unix(), cutoff.Unix(), 5,
+		"purge cutoff should be approximately now minus poll interval")
+}

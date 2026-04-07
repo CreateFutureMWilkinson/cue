@@ -30,6 +30,10 @@ type mockQueueRepo struct {
 	markDoneErr   error
 	markFailedID  uuid.UUID
 	markFailedErr error
+
+	purgeOlderThanCalled  bool
+	purgeOlderThanCutoff  time.Time
+	resetProcessingCalled bool
 }
 
 func (m *mockQueueRepo) Enqueue(_ context.Context, id uuid.UUID) error {
@@ -78,7 +82,11 @@ func (m *mockQueueRepo) PurgeCompleted(_ context.Context) error {
 	return nil
 }
 
-func (m *mockQueueRepo) PurgeOlderThan(_ context.Context, _ time.Time) error {
+func (m *mockQueueRepo) PurgeOlderThan(_ context.Context, cutoff time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.purgeOlderThanCalled = true
+	m.purgeOlderThanCutoff = cutoff
 	return nil
 }
 
@@ -87,6 +95,9 @@ func (m *mockQueueRepo) PurgeAll(_ context.Context) error {
 }
 
 func (m *mockQueueRepo) ResetProcessing(_ context.Context) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.resetProcessingCalled = true
 	return 0, nil
 }
 

@@ -522,6 +522,7 @@ All feature and phase references use **3-digit zero-padded numbers** everywhere:
 |---|---|
 | `just build` | Clean, compile to `_build/cue` |
 | `just test` | Run tests with short output |
+| `just test-ui` | Run UI acceptance tests (headless, build-tagged) |
 | `just test-verbose` | Run tests with verbose output |
 | `just test-coverage` | Run tests, generate HTML report, check gates |
 | `just watch` | Watch `.go` changes, re-run tests |
@@ -543,8 +544,9 @@ Before marking work complete, run in order:
 2. `just lint` — formatting check + go vet
 3. `just tidy` — module hygiene
 4. `just test` — focused tests for changed packages
-5. `just security` — gosec static analysis
-6. `just vulncheck` — vulnerability scan
+5. `just test-ui` — UI acceptance tests (headless, build-tagged)
+6. `just security` — gosec static analysis
+7. `just vulncheck` — vulnerability scan
 
 ---
 

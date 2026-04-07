@@ -60,6 +60,10 @@ build:
 test:
     go test -count=1 ./...
 
+# Run UI acceptance tests (headless)
+test-ui:
+    go test -count=1 -tags=ui_acceptance ./tests/ui/...
+
 # Run tests with verbose output
 test-verbose:
     go test -count=1 -v ./...

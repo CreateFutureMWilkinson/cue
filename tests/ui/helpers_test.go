@@ -1,0 +1,416 @@
+//go:build ui_acceptance
+
+package ui_acceptance_test
+
+import (
+	"context"
+	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/test"
+	"github.com/google/uuid"
+
+	"github.com/CreateFutureMWilkinson/cue/internal/config"
+	"github.com/CreateFutureMWilkinson/cue/internal/repository"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/planner"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
+)
+
+// --- Mock implementations ---
+
+// mockQuerier returns pre-configured messages for notification tests.
+type mockQuerier struct {
+	messages []*repository.Message
+}
+
+func (m *mockQuerier) QueryByStatus(_ context.Context, _ string) ([]*repository.Message, error) {
+	return m.messages, nil
+}
+
+// mockUpdater records Update calls.
+type mockUpdater struct {
+	updateCalled bool
+	lastMessage  *repository.Message
+}
+
+func (m *mockUpdater) Update(_ context.Context, msg *repository.Message) error {
+	m.updateCalled = true
+	m.lastMessage = msg
+	return nil
+}
+
+// mockBufferReviewer provides canned feedback review data.
+type mockBufferReviewer struct {
+	messages []*repository.Message
+}
+
+func (m *mockBufferReviewer) GetBufferedMessages(_ context.Context) ([]*repository.Message, error) {
+	return m.messages, nil
+}
+
+func (m *mockBufferReviewer) CountBuffered(_ context.Context) (int, error) {
+	return len(m.messages), nil
+}
+
+func (m *mockBufferReviewer) SaveRating(_ context.Context, _ uuid.UUID, _ int, _ *string) error {
+	return nil
+}
+
+func (m *mockBufferReviewer) DeleteMessage(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+// mockVolumeController records volume changes.
+type mockVolumeController struct {
+	volume int
+}
+
+func (m *mockVolumeController) SetVolume(v int) {
+	m.volume = v
+}
+
+// mockServiceConfigRepo satisfies repository.ServiceConfigRepository.
+type mockServiceConfigRepo struct{}
+
+func (m *mockServiceConfigRepo) ListSlackAccounts(_ context.Context) ([]*repository.SlackAccount, error) {
+	return nil, nil
+}
+
+func (m *mockServiceConfigRepo) GetSlackAccount(_ context.Context, _ uuid.UUID) (*repository.SlackAccount, error) {
+	return nil, nil
+}
+
+func (m *mockServiceConfigRepo) UpsertSlackAccount(_ context.Context, _ *repository.SlackAccount) error {
+	return nil
+}
+
+func (m *mockServiceConfigRepo) DeleteSlackAccount(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *mockServiceConfigRepo) ListEmailAccounts(_ context.Context) ([]*repository.EmailAccount, error) {
+	return nil, nil
+}
+
+func (m *mockServiceConfigRepo) GetEmailAccount(_ context.Context, _ uuid.UUID) (*repository.EmailAccount, error) {
+	return nil, nil
+}
+
+func (m *mockServiceConfigRepo) UpsertEmailAccount(_ context.Context, _ *repository.EmailAccount) error {
+	return nil
+}
+
+func (m *mockServiceConfigRepo) DeleteEmailAccount(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *mockServiceConfigRepo) ListCalendarAccounts(_ context.Context) ([]*repository.CalendarAccount, error) {
+	return nil, nil
+}
+
+func (m *mockServiceConfigRepo) GetCalendarAccount(_ context.Context, _ uuid.UUID) (*repository.CalendarAccount, error) {
+	return nil, nil
+}
+
+func (m *mockServiceConfigRepo) UpsertCalendarAccount(_ context.Context, _ *repository.CalendarAccount) error {
+	return nil
+}
+
+func (m *mockServiceConfigRepo) DeleteCalendarAccount(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+// mockActivitySource satisfies presenter.ActivitySource with a no-op channel.
+type mockActivitySource struct {
+	ch chan presenter.ActivityEvent
+}
+
+func newMockActivitySource() *mockActivitySource {
+	return &mockActivitySource{ch: make(chan presenter.ActivityEvent)}
+}
+
+func (m *mockActivitySource) Events() <-chan presenter.ActivityEvent {
+	return m.ch
+}
+
+// mockWatcherRemover satisfies presenter.WatcherRemover.
+type mockWatcherRemover struct{}
+
+func (m *mockWatcherRemover) RemoveWatcher(_ string) {}
+
+// stubPlannerTimerVM satisfies both PlannerViewModel and TimerViewModel.
+type stubPlannerTimerVM struct {
+	hasActivePlan  bool
+	activeSchedule *presenter.ActiveScheduleState
+	tasks          []presenter.TodoRow
+}
+
+func (s *stubPlannerTimerVM) CurrentStep() presenter.WizardStep      { return presenter.StepIdle }
+func (s *stubPlannerTimerVM) HasActivePlan() bool                    { return s.hasActivePlan }
+func (s *stubPlannerTimerVM) AvailableTasks() []presenter.TodoRow    { return s.tasks }
+func (s *stubPlannerTimerVM) Estimates() []presenter.TaskEstimateRow { return nil }
+func (s *stubPlannerTimerVM) EstimateSummary() presenter.EstimateSummary {
+	return presenter.EstimateSummary{}
+}
+func (s *stubPlannerTimerVM) FocusSchedule() *presenter.SchedulePreview    { return nil }
+func (s *stubPlannerTimerVM) RecoverySchedule() *presenter.SchedulePreview { return nil }
+func (s *stubPlannerTimerVM) ActiveSchedule() *presenter.ActiveScheduleState {
+	return s.activeSchedule
+}
+func (s *stubPlannerTimerVM) IsRunning() bool              { return false }
+func (s *stubPlannerTimerVM) ActiveSegment() int           { return 0 }
+func (s *stubPlannerTimerVM) ElapsedFraction() float64     { return 0 }
+func (s *stubPlannerTimerVM) IsFlashVisible() bool         { return false }
+func (s *stubPlannerTimerVM) CurrentTaskName() string      { return "" }
+func (s *stubPlannerTimerVM) BlockType() planner.BlockType { return planner.BlockFocus }
+
+// stubWizardVM satisfies WizardViewModel.
+type stubWizardVM struct {
+	step          presenter.WizardStep
+	tasks         []presenter.TodoRow
+	estimates     []presenter.TaskEstimateRow
+	summary       presenter.EstimateSummary
+	selectedCount int
+}
+
+func (s *stubWizardVM) CurrentStep() presenter.WizardStep      { return s.step }
+func (s *stubWizardVM) AvailableTasks() []presenter.TodoRow    { return s.tasks }
+func (s *stubWizardVM) Estimates() []presenter.TaskEstimateRow { return s.estimates }
+func (s *stubWizardVM) EstimateSummary() presenter.EstimateSummary {
+	return s.summary
+}
+func (s *stubWizardVM) FocusSchedule() *presenter.SchedulePreview        { return nil }
+func (s *stubWizardVM) RecoverySchedule() *presenter.SchedulePreview     { return nil }
+func (s *stubWizardVM) SelectTask(_ uuid.UUID, _ bool)                   {}
+func (s *stubWizardVM) AddTask(_ context.Context, _ string, _ int) error { return nil }
+func (s *stubWizardVM) NextStep(_ context.Context) error                 { return nil }
+func (s *stubWizardVM) PreviousStep()                                    {}
+func (s *stubWizardVM) OverrideEstimate(_ uuid.UUID, _ int)              {}
+func (s *stubWizardVM) ReorderTask(_, _ int)                             {}
+func (s *stubWizardVM) SelectSchedule(_ context.Context, _ string) error { return nil }
+func (s *stubWizardVM) SelectedCount() int                               { return s.selectedCount }
+
+// --- Factory functions ---
+
+// defaultGUIConfig returns a standard GUIConfig for acceptance tests.
+func defaultGUIConfig() config.GUIConfig {
+	return config.GUIConfig{
+		WindowWidth:  1200,
+		WindowHeight: 800,
+	}
+}
+
+// defaultOllamaConfig returns a standard OllamaConfig for acceptance tests.
+func defaultOllamaConfig() config.OllamaConfig {
+	return config.OllamaConfig{
+		Host:           "localhost",
+		Port:           11434,
+		InferenceModel: "neural-chat",
+		EmbeddingModel: "nomic-embed-text",
+		TimeoutSeconds: 10,
+	}
+}
+
+// newMinimalMainWindow creates a MainWindow with nil presenters for layout tests.
+func newMinimalMainWindow(fyneApp fyne.App, router *ui.CenterViewRouter) *ui.MainWindow {
+	return ui.NewMainWindow(
+		fyneApp,
+		defaultGUIConfig(),
+		(*presenter.NotificationPresenter)(nil),
+		(*presenter.ActivityPresenter)(nil),
+		(*presenter.FeedbackPresenter)(nil),
+		(*presenter.AppPresenter)(nil),
+		(*presenter.SettingsPresenter)(nil),
+		(*presenter.ServiceSettingsPresenter)(nil),
+		defaultOllamaConfig(),
+		nil, // characterWidget
+		router,
+		nil, // plannerVM
+		nil, // timerVM
+		nil, // wizardVM
+	)
+}
+
+// newMainWindowWithNotifications creates a MainWindow with a notification presenter
+// backed by sample messages.
+func newMainWindowWithNotifications(fyneApp fyne.App, router *ui.CenterViewRouter, messages []*repository.Message) (*ui.MainWindow, *presenter.NotificationPresenter) {
+	querier := &mockQuerier{messages: messages}
+	updater := &mockUpdater{}
+	np, _ := presenter.NewNotificationPresenter(querier, updater)
+	_ = np.Refresh(context.Background())
+
+	mw := ui.NewMainWindow(
+		fyneApp,
+		defaultGUIConfig(),
+		np,
+		(*presenter.ActivityPresenter)(nil),
+		(*presenter.FeedbackPresenter)(nil),
+		(*presenter.AppPresenter)(nil),
+		(*presenter.SettingsPresenter)(nil),
+		(*presenter.ServiceSettingsPresenter)(nil),
+		defaultOllamaConfig(),
+		nil, // characterWidget
+		router,
+		nil, // plannerVM
+		nil, // timerVM
+		nil, // wizardVM,
+	)
+	return mw, np
+}
+
+// newMainWindowWithFeedback creates a MainWindow with notification + feedback presenters.
+func newMainWindowWithFeedback(fyneApp fyne.App, router *ui.CenterViewRouter, notifications []*repository.Message, buffered []*repository.Message) (*ui.MainWindow, *presenter.NotificationPresenter, *presenter.FeedbackPresenter) {
+	querier := &mockQuerier{messages: notifications}
+	updater := &mockUpdater{}
+	np, _ := presenter.NewNotificationPresenter(querier, updater)
+	_ = np.Refresh(context.Background())
+
+	reviewer := &mockBufferReviewer{messages: buffered}
+	fp, _ := presenter.NewFeedbackPresenter(reviewer)
+
+	mw := ui.NewMainWindow(
+		fyneApp,
+		defaultGUIConfig(),
+		np,
+		(*presenter.ActivityPresenter)(nil),
+		fp,
+		(*presenter.AppPresenter)(nil),
+		(*presenter.SettingsPresenter)(nil),
+		(*presenter.ServiceSettingsPresenter)(nil),
+		defaultOllamaConfig(),
+		nil, // characterWidget
+		router,
+		nil, // plannerVM
+		nil, // timerVM
+		nil, // wizardVM,
+	)
+	return mw, np, fp
+}
+
+// newMainWindowWithPlanner creates a MainWindow with planner and timer VMs.
+func newMainWindowWithPlanner(fyneApp fyne.App, router *ui.CenterViewRouter, plannerVM *stubPlannerTimerVM) *ui.MainWindow {
+	return ui.NewMainWindow(
+		fyneApp,
+		defaultGUIConfig(),
+		(*presenter.NotificationPresenter)(nil),
+		(*presenter.ActivityPresenter)(nil),
+		(*presenter.FeedbackPresenter)(nil),
+		(*presenter.AppPresenter)(nil),
+		(*presenter.SettingsPresenter)(nil),
+		(*presenter.ServiceSettingsPresenter)(nil),
+		defaultOllamaConfig(),
+		nil, // characterWidget
+		router,
+		plannerVM, // plannerVM
+		plannerVM, // timerVM
+		nil,       // wizardVM
+	)
+}
+
+// newMainWindowWithWizard creates a MainWindow with a wizard VM.
+func newMainWindowWithWizard(fyneApp fyne.App, router *ui.CenterViewRouter, wizardVM *stubWizardVM) *ui.MainWindow {
+	return ui.NewMainWindow(
+		fyneApp,
+		defaultGUIConfig(),
+		(*presenter.NotificationPresenter)(nil),
+		(*presenter.ActivityPresenter)(nil),
+		(*presenter.FeedbackPresenter)(nil),
+		(*presenter.AppPresenter)(nil),
+		(*presenter.SettingsPresenter)(nil),
+		(*presenter.ServiceSettingsPresenter)(nil),
+		defaultOllamaConfig(),
+		nil, // characterWidget
+		router,
+		nil,      // plannerVM
+		nil,      // timerVM
+		wizardVM, // wizardVM
+	)
+}
+
+// newSettingsView creates a SettingsView with real presenters backed by mocks.
+func newSettingsView() *ui.SettingsView {
+	vc := &mockVolumeController{}
+	sp, _ := presenter.NewSettingsPresenter(vc, 50)
+	ssp := presenter.NewServiceSettingsPresenter(&mockServiceConfigRepo{}, &mockWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil })
+	return ui.NewSettingsView(sp, ssp, defaultOllamaConfig(), func() {})
+}
+
+// --- Sample data ---
+
+// sampleNotifiedMessages returns a set of messages at various IS levels.
+func sampleNotifiedMessages() []*repository.Message {
+	return []*repository.Message{
+		{
+			ID:              uuid.New(),
+			Source:          "slack",
+			Sender:          "alice",
+			Channel:         "general",
+			RawContent:      "Server is on fire! Everything is down!",
+			ImportanceScore: 9.5,
+			ConfidenceScore: 0.95,
+			Reasoning:       "Critical server outage",
+			Status:          "Notified",
+			CreatedAt:       time.Now().Add(-2 * time.Minute),
+		},
+		{
+			ID:              uuid.New(),
+			Source:          "email",
+			Sender:          "bob@example.com",
+			Channel:         "inbox",
+			RawContent:      "Quarterly report deadline is tomorrow",
+			ImportanceScore: 8.0,
+			ConfidenceScore: 0.85,
+			Reasoning:       "Upcoming deadline",
+			Status:          "Notified",
+			CreatedAt:       time.Now().Add(-5 * time.Minute),
+		},
+		{
+			ID:              uuid.New(),
+			Source:          "slack",
+			Sender:          "carol",
+			Channel:         "team-updates",
+			RawContent:      "Meeting rescheduled to next week",
+			ImportanceScore: 7.0,
+			ConfidenceScore: 0.80,
+			Reasoning:       "Schedule change",
+			Status:          "Notified",
+			CreatedAt:       time.Now().Add(-10 * time.Minute),
+		},
+	}
+}
+
+// sampleBufferedMessages returns messages in Buffered status for feedback review.
+func sampleBufferedMessages() []*repository.Message {
+	return []*repository.Message{
+		{
+			ID:              uuid.New(),
+			Source:          "slack",
+			Sender:          "dave",
+			Channel:         "random",
+			RawContent:      "Anyone for lunch?",
+			ImportanceScore: 7.0,
+			ConfidenceScore: 0.5,
+			Reasoning:       "Social, low confidence",
+			Status:          "Buffered",
+			CreatedAt:       time.Now().Add(-15 * time.Minute),
+		},
+		{
+			ID:              uuid.New(),
+			Source:          "email",
+			Sender:          "eve@example.com",
+			Channel:         "inbox",
+			RawContent:      "Newsletter: Top 10 tips for productivity",
+			ImportanceScore: 7.5,
+			ConfidenceScore: 0.6,
+			Reasoning:       "Possibly relevant",
+			Status:          "Buffered",
+			CreatedAt:       time.Now().Add(-20 * time.Minute),
+		},
+	}
+}
+
+// newTestApp creates a headless Fyne test app.
+func newTestApp() fyne.App {
+	return test.NewApp()
+}

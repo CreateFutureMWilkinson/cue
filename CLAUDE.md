@@ -12,6 +12,7 @@ Module path: `github.com/CreateFutureMWilkinson/cue` · Go 1.25+
 
 ```bash
 just test                # run all tests (short output)
+just test-ui             # run UI acceptance tests (headless, build-tagged)
 just test-verbose        # run all tests (verbose)
 just test-coverage       # tests + HTML coverage report in _build/coverage.html
 just fmt                 # go fmt ./...
@@ -32,7 +33,7 @@ Run a single test method within a suite:
 go test -count=1 -v -run TestRouter/TestDeterministicChannelJoin ./internal/service/decisionengine/
 ```
 
-Validation sequence before marking work complete: `just fmt && just lint && just tidy && just test`
+Validation sequence before marking work complete: `just fmt && just lint && just tidy && just test && just test-ui && just security && just vulncheck`
 
 ## Documentation Structure
 

@@ -485,3 +485,9 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-078 (empty state + populate) | RED | Test Designer | ~25s | ~35,000 | 100efbd |
 | Phase-6-Feature-078 (empty state + populate) | GREEN | Implementer | ~5m | ~20,000 | 7881eea |
 | Phase-6-Feature-078 (cleanup) | REFACTOR | Refactorer | ~90s | ~34,000 | fd1ff6a |
+| Phase-6-Feature-079 | UI TESTS | Test Designer | ~30s | ~5,000 | e33a5c7 |
+| Phase-6-Feature-079 (Slack) | RED+GREEN | Test Designer + Implementer | ~45s | ~37,000 | e42367b |
+| Phase-6-Feature-079 (Email+Calendar) | RED+GREEN | Test Designer + Implementer | ~85s | ~44,000 | fb61779 |
+| Phase-6-Feature-079 (concrete validators) | GREEN | Implementer (x3 parallel) | ~325s | ~89,000 | 1c0c8bf |
+| Phase-6-Feature-079 (UI indicator) | GREEN | Implementer | ~20s | ~3,000 | 7fc2867 |
+| Phase-6-Feature-079 (wiring) | GREEN | Implementer | ~10s | ~2,000 | 201b609 |

@@ -184,12 +184,12 @@ func (w *SlackWatcher) updateLastTimestamp(channelID, timestamp string) {
 
 // SourceInfo returns the source type and account identifier for this watcher.
 func (w *SlackWatcher) SourceInfo() (string, string) {
-	return "", ""
+	return SourceSlack, w.workspaceID
 }
 
 // SeedCursor sets the per-channel cursor from a previously-stored database value.
 func (w *SlackWatcher) SeedCursor(channel string, cursor string) {
-	// stub
+	w.SetLastTimestamp(channel, cursor)
 }
 
 // createChannelJoinMessage creates a repository message for channel join events

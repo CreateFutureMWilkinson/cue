@@ -315,7 +315,27 @@ func (r *SQLiteMessageRepository) MaxSourceCursor(ctx context.Context, source, s
 
 // DistinctChannels returns distinct channel names for a given source and sourceAccount.
 func (r *SQLiteMessageRepository) DistinctChannels(ctx context.Context, source, sourceAccount string) ([]string, error) {
-	return nil, nil
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT DISTINCT channel FROM messages WHERE source = ? AND source_account = ?",
+		source, sourceAccount,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("distinct channels: %w", err)
+	}
+	defer rows.Close()
+
+	var channels []string
+	for rows.Next() {
+		var ch string
+		if err := rows.Scan(&ch); err != nil {
+			return nil, fmt.Errorf("scan channel: %w", err)
+		}
+		channels = append(channels, ch)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate channels: %w", err)
+	}
+	return channels, nil
 }
 
 // evictOldestIfNeeded performs FIFO eviction for the given source if at capacity.

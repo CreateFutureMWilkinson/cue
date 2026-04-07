@@ -416,3 +416,7 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-069 | RED (view) | Test Designer | ~35s | ~30,000 | 5c8ca36 |
 | Phase-6-Feature-069 | GREEN (view) | Implementer | ~30s | ~28,000 | fe03d20 |
 | Phase-6-Feature-069 | FIX (tab index) | orchestrator | ~10s | ~5,000 | a1bc3a4 |
+| Phase-6-Feature-070 (behavior 1) | RED | Test Designer | ~47s | ~23,000 | 1ffe3ec |
+| Phase-6-Feature-070 (behavior 1) | GREEN | Implementer | ~40s | ~24,000 | 565f6df |
+| Phase-6-Feature-070 (behavior 2) | RED | Test Designer | ~47s | ~24,000 | bd38d49 |
+| Phase-6-Feature-070 (behavior 2) | GREEN | Implementer | ~39s | ~25,000 | 1fd7cd1 |

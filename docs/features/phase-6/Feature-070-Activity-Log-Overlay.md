@@ -37,9 +37,27 @@ This creates a vertical split that shares space with the character, rather than 
 
 ## Acceptance Criteria
 
-- [ ] Activity log button toggles an overlay on top of the character area
-- [ ] Overlay has a semi-transparent dark background (30% transparency)
-- [ ] Activity log entries are visible and readable over the overlay
-- [ ] Character widget is visible underneath the overlay (not pushed/hidden)
-- [ ] Close button dismisses the overlay, restoring full character view
-- [ ] Drawer occupies ~40% of character area height when open (from bottom)
+- [x] Activity log button toggles an overlay on top of the character area
+- [x] Overlay has a semi-transparent dark background (30% transparency)
+- [x] Activity log entries are visible and readable over the overlay
+- [x] Character widget is visible underneath the overlay (not pushed/hidden)
+- [x] Close button dismisses the overlay, restoring full character view
+- [x] Drawer occupies ~40% of character area height when open (from bottom)
+
+## Test Coverage
+
+| Test | File | Verifies |
+|---|---|---|
+| `TestContainerWithCharacterUsesStackNotSplit` | `activity_log_drawer_test.go` | No `*container.Split` in widget tree |
+| `TestOpenDrawerOverlayHasSemiTransparentBackground` | `activity_log_drawer_test.go` | `canvas.Rectangle` with alpha 0 < a < 0xFFFF |
+| `TestOpenDrawerUsesStackNotSplit` | `bugfix_acceptance_test.go` | UI acceptance: no Split in ContainerWithCharacter |
+| `TestOpenDrawerHasSemiTransparentBackground` | `bugfix_acceptance_test.go` | UI acceptance: semi-transparent Rectangle present |
+
+## TDD Agent Stats
+
+| Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED (behavior 1) | Test Designer | ~47s | ~23,000 | 1ffe3ec |
+| GREEN (behavior 1) | Implementer | ~40s | ~24,000 | 565f6df |
+| RED (behavior 2) | Test Designer | ~47s | ~24,000 | bd38d49 |
+| GREEN (behavior 2) | Implementer | ~39s | ~25,000 | 1fd7cd1 |

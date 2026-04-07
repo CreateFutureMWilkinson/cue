@@ -360,6 +360,15 @@ func (s *WizardViewSuite) TestStep1HasNextButton() {
 		"Next button should be present on step 1")
 }
 
+func (s *WizardViewSuite) TestStep1HasAddTaskButton() {
+	s.setupStep1Defaults()
+
+	view := ui.NewWizardView(s.vm, s.router)
+
+	s.True(view.HasAddTaskButton(),
+		"Add Task button should be present on step 1 so the user can add new tasks")
+}
+
 // =====================================================================
 // Step 2: Pomodoro Estimates
 // =====================================================================

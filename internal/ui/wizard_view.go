@@ -57,6 +57,7 @@ type WizardView struct {
 	summaryText          string
 	overloadWarning      bool
 	priorityList         []string
+	hasAddTaskButton     bool
 	hasUpDownButtons     bool
 	scheduleCards        int
 	focusCardStrategy    string
@@ -122,6 +123,7 @@ func (v *WizardView) buildNavigationButtons(step presenter.WizardStep) {
 	v.hasNextButton = v.isNextButtonStep(step)
 	v.hasBackButton = v.isBackButtonStep(step)
 	v.hasUpDownButtons = step == presenter.StepPriority
+	v.hasAddTaskButton = step == presenter.StepTaskSelect
 }
 
 // isNextButtonStep returns true for steps that show the Next button.
@@ -317,6 +319,11 @@ func (v *WizardView) HasNextButton() bool {
 	return v.hasNextButton
 }
 
+// HasAddTaskButton returns whether the "Add Task" button is shown on step 1.
+func (v *WizardView) HasAddTaskButton() bool {
+	return v.hasAddTaskButton
+}
+
 // renderContainer clears the container and dispatches to step-specific render methods.
 func (v *WizardView) renderContainer() {
 	v.container.Objects = nil
@@ -360,6 +367,11 @@ func (v *WizardView) renderStep1() {
 	v.container.Objects = append(v.container.Objects, entry)
 
 	v.container.Objects = append(v.container.Objects,
+		widget.NewButton("Add Task", func() {
+			v.vm.AddTask(context.Background(), entry.Text, 0) // #nosec G104 -- GUI callback; error logged by presenter
+			entry.SetText("")
+			v.Refresh()
+		}),
 		widget.NewButton("Next", func() { v.vm.NextStep(context.Background()) }), // #nosec G104 -- GUI callback; error logged by presenter
 		widget.NewButton("Cancel", func() { v.router.NavigateTo(ViewPlan) }),
 	)

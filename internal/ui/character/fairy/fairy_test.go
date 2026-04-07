@@ -540,3 +540,23 @@ func (s *FairyCharacterSuite) TestConcurrentTransitions() {
 	s.NotPanics(func() { wg.Wait() },
 		"concurrent TransitionTo calls should not panic or race")
 }
+
+func (s *FairyCharacterSuite) TestForceRefreshTriggersLayout() {
+	f := fairy.NewFairyCharacter()
+
+	// Give the container a non-zero size so layout can run.
+	f.Widget().Resize(fyne.NewSize(200, 400))
+
+	// Record initial body circle position.
+	initialPos := f.BodyCircle().Position()
+
+	// Move the fairy to a different normalized position.
+	f.SetPosition(0.0, 0.0)
+
+	// ForceRefresh should trigger layout, which repositions circles.
+	f.ForceRefresh()
+
+	newPos := f.BodyCircle().Position()
+	s.NotEqual(initialPos, newPos,
+		"ForceRefresh should trigger layout and reposition circles after SetPosition")
+}

@@ -61,3 +61,8 @@ func NewUATPanel(onCharChanged func(character.Character)) *UATPanel {
 func (p *UATPanel) Container() fyne.CanvasObject {
 	return p.root
 }
+
+// CharacterLabel returns the text of the character diagnostic label.
+func (p *UATPanel) CharacterLabel() string {
+	return ""
+}

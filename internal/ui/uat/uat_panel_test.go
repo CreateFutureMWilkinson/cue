@@ -64,3 +64,36 @@ func (s *UATPanelSuite) TestPanelRendersAllComponents() {
 	s.GreaterOrEqual(buttonCount, 6, "expected at least 6 *widget.Button (state trigger buttons)")
 	s.GreaterOrEqual(labelCount, 2, "expected at least 2 *widget.Label (state + character labels)")
 }
+
+func (s *UATPanelSuite) TestCharacterSelectionFiresCallback() {
+	character.Register("test-char", func() character.Character {
+		return character.NewNoOpCharacter()
+	})
+	defer character.ResetRegistry()
+
+	var received character.Character
+	panel := uat.NewUATPanel(func(c character.Character) {
+		received = c
+	})
+
+	container := panel.Container()
+	s.Require().NotNil(container, "Container() must not be nil")
+
+	widgets := collectWidgets(container)
+
+	var sel *widget.Select
+	for _, w := range widgets {
+		if s, ok := w.(*widget.Select); ok {
+			sel = s
+			break
+		}
+	}
+	s.Require().NotNil(sel, "expected a *widget.Select in the widget tree")
+
+	// Simulate user picking "test-char" from the dropdown.
+	sel.OnChanged("test-char")
+
+	s.Require().NotNil(received, "onCharChanged callback should have been called with a character")
+	s.Equal("none", received.Name(), "NoOpCharacter.Name() should return \"none\"")
+	s.Equal("Character: test-char", panel.CharacterLabel(), "charLabel should reflect selected character name")
+}

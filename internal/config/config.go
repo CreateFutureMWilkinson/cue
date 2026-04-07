@@ -117,6 +117,7 @@ func defaultConfig() *Config {
 				VectorSimilarityThreshold: 0.75,
 				VectorTopN:                5,
 				VectorDampingFactor:       0.5,
+				QueueWarningThreshold:     50,
 			},
 			PollIntervalSeconds:   600,
 			OllamaCooldownSeconds: 10,

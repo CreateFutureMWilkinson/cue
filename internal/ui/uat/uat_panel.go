@@ -76,3 +76,8 @@ func (p *UATPanel) Container() fyne.CanvasObject {
 func (p *UATPanel) CharacterLabel() string {
 	return p.charLabel.Text
 }
+
+// StateLabel returns the text of the state diagnostic label.
+func (p *UATPanel) StateLabel() string {
+	return ""
+}

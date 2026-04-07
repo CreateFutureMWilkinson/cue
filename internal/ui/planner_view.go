@@ -59,6 +59,9 @@ type PlannerView struct {
 	completeTaskBtn *widget.Button
 	abandonBtn      *widget.Button
 
+	// Todo list (trailing pane)
+	todoList *TodoListView
+
 	// Content state
 	placeholderText string
 	scheduleTree    *ScheduleTree
@@ -80,13 +83,27 @@ func NewPlannerView(plannerModel PlannerViewModel, timerModel TimerViewModel, ro
 	v.applyVisibility()
 	v.buildContent()
 
-	v.container = container.NewVBox(
+	if todoVM != nil {
+		v.todoList = NewTodoListView(todoVM)
+	}
+
+	leading := container.NewVBox(
 		v.planBtn,
 		v.nextBtn,
 		v.backBtn,
 		v.completeTaskBtn,
 		v.abandonBtn,
 	)
+
+	var trailing fyne.CanvasObject
+	if v.todoList != nil {
+		trailing = v.todoList.Container()
+	} else {
+		trailing = container.NewVBox()
+	}
+
+	split := container.NewHSplit(leading, trailing)
+	v.container = container.NewStack(split)
 
 	return v
 }

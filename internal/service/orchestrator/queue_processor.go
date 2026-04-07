@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
@@ -20,6 +21,8 @@ type QueueProcessor struct {
 	importanceThreshold float64
 	confidenceThreshold float64
 	cooldown            time.Duration
+	cancel              context.CancelFunc
+	wg                  sync.WaitGroup
 }
 
 // NewQueueProcessor creates a new QueueProcessor, validating all required dependencies.
@@ -119,6 +122,43 @@ func (p *QueueProcessor) determineStatus(importance, confidence float64) string 
 		return "Buffered"
 	}
 	return "Ignored"
+}
+
+// Start launches a background goroutine that continuously processes queue entries.
+func (p *QueueProcessor) Start(ctx context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
+	p.cancel = cancel
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			processed, err := p.ProcessOne(ctx)
+			if err != nil {
+				p.emitEvent("queue", fmt.Sprintf("process error: %v", err))
+			}
+			_ = processed
+
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(p.cooldown):
+			}
+		}
+	}()
+}
+
+// Stop signals the background goroutine to stop and waits for it to finish.
+func (p *QueueProcessor) Stop() {
+	if p.cancel != nil {
+		p.cancel()
+	}
+	p.wg.Wait()
 }
 
 // emitEvent sends an activity event if the event channel is configured.

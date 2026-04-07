@@ -3,6 +3,7 @@ package orchestrator_test
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 type mockQueueRepo struct {
 	dequeueEntry  *repository.QueueEntry
 	dequeueErr    error
+	dequeueFunc   func() (*repository.QueueEntry, error)
 	markDoneID    uuid.UUID
 	markDoneErr   error
 	markFailedID  uuid.UUID
@@ -32,6 +34,9 @@ func (m *mockQueueRepo) Enqueue(_ context.Context, _ uuid.UUID) error {
 }
 
 func (m *mockQueueRepo) DequeueOldest(_ context.Context) (*repository.QueueEntry, error) {
+	if m.dequeueFunc != nil {
+		return m.dequeueFunc()
+	}
 	return m.dequeueEntry, m.dequeueErr
 }
 
@@ -289,4 +294,69 @@ func (s *QueueProcessorSuite) TestProcessOneScorerErrorMarksBUFFERED() {
 	s.Equal(entryID, queueRepo.markFailedID)
 	s.Equal(uuid.Nil, queueRepo.markDoneID)
 	s.Equal(0, alerter.playCount)
+}
+
+func (s *QueueProcessorSuite) TestStartStopProcessesEntriesAndStops() {
+	// Arrange
+	entryID := uuid.New()
+	msgID := uuid.New()
+
+	var callCount atomic.Int32
+	entry := &repository.QueueEntry{
+		ID:        entryID,
+		MessageID: msgID,
+		Status:    "pending",
+	}
+
+	queueRepo := &mockQueueRepo{
+		dequeueFunc: func() (*repository.QueueEntry, error) {
+			// First call returns an entry; subsequent calls return nil (empty queue).
+			if callCount.Add(1) == 1 {
+				return entry, nil
+			}
+			return nil, nil
+		},
+	}
+
+	msg := &repository.Message{
+		ID:     msgID,
+		Status: "Pending",
+		Source: "slack",
+	}
+	msgRepo := &mockMsgRepo{
+		queryByIDMsg: msg,
+	}
+
+	scorer := &mockScorer{
+		result: &decisionengine.ScorerResult{
+			ImportanceScore: 9.0,
+			ConfidenceScore: 0.9,
+			Reasoning:       "important",
+		},
+	}
+
+	alerter := &mockQueueAlerter{}
+	eventCh := make(chan orchestrator.ActivityEvent, 10)
+
+	processor, err := orchestrator.NewQueueProcessor(
+		queueRepo,
+		msgRepo,
+		scorer,
+		alerter,
+		eventCh,
+		7,                // importanceThreshold
+		0.8,              // confidenceThreshold
+		time.Millisecond, // very short cooldown
+	)
+	s.Require().NoError(err)
+
+	// Act
+	processor.Start(context.Background())
+	time.Sleep(50 * time.Millisecond)
+	processor.Stop()
+
+	// Assert — the background loop should have processed the entry.
+	s.Require().NotNil(msgRepo.updatedMsg, "Start should launch a goroutine that calls ProcessOne")
+	s.Equal("Notified", msgRepo.updatedMsg.Status)
+	s.Equal(entryID, queueRepo.markDoneID)
 }

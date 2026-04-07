@@ -136,21 +136,46 @@ func (r *SQLiteQueueRepository) MarkFailed(ctx context.Context, id uuid.UUID) er
 }
 
 func (r *SQLiteQueueRepository) PendingCount(ctx context.Context) (int, error) {
-	return 0, repository.ErrNotImplemented
+	var count int
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM ollama_queue WHERE status = 'pending'").Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("pending count: %w", err)
+	}
+	return count, nil
 }
 
 func (r *SQLiteQueueRepository) PurgeCompleted(ctx context.Context) error {
-	return repository.ErrNotImplemented
+	_, err := r.db.ExecContext(ctx, "DELETE FROM ollama_queue WHERE status IN ('done', 'failed')")
+	if err != nil {
+		return fmt.Errorf("purge completed: %w", err)
+	}
+	return nil
 }
 
 func (r *SQLiteQueueRepository) PurgeOlderThan(ctx context.Context, cutoff time.Time) error {
-	return repository.ErrNotImplemented
+	_, err := r.db.ExecContext(ctx, "DELETE FROM ollama_queue WHERE enqueued_at < ?", cutoff.UTC().Format(time.RFC3339))
+	if err != nil {
+		return fmt.Errorf("purge older than %s: %w", cutoff, err)
+	}
+	return nil
 }
 
 func (r *SQLiteQueueRepository) PurgeAll(ctx context.Context) error {
-	return repository.ErrNotImplemented
+	_, err := r.db.ExecContext(ctx, "DELETE FROM ollama_queue")
+	if err != nil {
+		return fmt.Errorf("purge all: %w", err)
+	}
+	return nil
 }
 
 func (r *SQLiteQueueRepository) ResetProcessing(ctx context.Context) (int64, error) {
-	return 0, repository.ErrNotImplemented
+	result, err := r.db.ExecContext(ctx, "UPDATE ollama_queue SET status = 'pending' WHERE status = 'processing'")
+	if err != nil {
+		return 0, fmt.Errorf("reset processing: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("reset processing rows affected: %w", err)
+	}
+	return rowsAffected, nil
 }

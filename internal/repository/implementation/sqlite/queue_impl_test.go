@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
@@ -221,6 +222,175 @@ func (s *QueueRepositorySuite) TestMarkDoneNonExistentIDReturnsError() {
 
 	err := s.repo.MarkDone(ctx, uuid.New())
 	s.Error(err)
+}
+
+func (s *QueueRepositorySuite) TestPendingCountReturnsCorrectCount() {
+	ctx := context.Background()
+
+	// Insert 3 message rows and enqueue them.
+	for i := 0; i < 3; i++ {
+		msgID := uuid.New()
+		_, err := s.db.Exec("INSERT INTO messages (id) VALUES (?)", msgID.String())
+		s.Require().NoError(err)
+		err = s.repo.Enqueue(ctx, msgID)
+		s.Require().NoError(err)
+	}
+
+	// All 3 should be pending.
+	count, err := s.repo.PendingCount(ctx)
+	s.Require().NoError(err)
+	s.Equal(3, count)
+
+	// Dequeue one (becomes "processing").
+	_, err = s.repo.DequeueOldest(ctx)
+	s.Require().NoError(err)
+
+	// Now only 2 should be pending.
+	count, err = s.repo.PendingCount(ctx)
+	s.Require().NoError(err)
+	s.Equal(2, count)
+}
+
+func (s *QueueRepositorySuite) TestPurgeCompletedRemovesDoneAndFailed() {
+	ctx := context.Background()
+
+	// Insert 3 message rows and enqueue them.
+	ids := make([]uuid.UUID, 3)
+	for i := 0; i < 3; i++ {
+		ids[i] = uuid.New()
+		_, err := s.db.Exec("INSERT INTO messages (id) VALUES (?)", ids[i].String())
+		s.Require().NoError(err)
+		err = s.repo.Enqueue(ctx, ids[i])
+		s.Require().NoError(err)
+	}
+
+	// Dequeue all 3 (all become "processing").
+	entries := make([]*repository.QueueEntry, 3)
+	for i := 0; i < 3; i++ {
+		entry, err := s.repo.DequeueOldest(ctx)
+		s.Require().NoError(err)
+		s.Require().NotNil(entry)
+		entries[i] = entry
+	}
+
+	// MarkDone on first, MarkFailed on second, third stays "processing".
+	err := s.repo.MarkDone(ctx, entries[0].ID)
+	s.Require().NoError(err)
+	err = s.repo.MarkFailed(ctx, entries[1].ID)
+	s.Require().NoError(err)
+
+	// Purge completed (done + failed).
+	err = s.repo.PurgeCompleted(ctx)
+	s.Require().NoError(err)
+
+	// Only the "processing" entry should remain.
+	var rowCount int
+	err = s.db.QueryRow("SELECT COUNT(*) FROM ollama_queue").Scan(&rowCount)
+	s.Require().NoError(err)
+	s.Equal(1, rowCount)
+}
+
+func (s *QueueRepositorySuite) TestPurgeOlderThanRemovesOldEntries() {
+	ctx := context.Background()
+
+	// Insert first message and enqueue it.
+	oldMsgID := uuid.New()
+	_, err := s.db.Exec("INSERT INTO messages (id) VALUES (?)", oldMsgID.String())
+	s.Require().NoError(err)
+	err = s.repo.Enqueue(ctx, oldMsgID)
+	s.Require().NoError(err)
+
+	// Backdate the enqueued_at to well in the past.
+	_, err = s.db.Exec(
+		"UPDATE ollama_queue SET enqueued_at = ? WHERE message_id = ?",
+		"2020-01-01T00:00:00Z", oldMsgID.String(),
+	)
+	s.Require().NoError(err)
+
+	// Insert second message and enqueue it (current timestamp).
+	recentMsgID := uuid.New()
+	_, err = s.db.Exec("INSERT INTO messages (id) VALUES (?)", recentMsgID.String())
+	s.Require().NoError(err)
+	err = s.repo.Enqueue(ctx, recentMsgID)
+	s.Require().NoError(err)
+
+	// Purge entries older than 1 hour ago.
+	cutoff := time.Now().Add(-1 * time.Hour)
+	err = s.repo.PurgeOlderThan(ctx, cutoff)
+	s.Require().NoError(err)
+
+	// Only the recent entry should remain.
+	var rowCount int
+	err = s.db.QueryRow("SELECT COUNT(*) FROM ollama_queue").Scan(&rowCount)
+	s.Require().NoError(err)
+	s.Equal(1, rowCount)
+}
+
+func (s *QueueRepositorySuite) TestPurgeAllRemovesAllEntries() {
+	ctx := context.Background()
+
+	// Insert 3 message rows and enqueue them.
+	for i := 0; i < 3; i++ {
+		msgID := uuid.New()
+		_, err := s.db.Exec("INSERT INTO messages (id) VALUES (?)", msgID.String())
+		s.Require().NoError(err)
+		err = s.repo.Enqueue(ctx, msgID)
+		s.Require().NoError(err)
+	}
+
+	// Purge all.
+	err := s.repo.PurgeAll(ctx)
+	s.Require().NoError(err)
+
+	// No rows should remain.
+	var rowCount int
+	err = s.db.QueryRow("SELECT COUNT(*) FROM ollama_queue").Scan(&rowCount)
+	s.Require().NoError(err)
+	s.Equal(0, rowCount)
+}
+
+func (s *QueueRepositorySuite) TestResetProcessingResetsTopending() {
+	ctx := context.Background()
+
+	// Insert 2 message rows, enqueue, and dequeue both (both become "processing").
+	for i := 0; i < 2; i++ {
+		msgID := uuid.New()
+		_, err := s.db.Exec("INSERT INTO messages (id) VALUES (?)", msgID.String())
+		s.Require().NoError(err)
+		err = s.repo.Enqueue(ctx, msgID)
+		s.Require().NoError(err)
+	}
+	_, err := s.repo.DequeueOldest(ctx)
+	s.Require().NoError(err)
+	_, err = s.repo.DequeueOldest(ctx)
+	s.Require().NoError(err)
+
+	// Reset processing.
+	count, err := s.repo.ResetProcessing(ctx)
+	s.Require().NoError(err)
+	s.Equal(int64(2), count)
+
+	// Both should now be "pending".
+	var pendingCount int
+	err = s.db.QueryRow("SELECT COUNT(*) FROM ollama_queue WHERE status = 'pending'").Scan(&pendingCount)
+	s.Require().NoError(err)
+	s.Equal(2, pendingCount)
+}
+
+func (s *QueueRepositorySuite) TestResetProcessingReturnsZeroWhenNoneProcessing() {
+	ctx := context.Background()
+
+	// Insert a message and enqueue it (stays "pending").
+	msgID := uuid.New()
+	_, err := s.db.Exec("INSERT INTO messages (id) VALUES (?)", msgID.String())
+	s.Require().NoError(err)
+	err = s.repo.Enqueue(ctx, msgID)
+	s.Require().NoError(err)
+
+	// Reset processing — nothing is "processing".
+	count, err := s.repo.ResetProcessing(ctx)
+	s.Require().NoError(err)
+	s.Equal(int64(0), count)
 }
 
 // Compile-time interface satisfaction check.

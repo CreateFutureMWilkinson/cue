@@ -1095,3 +1095,10 @@ func (s *ServiceSettingsSuite) TestSaveCalendarAccountAppliesDefaultPollInterval
 	s.Require().NotNil(upsertedAcct, "upsert should have been called")
 	s.Equal(600, upsertedAcct.PollIntervalSeconds, "PollIntervalSeconds should be set to Calendar default (600)")
 }
+
+func (s *ServiceSettingsSuite) TestDefaultPollIntervalReturnsCorrectDefaults() {
+	s.Equal(60, presenter.DefaultPollInterval("slack"), "slack should default to 60s")
+	s.Equal(600, presenter.DefaultPollInterval("email"), "email should default to 600s")
+	s.Equal(600, presenter.DefaultPollInterval("calendar"), "calendar should default to 600s")
+	s.Equal(600, presenter.DefaultPollInterval("unknown"), "unknown service type should fall back to 600s")
+}

@@ -333,3 +333,8 @@ func validateEmailAccount(acct *repository.EmailAccount) error {
 	}
 	return nil
 }
+
+// DefaultPollInterval returns the default poll interval in seconds for the given service type.
+func DefaultPollInterval(serviceType string) int {
+	return 0
+}

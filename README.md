@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–5 complete. Phase 6 (The Big Clean — bugfixes + test infrastructure) in progress. Recent: Feature 062 notification list now refreshes immediately after resolving via detail dialog. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–5 complete. Phase 6 (The Big Clean — bugfixes + test infrastructure) in progress. Recent: Feature 063 PlannerView now renders a horizontal split with todo list widget tree. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 

@@ -53,17 +53,21 @@ CREATE INDEX idx_queue_status_enqueued ON ollama_queue(status, enqueued_at);
 
 ```go
 type QueueProcessor struct {
-    queue    QueueRepository
-    messages MessageRepository
-    scorer   Scorer
-    alerter  Alerter
-    cooldown time.Duration
-    eventCh  chan<- ActivityEvent
+    queue               QueueRepository
+    messages            MessageRepository
+    scorer              Scorer
+    alerter             Alerter
+    cooldown            time.Duration
+    importanceThreshold float64
+    confidenceThreshold float64
+    eventCh             chan<- ActivityEvent
 }
 
 func (p *QueueProcessor) Start(ctx context.Context)
 func (p *QueueProcessor) Stop()
 ```
+
+The `importanceThreshold` and `confidenceThreshold` are injected from config and used for status assignment after scoring (same thresholds as the former Router). Feature 094 will add a `FewShotProvider` field to support calibration — the Scorer interface is injected, so this is a transparent enhancement.
 
 ### Processing Loop
 
@@ -73,16 +77,29 @@ loop:
     if entry == nil:
         sleep(cooldown)  // nothing to process, back off
         continue
-    msg := messages.QueryByID(entry.MessageID)
+    msg := messages.QueryByID(ctx, entry.MessageID)
     result := scorer.Score(ctx, msg)
     if error:
+        msg.ImportanceScore = 7.0
+        msg.ConfidenceScore = 0.0
         msg.Status = "Buffered"  // safe default
+        msg.Reasoning = "Ollama scoring failed: " + error
+        messages.Update(ctx, msg)
         queue.MarkFailed(entry.ID)
     else:
-        apply score + status to msg
-        messages.Update(msg)
+        msg.ImportanceScore = result.ImportanceScore
+        msg.ConfidenceScore = result.ConfidenceScore
+        msg.Reasoning = result.Reasoning
+        // Status assignment (same thresholds as former Router.assignStatus):
+        if IS >= importanceThreshold AND CS >= confidenceThreshold:
+            msg.Status = "Notified"
+        else if IS >= importanceThreshold:
+            msg.Status = "Buffered"
+        else:
+            msg.Status = "Ignored"
+        messages.Update(ctx, msg)
         queue.MarkDone(entry.ID)
-        if status == "Notified":
+        if msg.Status == "Notified":
             alerter.PlayNotification()
     emit activity event
     sleep(cooldown)
@@ -101,3 +118,8 @@ ollama_cooldown_seconds = 10
 - Ollama timeout/error: message marked BUFFERED (safe default — user reviews manually), queue entry marked `failed`
 - `failed` entries are not retried automatically — user can review them in the feedback buffer
 - `processing` entries from a crashed session are reset to `pending` on startup
+
+## Relationship to Other Features
+
+- **Feature 087** enqueues messages here after rules evaluation
+- **Feature 094** enhances this processor with few-shot calibration: a `FewShotProvider` field is added, and `scorer.Score()` becomes `scorer.ScoreWithContext()` with examples. The processor's structure accommodates this — the scorer is injected via interface

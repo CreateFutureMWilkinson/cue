@@ -35,20 +35,38 @@ The email watcher's `FetchNewMessages` must only query the INBOX folder, not all
 
 Verify the current `IMAPClient` implementation respects this. If it queries multiple folders, restrict it.
 
+## Watcher Interface Extension
+
+The current `Watcher` interface (defined in `internal/service/orchestrator/orchestrator.go`) has only:
+
+```go
+type Watcher interface {
+    Poll(ctx context.Context) ([]*repository.Message, error)
+}
+```
+
+`Poll()` returns messages new since the last poll. For import, we need all available messages. Add a new method:
+
+```go
+type Watcher interface {
+    Poll(ctx context.Context) ([]*repository.Message, error)
+    FetchAll(ctx context.Context) ([]*repository.Message, error)  // NEW
+}
+```
+
+`FetchAll` returns all messages currently available in the source (INBOX for email, all joined channels for Slack). It does not track "last seen" state — it returns everything and lets the orchestrator dedup via `ExistsByMessageID`.
+
+Both `SlackWatcher` and `EmailWatcher` must implement `FetchAll`. The implementation is similar to `Poll` but without the "since last poll" filter.
+
 ## Import vs Poll Distinction
 
-The orchestrator needs to distinguish between:
-
-- **Import mode** (startup): fetch everything available, store as Imported, no routing
-- **Poll mode** (running): fetch only new since last poll, route through rules + queue
-
-This could be a flag on the poll call or a separate method:
+The orchestrator has a dedicated import method, separate from `PollOnce`:
 
 ```go
 func (o *Orchestrator) ImportBaseline(ctx context.Context) error
 ```
 
-Called once at startup before `Start()`.
+Called once at startup before `Start()`. It calls `watcher.FetchAll()` for each watcher, deduplicates via `ExistsByMessageID`, and inserts new messages as `"Imported"`. It does NOT call `watcher.Poll()` (which would advance the "last seen" cursor).
 
 ## Performance
 

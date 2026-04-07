@@ -14,8 +14,13 @@ Implement the rules evaluation engine that takes a message and a sorted list of 
 ## API
 
 ```go
+type compiledRule struct {
+    rule    *repository.RoutingRule
+    pattern *regexp.Regexp
+}
+
 type RulesEngine struct {
-    rules []*repository.RoutingRule // pre-sorted by priority
+    rules []compiledRule // pre-sorted by priority, regexps pre-compiled
 }
 
 func NewRulesEngine(rules []*repository.RoutingRule) *RulesEngine
@@ -32,12 +37,14 @@ For each rule (sorted by priority ascending):
 
 1. Check source scope: if `rule.Source != "all"` and `rule.Source != msg.Source`, skip
 2. Extract field value from message based on `rule.Field`
-3. Compile and match regex: `regexp.MustCompile(rule.Pattern).MatchString(fieldValue)`
+3. Match against pre-compiled regex: `compiledRule.pattern.MatchString(fieldValue)`
 4. If `rule.Negate`, invert the match result
 5. If matched and `rule.Enabled`, return `rule.Action`
 6. If no rule matches, return `"queue"`
 
 ## Field Extraction
+
+The email watcher stores messages with `RawContent = subject + "\n" + body` (see `internal/service/watcher/email.go`, `convertEmailMessage()`). The `"subject"` field extraction relies on this format.
 
 ```go
 func extractField(msg *repository.Message, field string) string {
@@ -45,7 +52,8 @@ func extractField(msg *repository.Message, field string) string {
     case "sender":
         return msg.Sender
     case "subject":
-        // Email subject is first line of RawContent (Subject\nBody format)
+        // Email subject is first line of RawContent (Subject\nBody format,
+        // set by EmailWatcher.convertEmailMessage)
         if idx := strings.Index(msg.RawContent, "\n"); idx >= 0 {
             return msg.RawContent[:idx]
         }
@@ -64,9 +72,9 @@ func extractField(msg *repository.Message, field string) string {
 
 ## Performance
 
-- Regexps should be pre-compiled when the engine is constructed (not on every evaluation)
-- Rules list should be refreshed when rules are added/edited/deleted, not on every message
-- Invalid regexps should be skipped with a warning (not crash the engine)
+- Regexps are pre-compiled in `NewRulesEngine()` using `regexp.Compile()` (not `MustCompile`)
+- Invalid patterns should never reach the engine — Feature 084 validates patterns at upsert time, and Feature 089 validates in the UI before save. `NewRulesEngine()` uses `regexp.Compile()` as a defensive measure; if a pattern fails to compile, it is skipped with a logged warning rather than panicking
+- Rules list should be refreshed when rules are added/edited/deleted, not on every message (the orchestrator calls `NewRulesEngine()` with fresh rules from the DB)
 
 ## Unmatched Default
 

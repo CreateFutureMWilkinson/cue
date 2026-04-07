@@ -39,7 +39,7 @@ type RoutingRule struct {
 | slack | `content` | Message text |
 | slack | `message_type` | e.g., "channel_join" |
 
-Rules with `source = "all"` can only match fields common to both sources (sender).
+Rules with `source = "all"` can only match fields common to both sources (`sender`). Validation must reject any field other than `sender` when source is `"all"`.
 
 ## Actions
 
@@ -88,5 +88,6 @@ CREATE INDEX idx_routing_rules_source ON routing_rules(source);
 - `Pattern` must be a valid Go regexp (compile check on upsert)
 - `Source` must be one of: "email", "slack", "all"
 - `Field` must be valid for the given source
-- `Action` must be "notified" or "ignored"
+- `Action` must be "notified" or "ignored" (lowercase — the orchestrator maps these to capitalized status values "Notified"/"Ignored" when applying, see Feature 087)
 - `Priority` must be >= 0
+- `Field` must be `"sender"` when `Source` is `"all"` (only field common to both email and slack)

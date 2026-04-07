@@ -88,7 +88,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 
 | # | Component | Status | Depends on | Doc |
 |---|---|---|---|---|
-| 042 | Vector-assisted routing | Done | 043, 044 | [Feature-042](features/phase-5/Feature-042-Vector-Assisted-Routing.md) |
+| 042 | Vector-assisted routing | Done (redesigned in 094) | 043, 044 | [Feature-042](features/phase-5/Feature-042-Vector-Assisted-Routing.md) |
 | 043 | chromem-go vector database | Done | 044 | [Feature-043](features/phase-5/Feature-043-Chromem-Go-Vector-Database.md) |
 | 044 | Ollama scorer wiring | Done | 039 | [Feature-044](features/phase-5/Feature-044-Ollama-Scorer-Wiring.md) |
 | 045 | Slack API client | Done | 038 | [Feature-045](features/phase-5/Feature-045-Slack-API-Client.md) |
@@ -147,17 +147,20 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 076 | Integrated character UAT mode | Refactor | — | Done | 075 | [Feature-076](features/phase-7/Feature-076-Integrated-Character-UAT.md) |
 | 076A | UAT: activity log, initial char, motion | Bugfix | High | Done | 076 | [Feature-076A](features/phase-7/Feature-076A-UAT-Bugs.md) |
 
-## Phase 8 — Deterministic Routing + Ollama Queue
+## Phase 8 — Deterministic Routing + Ollama Queue + Model Optimization
 
-Replaces the batch-score-everything approach with a two-stage pipeline: configurable deterministic rules run first, unmatched messages trickle through Ollama one at a time via a persistent FIFO queue. Prevents GPU/CPU overload from large batch scoring and gives users direct control over routing decisions.
+Replaces the batch-score-everything approach with a two-stage pipeline: configurable deterministic rules run first, unmatched messages trickle through Ollama one at a time via a persistent FIFO queue. Prevents GPU/CPU overload from large batch scoring and gives users direct control over routing decisions. Also introduces structured output, a model benchmarking tool, and calibration loop enhancements to support evaluating and switching to smaller, more efficient models.
 
 | # | Component | Type | Status | Depends on | Doc |
 |---|---|---|---|---|---|
 | 084 | Routing rule model + DB table + CRUD | Feature | Planned | 031, 032 | [Feature-084](features/phase-8/Feature-084-Routing-Rule-Model.md) |
 | 085 | Rules engine (evaluate rules against messages) | Feature | Planned | 084 | [Feature-085](features/phase-8/Feature-085-Rules-Engine.md) |
 | 086 | Ollama queue model + DB table + processor | Feature | Planned | — | [Feature-086](features/phase-8/Feature-086-Ollama-Queue.md) |
-| 087 | Orchestrator refactor (dedup → rules → queue) | Feature | Planned | 085, 086 | [Feature-087](features/phase-8/Feature-087-Orchestrator-Refactor.md) |
+| 087 | Orchestrator refactor (dedup → rules → queue, Router removal) | Feature | Planned | 085, 086 | [Feature-087](features/phase-8/Feature-087-Orchestrator-Refactor.md) |
 | 088 | Startup import (unseen → "Imported", INBOX only) | Feature | Planned | 087 | [Feature-088](features/phase-8/Feature-088-Startup-Import.md) |
 | 089 | Settings UI: Rules tab | Feature | Planned | 084 | [Feature-089](features/phase-8/Feature-089-Rules-Settings-UI.md) |
 | 090 | Default rules migration (channel_join, @mention) | Feature | Planned | 084 | [Feature-090](features/phase-8/Feature-090-Default-Rules-Migration.md) |
 | 091 | Queue health monitoring (depth warnings) | Feature | Planned | 086, 087 | [Feature-091](features/phase-8/Feature-091-Queue-Health-Monitoring.md) |
+| 092 | Structured output + prompt optimization | Feature | Planned | — | [Feature-092](features/phase-8/Feature-092-Structured-Output-Prompt-Optimization.md) |
+| 093 | Model benchmark tool (cmd/cue-bench) | Feature | Planned | 092, 094 | [Feature-093](features/phase-8/Feature-093-Model-Benchmark-Tool.md) |
+| 094 | Calibration loop redesign (few-shot prompt injection) | Feature | Planned | 042, 086, 087, 092 | [Feature-094](features/phase-8/Feature-094-Calibration-Loop-Enhancements.md) |

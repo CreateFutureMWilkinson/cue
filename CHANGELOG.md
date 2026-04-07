@@ -25,6 +25,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **Fyne thread safety violations** — `SetCharacterWidget`, `AppBinder` step-change callbacks, and `TimerLoop.TickOnce` now dispatch UI mutations through the Fyne event loop. `SetCharacterWidget` wraps directly in `fyne.Do()`; `AppBinder` and `TimerLoop` use an injectable `UIScheduler` (wired to `fyne.Do` in production) for testability. Eliminates "Error in Fyne call thread" messages on stdout. (Phase-6-Feature-083)
 - **Graceful shutdown (SIGINT + clean exit)** — Ctrl+C and SIGTERM now trigger clean shutdown via `fyneApp.Quit()`. All cleanup (character animation, presenter shutdown, orchestrator stop) runs within a 5-second timeout guard. New `internal/shutdown` package with `SignalHandler` and `RunCleanup`. (Phase-6-Feature-082)
 - **Default poll intervals per service type** — Add Account forms now pre-populate the poll interval field with sensible defaults: Slack 60s, Email 600s, Calendar 600s. Saving with a zero/empty poll interval applies the default instead of rejecting it. Exported constants and `DefaultPollInterval()` lookup function in the presenter package. (Phase-6-Feature-080)
 - **Account lists in Settings always empty** — Adding Slack, Email, or Calendar accounts via Settings created database records but the account list UI remained permanently empty. Now calls `List*Accounts()` on initial load and after each save. Shows empty state message when no accounts exist. (Phase-6-Feature-078)

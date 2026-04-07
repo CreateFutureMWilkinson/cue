@@ -504,3 +504,9 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-082 (SignalHandler) | GREEN | Implementer | ~20s | ~22,700 | 21b132c |
 | Phase-6-Feature-082 (RunCleanup) | RED | Test Designer | ~39s | ~25,000 | d30feaf |
 | Phase-6-Feature-082 (RunCleanup) | GREEN | Implementer | ~21s | ~22,100 | 72306da |
+| Phase-6-Feature-083 (SetCharacterWidget) | GREEN | Implementer | ~26s | ~23,000 | e7239ea |
+| Phase-6-Feature-083 (AppBinder UIScheduler) | RED | Test Designer | ~45s | ~31,500 | 3821427 |
+| Phase-6-Feature-083 (AppBinder UIScheduler) | GREEN | Implementer | ~30s | ~25,000 | 3c3552b |
+| Phase-6-Feature-083 (TimerLoop UIScheduler) | RED | Test Designer | ~41s | ~27,300 | 2c0b6be |
+| Phase-6-Feature-083 (TimerLoop UIScheduler) | GREEN | Implementer | ~29s | ~23,500 | 9e550f6 |
+| Phase-6-Feature-083 (wiring) | GREEN | orchestrator | manual | — | 1195e61 |

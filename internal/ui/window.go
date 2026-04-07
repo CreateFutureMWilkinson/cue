@@ -231,8 +231,10 @@ func (m *MainWindow) switchCenterView(view CenterView) {
 func (m *MainWindow) SetCharacterWidget(w fyne.CanvasObject) {
 	m.viewContents[ViewCharacter] = w
 	if m.viewRouter != nil && m.viewRouter.CurrentView() == ViewCharacter {
-		m.centerStack.Objects = []fyne.CanvasObject{w}
-		m.centerStack.Refresh()
+		fyne.Do(func() {
+			m.centerStack.Objects = []fyne.CanvasObject{w}
+			m.centerStack.Refresh()
+		})
 	}
 }
 

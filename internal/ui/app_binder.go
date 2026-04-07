@@ -65,8 +65,18 @@ type AppBinder struct {
 
 // SetUIScheduler sets the function used to dispatch view mutations to the UI thread.
 // In production, pass fyne.Do. If not set, view mutations are called directly.
-func (b *AppBinder) SetUIScheduler(_ UIScheduler) {
-	// stub: intentionally does not store the scheduler yet
+func (b *AppBinder) SetUIScheduler(fn UIScheduler) {
+	b.doFunc = fn
+}
+
+// scheduleUI dispatches fn through the UIScheduler if one is set,
+// otherwise calls fn directly on the current goroutine.
+func (b *AppBinder) scheduleUI(fn func()) {
+	if b.doFunc != nil {
+		b.doFunc(fn)
+	} else {
+		fn()
+	}
 }
 
 // NewAppBinder creates a new AppBinder, validating all dependencies.
@@ -104,15 +114,17 @@ func NewAppBinder(
 // Bind wires all presenter callbacks to view updates.
 func (b *AppBinder) Bind() {
 	b.plannerP.SetOnStepChange(func(step presenter.WizardStep) {
-		b.wizardView.Refresh()
-		switch step {
-		case presenter.StepActive:
-			b.plannerView.Refresh()
-			b.viewRouter.NavigateTo(ViewPlan)
-			b.focusRail.SetActivePlan(true)
-		case presenter.StepIdle:
-			b.focusRail.SetActivePlan(false)
-		}
+		b.scheduleUI(func() {
+			b.wizardView.Refresh()
+			switch step {
+			case presenter.StepActive:
+				b.plannerView.Refresh()
+				b.viewRouter.NavigateTo(ViewPlan)
+				b.focusRail.SetActivePlan(true)
+			case presenter.StepIdle:
+				b.focusRail.SetActivePlan(false)
+			}
+		})
 	})
 
 	b.plannerView.SetOnPlanMyDay(func() {

@@ -61,6 +61,45 @@ func NewSQLiteRoutingRuleRepository(db *sql.DB) (*SQLiteRoutingRuleRepository, e
 	if _, err := db.Exec(createRoutingRulesTableSQL); err != nil {
 		return nil, fmt.Errorf("creating routing_rules table: %w", err)
 	}
+
+	// Seed default rules if the table is empty.
+	var count int
+	if err := db.QueryRow("SELECT COUNT(*) FROM routing_rules").Scan(&count); err != nil {
+		return nil, fmt.Errorf("counting routing rules: %w", err)
+	}
+	if count == 0 {
+		now := time.Now().UTC().Format(time.RFC3339)
+		defaultRules := []struct {
+			priority int
+			source   string
+			field    string
+			negate   bool
+			pattern  string
+			action   string
+			enabled  bool
+		}{
+			{priority: 0, source: "slack", field: "message_type", negate: false, pattern: "^channel_join$", action: "notified", enabled: true},
+			{priority: 1, source: "slack", field: "content", negate: false, pattern: "@username", action: "notified", enabled: true},
+		}
+		for _, r := range defaultRules {
+			_, err := db.Exec(upsertRoutingRuleSQL,
+				uuid.New().String(),
+				r.priority,
+				r.source,
+				r.field,
+				boolToInt(r.negate),
+				r.pattern,
+				r.action,
+				boolToInt(r.enabled),
+				now,
+				now,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("seeding default routing rule (priority %d): %w", r.priority, err)
+			}
+		}
+	}
+
 	return &SQLiteRoutingRuleRepository{db: db}, nil
 }
 

@@ -205,6 +205,10 @@ func (s *RoutingRuleSQLiteSuite) TestGetRuleNotFound() {
 func (s *RoutingRuleSQLiteSuite) TestListRulesEmpty() {
 	ctx := context.Background()
 
+	// Clear seeded defaults so we can verify empty-list behavior.
+	_, err := s.db.Exec("DELETE FROM routing_rules")
+	s.Require().NoError(err)
+
 	rules, err := s.repo.ListRules(ctx)
 	s.Require().NoError(err)
 	s.NotNil(rules, "ListRules should return non-nil slice when empty")
@@ -213,6 +217,10 @@ func (s *RoutingRuleSQLiteSuite) TestListRulesEmpty() {
 
 func (s *RoutingRuleSQLiteSuite) TestListRulesSortedByPriority() {
 	ctx := context.Background()
+
+	// Clear seeded defaults so we test only the rules we insert.
+	_, err := s.db.Exec("DELETE FROM routing_rules")
+	s.Require().NoError(err)
 
 	r1 := s.validRule()
 	r1.Priority = 5
@@ -238,6 +246,10 @@ func (s *RoutingRuleSQLiteSuite) TestListRulesSortedByPriority() {
 
 func (s *RoutingRuleSQLiteSuite) TestListRulesBySourceFiltered() {
 	ctx := context.Background()
+
+	// Clear seeded defaults so we test only the rules we insert.
+	_, err := s.db.Exec("DELETE FROM routing_rules")
+	s.Require().NoError(err)
 
 	slack1 := s.validRule()
 	slack1.Source = "slack"

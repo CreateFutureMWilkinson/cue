@@ -183,12 +183,26 @@ func createCalendarAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved 
 			errorLabel.Show()
 			return
 		}
-		_, err := strconv.Atoi(pollEntry.Text)
+		poll, err := strconv.Atoi(pollEntry.Text)
 		if err != nil {
 			errorLabel.SetText("Poll interval must be a number")
 			errorLabel.Show()
 			return
 		}
+		acct := &repository.CalendarAccount{
+			ID:                  uuid.New(),
+			Enabled:             true,
+			Name:                nameEntry.Text,
+			ICSURL:              urlEntry.Text,
+			PollIntervalSeconds: poll,
+		}
+		if err := ssp.SaveCalendarAccount(context.Background(), acct); err != nil {
+			errorLabel.SetText(fmt.Sprintf("Error: %s", err))
+			errorLabel.Show()
+			return
+		}
+		errorLabel.Hide()
+		onSaved()
 	}
 
 	return container.NewVBox(

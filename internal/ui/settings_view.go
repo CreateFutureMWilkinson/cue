@@ -84,6 +84,8 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 			Encryption:          encryption,
 			PollIntervalSeconds: poll,
 		}
+		errorLabel.SetText("Validating...")
+		errorLabel.Show()
 		if err := ssp.SaveEmailAccount(context.Background(), acct); err != nil {
 			errorLabel.SetText(fmt.Sprintf("Error: %s", err))
 			errorLabel.Show()
@@ -147,6 +149,8 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 			Username:            usernameEntry.Text,
 			PollIntervalSeconds: poll,
 		}
+		errorLabel.SetText("Validating...")
+		errorLabel.Show()
 		if err := ssp.SaveSlackAccount(context.Background(), acct); err != nil {
 			errorLabel.SetText(fmt.Sprintf("Error: %s", err))
 			errorLabel.Show()
@@ -204,6 +208,8 @@ func createCalendarAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved 
 			ICSURL:              urlEntry.Text,
 			PollIntervalSeconds: poll,
 		}
+		errorLabel.SetText("Validating...")
+		errorLabel.Show()
 		if err := ssp.SaveCalendarAccount(context.Background(), acct); err != nil {
 			errorLabel.SetText(fmt.Sprintf("Error: %s", err))
 			errorLabel.Show()

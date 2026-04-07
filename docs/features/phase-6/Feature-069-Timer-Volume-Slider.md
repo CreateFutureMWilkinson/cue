@@ -30,8 +30,32 @@ The Audio settings tab has a "Notification Volume" slider but no "Timer Volume" 
 
 ## Acceptance Criteria
 
-- [ ] Audio tab shows two sliders: "Notification Volume" and "Timer Volume"
-- [ ] Timer Volume slider range 0–100, step 1
-- [ ] Timer Volume label updates live during drag
-- [ ] Timer Volume is independent of Notification Volume
-- [ ] Timer volume setting is applied to timer alert playback
+- [x] Audio tab shows two sliders: "Notification Volume" and "Timer Volume"
+- [x] Timer Volume slider range 0–100, step 1
+- [x] Timer Volume label updates live during drag
+- [x] Timer Volume is independent of Notification Volume
+- [x] Timer volume setting is applied to timer alert playback
+
+## Implementation
+
+### Behavior 1: SettingsPresenter timer volume support
+
+Extended `NewSettingsPresenter` to accept a second `VolumeController` parameter and initial timer volume value. Added `TimerVolume() int` and `SetTimerVolume(int)` methods with 0-100 clamping, mirroring the existing notification volume API. Updated all callers across tests and `cmd/cue/main.go`.
+
+### Behavior 2: Timer Volume slider in Audio tab
+
+Added a "Timer Volume" label and slider to the Audio tab in `settings_view.go`, positioned below the existing Notification Volume slider. The slider is wired to `sp.SetTimerVolume()` with live label updates showing the current percentage value, matching the Notification Volume slider pattern.
+
+### Bug fix: UI acceptance test tab indices
+
+The Bug069 UI acceptance tests used index 2 (Calendar) instead of index 3 (Audio) when selecting the Audio tab. Corrected to index 3 after Feature 065 inserted the Calendar tab at position 2.
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED (presenter) | Test Designer | ~35s | ~30,000 | 95a36a5 |
+| GREEN (presenter) | Implementer | ~30s | ~28,000 | 27970e8 |
+| RED (view) | Test Designer | ~35s | ~30,000 | 5c8ca36 |
+| GREEN (view) | Implementer | ~30s | ~28,000 | fe03d20 |
+| FIX (tab index) | orchestrator | ~10s | ~5,000 | a1bc3a4 |

@@ -606,6 +606,34 @@ func (s *PlannerViewSuite) TestSetOnBackInvokesCallbackOnTap() {
 		"SetOnBack callback should be invoked when BackButton is tapped")
 }
 
+func (s *PlannerViewSuite) TestSetOnCompleteTaskInvokesCallbackOnTap() {
+	s.setupStepDefaults(presenter.StepActive)
+
+	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
+
+	called := false
+	view.SetOnCompleteTask(func() { called = true })
+
+	view.CompleteTaskButton().OnTapped()
+
+	s.True(called,
+		"SetOnCompleteTask callback should be invoked when CompleteTaskButton is tapped")
+}
+
+func (s *PlannerViewSuite) TestSetOnAbandonPlanInvokesCallbackOnTap() {
+	s.setupStepDefaults(presenter.StepActive)
+
+	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
+
+	called := false
+	view.SetOnAbandonPlan(func() { called = true })
+
+	view.AbandonButton().OnTapped()
+
+	s.True(called,
+		"SetOnAbandonPlan callback should be invoked when AbandonButton is tapped")
+}
+
 func (s *PlannerViewSuite) TestContainerHasHorizontalSplit() {
 	s.setupIdleDefaults()
 

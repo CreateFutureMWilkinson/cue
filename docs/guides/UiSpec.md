@@ -993,6 +993,25 @@ Displays a list of configured Slack accounts with a button to add new ones.
 | Error             | `widget.Label`      | Hidden by default, shown on validation failure|
 | Save / Cancel     | `widget.Button` ×2  | Save validates + persists; Cancel returns to list |
 
+**Token Instructions** (`widget.Accordion`, collapsed by default, placed between form header and first entry):
+
+A single accordion item titled **"How to get a token"** with step-by-step guidance:
+
+1. Go to https://api.slack.com/apps
+2. Create a new app (or select existing) for your workspace
+3. Add the following **User Token Scopes** under OAuth & Permissions:
+   - `channels:history` — read messages in public channels
+   - `channels:read` — list public channels
+   - `groups:history` — read messages in private channels
+   - `groups:read` — list private channels
+   - `im:history` — read direct messages
+   - `im:read` — list direct message channels
+   - `mpim:history` — read group direct messages
+   - `mpim:read` — list group DM channels
+   - `users:read` — resolve user display names
+4. Install the app to your workspace
+5. Copy the User OAuth Token (starts with `xoxp-`)
+
 **Validation:** Token, Workspace ID, Username, and Poll Interval are required. Poll Interval must be a number. If a `SlackValidator` is configured, credentials are validated before save. Inline error shown on failure.
 
 ### Email Tab

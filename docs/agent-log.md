@@ -510,3 +510,5 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-083 (TimerLoop UIScheduler) | RED | Test Designer | ~41s | ~27,300 | 2c0b6be |
 | Phase-6-Feature-083 (TimerLoop UIScheduler) | GREEN | Implementer | ~29s | ~23,500 | 9e550f6 |
 | Phase-6-Feature-083 (wiring) | GREEN | orchestrator | manual | — | 1195e61 |
+| Phase-6-Feature-081 | RED | Test Designer | ~55s | ~37,800 | 5e121fd |
+| Phase-6-Feature-081 | GREEN | Implementer | ~63s | ~26,000 | 963c110 |

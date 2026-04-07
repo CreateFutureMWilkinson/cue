@@ -5,7 +5,7 @@
 | Phase | 6 |
 | Type | Enhancement |
 | Severity | Low |
-| Status | Planned |
+| Status | Done |
 | Depends on | 068 |
 | UI Tests | Yes |
 

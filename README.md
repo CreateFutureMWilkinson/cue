@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–6 complete. Phase 7 (WASM Character Plugins) in progress. Recent: Feature 075 adds a WASM character plugin framework using wazero — third-party characters can be loaded at runtime from `~/.cue/characters/` without forking the repo. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–7 complete. Phase 8 (Deterministic Routing + Ollama Queue + Model Optimization) planned. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 

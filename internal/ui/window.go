@@ -216,10 +216,13 @@ func (m *MainWindow) CenterContent() fyne.CanvasObject {
 }
 
 // switchCenterView handles view switching by updating the center stack container.
+// Wrapped in fyne.Do to ensure thread safety when called from non-UI goroutines.
 func (m *MainWindow) switchCenterView(view CenterView) {
 	if content, exists := m.viewContents[view]; exists {
-		m.centerStack.Objects = []fyne.CanvasObject{content}
-		m.centerStack.Refresh()
+		fyne.Do(func() {
+			m.centerStack.Objects = []fyne.CanvasObject{content}
+			m.centerStack.Refresh()
+		})
 	}
 }
 

@@ -576,6 +576,36 @@ func (s *PlannerViewSuite) TestNoPlanPlaceholderLabelInWidgetTree() {
 		"Found label text should match PlaceholderText()")
 }
 
+// --- Bug 073: SetOnNext / SetOnBack callback wiring ---
+
+func (s *PlannerViewSuite) TestSetOnNextInvokesCallbackOnTap() {
+	s.setupStepDefaults(presenter.StepTaskSelect)
+
+	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
+
+	called := false
+	view.SetOnNext(func() { called = true })
+
+	view.NextButton().OnTapped()
+
+	s.True(called,
+		"SetOnNext callback should be invoked when NextButton is tapped")
+}
+
+func (s *PlannerViewSuite) TestSetOnBackInvokesCallbackOnTap() {
+	s.setupStepDefaults(presenter.StepTaskSelect)
+
+	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
+
+	called := false
+	view.SetOnBack(func() { called = true })
+
+	view.BackButton().OnTapped()
+
+	s.True(called,
+		"SetOnBack callback should be invoked when BackButton is tapped")
+}
+
 func (s *PlannerViewSuite) TestContainerHasHorizontalSplit() {
 	s.setupIdleDefaults()
 

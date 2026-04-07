@@ -3,6 +3,7 @@ package orchestrator_test
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -20,6 +21,8 @@ import (
 
 // mockQueueRepo implements repository.QueueRepository for testing.
 type mockQueueRepo struct {
+	mu            sync.Mutex
+	enqueued      []uuid.UUID
 	dequeueEntry  *repository.QueueEntry
 	dequeueErr    error
 	dequeueFunc   func() (*repository.QueueEntry, error)
@@ -29,8 +32,25 @@ type mockQueueRepo struct {
 	markFailedErr error
 }
 
-func (m *mockQueueRepo) Enqueue(_ context.Context, _ uuid.UUID) error {
+func (m *mockQueueRepo) Enqueue(_ context.Context, id uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.enqueued = append(m.enqueued, id)
 	return nil
+}
+
+func (m *mockQueueRepo) enqueuedCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.enqueued)
+}
+
+func (m *mockQueueRepo) enqueuedIDs() []uuid.UUID {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cp := make([]uuid.UUID, len(m.enqueued))
+	copy(cp, m.enqueued)
+	return cp
 }
 
 func (m *mockQueueRepo) DequeueOldest(_ context.Context) (*repository.QueueEntry, error) {

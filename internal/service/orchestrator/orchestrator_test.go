@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -45,14 +46,16 @@ func (w *mockWatcher) pollCount() int {
 
 // mockRepo implements repository.MessageRepository for testing.
 type mockRepo struct {
-	mu        sync.Mutex
-	inserted  []*repository.Message
-	insertErr map[string]error // keyed by message ID string, allows selective failures
+	mu             sync.Mutex
+	inserted       []*repository.Message
+	insertErr      map[string]error // keyed by message ID string, allows selective failures
+	existingMsgIDs map[string]bool  // messageIDs that "already exist" in the DB
 }
 
 func newMockRepo() *mockRepo {
 	return &mockRepo{
-		insertErr: make(map[string]error),
+		insertErr:      make(map[string]error),
+		existingMsgIDs: make(map[string]bool),
 	}
 }
 
@@ -90,8 +93,10 @@ func (r *mockRepo) CountBySource(_ context.Context, _ string) (int, error) {
 	return 0, nil
 }
 
-func (r *mockRepo) ExistsByMessageID(_ context.Context, _ string) (bool, error) {
-	return false, nil
+func (r *mockRepo) ExistsByMessageID(_ context.Context, messageID string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.existingMsgIDs[messageID], nil
 }
 
 func (r *mockRepo) insertedCount() int {
@@ -329,9 +334,363 @@ func (s *OrchestratorSuite) TestWatcherErrorDoesNotCrash() {
 	s.Equal(0, repo.insertedCount())
 }
 
-// TODO(087): TestStoreErrorDoesNotAbortBatch and TestStoreErrorEmitsErrorEvent
-// will be restored in Behavior 4 when PollOnce has the full pipeline.
-// PollOnce is currently a stub that only polls + emits fetch events.
+// ---------------------------------------------------------------------------
+// PollOnce Pipeline: Dedup → Rules → Queue
+// ---------------------------------------------------------------------------
+
+func (s *OrchestratorSuite) TestPollOnceDeduplicatesMessages() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	msgs := makeMessages("slack", 3)
+	// Mark the second message as already existing in the DB
+	duplicateMessageID := msgs[1].MessageID
+	watcher := &mockWatcher{messages: msgs}
+	repo := newMockRepo()
+	repo.existingMsgIDs[duplicateMessageID] = true
+	watchers := map[string]orchestrator.Watcher{"slack": watcher}
+
+	orch := mustNewOrchestrator(repo, watchers, eventCh)
+
+	orch.PollOnce(context.Background())
+
+	// Only 2 of 3 messages should be inserted (the duplicate is skipped)
+	s.Equal(2, repo.insertedCount(), "duplicate message should be skipped")
+	// Verify the duplicate was NOT inserted
+	for _, inserted := range repo.inserted {
+		s.NotEqual(duplicateMessageID, inserted.MessageID, "duplicate should not appear in inserted messages")
+	}
+}
+
+func (s *OrchestratorSuite) TestPollOnceRulesNotifiedSetsScores() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	msgs := []*repository.Message{
+		{
+			ID:         uuid.New(),
+			Source:     "slack",
+			Channel:    "important-alerts",
+			Sender:     "user-1",
+			MessageID:  "slack-notified-1",
+			RawContent: "server is down",
+			Status:     "Pending",
+		},
+	}
+	watcher := &mockWatcher{messages: msgs}
+	repo := newMockRepo()
+	queueRepo := &mockQueueRepo{}
+
+	rules := decisionengine.NewRulesEngine([]*repository.RoutingRule{
+		{
+			ID:       uuid.New(),
+			Priority: 1,
+			Source:   "slack",
+			Field:    "channel",
+			Pattern:  "important-.*",
+			Action:   "notified",
+			Enabled:  true,
+		},
+	})
+
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+	alerter := &mockAlerter{}
+	orch, err := orchestrator.NewOrchestrator(cfg, rules, queueRepo, repo, map[string]orchestrator.Watcher{"slack": watcher}, eventCh, alerter)
+	s.Require().NoError(err)
+
+	orch.PollOnce(context.Background())
+
+	// Message should be inserted with notified scores
+	s.Require().Equal(1, repo.insertedCount())
+	inserted := repo.inserted[0]
+	s.Equal(8.0, inserted.ImportanceScore, "notified rule should set IS=8.0")
+	s.Equal(1.0, inserted.ConfidenceScore, "notified rule should set CS=1.0")
+	s.Equal("Notified", inserted.Status)
+	s.NotEmpty(inserted.Reasoning, "reasoning should include rule info")
+
+	// Notified messages should NOT be enqueued
+	s.Equal(0, queueRepo.enqueuedCount(), "notified messages should not be enqueued")
+}
+
+func (s *OrchestratorSuite) TestPollOnceRulesIgnoredSetsScores() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	msgs := []*repository.Message{
+		{
+			ID:         uuid.New(),
+			Source:     "slack",
+			Channel:    "noise-bots",
+			Sender:     "bot-1",
+			MessageID:  "slack-ignored-1",
+			RawContent: "automated noise",
+			Status:     "Pending",
+		},
+	}
+	watcher := &mockWatcher{messages: msgs}
+	repo := newMockRepo()
+	queueRepo := &mockQueueRepo{}
+
+	rules := decisionengine.NewRulesEngine([]*repository.RoutingRule{
+		{
+			ID:       uuid.New(),
+			Priority: 1,
+			Source:   "slack",
+			Field:    "channel",
+			Pattern:  "noise-.*",
+			Action:   "ignored",
+			Enabled:  true,
+		},
+	})
+
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+	orch, err := orchestrator.NewOrchestrator(cfg, rules, queueRepo, repo, map[string]orchestrator.Watcher{"slack": watcher}, eventCh, nil)
+	s.Require().NoError(err)
+
+	orch.PollOnce(context.Background())
+
+	// Message should be inserted with ignored scores
+	s.Require().Equal(1, repo.insertedCount())
+	inserted := repo.inserted[0]
+	s.Equal(0.0, inserted.ImportanceScore, "ignored rule should set IS=0.0")
+	s.Equal(1.0, inserted.ConfidenceScore, "ignored rule should set CS=1.0")
+	s.Equal("Ignored", inserted.Status)
+	s.NotEmpty(inserted.Reasoning)
+
+	// Ignored messages should NOT be enqueued
+	s.Equal(0, queueRepo.enqueuedCount(), "ignored messages should not be enqueued")
+}
+
+func (s *OrchestratorSuite) TestPollOnceUnmatchedEnqueued() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	msgs := makeMessages("slack", 2)
+	watcher := &mockWatcher{messages: msgs}
+	repo := newMockRepo()
+	queueRepo := &mockQueueRepo{}
+
+	// No rules → all messages get "queue" action
+	rules := decisionengine.NewRulesEngine(nil)
+
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+	orch, err := orchestrator.NewOrchestrator(cfg, rules, queueRepo, repo, map[string]orchestrator.Watcher{"slack": watcher}, eventCh, nil)
+	s.Require().NoError(err)
+
+	orch.PollOnce(context.Background())
+
+	// Both messages should be inserted with Pending status
+	s.Require().Equal(2, repo.insertedCount())
+	for _, inserted := range repo.inserted {
+		s.Equal("Pending", inserted.Status, "unmatched messages should have Pending status")
+		s.Equal(0.0, inserted.ImportanceScore, "unmatched messages should have IS=0")
+		s.Equal(0.0, inserted.ConfidenceScore, "unmatched messages should have CS=0")
+	}
+
+	// Both should be enqueued for Ollama scoring
+	s.Equal(2, queueRepo.enqueuedCount(), "unmatched messages should be enqueued")
+}
+
+func (s *OrchestratorSuite) TestPollOnceAlertOnNotified() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	msgs := []*repository.Message{
+		{
+			ID:         uuid.New(),
+			Source:     "slack",
+			Channel:    "critical-alerts",
+			Sender:     "user-1",
+			MessageID:  "slack-alert-1",
+			RawContent: "server outage",
+			Status:     "Pending",
+		},
+	}
+	watcher := &mockWatcher{messages: msgs}
+	repo := newMockRepo()
+	queueRepo := &mockQueueRepo{}
+	alerter := &mockAlerter{}
+
+	rules := decisionengine.NewRulesEngine([]*repository.RoutingRule{
+		{
+			ID:       uuid.New(),
+			Priority: 1,
+			Source:   "slack",
+			Field:    "channel",
+			Pattern:  "critical-.*",
+			Action:   "notified",
+			Enabled:  true,
+		},
+	})
+
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+	orch, err := orchestrator.NewOrchestrator(cfg, rules, queueRepo, repo, map[string]orchestrator.Watcher{"slack": watcher}, eventCh, alerter)
+	s.Require().NoError(err)
+
+	orch.PollOnce(context.Background())
+
+	s.Equal(1, alerter.alertCalls(), "alert should fire when a message is notified")
+}
+
+func (s *OrchestratorSuite) TestPollOnceNoAlertOnIgnoredOnly() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	msgs := []*repository.Message{
+		{
+			ID:         uuid.New(),
+			Source:     "slack",
+			Channel:    "spam-channel",
+			Sender:     "bot-1",
+			MessageID:  "slack-spam-1",
+			RawContent: "spam message",
+			Status:     "Pending",
+		},
+	}
+	watcher := &mockWatcher{messages: msgs}
+	repo := newMockRepo()
+	queueRepo := &mockQueueRepo{}
+	alerter := &mockAlerter{}
+
+	rules := decisionengine.NewRulesEngine([]*repository.RoutingRule{
+		{
+			ID:       uuid.New(),
+			Priority: 1,
+			Source:   "slack",
+			Field:    "channel",
+			Pattern:  "spam-.*",
+			Action:   "ignored",
+			Enabled:  true,
+		},
+	})
+
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+	orch, err := orchestrator.NewOrchestrator(cfg, rules, queueRepo, repo, map[string]orchestrator.Watcher{"slack": watcher}, eventCh, alerter)
+	s.Require().NoError(err)
+
+	orch.PollOnce(context.Background())
+
+	// Message must have been processed (inserted with Ignored status) for this test to be meaningful
+	s.Require().Equal(1, repo.insertedCount(), "message should be inserted even when ignored")
+	s.Equal("Ignored", repo.inserted[0].Status)
+	s.Equal(0, alerter.alertCalls(), "no alert should fire when all messages are ignored")
+}
+
+func (s *OrchestratorSuite) TestPollOnceStoreErrorContinues() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	msgs := makeMessages("slack", 3)
+	// Make the second message fail on Insert
+	msgs[1].ID = uuid.New() // ensure unique
+	failID := msgs[1].ID
+	watcher := &mockWatcher{messages: msgs}
+	repo := newMockRepo()
+	repo.insertErr[failID.String()] = fmt.Errorf("disk full")
+	watchers := map[string]orchestrator.Watcher{"slack": watcher}
+
+	orch := mustNewOrchestrator(repo, watchers, eventCh)
+
+	orch.PollOnce(context.Background())
+
+	// Despite one insert failure, the other 2 messages should be inserted
+	s.Equal(2, repo.insertedCount(), "store error should not abort batch processing")
+
+	// Should emit an error event for the failed insert
+	events := drainEvents(eventCh, 10, 2*time.Second)
+	hasErrorEvent := false
+	for _, ev := range events {
+		if ev.IsError {
+			hasErrorEvent = true
+			break
+		}
+	}
+	s.True(hasErrorEvent, "should emit error event for failed insert")
+}
+
+func (s *OrchestratorSuite) TestPollOnceEmitsRulesSummaryEvent() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	// Create 3 messages: one will be notified, one ignored, one queued
+	msgs := []*repository.Message{
+		{
+			ID:         uuid.New(),
+			Source:     "slack",
+			Channel:    "critical-ops",
+			Sender:     "user-1",
+			MessageID:  "slack-summary-1",
+			RawContent: "alert message",
+			Status:     "Pending",
+		},
+		{
+			ID:         uuid.New(),
+			Source:     "slack",
+			Channel:    "noise-bots",
+			Sender:     "bot-1",
+			MessageID:  "slack-summary-2",
+			RawContent: "bot noise",
+			Status:     "Pending",
+		},
+		{
+			ID:         uuid.New(),
+			Source:     "slack",
+			Channel:    "general",
+			Sender:     "user-2",
+			MessageID:  "slack-summary-3",
+			RawContent: "hello world",
+			Status:     "Pending",
+		},
+	}
+	watcher := &mockWatcher{messages: msgs}
+	repo := newMockRepo()
+	queueRepo := &mockQueueRepo{}
+
+	rules := decisionengine.NewRulesEngine([]*repository.RoutingRule{
+		{
+			ID:       uuid.New(),
+			Priority: 1,
+			Source:   "slack",
+			Field:    "channel",
+			Pattern:  "critical-.*",
+			Action:   "notified",
+			Enabled:  true,
+		},
+		{
+			ID:       uuid.New(),
+			Priority: 2,
+			Source:   "slack",
+			Field:    "channel",
+			Pattern:  "noise-.*",
+			Action:   "ignored",
+			Enabled:  true,
+		},
+	})
+
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+	alerter := &mockAlerter{}
+	orch, err := orchestrator.NewOrchestrator(cfg, rules, queueRepo, repo, map[string]orchestrator.Watcher{"slack": watcher}, eventCh, alerter)
+	s.Require().NoError(err)
+
+	orch.PollOnce(context.Background())
+
+	// Drain all events and look for the rules summary
+	events := drainEvents(eventCh, 10, 2*time.Second)
+	hasSummary := false
+	for _, ev := range events {
+		if !ev.IsError {
+			// Look for a summary event containing notified/ignored/queued counts
+			if containsAll(ev.Message, "1 notified", "1 ignored", "1 queued") {
+				hasSummary = true
+				break
+			}
+		}
+	}
+	s.True(hasSummary, "should emit a rules summary event with notified/ignored/queued counts, got events: %v", eventMessages(events))
+}
+
+// containsAll returns true if s contains all the given substrings.
+func containsAll(s string, substrs ...string) bool {
+	for _, sub := range substrs {
+		if !strings.Contains(s, sub) {
+			return false
+		}
+	}
+	return true
+}
+
+// eventMessages extracts message strings from events for debug output.
+func eventMessages(events []orchestrator.ActivityEvent) []string {
+	msgs := make([]string, len(events))
+	for i, ev := range events {
+		msgs[i] = ev.Message
+	}
+	return msgs
+}
 
 // ---------------------------------------------------------------------------
 // Multiple Watchers
@@ -432,10 +791,7 @@ func (s *OrchestratorSuite) TestImmediateFirstPoll() {
 // Alert Integration
 // ---------------------------------------------------------------------------
 
-// TODO(087): Alert integration tests (TestPollCycleTriggersAlertOnNotified,
-// TestPollCycleNoAlertOnBufferedOnly, TestPollCycleAlertErrorNonFatal,
-// TestPollCycleNilAlerterSafe) will be restored in Behavior 4 when
-// PollOnce has the full dedup→rules→queue pipeline with alert triggering.
+// Alert integration tests restored below in "PollOnce Pipeline" section.
 
 // ---------------------------------------------------------------------------
 // Dynamic Watcher Management (Feature 034)

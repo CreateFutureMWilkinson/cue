@@ -223,10 +223,24 @@ func NewSettingsView(
 			volumeLabel.SetText(fmt.Sprintf("Notification Volume: %d%%", vol))
 		},
 	}
+	timerVolumeLabel := widget.NewLabel(fmt.Sprintf("Timer Volume: %d%%", sp.TimerVolume()))
+	timerVolumeSlider := &widget.Slider{
+		Min:   0,
+		Max:   100,
+		Step:  1,
+		Value: float64(sp.TimerVolume()),
+		OnChanged: func(v float64) {
+			vol := int(v)
+			sp.SetTimerVolume(vol)
+			timerVolumeLabel.SetText(fmt.Sprintf("Timer Volume: %d%%", vol))
+		},
+	}
 	audioContent := container.NewVBox(
 		widget.NewLabel("Audio Settings"),
 		volumeLabel,
 		volumeSlider,
+		timerVolumeLabel,
+		timerVolumeSlider,
 	)
 	audioTab := container.NewTabItem("Audio", audioContent)
 	ollamaContent := container.NewVBox(

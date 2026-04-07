@@ -68,7 +68,7 @@ func (c *IMAPClient) FetchNewMessages(ctx context.Context, lastUID uint32) ([]Em
 		}
 		imapClient = imapclient.New(tlsConn, nil)
 		if err := imapClient.WaitGreeting(); err != nil {
-			imapClient.Close()
+			imapClient.Close() // #nosec G104 -- best-effort cleanup; the greeting error is the actionable one
 			return nil, fmt.Errorf("waiting for IMAP greeting: %w", err)
 		}
 	case "starttls":
@@ -93,7 +93,7 @@ func (c *IMAPClient) FetchNewMessages(ctx context.Context, lastUID uint32) ([]Em
 		}
 		imapClient = imapclient.New(plainConn, nil)
 		if err := imapClient.WaitGreeting(); err != nil {
-			imapClient.Close()
+			imapClient.Close() // #nosec G104 -- best-effort cleanup; the greeting error is the actionable one
 			return nil, fmt.Errorf("waiting for IMAP greeting: %w", err)
 		}
 	}

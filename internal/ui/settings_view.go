@@ -40,6 +40,7 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 	encryptionSelect.SetSelected("SSL/TLS (Recommended)")
 	pollEntry := widget.NewEntry()
 	pollEntry.SetPlaceHolder("Poll Interval (seconds)")
+	pollEntry.SetText(strconv.Itoa(presenter.DefaultPollInterval("email")))
 
 	errorLabel := widget.NewLabel("")
 	errorLabel.Hide()
@@ -120,6 +121,7 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 	usernameEntry.SetPlaceHolder("Your Slack Username (@handle)")
 	pollEntry := widget.NewEntry()
 	pollEntry.SetPlaceHolder("Poll Interval (seconds)")
+	pollEntry.SetText(strconv.Itoa(presenter.DefaultPollInterval("slack")))
 
 	errorLabel := widget.NewLabel("")
 	errorLabel.Hide()
@@ -180,6 +182,7 @@ func createCalendarAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved 
 	urlEntry.SetPlaceHolder("ICS Calendar URL")
 	pollEntry := widget.NewEntry()
 	pollEntry.SetPlaceHolder("Poll Interval (seconds)")
+	pollEntry.SetText(strconv.Itoa(presenter.DefaultPollInterval("calendar")))
 
 	errorLabel := widget.NewLabel("")
 	errorLabel.Hide()

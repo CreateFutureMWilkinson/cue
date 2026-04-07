@@ -336,5 +336,14 @@ func validateEmailAccount(acct *repository.EmailAccount) error {
 
 // DefaultPollInterval returns the default poll interval in seconds for the given service type.
 func DefaultPollInterval(serviceType string) int {
-	return 0
+	switch serviceType {
+	case "slack":
+		return DefaultSlackPollInterval
+	case "email":
+		return DefaultEmailPollInterval
+	case "calendar":
+		return DefaultCalendarPollInterval
+	default:
+		return DefaultEmailPollInterval
+	}
 }

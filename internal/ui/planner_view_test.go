@@ -484,6 +484,20 @@ func (s *PlannerViewSuite) TestPlanButtonNavigatesToWizard() {
 		"Tapping Plan My Day should navigate to ViewWizard via the router")
 }
 
+func (s *PlannerViewSuite) TestPlanButtonInvokesOnPlanMyDayCallback() {
+	s.setupIdleDefaults()
+
+	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
+
+	called := false
+	view.SetOnPlanMyDay(func() { called = true })
+
+	view.PlanButton().OnTapped()
+
+	s.True(called,
+		"Tapping Plan My Day should invoke the onPlanMyDay callback")
+}
+
 // --- New Tests: Active Plan State ---
 
 func (s *PlannerViewSuite) TestActivePlanShowsScheduleTree() {

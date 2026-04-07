@@ -322,6 +322,43 @@ func (s *OllamaClientSuite) TestScore_ResponseWithMarkdownWrapping_ExtractsJSON(
 
 // --- Prompt requests JSON format ---
 
+// --- Generate method ---
+
+func (s *OllamaClientSuite) TestGenerateReturnsResponseText() {
+	expectedText := "The estimated time for this task is 45 minutes."
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.Equal("POST", r.Method)
+		s.Equal("/api/generate", r.URL.Path)
+
+		body, _ := io.ReadAll(r.Body)
+		var receivedBody map[string]any
+		json.Unmarshal(body, &receivedBody)
+
+		// Verify the prompt is forwarded as-is
+		s.Equal("Estimate how long this task takes: write unit tests", receivedBody["prompt"])
+		// Verify model is set
+		s.Equal("neural-chat", receivedBody["model"])
+		// Verify streaming is disabled
+		s.Equal(false, receivedBody["stream"])
+
+		resp := map[string]any{
+			"response": expectedText,
+			"done":     true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client, err := decisionengine.NewOllamaClient(server.URL, "neural-chat", 10*time.Second)
+	s.Require().NoError(err)
+
+	result, err := client.Generate(context.Background(), "Estimate how long this task takes: write unit tests")
+	s.NoError(err)
+	s.Equal(expectedText, result)
+}
+
 func (s *OllamaClientSuite) TestScore_PromptRequestsJSONFormat() {
 	var receivedBody map[string]any
 

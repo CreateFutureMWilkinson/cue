@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,9 @@ import (
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 )
+
+// ErrNotImplemented is returned by stub methods that have not yet been implemented.
+var ErrNotImplemented = errors.New("not implemented")
 
 // Ollama API constants
 const (
@@ -141,6 +145,11 @@ func (c *OllamaClient) Score(ctx context.Context, msg *repository.Message) (*Sco
 // buildPrompt constructs the LLM prompt from the message fields.
 func buildPrompt(msg *repository.Message) string {
 	return fmt.Sprintf(promptTemplate, msg.Source, msg.Sender, msg.Channel, msg.RawContent)
+}
+
+// Generate sends a raw prompt to Ollama and returns the response text.
+func (c *OllamaClient) Generate(ctx context.Context, prompt string) (string, error) {
+	return "", ErrNotImplemented
 }
 
 // extractJSON strips markdown code block wrapping if present.

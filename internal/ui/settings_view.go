@@ -159,6 +159,38 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 	)
 }
 
+// createCalendarAccountForm creates the form UI for adding a new calendar account.
+// onSaved is called after a successful save to restore the account list view.
+func createCalendarAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved func()) *fyne.Container {
+	nameEntry := widget.NewEntry()
+	nameEntry.SetPlaceHolder("Account Name")
+	urlEntry := widget.NewEntry()
+	urlEntry.SetPlaceHolder("ICS Calendar URL")
+	pollEntry := widget.NewEntry()
+	pollEntry.SetPlaceHolder("Poll Interval (seconds)")
+
+	errorLabel := widget.NewLabel("")
+	errorLabel.Hide()
+
+	saveBtn := widget.NewButton("Save", nil)
+	cancelBtn := widget.NewButton("Cancel", func() {
+		onSaved()
+	})
+
+	saveBtn.OnTapped = func() {
+		// Validation and save logic will be added in a later micro-loop
+	}
+
+	return container.NewVBox(
+		widget.NewLabel("Add Calendar Account"),
+		nameEntry,
+		urlEntry,
+		pollEntry,
+		errorLabel,
+		container.NewHBox(saveBtn, cancelBtn),
+	)
+}
+
 // NewSettingsView creates a SettingsView with tabs for Slack, Email, Calendar, Audio, and Ollama.
 // The onClose callback is invoked when the user taps the Done button to exit settings.
 func NewSettingsView(
@@ -210,7 +242,26 @@ func NewSettingsView(
 			emailTab.Content = buildEmailListContent()
 		})
 	}
-	calendarTab := newAccountTab("Calendar", func() {})
+	// Calendar tab with dynamic content switching between account list and add form
+	calendarAccountList := container.NewVBox()
+	calendarAddBtn := widget.NewButton("Add Account", nil)
+
+	buildCalendarListContent := func() fyne.CanvasObject {
+		return container.NewBorder(
+			widget.NewLabel("Calendar Accounts"),
+			calendarAddBtn,
+			nil, nil,
+			container.NewVScroll(calendarAccountList),
+		)
+	}
+
+	calendarTab := container.NewTabItem("Calendar", buildCalendarListContent())
+
+	calendarAddBtn.OnTapped = func() {
+		calendarTab.Content = createCalendarAccountForm(ssp, func() {
+			calendarTab.Content = buildCalendarListContent()
+		})
+	}
 	volumeLabel := widget.NewLabel(fmt.Sprintf("Notification Volume: %d%%", sp.Volume()))
 	volumeSlider := &widget.Slider{
 		Min:   0,

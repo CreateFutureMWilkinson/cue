@@ -30,7 +30,17 @@ func NewUATPanel(onCharChanged func(character.Character)) *UATPanel {
 	}
 
 	names := character.Available()
-	p.characterSelect = widget.NewSelect(names, func(_ string) {})
+	p.characterSelect = widget.NewSelect(names, func(name string) {
+		ch, err := character.Create(name)
+		if err != nil {
+			return
+		}
+		p.currentChar = ch
+		if p.onCharChanged != nil {
+			p.onCharChanged(ch)
+		}
+		p.charLabel.SetText("Character: " + name)
+	})
 
 	stateNames := []string{"Idle", "Starting", "Working", "Notifying", "Error", "Shutdown"}
 	p.stateButtons = make([]*widget.Button, len(stateNames))
@@ -64,5 +74,5 @@ func (p *UATPanel) Container() fyne.CanvasObject {
 
 // CharacterLabel returns the text of the character diagnostic label.
 func (p *UATPanel) CharacterLabel() string {
-	return ""
+	return p.charLabel.Text
 }

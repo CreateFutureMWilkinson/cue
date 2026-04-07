@@ -68,6 +68,7 @@ type ollamaRequest struct {
 	Model  string `json:"model"`
 	Prompt string `json:"prompt"`
 	Stream bool   `json:"stream"`
+	Format string `json:"format,omitempty"`
 }
 
 // ollamaResponse is the outer JSON response from Ollama.
@@ -83,11 +84,12 @@ type scorerResponse struct {
 }
 
 // sendRequest sends a prompt to Ollama and returns the response field from the JSON.
-func (c *OllamaClient) sendRequest(ctx context.Context, prompt string) (string, error) {
+func (c *OllamaClient) sendRequest(ctx context.Context, prompt string, format string) (string, error) {
 	reqBody := ollamaRequest{
 		Model:  c.model,
 		Prompt: prompt,
 		Stream: false,
+		Format: format,
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
@@ -129,7 +131,7 @@ func (c *OllamaClient) sendRequest(ctx context.Context, prompt string) (string, 
 func (c *OllamaClient) Score(ctx context.Context, msg *repository.Message) (*ScorerResult, error) {
 	prompt := buildPrompt(msg)
 
-	response, err := c.sendRequest(ctx, prompt)
+	response, err := c.sendRequest(ctx, prompt, "json")
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +157,7 @@ func buildPrompt(msg *repository.Message) string {
 
 // Generate sends a raw prompt to Ollama and returns the response text.
 func (c *OllamaClient) Generate(ctx context.Context, prompt string) (string, error) {
-	return c.sendRequest(ctx, prompt)
+	return c.sendRequest(ctx, prompt, "")
 }
 
 // extractJSON strips markdown code block wrapping if present.

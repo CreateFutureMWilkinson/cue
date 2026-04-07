@@ -3,7 +3,6 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
@@ -16,8 +15,7 @@ type EmailWatcherConfig struct {
 }
 
 const (
-	SourceEmail        = "email"
-	MessageTypeMention = "mention"
+	SourceEmail = "email"
 )
 
 // EmailMessage represents an email fetched from IMAP.
@@ -82,11 +80,6 @@ func (w *EmailWatcher) Poll(ctx context.Context) ([]*repository.Message, error) 
 }
 
 func (w *EmailWatcher) convertEmailMessage(email EmailMessage) *repository.Message {
-	msgType := MessageTypeMsg
-	if w.isMentioned(email) {
-		msgType = MessageTypeMention
-	}
-
 	content := email.Subject + "\n" + email.Body
 
 	return &repository.Message{
@@ -96,27 +89,11 @@ func (w *EmailWatcher) convertEmailMessage(email EmailMessage) *repository.Messa
 		Channel:       email.Folder,
 		Sender:        email.From,
 		MessageID:     email.MessageID,
-		MessageType:   msgType,
+		MessageType:   MessageTypeMsg,
 		RawContent:    content,
 		Status:        StatusPending,
 		CreatedAt:     time.Now(),
 	}
-}
-
-func (w *EmailWatcher) isMentioned(email EmailMessage) bool {
-	lower := strings.ToLower(w.username)
-	return containsAddress(email.To, lower) ||
-		containsAddress(email.CC, lower) ||
-		containsAddress(email.BCC, lower)
-}
-
-func containsAddress(addrs []string, target string) bool {
-	for _, addr := range addrs {
-		if strings.ToLower(addr) == target {
-			return true
-		}
-	}
-	return false
 }
 
 // updateLastUID advances the high-water mark if uid is newer.

@@ -46,7 +46,9 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 	errorLabel.Hide()
 
 	saveBtn := widget.NewButton("Save", nil)
-	cancelBtn := widget.NewButton("Cancel", func() {})
+	cancelBtn := widget.NewButton("Cancel", func() {
+		onSaved()
+	})
 
 	saveBtn.OnTapped = func() {
 		if hostEntry.Text == "" || portEntry.Text == "" || userEntry.Text == "" || passEntry.Text == "" || pollEntry.Text == "" {

@@ -122,9 +122,9 @@ func (s *EmailWatcherSuite) TestPoll_MessageFieldsPopulated() {
 	s.False(msg.CreatedAt.IsZero())
 }
 
-// --- Poll: @mention detection ---
+// --- Poll: emails always use "message" type (mentions are Slack-only) ---
 
-func (s *EmailWatcherSuite) TestPoll_DetectsMentionInTo() {
+func (s *EmailWatcherSuite) TestPoll_UserInTo_MessageTypeIsMessage() {
 	api := &mockEmailAPI{
 		messages: []watcher.EmailMessage{
 			{UID: 1, From: "alice@example.com", Subject: "Hi", Folder: "INBOX", Body: "content", To: []string{"user@example.com"}},
@@ -135,10 +135,10 @@ func (s *EmailWatcherSuite) TestPoll_DetectsMentionInTo() {
 	msgs, err := w.Poll(context.Background())
 	s.NoError(err)
 	s.Require().Len(msgs, 1)
-	s.Equal("mention", msgs[0].MessageType)
+	s.Equal("message", msgs[0].MessageType)
 }
 
-func (s *EmailWatcherSuite) TestPoll_DetectsMentionInCC() {
+func (s *EmailWatcherSuite) TestPoll_UserInCC_MessageTypeIsMessage() {
 	api := &mockEmailAPI{
 		messages: []watcher.EmailMessage{
 			{UID: 1, From: "alice@example.com", Subject: "FYI", Folder: "INBOX", Body: "content", To: []string{"other@example.com"}, CC: []string{"user@example.com"}},
@@ -149,10 +149,10 @@ func (s *EmailWatcherSuite) TestPoll_DetectsMentionInCC() {
 	msgs, err := w.Poll(context.Background())
 	s.NoError(err)
 	s.Require().Len(msgs, 1)
-	s.Equal("mention", msgs[0].MessageType)
+	s.Equal("message", msgs[0].MessageType)
 }
 
-func (s *EmailWatcherSuite) TestPoll_DetectsMentionInBCC() {
+func (s *EmailWatcherSuite) TestPoll_UserInBCC_MessageTypeIsMessage() {
 	api := &mockEmailAPI{
 		messages: []watcher.EmailMessage{
 			{UID: 1, From: "alice@example.com", Subject: "Secret", Folder: "INBOX", Body: "content", To: []string{"other@example.com"}, BCC: []string{"user@example.com"}},
@@ -163,10 +163,10 @@ func (s *EmailWatcherSuite) TestPoll_DetectsMentionInBCC() {
 	msgs, err := w.Poll(context.Background())
 	s.NoError(err)
 	s.Require().Len(msgs, 1)
-	s.Equal("mention", msgs[0].MessageType)
+	s.Equal("message", msgs[0].MessageType)
 }
 
-func (s *EmailWatcherSuite) TestPoll_NoMentionWhenUserNotInRecipients() {
+func (s *EmailWatcherSuite) TestPoll_UserNotInRecipients_MessageTypeIsMessage() {
 	api := &mockEmailAPI{
 		messages: []watcher.EmailMessage{
 			{UID: 1, From: "alice@example.com", Subject: "Other", Folder: "INBOX", Body: "content", To: []string{"other@example.com"}, CC: []string{"another@example.com"}},
@@ -178,20 +178,6 @@ func (s *EmailWatcherSuite) TestPoll_NoMentionWhenUserNotInRecipients() {
 	s.NoError(err)
 	s.Require().Len(msgs, 1)
 	s.Equal("message", msgs[0].MessageType)
-}
-
-func (s *EmailWatcherSuite) TestPoll_MentionDetectionIsCaseInsensitive() {
-	api := &mockEmailAPI{
-		messages: []watcher.EmailMessage{
-			{UID: 1, From: "alice@example.com", Subject: "Hi", Folder: "INBOX", Body: "content", To: []string{"User@Example.COM"}},
-		},
-	}
-
-	w := s.mustNewWatcher(api, "user@example.com")
-	msgs, err := w.Poll(context.Background())
-	s.NoError(err)
-	s.Require().Len(msgs, 1)
-	s.Equal("mention", msgs[0].MessageType)
 }
 
 // --- Poll: content includes subject and body ---

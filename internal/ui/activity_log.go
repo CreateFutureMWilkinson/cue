@@ -43,7 +43,9 @@ func newActivityLog(ap *presenter.ActivityPresenter) *widget.List {
 	)
 
 	ap.SetOnUpdate(func() {
-		list.Refresh()
+		fyne.Do(func() {
+			list.Refresh()
+		})
 	})
 
 	return list

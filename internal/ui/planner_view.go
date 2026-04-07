@@ -157,6 +157,18 @@ func (v *PlannerView) ScheduleTree() *ScheduleTree {
 	return v.scheduleTree
 }
 
+// SetOnNext sets the callback invoked when the "Next" button is tapped.
+func (v *PlannerView) SetOnNext(_ func()) {}
+
+// SetOnBack sets the callback invoked when the "Back" button is tapped.
+func (v *PlannerView) SetOnBack(_ func()) {}
+
+// SetOnCompleteTask sets the callback invoked when the "Complete Task" button is tapped.
+func (v *PlannerView) SetOnCompleteTask(_ func()) {}
+
+// SetOnAbandonPlan sets the callback invoked when the "Abandon Plan" button is tapped.
+func (v *PlannerView) SetOnAbandonPlan(_ func()) {}
+
 // SetPlannerModel replaces the planner view model and updates button visibility.
 func (v *PlannerView) SetPlannerModel(model PlannerViewModel) {
 	v.plannerModel = model

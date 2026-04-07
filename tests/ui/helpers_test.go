@@ -144,9 +144,10 @@ type stubPlannerTimerVM struct {
 	hasActivePlan  bool
 	activeSchedule *presenter.ActiveScheduleState
 	tasks          []presenter.TodoRow
+	step           presenter.WizardStep
 }
 
-func (s *stubPlannerTimerVM) CurrentStep() presenter.WizardStep      { return presenter.StepIdle }
+func (s *stubPlannerTimerVM) CurrentStep() presenter.WizardStep      { return s.step }
 func (s *stubPlannerTimerVM) HasActivePlan() bool                    { return s.hasActivePlan }
 func (s *stubPlannerTimerVM) AvailableTasks() []presenter.TodoRow    { return s.tasks }
 func (s *stubPlannerTimerVM) Estimates() []presenter.TaskEstimateRow { return nil }

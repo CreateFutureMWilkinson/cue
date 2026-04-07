@@ -52,6 +52,7 @@ func main() {
 		},
 		Commands: []*cli.Command{
 			configCommand(),
+			uatCommand(),
 		},
 	}
 	if err := app.Run(context.Background(), os.Args); err != nil {

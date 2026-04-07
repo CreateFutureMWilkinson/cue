@@ -328,6 +328,8 @@ func (v *WizardView) renderContainer() {
 		v.renderStep2()
 	case presenter.StepPriority:
 		v.renderStep3()
+	case presenter.StepSchedule:
+		v.renderStep4()
 	}
 
 	v.container.Refresh()
@@ -393,6 +395,30 @@ func (v *WizardView) renderStep3() {
 	v.container.Objects = append(v.container.Objects,
 		widget.NewButton("Back", func() { v.vm.PreviousStep() }),
 		widget.NewButton("Next", func() { v.vm.NextStep(context.Background()) }),
+	)
+}
+
+// renderStep4 renders the schedule selection step (step 4) widgets into the container.
+func (v *WizardView) renderStep4() {
+	v.container.Objects = append(v.container.Objects, widget.NewLabel(v.stepIndicator))
+
+	if v.focusCardStrategy != "" {
+		strategy := v.focusCardStrategy
+		v.container.Objects = append(v.container.Objects,
+			widget.NewButton("Select "+strategy, func() {
+				v.vm.SelectSchedule(context.Background(), strategy)
+			}))
+	}
+	if v.recoveryCardStrategy != "" {
+		strategy := v.recoveryCardStrategy
+		v.container.Objects = append(v.container.Objects,
+			widget.NewButton("Select "+strategy, func() {
+				v.vm.SelectSchedule(context.Background(), strategy)
+			}))
+	}
+
+	v.container.Objects = append(v.container.Objects,
+		widget.NewButton("Back", func() { v.vm.PreviousStep() }),
 	)
 }
 

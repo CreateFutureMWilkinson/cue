@@ -443,7 +443,13 @@ func (p *PlannerPresenter) LoadExistingPlan(ctx context.Context) error {
 
 // SelectedCount returns the number of tasks with Selected == true.
 func (p *PlannerPresenter) SelectedCount() int {
-	return 0
+	count := 0
+	for _, t := range p.tasks {
+		if t.Selected {
+			count++
+		}
+	}
+	return count
 }
 
 // === Internal Helpers ===

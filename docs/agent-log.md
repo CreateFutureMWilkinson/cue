@@ -481,3 +481,7 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-077 (AppBinder wiring) | RED+GREEN | Test Designer + Implementer | ~60s | ~18,000 | 88c9d5a, d7360cb |
 | Phase-6-Feature-077 (wizard idle state) | RED+GREEN | Test Designer + Implementer | ~40s | ~10,000 | 016be64, 460e498 |
 | Phase-6-Feature-077 (fyne.Do thread safety) | GREEN | Implementer | ~20s | ~5,000 | 18621bf |
+| Phase-6-Feature-078 (UI acceptance tests) | RED | Test Designer | ~3m | ~15,000 | 20f51a3 |
+| Phase-6-Feature-078 (empty state + populate) | RED | Test Designer | ~25s | ~35,000 | 100efbd |
+| Phase-6-Feature-078 (empty state + populate) | GREEN | Implementer | ~5m | ~20,000 | 7881eea |
+| Phase-6-Feature-078 (cleanup) | REFACTOR | Refactorer | ~90s | ~34,000 | fd1ff6a |

@@ -312,6 +312,43 @@ func (s *ThreeColumnLayoutSuite) TestRightPanelOverrideReplacesNotificationPanel
 	s.True(found, "right panel override should appear in the main window content tree")
 }
 
+func (s *ThreeColumnLayoutSuite) TestSetCharacterWidgetSwapsCenterContent() {
+	fyneApp := test.NewApp()
+	router := ui.NewCenterViewRouter()
+	mw := newTestMainWindow(fyneApp, router)
+
+	originalContent := mw.CenterContent()
+	s.NotNil(originalContent)
+
+	newWidget := widget.NewLabel("new character widget")
+	mw.SetCharacterWidget(newWidget)
+
+	updatedContent := mw.CenterContent()
+	s.Equal(newWidget, updatedContent,
+		"SetCharacterWidget should replace the character view content")
+}
+
+func (s *ThreeColumnLayoutSuite) TestSetCharacterWidgetWhileOnPlanDoesNotAffectPlan() {
+	fyneApp := test.NewApp()
+	router := ui.NewCenterViewRouter()
+	mw := newTestMainWindow(fyneApp, router)
+
+	router.NavigateTo(ui.ViewPlan)
+	planContent := mw.CenterContent()
+
+	newWidget := widget.NewLabel("new character widget")
+	mw.SetCharacterWidget(newWidget)
+
+	// Plan view should still be active and unchanged.
+	s.Equal(planContent, mw.CenterContent(),
+		"SetCharacterWidget while on Plan view should not change current center content")
+
+	// Navigate back to character — should show the new widget.
+	router.NavigateTo(ui.ViewCharacter)
+	s.Equal(newWidget, mw.CenterContent(),
+		"After navigating back to character, the new widget should be shown")
+}
+
 // findWidget recursively checks whether target exists in the widget tree rooted at root.
 func findWidget(root fyne.CanvasObject, target fyne.CanvasObject) bool {
 	if root == target {

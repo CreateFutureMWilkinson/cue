@@ -223,6 +223,16 @@ func (m *MainWindow) switchCenterView(view CenterView) {
 	}
 }
 
+// SetCharacterWidget replaces the character content in the center column and
+// refreshes the view if it is currently active.
+func (m *MainWindow) SetCharacterWidget(w fyne.CanvasObject) {
+	m.viewContents[ViewCharacter] = w
+	if m.viewRouter != nil && m.viewRouter.CurrentView() == ViewCharacter {
+		m.centerStack.Objects = []fyne.CanvasObject{w}
+		m.centerStack.Refresh()
+	}
+}
+
 // FocusRail returns the focus rail component.
 func (m *MainWindow) FocusRail() *FocusRail { return m.focusRail }
 

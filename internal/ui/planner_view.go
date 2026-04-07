@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -65,6 +66,7 @@ type PlannerView struct {
 	// Content state
 	placeholderText string
 	scheduleTree    *ScheduleTree
+	centerContent   *fyne.Container
 
 	container *fyne.Container
 }
@@ -81,19 +83,22 @@ func NewPlannerView(plannerModel PlannerViewModel, timerModel TimerViewModel, ro
 
 	v.initializeButtons()
 	v.applyVisibility()
+	v.centerContent = container.NewStack()
 	v.buildContent()
 
 	if todoVM != nil {
 		v.todoList = NewTodoListView(todoVM)
 	}
 
-	leading := container.NewVBox(
+	buttons := container.NewVBox(
 		v.planBtn,
 		v.nextBtn,
 		v.backBtn,
 		v.completeTaskBtn,
 		v.abandonBtn,
 	)
+
+	leading := container.NewBorder(buttons, nil, nil, nil, v.centerContent)
 
 	var trailing fyne.CanvasObject
 	if v.todoList != nil {
@@ -180,12 +185,34 @@ func (v *PlannerView) buildContent() {
 
 	v.placeholderText = ""
 	v.scheduleTree = v.buildScheduleTree(hasActivePlan)
+	v.updateCenterContent()
+}
+
+// updateCenterContent replaces the centerContent container's children based on current state.
+func (v *PlannerView) updateCenterContent() {
+	v.centerContent.RemoveAll()
+
+	if v.placeholderText != "" {
+		label := widget.NewLabel(v.placeholderText)
+		label.Alignment = fyne.TextAlignCenter
+		v.centerContent.Add(container.NewCenter(label))
+		return
+	}
+
+	if v.scheduleTree != nil {
+		cycles := v.scheduleTree.Cycles()
+		if len(cycles) > 0 {
+			label := widget.NewLabel(fmt.Sprintf("Schedule: %d cycles", len(cycles)))
+			v.centerContent.Add(container.NewCenter(label))
+		}
+	}
 }
 
 // buildNoActivePlanContent sets up content when there's no active plan.
 func (v *PlannerView) buildNoActivePlanContent() {
 	v.placeholderText = placeholderMessages[rand.Intn(len(placeholderMessages))] // #nosec G404 -- math/rand is fine for placeholder text selection
 	v.scheduleTree = nil
+	v.updateCenterContent()
 }
 
 // buildScheduleTree creates a schedule tree if there's an active plan with blocks.

@@ -313,6 +313,11 @@ func (r *SQLiteMessageRepository) MaxSourceCursor(ctx context.Context, source, s
 	return cursor.String, nil
 }
 
+// DistinctChannels returns distinct channel names for a given source and sourceAccount.
+func (r *SQLiteMessageRepository) DistinctChannels(ctx context.Context, source, sourceAccount string) ([]string, error) {
+	return nil, nil
+}
+
 // evictOldestIfNeeded performs FIFO eviction for the given source if at capacity.
 func (r *SQLiteMessageRepository) evictOldestIfNeeded(ctx context.Context, tx *sql.Tx, source string) error {
 	var count int

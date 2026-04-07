@@ -41,4 +41,5 @@ type MessageRepository interface {
 	CountBySource(ctx context.Context, source string) (int, error)
 	ExistsByMessageID(ctx context.Context, messageID string) (bool, error)
 	MaxSourceCursor(ctx context.Context, source, sourceAccount, channel string) (string, error)
+	DistinctChannels(ctx context.Context, source, sourceAccount string) ([]string, error)
 }

@@ -146,6 +146,10 @@ func (m *mockMsgRepo) MaxSourceCursor(_ context.Context, _, _, _ string) (string
 	return "", nil
 }
 
+func (m *mockMsgRepo) DistinctChannels(_ context.Context, _, _ string) ([]string, error) {
+	return nil, nil
+}
+
 // mockScorer implements decisionengine.Scorer for testing.
 type mockScorer struct {
 	result *decisionengine.ScorerResult

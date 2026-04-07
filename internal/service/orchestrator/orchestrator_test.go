@@ -48,8 +48,10 @@ func (w *mockWatcher) pollCount() int {
 type mockRepo struct {
 	mu             sync.Mutex
 	inserted       []*repository.Message
-	insertErr      map[string]error // keyed by message ID string, allows selective failures
-	existingMsgIDs map[string]bool  // messageIDs that "already exist" in the DB
+	insertErr      map[string]error    // keyed by message ID string, allows selective failures
+	existingMsgIDs map[string]bool     // messageIDs that "already exist" in the DB
+	channels       map[string][]string // key = "source:account" → channel names
+	cursorMap      map[string]string   // key = "source:account:channel" → cursor value
 }
 
 func newMockRepo() *mockRepo {
@@ -99,8 +101,24 @@ func (r *mockRepo) ExistsByMessageID(_ context.Context, messageID string) (bool,
 	return r.existingMsgIDs[messageID], nil
 }
 
-func (r *mockRepo) MaxSourceCursor(_ context.Context, _, _, _ string) (string, error) {
-	return "", nil
+func (r *mockRepo) MaxSourceCursor(_ context.Context, source, sourceAccount, channel string) (string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.cursorMap == nil {
+		return "", nil
+	}
+	key := source + ":" + sourceAccount + ":" + channel
+	return r.cursorMap[key], nil
+}
+
+func (r *mockRepo) DistinctChannels(_ context.Context, source, sourceAccount string) ([]string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.channels == nil {
+		return nil, nil
+	}
+	key := source + ":" + sourceAccount
+	return r.channels[key], nil
 }
 
 func (r *mockRepo) insertedCount() int {
@@ -1149,4 +1167,61 @@ func (s *OrchestratorSuite) TestImportBaselineInsertsAsImported() {
 		}
 	}
 	s.True(foundImport, "at least one event should mention 'import'")
+}
+
+// ---------------------------------------------------------------------------
+// CursorSeedable mock — implements both Watcher and CursorSeedable
+// ---------------------------------------------------------------------------
+
+type cursorSeedableMock struct {
+	mockWatcher
+	source        string
+	sourceAccount string
+	seededCursors map[string]string // channel → cursor
+}
+
+func (m *cursorSeedableMock) SourceInfo() (string, string) {
+	return m.source, m.sourceAccount
+}
+
+func (m *cursorSeedableMock) SeedCursor(channel, cursor string) {
+	m.seededCursors[channel] = cursor
+}
+
+// ---------------------------------------------------------------------------
+// ImportBaseline cursor seeding
+// ---------------------------------------------------------------------------
+
+func (s *OrchestratorSuite) TestImportBaselineSeedsCursorsFromDB() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	repo := newMockRepo()
+	repo.channels = map[string][]string{
+		"slack:workspace-1": {"general", "alerts"},
+	}
+	repo.cursorMap = map[string]string{
+		"slack:workspace-1:general": "1711500000.000100",
+		"slack:workspace-1:alerts":  "1711600000.000200",
+	}
+
+	watcher := &cursorSeedableMock{
+		mockWatcher:   mockWatcher{messages: nil},
+		source:        "slack",
+		sourceAccount: "workspace-1",
+		seededCursors: make(map[string]string),
+	}
+	watchers := map[string]orchestrator.Watcher{"slack": watcher}
+
+	cfg := orchestrator.OrchestratorConfig{PollIntervalSeconds: 600}
+	rules := decisionengine.NewRulesEngine(nil)
+	queueRepo := &mockQueueRepo{}
+	orch, err := orchestrator.NewOrchestrator(cfg, rules, queueRepo, repo, watchers, eventCh, nil)
+	s.Require().NoError(err)
+
+	err = orch.ImportBaseline(context.Background())
+	s.NoError(err)
+
+	s.Equal("1711500000.000100", watcher.seededCursors["general"],
+		"general channel cursor should be seeded from DB")
+	s.Equal("1711600000.000200", watcher.seededCursors["alerts"],
+		"alerts channel cursor should be seeded from DB")
 }

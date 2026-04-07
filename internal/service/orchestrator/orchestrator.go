@@ -24,6 +24,16 @@ type Watcher interface {
 	Poll(ctx context.Context) ([]*repository.Message, error)
 }
 
+// CursorSeedable allows a watcher's poll cursor to be seeded from stored values.
+// Watchers that implement this interface will have their cursors set from the
+// database before the first poll, so that Poll() only fetches genuinely new messages.
+type CursorSeedable interface {
+	// SourceInfo returns the source type and account identifier for DB queries.
+	SourceInfo() (source string, sourceAccount string)
+	// SeedCursor sets the poll cursor for a given channel to the provided value.
+	SeedCursor(channel string, cursor string)
+}
+
 // Alerter plays audio alerts for notifications.
 type Alerter interface {
 	PlayNotification(ctx context.Context) error

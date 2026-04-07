@@ -47,6 +47,8 @@ func (s *NotificationCardSuite) makeMessage(is float64, cs float64, content stri
 func parseHexColor(hex string) color.Color {
 	var r, g, b uint8
 	switch hex {
+	case "#2d2d2d":
+		r, g, b = 0x2d, 0x2d, 0x2d
 	case "#ffc9c9":
 		r, g, b = 0xff, 0xc9, 0xc9
 	case "#ef4444":
@@ -72,7 +74,7 @@ func (s *NotificationCardSuite) TestHighImportanceRedCard() {
 
 	s.Require().Len(cards, 1)
 	card := cards[0]
-	s.Equal(parseHexColor("#ffc9c9"), card.CardColor, "IS>=9 should have light red card background")
+	s.Equal(parseHexColor("#2d2d2d"), card.CardColor, "IS>=9 should have dark card background")
 	s.Equal(parseHexColor("#ef4444"), card.BadgeColor, "IS>=9 should have red badge")
 }
 
@@ -83,7 +85,7 @@ func (s *NotificationCardSuite) TestMidImportanceOrangeCard() {
 
 	s.Require().Len(cards, 1)
 	card := cards[0]
-	s.Equal(parseHexColor("#ffd8a8"), card.CardColor, "IS>=8 should have light orange card background")
+	s.Equal(parseHexColor("#2d2d2d"), card.CardColor, "IS>=8 should have dark card background")
 	s.Equal(parseHexColor("#f59e0b"), card.BadgeColor, "IS>=8 should have amber badge")
 }
 
@@ -94,7 +96,7 @@ func (s *NotificationCardSuite) TestLowImportanceBlueCard() {
 
 	s.Require().Len(cards, 1)
 	card := cards[0]
-	s.Equal(parseHexColor("#dbe4ff"), card.CardColor, "IS<8 should have light blue card background")
+	s.Equal(parseHexColor("#2d2d2d"), card.CardColor, "IS<8 should have dark card background")
 	s.Equal(parseHexColor("#4a9eed"), card.BadgeColor, "IS<8 should have blue badge")
 }
 
@@ -204,6 +206,30 @@ func (s *NotificationCardSuite) TestCardFieldsPopulated() {
 	s.Equal(0.75, card.ConfidenceScore)
 	s.Equal("Hello world", card.FullContent)
 	s.Equal(msg.CreatedAt, card.CreatedAt)
+}
+
+// --- Dark Card Background Tests ---
+
+func (s *NotificationCardSuite) TestHighImportanceCardHasDarkBackground() {
+	now := time.Now()
+	msg := s.makeMessage(9.5, 0.95, "Production database is down", now.Add(-1*time.Minute))
+	cards := presenter.BuildNotificationCards([]*repository.Message{msg}, now)
+
+	s.Require().Len(cards, 1)
+	card := cards[0]
+
+	// Card background must be dark for readability (R, G, B each < 0x60)
+	r, g, b, _ := card.CardColor.RGBA()
+	// RGBA() returns pre-multiplied 16-bit values; shift to 8-bit for comparison
+	r8, g8, b8 := uint8(r>>8), uint8(g>>8), uint8(b>>8)
+
+	const darkThreshold = uint8(0x60)
+	s.Less(r8, darkThreshold, "card background red channel should be dark (< 0x60), got 0x%02x", r8)
+	s.Less(g8, darkThreshold, "card background green channel should be dark (< 0x60), got 0x%02x", g8)
+	s.Less(b8, darkThreshold, "card background blue channel should be dark (< 0x60), got 0x%02x", b8)
+
+	// Badge color should still be tier-specific red
+	s.Equal(parseHexColor("#ef4444"), card.BadgeColor, "IS>=9 badge should remain red")
 }
 
 // --- Empty Input Test ---

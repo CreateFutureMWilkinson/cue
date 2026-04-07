@@ -22,17 +22,13 @@ const (
 )
 
 var (
-	// Color scheme for high importance (IS >= 9) - Red tier
-	highImportanceCardColor  = color.NRGBA{R: 0xff, G: 0xc9, B: 0xc9, A: 0xff} // Light red background
+	// Dark card background for all tiers — text readability on dark theme
+	darkCardBackground = color.NRGBA{R: 0x2d, G: 0x2d, B: 0x2d, A: 0xff} // #2d2d2d
+
+	// Badge colors remain tier-specific
 	highImportanceBadgeColor = color.NRGBA{R: 0xef, G: 0x44, B: 0x44, A: 0xff} // Red badge
-
-	// Color scheme for mid importance (IS >= 8) - Orange tier
-	midImportanceCardColor  = color.NRGBA{R: 0xff, G: 0xd8, B: 0xa8, A: 0xff} // Light orange background
-	midImportanceBadgeColor = color.NRGBA{R: 0xf5, G: 0x9e, B: 0x0b, A: 0xff} // Amber badge
-
-	// Color scheme for low importance (IS < 8) - Blue tier
-	lowImportanceCardColor  = color.NRGBA{R: 0xdb, G: 0xe4, B: 0xff, A: 0xff} // Light blue background
-	lowImportanceBadgeColor = color.NRGBA{R: 0x4a, G: 0x9e, B: 0xed, A: 0xff} // Blue badge
+	midImportanceBadgeColor  = color.NRGBA{R: 0xf5, G: 0x9e, B: 0x0b, A: 0xff} // Amber badge
+	lowImportanceBadgeColor  = color.NRGBA{R: 0x4a, G: 0x9e, B: 0xed, A: 0xff} // Blue badge
 )
 
 // NotificationCard is a view model for rendering a notification card in the UI.
@@ -105,15 +101,15 @@ func formatRelativeTime(created time.Time, now time.Time) string {
 }
 
 // colorTier determines card and badge colors based on importance score.
-// Uses a three-tier color scheme: red (IS>=9), orange (IS>=8), blue (IS<8).
+// All tiers use a dark card background; badge colors remain tier-specific.
 func colorTier(importanceScore float64) (cardColor, badgeColor color.Color) {
 	if importanceScore >= highImportanceThreshold {
-		return highImportanceCardColor, highImportanceBadgeColor
+		return darkCardBackground, highImportanceBadgeColor
 	}
 	if importanceScore >= midImportanceThreshold {
-		return midImportanceCardColor, midImportanceBadgeColor
+		return darkCardBackground, midImportanceBadgeColor
 	}
-	return lowImportanceCardColor, lowImportanceBadgeColor
+	return darkCardBackground, lowImportanceBadgeColor
 }
 
 // calculateOpacity computes card opacity based on importance score using linear interpolation.

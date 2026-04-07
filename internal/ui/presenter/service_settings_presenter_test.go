@@ -97,6 +97,16 @@ func (m *mockWatcherManager) ListWatcherNames() []string {
 	return m.names
 }
 
+// --- Mock SlackValidator ---
+
+type mockSlackValidator struct {
+	validateFn func(ctx context.Context, token string) error
+}
+
+func (m *mockSlackValidator) ValidateSlack(ctx context.Context, token string) error {
+	return m.validateFn(ctx, token)
+}
+
 // --- Suite ---
 
 type ServiceSettingsSuite struct {
@@ -683,6 +693,36 @@ func (s *ServiceSettingsSuite) TestValidationEmailInvalidPollInterval() {
 
 	s.Error(err)
 	s.Contains(err.Error(), "poll interval")
+}
+
+// --- Credential validation tests ---
+
+func (s *ServiceSettingsSuite) TestSaveSlackAccount_ValidationFailure() {
+	acct := validSlackAccount()
+	validationErr := fmt.Errorf("invalid_auth")
+	validator := &mockSlackValidator{
+		validateFn: func(ctx context.Context, token string) error {
+			s.Equal(acct.Token, token)
+			return validationErr
+		},
+	}
+	repo := &mockServiceConfigRepo{
+		upsertSlackFn: func(ctx context.Context, a *repository.SlackAccount) error {
+			s.Fail("UpsertSlackAccount should not be called when credential validation fails")
+			return nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+	factory := func(accountType string, accountID uuid.UUID) error {
+		s.Fail("factory should not be called when credential validation fails")
+		return nil
+	}
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory, presenter.WithSlackValidator(validator))
+	err := p.SaveSlackAccount(context.Background(), acct)
+
+	s.Error(err)
+	s.ErrorIs(err, validationErr)
 }
 
 // --- Error propagation tests ---

@@ -94,6 +94,11 @@ func (p *ServiceSettingsPresenter) SaveSlackAccount(ctx context.Context, acct *r
 	if err := validateSlackAccount(acct); err != nil {
 		return err
 	}
+	if p.slackValidator != nil {
+		if err := p.slackValidator.ValidateSlack(ctx, acct.Token); err != nil {
+			return fmt.Errorf("slack credential validation failed: %w", err)
+		}
+	}
 	if err := p.repo.UpsertSlackAccount(ctx, acct); err != nil {
 		return fmt.Errorf("saving slack account: %w", err)
 	}
@@ -119,6 +124,11 @@ func (p *ServiceSettingsPresenter) SaveEmailAccount(ctx context.Context, acct *r
 
 // EditSlackAccount persists changes, removes the old watcher, and starts a new one.
 func (p *ServiceSettingsPresenter) EditSlackAccount(ctx context.Context, acct *repository.SlackAccount, oldWorkspaceID string) error {
+	if p.slackValidator != nil {
+		if err := p.slackValidator.ValidateSlack(ctx, acct.Token); err != nil {
+			return fmt.Errorf("slack credential validation failed: %w", err)
+		}
+	}
 	if err := p.repo.UpsertSlackAccount(ctx, acct); err != nil {
 		return fmt.Errorf("updating slack account: %w", err)
 	}

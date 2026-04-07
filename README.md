@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–7 complete. Phase 8 in progress: routing rules (084-085), Ollama queue (086), orchestrator refactor (087), and startup import (088) done. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–7 complete. Phase 8 in progress: routing rules (084-085), Ollama queue (086), orchestrator refactor (087), startup import (088), and Rules settings tab (089) done. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 

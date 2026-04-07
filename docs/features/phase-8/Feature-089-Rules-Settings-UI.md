@@ -1,8 +1,8 @@
 # Feature 089: Settings UI — Rules Tab
 
 **Phase:** Phase-8-Feature-089
-**Status:** Planned
-**Packages:** `internal/ui/`, `internal/ui/presenter/`
+**Status:** Done
+**Packages:** `internal/config/`, `internal/ui/`, `internal/ui/presenter/`, `cmd/cue/`
 **Depends on:** Feature 084
 
 ---
@@ -158,3 +158,53 @@ test(ui): failing acceptance tests for Rules settings tab
 ```
 
 These tests will all FAIL initially (the Rules tab doesn't exist yet). TDD micro-loops then drive implementation until `just test-ui` passes.
+
+## Implementation Notes
+
+### Config Change
+
+Added `QueueWarningThreshold` field to `RouterConfig` in `internal/config/config.go` with a default value of 50. This controls when the queue depth indicator in the Rules tab switches from normal to warning display.
+
+### RulesPresenter
+
+`internal/ui/presenter/rules_presenter.go` — Presenter mediating between the UI and the `RoutingRuleRepository` + `QueueRepository` interfaces. Methods:
+
+- `ListRules(ctx)` — returns all rules sorted by priority
+- `SaveRule(ctx, rule)` — validates and upserts a rule (compiles regex pattern)
+- `DeleteRule(ctx, id)` — removes a rule by UUID
+- `ReorderRule(ctx, id, newPriority)` — updates a rule's priority value
+- `ToggleRule(ctx, id, enabled)` — toggles a rule's enabled state
+- `QueueDepth(ctx)` — returns pending count from the Ollama queue
+- `QueueWarningThreshold()` — returns the configured warning threshold
+
+### Rules Tab UI
+
+`internal/ui/settings_rules_tab.go` — Fyne tab content implementing the rule list view, add rule form, and queue depth indicator. Key behaviors:
+
+- **Queue depth indicator** at top of tab, with warning text when depth exceeds threshold
+- **Rule list** sorted by priority with summary labels, enabled checkboxes, Up/Down reorder buttons, and Delete buttons
+- **Empty state** shown when no rules exist
+- **Add Rule form** with dynamic Field dropdown based on Source selection, pattern validation (Go regexp compilation), and Save/Cancel flow
+- First rule's Up button disabled; last rule's Down button disabled
+
+### Composition Root Wiring
+
+`RulesPresenter` is constructed in `cmd/cue/main.go` and passed through `NewMainWindow` to `NewSettingsView`. The full dependency chain: `main.go` → `NewMainWindow(... rulesPresenter)` → `NewSettingsView(... rulesPresenter)` → Rules tab content.
+
+## Test Coverage Summary
+
+| Package | Coverage Area |
+|---|---|
+| `internal/config/` | `QueueWarningThreshold` default value |
+| `internal/ui/presenter/` | All 7 `RulesPresenter` methods (list, save, delete, reorder, toggle, queue depth, threshold) |
+| `tests/ui/` | UI acceptance tests for tab structure, empty state, rule list, add form, validation, queue depth, reordering, deletion |
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED (config) | Test Designer | ~44s | ~31k | `982483e` |
+| GREEN (config) | Implementer | ~31s | ~23k | `471f16f` |
+| RED (presenter) | Test Designer | ~62s | ~33k | `8e4c77d` |
+| GREEN (presenter) | Implementer | ~73s | ~32k | `a7d7ee6` |
+| GREEN (ui) | Implementer | ~117s | ~55k | `5e03b85` |

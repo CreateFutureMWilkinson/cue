@@ -574,3 +574,8 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-8-Feature-088 (Seedable+Channels) | GREEN | orchestrator | — | — | c5b4372 |
 | Phase-8-Feature-088 (Start integration) | RED | Test Designer | ~55s | ~34,700 | 5c4d5e5 |
 | Phase-8-Feature-088 (Start integration) | GREEN | orchestrator | — | — | 90f8764 |
+| Phase-8-Feature-089 (config) | RED | Test Designer | ~44s | ~31,000 | 982483e |
+| Phase-8-Feature-089 (config) | GREEN | Implementer | ~31s | ~23,000 | 471f16f |
+| Phase-8-Feature-089 (presenter) | RED | Test Designer | ~62s | ~33,000 | 8e4c77d |
+| Phase-8-Feature-089 (presenter) | GREEN | Implementer | ~73s | ~32,000 | a7d7ee6 |
+| Phase-8-Feature-089 (ui) | GREEN | Implementer | ~117s | ~55,000 | 5e03b85 |

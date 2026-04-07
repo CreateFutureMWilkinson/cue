@@ -938,7 +938,7 @@ The Settings view occupies the center column (60%) when navigated to via the Set
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  [Slack] [Email] [Calendar] [Audio] [Ollama]        Tab bar │
+│  [Slack] [Email] [Calendar] [Rules] [Audio] [Ollama] Tab bar │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  (Active tab content — see per-tab specs below)             │
@@ -958,8 +958,9 @@ The Settings view occupies the center column (60%) when navigated to via the Set
 | 1        | Slack      | Slack account management (list + add form)    |
 | 2        | Email      | Email account management (list + add form)    |
 | 3        | Calendar   | Calendar account management (list + add form) |
-| 4        | Audio      | Notification and timer volume sliders         |
-| 5        | Ollama     | Ollama connection settings (read-only)        |
+| 4        | Rules      | Routing rule management (list + add form)     |
+| 5        | Audio      | Notification and timer volume sliders         |
+| 6        | Ollama     | Ollama connection settings (read-only)        |
 
 ### Slack Tab
 
@@ -1078,6 +1079,67 @@ Displays a list of configured calendar accounts with a button to add new ones. S
 | Save / Cancel     | `widget.Button` ×2  | Save validates + persists; Cancel returns to list |
 
 **Validation:** Name, URL, and Poll Interval are required. Poll Interval must be a number. If a `CalendarValidator` is configured, the URL is validated before save. Inline error shown on failure.
+
+### Rules Tab
+
+Displays a list of routing rules sorted by priority with controls for reordering, toggling, and deleting. An "Add Rule" button opens an inline form for creating new rules.
+
+**Queue Depth Indicator** (top of tab):
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Ollama queue: 3 pending                            │
+└─────────────────────────────────────────────────────┘
+```
+
+When queue depth exceeds `QueueWarningThreshold` (default 50):
+
+```
+┌─────────────────────────────────────────────────────┐
+│  ⚠ Ollama queue: 57 pending — consider adding       │
+│    more rules                                       │
+└─────────────────────────────────────────────────────┘
+```
+
+**Rule List View:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Ollama queue: 3 pending                            │
+├─────────────────────────────────────────────────────┤
+│  ☑ sender matches ^boss@ → Notified   [↑][↓][Del]  │
+│  ☑ subject matches urgent → Notified  [↑][↓][Del]  │
+│  ☐ channel matches random → Ignored   [↑][↓][Del]  │
+│                                                     │
+│                              [Add Rule]             │
+└─────────────────────────────────────────────────────┘
+```
+
+**Empty State:** `"No routing rules configured. Messages will be queued for Ollama scoring. Tap "Add Rule" to create deterministic routing rules."`
+
+**Add Rule Form** (replaces list when tapped):
+
+| Field       | Widget              | Notes                                         |
+|-------------|---------------------|-----------------------------------------------|
+| Source      | `widget.Select`     | Options: Email, Slack                         |
+| Field       | `widget.Select`     | Dynamic based on source (see below)           |
+| Pattern     | `widget.Entry`      | Placeholder: `"Regex pattern"`                |
+| Negate      | `widget.Check`      | Label: `"Invert match (not matches)"`         |
+| Action      | `widget.Select`     | Options: Notified, Ignored                    |
+| Error       | `widget.Label`      | Hidden by default, shown on validation failure|
+| Save/Cancel | `widget.Button` x2  | Save validates + persists; Cancel returns to list |
+
+**Dynamic Field Options:**
+
+| Source | Available Fields                            |
+|--------|---------------------------------------------|
+| Email  | sender, subject                             |
+| Slack  | sender, channel, content, message_type      |
+
+**Validation on Save:**
+- Pattern must compile as valid Go regexp
+- Field must be valid for selected source
+- Inline error message on validation failure
 
 ### Audio Tab
 
@@ -1247,7 +1309,7 @@ CenterViewRouter ──state──→ Character | Plan View | Wizard
 
 ### Settings View
 - [ ] Rendered in center column (60%) via CenterViewRouter
-- [ ] Contains 5 tabs in order: Slack, Email, Calendar, Audio, Ollama
+- [ ] Contains 6 tabs in order: Slack, Email, Calendar, Rules, Audio, Ollama
 - [ ] Defaults to first tab (Slack) on open
 - [ ] Done button at bottom navigates back to character view
 
@@ -1275,6 +1337,34 @@ CenterViewRouter ──state──→ Character | Plan View | Wizard
 - [ ] Form requires Name, ICS URL, Poll Interval
 - [ ] Poll Interval must be a number; inline error on invalid input
 - [ ] Save persists account; Cancel returns to list
+
+### Settings — Rules Tab
+- [ ] Queue depth indicator shown at top of tab
+- [ ] Queue depth shows warning text when exceeding threshold
+- [ ] Shows list of rules sorted by priority when rules exist
+- [ ] Each rule row shows summary: field, match/not matches, pattern, action
+- [ ] Each rule row has enabled checkbox
+- [ ] Each rule row has Up/Down reorder buttons
+- [ ] Each rule row has Delete button
+- [ ] First rule's Up button is disabled
+- [ ] Last rule's Down button is disabled
+- [ ] Empty state text shown when no rules configured
+- [ ] Add Rule button shown
+- [ ] Add Rule replaces list with form
+- [ ] Form has Source dropdown (Email, Slack)
+- [ ] Form has Field dropdown (dynamic based on Source)
+- [ ] Email source shows fields: sender, subject
+- [ ] Slack source shows fields: sender, channel, content, message_type
+- [ ] Form has Pattern text entry
+- [ ] Form has Negate checkbox
+- [ ] Form has Action dropdown (Notified, Ignored)
+- [ ] Form has Save and Cancel buttons
+- [ ] Save with invalid regexp shows inline error
+- [ ] Save with valid data persists rule and returns to list
+- [ ] Cancel returns to list without saving
+- [ ] Tapping Down swaps rule with next rule
+- [ ] Tapping Up swaps rule with previous rule
+- [ ] Tapping Delete removes rule from list
 
 ### Settings — Audio Tab
 - [ ] Notification volume slider range 0–100 with step 1

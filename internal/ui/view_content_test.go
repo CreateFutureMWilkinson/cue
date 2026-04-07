@@ -121,6 +121,7 @@ func (s *ViewContentSuite) TestSettingsViewWithPresentersContainsTabs() {
 		nil, // plannerVM
 		nil, // timerVM
 		nil, // wizardVM
+		nil, // rightPanelOverride
 	)
 
 	router.NavigateTo(ui.ViewSettings)

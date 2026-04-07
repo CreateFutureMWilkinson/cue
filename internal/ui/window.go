@@ -56,6 +56,7 @@ func NewMainWindow(
 	plannerVM PlannerViewModel,
 	timerVM TimerViewModel,
 	wizardVM WizardViewModel,
+	rightPanelOverride fyne.CanvasObject, // replaces notification panel when non-nil
 ) *MainWindow {
 	win := fyneApp.NewWindow("Cue")
 	win.Resize(fyne.NewSize(float32(cfg.WindowWidth), float32(cfg.WindowHeight)))
@@ -136,9 +137,12 @@ func NewMainWindow(
 	centerStack := container.NewStack(characterContent)
 
 	// Notification panel (right 30%) — expandable from collapsed state.
+	// When rightPanelOverride is provided, it replaces the notification panel entirely.
 	var notifPane fyne.CanvasObject
 	var notifPanel *NotificationPanel
-	if np != nil {
+	if rightPanelOverride != nil {
+		notifPane = rightPanelOverride
+	} else if np != nil {
 		notifPanel = NewNotificationPanel(np, win)
 		notifPane = notifPanel.Container()
 	} else {

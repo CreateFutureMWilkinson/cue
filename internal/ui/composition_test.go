@@ -154,6 +154,7 @@ func (s *CompositionSuite) TestPlannerViewRefReturnsNonNilWhenVMProvided() {
 		vm,  // plannerVM
 		vm,  // timerVM
 		nil, // wizardVM
+		nil, // rightPanelOverride
 	)
 
 	ref := mw.PlannerViewRef()
@@ -187,6 +188,7 @@ func (s *CompositionSuite) TestWizardViewRefReturnsNonNilWhenVMProvided() {
 		nil, // plannerVM
 		nil, // timerVM
 		wvm, // wizardVM
+		nil, // rightPanelOverride
 	)
 
 	ref := mw.WizardViewRef()

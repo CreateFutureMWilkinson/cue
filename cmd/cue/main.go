@@ -431,7 +431,7 @@ func run() error {
 		char.TransitionTo(character.StateStarting)
 	})
 
-	mainWindow := ui.NewMainWindow(fyneApp, cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, serviceSettingsPresenter, cfg.Ollama, char.Widget(), viewRouter, plannerPresenter, timerPresenter, plannerPresenter)
+	mainWindow := ui.NewMainWindow(fyneApp, cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, serviceSettingsPresenter, cfg.Ollama, char.Widget(), viewRouter, plannerPresenter, timerPresenter, plannerPresenter, nil)
 
 	// Wire AppBinder to connect planner presenter callbacks to views.
 	if pvRef := mainWindow.PlannerViewRef(); pvRef != nil {

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 	"github.com/google/uuid"
@@ -73,6 +74,7 @@ func newTestMainWindow(fyneApp fyne.App, router *ui.CenterViewRouter) *ui.MainWi
 		nil, // plannerVM
 		nil, // timerVM
 		nil, // wizardVM
+		nil, // rightPanelOverride
 	)
 }
 
@@ -185,6 +187,7 @@ func (s *ThreeColumnLayoutSuite) TestViewPlanShowsPlannerViewWhenVMsProvided() {
 		vm,  // plannerVM
 		vm,  // timerVM
 		nil, // wizardVM
+		nil, // rightPanelOverride
 	)
 
 	router.NavigateTo(ui.ViewPlan)
@@ -243,6 +246,7 @@ func (s *ThreeColumnLayoutSuite) TestViewWizardShowsWizardViewWhenVMProvided() {
 		nil, // plannerVM
 		nil, // timerVM
 		wvm, // wizardVM
+		nil, // rightPanelOverride
 	)
 
 	router.NavigateTo(ui.ViewWizard)
@@ -276,4 +280,52 @@ func (s *ThreeColumnLayoutSuite) TestNavigateBackToCharacterRestoresContent() {
 	s.NotNil(restoredContent, "CenterContent should not be nil after returning to ViewCharacter")
 	s.NotEqual(planContent, restoredContent,
 		"Returning to ViewCharacter should swap away from plan content")
+}
+
+func (s *ThreeColumnLayoutSuite) TestRightPanelOverrideReplacesNotificationPanel() {
+	fyneApp := test.NewApp()
+	router := ui.NewCenterViewRouter()
+	cfg := config.GUIConfig{
+		WindowWidth:  1200,
+		WindowHeight: 800,
+	}
+
+	customPanel := widget.NewLabel("UAT Panel")
+
+	mw := ui.NewMainWindow(
+		fyneApp, cfg,
+		(*presenter.NotificationPresenter)(nil),
+		(*presenter.ActivityPresenter)(nil),
+		(*presenter.FeedbackPresenter)(nil),
+		(*presenter.AppPresenter)(nil),
+		(*presenter.SettingsPresenter)(nil),
+		(*presenter.ServiceSettingsPresenter)(nil),
+		config.OllamaConfig{},
+		nil, router,
+		nil, nil, nil,
+		customPanel, // right panel override
+	)
+
+	s.NotNil(mw)
+	// The custom panel should appear in the widget tree.
+	found := findWidget(mw.Content(), customPanel)
+	s.True(found, "right panel override should appear in the main window content tree")
+}
+
+// findWidget recursively checks whether target exists in the widget tree rooted at root.
+func findWidget(root fyne.CanvasObject, target fyne.CanvasObject) bool {
+	if root == target {
+		return true
+	}
+	if c, ok := root.(*fyne.Container); ok {
+		for _, child := range c.Objects {
+			if findWidget(child, target) {
+				return true
+			}
+		}
+	}
+	if sp, ok := root.(*container.Split); ok {
+		return findWidget(sp.Leading, target) || findWidget(sp.Trailing, target)
+	}
+	return false
 }

@@ -87,6 +87,7 @@ func (s *FeedbackReviewWiringSuite) TestReviewButtonCallbackWiredWhenFeedbackPre
 		nil, // plannerVM
 		nil, // timerVM
 		nil, // wizardVM
+		nil, // rightPanelOverride
 	)
 
 	s.Require().NotNil(mw.FocusRail(), "FocusRail() should return the focus rail instance")
@@ -126,6 +127,7 @@ func (s *FeedbackReviewWiringSuite) TestReviewButtonVisibleWhenNotificationsExpa
 		nil, // plannerVM
 		nil, // timerVM
 		nil, // wizardVM
+		nil, // rightPanelOverride
 	)
 
 	// Review button should be hidden by default.
@@ -172,6 +174,7 @@ func (s *FeedbackReviewWiringSuite) TestReviewButtonHiddenWhenNotificationsColla
 		nil, // plannerVM
 		nil, // timerVM
 		nil, // wizardVM
+		nil, // rightPanelOverride
 	)
 
 	s.Require().NotNil(mw.FocusRail())

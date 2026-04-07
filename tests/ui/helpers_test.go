@@ -236,6 +236,7 @@ func newMinimalMainWindow(fyneApp fyne.App, router *ui.CenterViewRouter) *ui.Mai
 		nil, // plannerVM
 		nil, // timerVM
 		nil, // wizardVM
+		nil, // rightPanelOverride
 	)
 }
 
@@ -261,7 +262,8 @@ func newMainWindowWithNotifications(fyneApp fyne.App, router *ui.CenterViewRoute
 		router,
 		nil, // plannerVM
 		nil, // timerVM
-		nil, // wizardVM,
+		nil, // wizardVM
+		nil, // rightPanelOverride
 	)
 	return mw, np
 }
@@ -290,7 +292,8 @@ func newMainWindowWithFeedback(fyneApp fyne.App, router *ui.CenterViewRouter, no
 		router,
 		nil, // plannerVM
 		nil, // timerVM
-		nil, // wizardVM,
+		nil, // wizardVM
+		nil, // rightPanelOverride
 	)
 	return mw, np, fp
 }
@@ -312,6 +315,7 @@ func newMainWindowWithPlanner(fyneApp fyne.App, router *ui.CenterViewRouter, pla
 		plannerVM, // plannerVM
 		plannerVM, // timerVM
 		nil,       // wizardVM
+		nil,       // rightPanelOverride
 	)
 }
 
@@ -332,6 +336,7 @@ func newMainWindowWithWizard(fyneApp fyne.App, router *ui.CenterViewRouter, wiza
 		nil,      // plannerVM
 		nil,      // timerVM
 		wizardVM, // wizardVM
+		nil,      // rightPanelOverride
 	)
 }
 

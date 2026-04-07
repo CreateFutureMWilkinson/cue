@@ -579,3 +579,5 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-8-Feature-089 (presenter) | RED | Test Designer | ~62s | ~33,000 | 8e4c77d |
 | Phase-8-Feature-089 (presenter) | GREEN | Implementer | ~73s | ~32,000 | a7d7ee6 |
 | Phase-8-Feature-089 (ui) | GREEN | Implementer | ~117s | ~55,000 | 5e03b85 |
+| Phase-8-Feature-090 | RED | Test Designer | ~57s | ~31,800 | b74c5c3 |
+| Phase-8-Feature-090 | GREEN | Implementer | ~58s | ~32,600 | 5c15f87 |

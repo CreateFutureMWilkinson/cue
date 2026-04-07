@@ -57,7 +57,16 @@ func NewTimerLoop(timer TickableTimer, widget TimerWidget, taskView TaskUpdater)
 
 // SetUIScheduler sets the function used to dispatch widget updates to the UI thread.
 func (l *TimerLoop) SetUIScheduler(fn UIScheduler) {
-	// stub: intentionally does not store fn
+	l.doFunc = fn
+}
+
+// scheduleUI dispatches fn via the UIScheduler if set, otherwise calls fn directly.
+func (l *TimerLoop) scheduleUI(fn func()) {
+	if l.doFunc != nil {
+		l.doFunc(fn)
+	} else {
+		fn()
+	}
 }
 
 // TickOnce performs a single tick cycle: calls Tick, then updates UI from timer state.
@@ -66,9 +75,14 @@ func (l *TimerLoop) TickOnce() {
 		return
 	}
 	l.timer.Tick()
-	l.widget.SetProgress(l.timer.ElapsedFraction())
-	l.widget.SetFlashVisible(l.timer.IsFlashVisible())
-	l.taskView.SetCurrentTask(l.timer.CurrentTaskName())
+	elapsed := l.timer.ElapsedFraction()
+	flash := l.timer.IsFlashVisible()
+	task := l.timer.CurrentTaskName()
+	l.scheduleUI(func() {
+		l.widget.SetProgress(elapsed)
+		l.widget.SetFlashVisible(flash)
+		l.taskView.SetCurrentTask(task)
+	})
 }
 
 // Start begins the 1Hz tick loop in a background goroutine.

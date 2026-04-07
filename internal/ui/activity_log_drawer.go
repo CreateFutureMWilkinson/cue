@@ -82,7 +82,9 @@ func (d *ActivityLogDrawer) ContainerWithCharacter(character fyne.CanvasObject) 
 		overlay := canvas.NewRectangle(color.NRGBA{R: 0, G: 0, B: 0, A: 77})
 		d.stackContainer = container.NewStack(character, overlay, d.drawerBox)
 	} else {
-		d.stackContainer = container.NewStack(character, d.drawerBox)
+		d.stackContainer = container.NewStack(
+			container.NewBorder(nil, d.toggleBtn, nil, nil, character),
+		)
 	}
 	return d.stackContainer
 }

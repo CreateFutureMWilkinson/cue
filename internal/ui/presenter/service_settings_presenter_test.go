@@ -1068,3 +1068,30 @@ func (s *ServiceSettingsSuite) TestSaveEmailAccountAppliesDefaultPollInterval() 
 	s.Require().NotNil(upsertedAcct, "upsert should have been called")
 	s.Equal(600, upsertedAcct.PollIntervalSeconds, "PollIntervalSeconds should be set to Email default (600)")
 }
+
+func (s *ServiceSettingsSuite) TestSaveCalendarAccountAppliesDefaultPollInterval() {
+	acct := &repository.CalendarAccount{
+		ID:                  uuid.New(),
+		Enabled:             true,
+		Name:                "Test Cal",
+		ICSURL:              "https://example.com/cal.ics",
+		PollIntervalSeconds: 0, // zero means "use default"
+	}
+
+	var upsertedAcct *repository.CalendarAccount
+	repo := &mockServiceConfigRepo{
+		upsertCalendarFn: func(ctx context.Context, a *repository.CalendarAccount) error {
+			upsertedAcct = a
+			return nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+	factory := func(accountType string, accountID uuid.UUID) error { return nil }
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	err := p.SaveCalendarAccount(context.Background(), acct)
+
+	s.Require().NoError(err, "SaveCalendarAccount should not error when PollIntervalSeconds is 0")
+	s.Require().NotNil(upsertedAcct, "upsert should have been called")
+	s.Equal(600, upsertedAcct.PollIntervalSeconds, "PollIntervalSeconds should be set to Calendar default (600)")
+}

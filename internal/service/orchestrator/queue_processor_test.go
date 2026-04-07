@@ -31,6 +31,9 @@ type mockQueueRepo struct {
 	markFailedID  uuid.UUID
 	markFailedErr error
 
+	pending    int
+	pendingErr error
+
 	purgeOlderThanCalled  bool
 	purgeOlderThanCutoff  time.Time
 	resetProcessingCalled bool
@@ -75,7 +78,9 @@ func (m *mockQueueRepo) MarkFailed(_ context.Context, id uuid.UUID) error {
 }
 
 func (m *mockQueueRepo) PendingCount(_ context.Context) (int, error) {
-	return 0, nil
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.pending, m.pendingErr
 }
 
 func (m *mockQueueRepo) PurgeCompleted(_ context.Context) error {

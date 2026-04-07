@@ -48,7 +48,8 @@ type ActivityEvent struct {
 
 // OrchestratorConfig holds configuration for the orchestrator.
 type OrchestratorConfig struct {
-	PollIntervalSeconds int
+	PollIntervalSeconds   int
+	QueueWarningThreshold int
 }
 
 // Orchestrator coordinates polling, routing, and storing of messages.

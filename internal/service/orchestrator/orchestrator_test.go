@@ -1289,3 +1289,97 @@ func (s *OrchestratorSuite) TestStartCallsImportBaselineBeforeFirstPoll() {
 	}
 	repo.mu.Unlock()
 }
+
+// ---------------------------------------------------------------------------
+// Queue Health Monitoring (Feature 091)
+// ---------------------------------------------------------------------------
+
+func (s *OrchestratorSuite) TestPollOnceEmitsQueueWarningWhenThresholdExceeded() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	repo := newMockRepo()
+	queueRepo := &mockQueueRepo{pending: 75}
+	rules := decisionengine.NewRulesEngine(nil)
+	watchers := map[string]orchestrator.Watcher{
+		"slack": &mockWatcher{messages: makeMessages("slack", 1)},
+	}
+	cfg := orchestrator.OrchestratorConfig{
+		PollIntervalSeconds:   600,
+		QueueWarningThreshold: 50,
+	}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, rules, queueRepo, repo, watchers, eventCh, nil)
+	s.Require().NoError(err)
+
+	orch.PollOnce(context.Background())
+
+	events := drainEvents(eventCh, 10, 500*time.Millisecond)
+
+	// Find the queue warning event.
+	var found bool
+	for _, ev := range events {
+		if ev.Source == "queue" && strings.Contains(ev.Message, "75") && strings.Contains(ev.Message, "consider adding routing rules") {
+			found = true
+			s.False(ev.IsError, "queue warning should not be an error event")
+			break
+		}
+	}
+	s.True(found, "expected queue depth warning event; got events: %v", events)
+}
+
+func (s *OrchestratorSuite) TestPollOnceEmitsQueueOkWhenBelowThreshold() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	repo := newMockRepo()
+	queueRepo := &mockQueueRepo{pending: 10}
+	rules := decisionengine.NewRulesEngine(nil)
+	watchers := map[string]orchestrator.Watcher{
+		"slack": &mockWatcher{messages: makeMessages("slack", 1)},
+	}
+	cfg := orchestrator.OrchestratorConfig{
+		PollIntervalSeconds:   600,
+		QueueWarningThreshold: 50,
+	}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, rules, queueRepo, repo, watchers, eventCh, nil)
+	s.Require().NoError(err)
+
+	orch.PollOnce(context.Background())
+
+	events := drainEvents(eventCh, 10, 500*time.Millisecond)
+
+	// Find the queue ok event.
+	var found bool
+	for _, ev := range events {
+		if ev.Source == "queue" && strings.Contains(ev.Message, "10") && !strings.Contains(ev.Message, "consider adding routing rules") {
+			found = true
+			s.False(ev.IsError, "queue ok should not be an error event")
+			break
+		}
+	}
+	s.True(found, "expected queue depth ok event; got events: %v", events)
+}
+
+func (s *OrchestratorSuite) TestPollOnceSkipsQueueCheckWhenThresholdZero() {
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+	repo := newMockRepo()
+	queueRepo := &mockQueueRepo{pending: 999}
+	rules := decisionengine.NewRulesEngine(nil)
+	watchers := map[string]orchestrator.Watcher{
+		"slack": &mockWatcher{messages: makeMessages("slack", 1)},
+	}
+	cfg := orchestrator.OrchestratorConfig{
+		PollIntervalSeconds:   600,
+		QueueWarningThreshold: 0, // disabled
+	}
+
+	orch, err := orchestrator.NewOrchestrator(cfg, rules, queueRepo, repo, watchers, eventCh, nil)
+	s.Require().NoError(err)
+
+	orch.PollOnce(context.Background())
+
+	events := drainEvents(eventCh, 10, 500*time.Millisecond)
+
+	// No queue health event should be emitted when threshold is 0.
+	for _, ev := range events {
+		s.NotEqual("queue", ev.Source, "no queue events expected when threshold is 0; got: %v", ev)
+	}
+}

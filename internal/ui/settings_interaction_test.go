@@ -486,3 +486,22 @@ func (s *SettingsInteractionSuite) TestSlackAddAccountSaveWithValidDataReplacesF
 	entriesAfterSave := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
 	s.Less(len(entriesAfterSave), 3, "after saving valid data, form should be replaced with account list (fewer than 3 Entry widgets)")
 }
+
+func (s *SettingsInteractionSuite) TestCalendarAddAccountSaveWithValidDataReplacesForm() {
+	root := s.sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	calContent := tabs.Items[2].Content
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), calContent, func(b *widget.Button) bool { return b.Text == "Add Account" })
+	addBtn.OnTapped()
+	calContent = tabs.Items[2].Content
+	entries := uitest.FindAll[*widget.Entry](calContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 3, "form should have at least 3 Entry widgets")
+	entries[0].SetText("Work Calendar")               // Name
+	entries[1].SetText("https://example.com/cal.ics") // ICS URL
+	entries[2].SetText("600")                         // Poll Interval
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), calContent, func(b *widget.Button) bool { return b.Text == "Save" })
+	saveBtn.OnTapped()
+	calContent = tabs.Items[2].Content
+	entriesAfterSave := uitest.FindAll[*widget.Entry](calContent, func(_ *widget.Entry) bool { return true })
+	s.Less(len(entriesAfterSave), 3, "after saving valid data, form should be replaced with account list (fewer than 3 Entry widgets)")
+}

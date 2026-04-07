@@ -389,11 +389,7 @@ func run() error {
 
 	// Create character from config, with fallback to "none".
 	character.Register("fairy", func() character.Character {
-		f := fairy.NewFairyCharacter()
-		f.SetRefreshHook(func() {
-			fyne.Do(func() { f.ForceRefresh() })
-		})
-		return f
+		return fairy.NewFairyCharacter()
 	})
 	// Discover and register WASM character plugins from the configured directory.
 	if err := wasmhost.RegisterDiscoveredPlugins(cfg.GUI.CharacterDir); err != nil {

@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"time"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
@@ -12,9 +10,6 @@ import (
 )
 
 const (
-	// refreshInterval is how often the UI refreshes notification content.
-	refreshInterval = 30 * time.Second
-
 	// outerSplitOffset positions the focus rail at ~10% width.
 	outerSplitOffset = 0.1
 	// innerSplitOffset positions the center area at ~67% of the remaining space
@@ -259,16 +254,5 @@ func (m *MainWindow) WizardViewRef() RefreshableView {
 
 // Run shows the window and starts the Fyne event loop. Blocks until quit.
 func (m *MainWindow) Run() {
-	// Periodic notification refresh.
-	go func() {
-		ticker := time.NewTicker(refreshInterval)
-		defer ticker.Stop()
-		for range ticker.C {
-			fyne.Do(func() {
-				m.window.Canvas().Refresh(m.window.Canvas().Content())
-			})
-		}
-	}()
-
 	m.window.ShowAndRun()
 }

@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/widget"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -13,6 +15,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/uitest"
 )
 
 // --- Mock WizardViewModel ---
@@ -590,6 +593,134 @@ func (s *WizardViewSuite) TestRefreshUpdatesStepIndicator() {
 
 	s.Equal("Step 2 of 4", view2.StepIndicator(),
 		"After model change should show step 2")
+}
+
+// --- Helper: find Nth button by text in widget tree ---
+
+func findNthButton(root *fyne.Container, text string, n int) *widget.Button {
+	buttons := uitest.FindAll[*widget.Button](root, func(b *widget.Button) bool {
+		return b.Text == text
+	})
+	if n < len(buttons) {
+		return buttons[n]
+	}
+	return nil
+}
+
+// =====================================================================
+// Step 3: Per-Row Up/Down Button Behavior
+// =====================================================================
+
+func (s *WizardViewSuite) TestStep3UpButtonCallsReorderTask() {
+	s.setupStep3Defaults()
+	s.vm.On("ReorderTask", 1, 0).Once()
+
+	view := ui.NewWizardView(s.vm, s.router)
+
+	// Find the Up button for the second item (index 1)
+	upBtn := findNthButton(view.Container(), "Up", 1)
+	s.Require().NotNil(upBtn, "Should find a second Up button (for item at index 1)")
+
+	upBtn.OnTapped()
+
+	s.vm.AssertCalled(s.T(), "ReorderTask", 1, 0)
+}
+
+func (s *WizardViewSuite) TestStep3DownButtonCallsReorderTask() {
+	s.setupStep3Defaults()
+	s.vm.On("ReorderTask", 0, 1).Once()
+
+	view := ui.NewWizardView(s.vm, s.router)
+
+	// Find the Down button for the first item (index 0)
+	downBtn := findNthButton(view.Container(), "Down", 0)
+	s.Require().NotNil(downBtn, "Should find a Down button for the first item")
+
+	downBtn.OnTapped()
+
+	s.vm.AssertCalled(s.T(), "ReorderTask", 0, 1)
+}
+
+func (s *WizardViewSuite) TestStep3FirstItemUpDisabled() {
+	s.setupStep3Defaults()
+
+	view := ui.NewWizardView(s.vm, s.router)
+
+	// The first item's Up button should be disabled (can't move up from index 0)
+	upBtn := findNthButton(view.Container(), "Up", 0)
+	s.Require().NotNil(upBtn, "Should find an Up button for the first item")
+
+	s.True(upBtn.Disabled(), "First item's Up button should be disabled")
+}
+
+func (s *WizardViewSuite) TestStep3LastItemDownDisabled() {
+	s.setupStep3Defaults()
+
+	view := ui.NewWizardView(s.vm, s.router)
+
+	// The last item's Down button should be disabled (can't move down from last index)
+	downBtn := findNthButton(view.Container(), "Down", 1)
+	s.Require().NotNil(downBtn, "Should find a Down button for the last item")
+
+	s.True(downBtn.Disabled(), "Last item's Down button should be disabled")
+}
+
+func (s *WizardViewSuite) TestStep3UpButtonRefreshesView() {
+	// Initial order: "Write tests" (index 0), "Deploy fix" (index 1)
+	s.setupStep3Defaults()
+
+	// After ReorderTask(1, 0), the VM should return swapped estimates
+	s.vm.On("ReorderTask", 1, 0).Run(func(args mock.Arguments) {
+		// After reorder, clear and re-setup with swapped order
+		// The view calls Refresh which re-reads Estimates()
+	}).Once()
+
+	view := ui.NewWizardView(s.vm, s.router)
+
+	// Verify initial order
+	s.Equal("Write tests", view.PriorityList()[0])
+	s.Equal("Deploy fix", view.PriorityList()[1])
+
+	// Tap Up on the second item to move it to position 0
+	upBtn := findNthButton(view.Container(), "Up", 1)
+	s.Require().NotNil(upBtn, "Should find a second Up button")
+
+	// Reconfigure mock to return swapped order after reorder
+	swappedEstimates := []presenter.TaskEstimateRow{
+		{
+			TodoID:         taskID3,
+			Title:          "Deploy fix",
+			EstimatedPomos: 4,
+			EffectivePomos: 3,
+		},
+		{
+			TodoID:         taskID1,
+			Title:          "Write tests",
+			EstimatedPomos: 2,
+			EffectivePomos: 2,
+		},
+	}
+	s.vm.ExpectedCalls = filterCallsByMethod(s.vm.ExpectedCalls, "Estimates")
+	s.vm.On("Estimates").Return(swappedEstimates).Maybe()
+
+	upBtn.OnTapped()
+
+	// After tapping Up, the view should have refreshed and show swapped order
+	s.Equal("Deploy fix", view.PriorityList()[0],
+		"After tapping Up on second item, it should move to first position")
+	s.Equal("Write tests", view.PriorityList()[1],
+		"After tapping Up on second item, first item should move to second position")
+}
+
+// filterCallsByMethod returns all mock expected calls except those for the given method.
+func filterCallsByMethod(calls []*mock.Call, method string) []*mock.Call {
+	var filtered []*mock.Call
+	for _, c := range calls {
+		if c.Method != method {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
 }
 
 // Ensure unused imports are valid

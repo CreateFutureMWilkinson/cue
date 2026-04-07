@@ -52,7 +52,7 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 014 | Character animation system | Done | [Feature-014](features/phase-3/Feature-014-Character-System.md) |
 | 014A | Security hardening (gosec, CVEs) | Done | [Feature-014A](features/phase-3/Feature-014A-Security-Hardening.md) |
 | 014B | Fairy animator integration | Done | [Feature-014B](features/phase-3/Feature-014B-Animator-Integration.md) |
-| 024 | Character UAT harness | Done | [Feature-024](features/phase-3/Feature-024-Character-UAT-Harness.md) |
+| 024 | Character UAT harness | Replaced by Feature 076 | [Feature-024](features/phase-3/Feature-024-Character-UAT-Harness.md) |
 | 024A | Wayland thread-safety in UAT harness | Done | [Feature-024A](features/phase-3/Feature-024A-Wayland-Thread-Safety.md) |
 | 024B | Fairy refresh thread safety | Done | [Feature-024B](features/phase-3/Feature-024B-Fairy-Refresh-Thread-Safety.md) |
 | 024C | refreshFunc wiring (movement animations) | Done | [Feature-024C](features/phase-3/Feature-024C-RefreshFunc-Wiring.md) |
@@ -132,4 +132,4 @@ Implementation status for all phases and features. Feature docs live in `docs/fe
 | 067A | Email encryption setting missing | Bugfix | High | Done | 067 | [Feature-067A](features/phase-6/Feature-067A-Email-Encryption-Setting.md) |
 | 068A | Slack user authentication (bot→user token) | Bugfix | High | Done | 068 | [Feature-068A](features/phase-6/Feature-068A-Slack-User-Authentication.md) |
 | 075 | WASM character plugins | Feature | — | Done | 014, 041 | [Feature-075](features/phase-7/Feature-075-WASM-Character-Plugins.md) |
-| 076 | Integrated character UAT mode | Refactor | — | Planned | 075 | [Feature-076](features/phase-7/Feature-076-Integrated-Character-UAT.md) |
+| 076 | Integrated character UAT mode | Refactor | — | Done | 075 | [Feature-076](features/phase-7/Feature-076-Integrated-Character-UAT.md) |

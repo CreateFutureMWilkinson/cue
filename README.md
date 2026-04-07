@@ -60,7 +60,7 @@ Cue uses TOML configuration at `~/.cue/config.toml`. A default config is created
 - **UI** (`internal/ui/`) — Fyne desktop GUI with presenter/view architecture (notification queue, activity log, feedback review, character animation)
 - **WASM Character Plugins** (`internal/ui/character/wasmhost/`) — wazero-based plugin host for loading third-party character `.wasm` files at runtime with sandboxed rendering API
 - **Entry Point** (`cmd/cue/`) — Composition root wiring all components
-- **Character UAT** (`cmd/character-uat/`, `cmd/cue-uat/`) — Standalone harness for visual character testing (`just run-uat`)
+- **Character UAT** — `cue uat` subcommand launches full UI with UAT control panel for live character testing (`just run-uat`)
 
 ## Development
 

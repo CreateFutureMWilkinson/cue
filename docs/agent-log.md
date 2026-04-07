@@ -465,3 +465,11 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-7-Feature-075 (wiring) | GREEN | orchestrator | manual | — | 9266a51 |
 | Phase-7-Feature-075 (build infra) | BUILD | orchestrator | manual | — | bb373c1 |
 | Phase-7-Feature-075 (security/lint) | CHORE | orchestrator | manual | — | a1f1a7b |
+| Phase-7-Feature-076 (UATPanel render) | RED+GREEN | Test Designer + Implementer | ~73s | ~49,353 | 54e014a |
+| Phase-7-Feature-076 (char selection) | RED+GREEN | Test Designer + Implementer | ~89s | ~51,749 | 98c1bc2 |
+| Phase-7-Feature-076 (state triggers + disable) | RED+GREEN | Test Designer + orchestrator | ~48s | ~28,123 | 17e9493 |
+| Phase-7-Feature-076 (no-op VMs) | RED+GREEN | Test Designer | ~54s | ~34,073 | c26ed18 |
+| Phase-7-Feature-076 (right panel override) | RED+GREEN | Implementer | ~203s | ~48,745 | d0cd8a8 |
+| Phase-7-Feature-076 (SetCharacterWidget) | RED+GREEN | Implementer | ~31s | ~30,228 | 9baaf56 |
+| Phase-7-Feature-076 (cue uat cmd) | RED+GREEN | Implementer | ~69s | ~38,507 | ea4f61a |
+| Phase-7-Feature-076 (old UAT removal) | REFACTOR | orchestrator | manual | — | d34faf4 |

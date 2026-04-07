@@ -378,6 +378,58 @@ func (s *SlackWatcherSuite) TestPoll_PassesLastTimestampToAPI() {
 	s.Equal("1711500005.000100", callLog.getMessageCalls[1].oldest)
 }
 
+// --- SetLastTimestamp: seeding cursor ---
+
+func (s *SlackWatcherSuite) TestSetLastTimestamp_SeedsCursorForPoll() {
+	callLog := &apiCallLog{}
+	api := &trackingMockAPI{
+		inner: &mockSlackAPI{
+			channels: []watcher.SlackChannel{
+				{ID: "C123", Name: "general"},
+			},
+			messages: map[string][]watcher.SlackMessage{
+				"C123": {},
+			},
+		},
+		log: callLog,
+	}
+
+	w := s.mustNewWatcher(api, "T12345")
+	w.SetLastTimestamp("C123", "1711500000.000100")
+
+	_, err := w.Poll(context.Background())
+	s.NoError(err)
+
+	s.Require().Len(callLog.getMessageCalls, 1)
+	s.Equal("C123", callLog.getMessageCalls[0].channelID)
+	s.Equal("1711500000.000100", callLog.getMessageCalls[0].oldest,
+		"Poll should use the cursor seeded by SetLastTimestamp")
+}
+
+// --- Poll: SourceCursor population ---
+
+func (s *SlackWatcherSuite) TestPoll_SetsSourceCursorOnMessages() {
+	api := &mockSlackAPI{
+		channels: []watcher.SlackChannel{
+			{ID: "C001", Name: "general"},
+		},
+		messages: map[string][]watcher.SlackMessage{
+			"C001": {
+				{ID: "msg1", ChannelID: "C001", ChannelName: "general", Sender: "U100", Text: "hello", Timestamp: "1711500005.000100"},
+			},
+		},
+	}
+
+	w := s.mustNewWatcher(api, "T12345")
+	msgs, err := w.Poll(context.Background())
+	s.NoError(err)
+
+	regularMsgs := filterByType(msgs, "message")
+	s.Require().Len(regularMsgs, 1)
+	s.Equal("1711500005.000100", regularMsgs[0].SourceCursor,
+		"SourceCursor should be set to the Slack message Timestamp")
+}
+
 // --- Helpers ---
 
 func (s *SlackWatcherSuite) mustNewWatcher(api watcher.SlackAPI, workspaceID string) *watcher.SlackWatcher {

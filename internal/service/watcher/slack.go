@@ -169,6 +169,11 @@ func (w *SlackWatcher) getThreadContext(ctx context.Context, slackMsg SlackMessa
 	return replies[0].Text
 }
 
+// SetLastTimestamp seeds the per-channel cursor so startup import can prime it from the database.
+func (w *SlackWatcher) SetLastTimestamp(channelID, timestamp string) {
+	// stub: not yet implemented
+}
+
 // updateLastTimestamp updates the last seen timestamp for a channel if the new timestamp is newer
 func (w *SlackWatcher) updateLastTimestamp(channelID, timestamp string) {
 	if timestamp > w.lastTimestamp[channelID] {

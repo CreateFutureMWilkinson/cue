@@ -6,6 +6,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
 	"github.com/google/uuid"
 )
 
@@ -40,6 +41,8 @@ type TodoListView struct {
 	items            []TodoListRow
 	container        *fyne.Container
 	detailModalShown bool
+	titleEntry       *widget.Entry
+	addBtn           *widget.Button
 }
 
 // NewTodoListView creates a new TodoListView populated from the view model.
@@ -48,7 +51,15 @@ func NewTodoListView(vm TodoListViewModel) *TodoListView {
 		vm:        vm,
 		container: container.NewVBox(),
 	}
+	v.titleEntry = widget.NewEntry()
+	v.titleEntry.SetPlaceHolder("Task title")
+	v.addBtn = widget.NewButton("Add", func() {
+		v.AddItem(v.titleEntry.Text, 0)
+		v.titleEntry.SetText("")
+		v.buildContainer()
+	})
 	v.loadAndSort()
+	v.buildContainer()
 	return v
 }
 
@@ -126,7 +137,15 @@ func (v *TodoListView) isValidTaskTitle(title string) bool {
 	return len(strings.TrimSpace(title)) > 0
 }
 
+// buildContainer rebuilds the container with current widgets.
+func (v *TodoListView) buildContainer() {
+	v.container.Objects = nil
+	v.container.Objects = append(v.container.Objects, container.NewHBox(v.titleEntry, v.addBtn))
+	v.container.Refresh()
+}
+
 // Refresh reloads items from the view model and re-sorts.
 func (v *TodoListView) Refresh() {
 	v.loadAndSort()
+	v.buildContainer()
 }

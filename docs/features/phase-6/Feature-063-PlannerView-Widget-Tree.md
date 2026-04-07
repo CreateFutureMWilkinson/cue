@@ -3,7 +3,7 @@
 **Phase:** Phase-6-Feature-063
 **Type:** Bugfix
 **Severity:** High
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/`
 **Related:** Feature 022B (Plan View), Feature 022C (Todo List View), Feature 056 (Plan/Wizard Wiring), Feature 052 (Automated UI Testing)
 
@@ -88,4 +88,15 @@ Features 022B and 022C implemented the data model and accessor methods but stopp
 
 ## TDD Agent Stats
 
-_To be filled during implementation._
+| Behavior | TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|---|
+| 1: Inline creation widgets | RED | Test Designer | ~40s | ~25,100 | 7c5e47d |
+| 1: Inline creation widgets | GREEN | Implementer | ~47s | ~27,300 | 5bb3a5c |
+| 1: Inline creation widgets | REFACTOR | Refactorer | ~35s | ~22,600 | a72406a |
+| 2: Task row rendering | RED | Test Designer | ~31s | ~24,300 | 76af760 |
+| 2: Task row rendering | GREEN | Implementer | ~25s | ~24,700 | d56e13f |
+| 2: Task row rendering | REFACTOR | — | — | — | (no changes) |
+| 3: Horizontal Split | RED | Test Designer | ~106s | ~47,700 | 2cd275b |
+| 3: Horizontal Split | GREEN | orchestrator | manual | — | cffc358 |
+| 3: Horizontal Split | REFACTOR | — | — | — | (no changes) |
+| 3: uitest Split traversal | GREEN | orchestrator | manual | — | 3178397 |

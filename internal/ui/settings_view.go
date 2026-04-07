@@ -68,7 +68,8 @@ func NewSettingsView(
 	)
 	ollamaTab := container.NewTabItem("Ollama", ollamaContent)
 
-	tabs := container.NewAppTabs(slackTab, emailTab, audioTab, ollamaTab)
+	calendarTab := newAccountTab("Calendar", func() {})
+	tabs := container.NewAppTabs(slackTab, emailTab, calendarTab, audioTab, ollamaTab)
 
 	doneBtn := widget.NewButton("Done", onClose)
 

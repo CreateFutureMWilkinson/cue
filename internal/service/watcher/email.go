@@ -104,6 +104,16 @@ func (w *EmailWatcher) convertEmailMessage(email EmailMessage) *repository.Messa
 	}
 }
 
+// SourceInfo returns the source type and account identifier for this watcher.
+func (w *EmailWatcher) SourceInfo() (string, string) {
+	return "", ""
+}
+
+// SeedCursor parses cursor as a uint32 UID and seeds the high-water mark.
+func (w *EmailWatcher) SeedCursor(channel string, cursor string) {
+	// stub
+}
+
 // updateLastUID advances the high-water mark if uid is newer.
 func (w *EmailWatcher) updateLastUID(uid uint32) {
 	if uid > w.lastUID {

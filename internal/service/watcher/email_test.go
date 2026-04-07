@@ -328,6 +328,30 @@ func (s *EmailWatcherSuite) TestPoll_SetsSourceCursorOnMessages() {
 	s.Equal("55", msgs[0].SourceCursor, "SourceCursor should be the email UID as a string")
 }
 
+// --- CursorSeedable interface ---
+
+func (s *EmailWatcherSuite) TestEmailWatcher_SourceInfo() {
+	api := &mockEmailAPI{}
+	w := s.mustNewWatcher(api, "user@example.com")
+
+	source, sourceAccount := w.SourceInfo()
+	s.Equal("email", source)
+	s.Equal("user@example.com", sourceAccount)
+}
+
+func (s *EmailWatcherSuite) TestEmailWatcher_SeedCursor() {
+	api := &mockEmailAPI{
+		messages: []watcher.EmailMessage{},
+	}
+	w := s.mustNewWatcher(api, "user@example.com")
+
+	w.SeedCursor("INBOX", "42")
+
+	_, err := w.Poll(context.Background())
+	s.NoError(err)
+	s.Equal(uint32(42), api.lastSeenLastUID, "SeedCursor should parse cursor as uint32 and set lastUID")
+}
+
 // --- Helpers ---
 
 func (s *EmailWatcherSuite) mustNewWatcher(api watcher.EmailAPI, username string) *watcher.EmailWatcher {

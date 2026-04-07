@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -884,4 +885,51 @@ func (s *MessageRepoSuite) TestQueryByID_CancelledContext_ReturnsContextError() 
 	got, err := repo.QueryByID(ctx, uuid.New())
 	s.Error(err, "expected error when context is cancelled")
 	s.Nil(got, "message should be nil when context is cancelled")
+}
+
+// --- Feature 088: DistinctChannels ---
+
+func (s *MessageRepoSuite) TestDistinctChannelsReturnsUniqueChannels() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	// Insert 3 slack messages: 2 in "general", 1 in "alerts", all workspace-1.
+	msg1 := makeTestMessage("slack", "Notified", now)
+	msg1.SourceAccount = "workspace-1"
+	msg1.Channel = "general"
+	s.Require().NoError(repo.Insert(ctx, msg1))
+
+	msg2 := makeTestMessage("slack", "Buffered", now.Add(time.Second))
+	msg2.SourceAccount = "workspace-1"
+	msg2.Channel = "general"
+	s.Require().NoError(repo.Insert(ctx, msg2))
+
+	msg3 := makeTestMessage("slack", "Notified", now.Add(2*time.Second))
+	msg3.SourceAccount = "workspace-1"
+	msg3.Channel = "alerts"
+	s.Require().NoError(repo.Insert(ctx, msg3))
+
+	channels, err := repo.DistinctChannels(ctx, "slack", "workspace-1")
+	s.Require().NoError(err)
+
+	sort.Strings(channels)
+	s.Equal([]string{"alerts", "general"}, channels, "should return exactly the two distinct channels")
+}
+
+func (s *MessageRepoSuite) TestDistinctChannelsReturnsEmptyForNoMatches() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+
+	channels, err := repo.DistinctChannels(ctx, "slack", "workspace-1")
+	s.Require().NoError(err)
+	s.Empty(channels, "should return empty result when no messages match")
 }

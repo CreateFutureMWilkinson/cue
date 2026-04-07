@@ -430,6 +430,43 @@ func (s *SlackWatcherSuite) TestPoll_SetsSourceCursorOnMessages() {
 		"SourceCursor should be set to the Slack message Timestamp")
 }
 
+// --- CursorSeedable interface ---
+
+func (s *SlackWatcherSuite) TestSlackWatcher_SourceInfo() {
+	api := &mockSlackAPI{}
+	w := s.mustNewWatcher(api, "T12345")
+
+	source, sourceAccount := w.SourceInfo()
+	s.Equal("slack", source, "SourceInfo source should be 'slack'")
+	s.Equal("T12345", sourceAccount, "SourceInfo sourceAccount should be the workspace ID")
+}
+
+func (s *SlackWatcherSuite) TestSlackWatcher_SeedCursor() {
+	callLog := &apiCallLog{}
+	api := &trackingMockAPI{
+		inner: &mockSlackAPI{
+			channels: []watcher.SlackChannel{
+				{ID: "C123", Name: "general"},
+			},
+			messages: map[string][]watcher.SlackMessage{
+				"C123": {},
+			},
+		},
+		log: callLog,
+	}
+
+	w := s.mustNewWatcher(api, "T12345")
+	w.SeedCursor("C123", "1711500000.000100")
+
+	_, err := w.Poll(context.Background())
+	s.NoError(err)
+
+	s.Require().Len(callLog.getMessageCalls, 1)
+	s.Equal("C123", callLog.getMessageCalls[0].channelID)
+	s.Equal("1711500000.000100", callLog.getMessageCalls[0].oldest,
+		"Poll should use the cursor seeded by SeedCursor")
+}
+
 // --- Helpers ---
 
 func (s *SlackWatcherSuite) mustNewWatcher(api watcher.SlackAPI, workspaceID string) *watcher.SlackWatcher {

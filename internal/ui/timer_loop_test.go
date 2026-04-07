@@ -149,6 +149,29 @@ func (s *TimerLoopSuite) TestTimerLoopUpdatesTaskLabelAfterTick() {
 	s.taskView.AssertCalled(s.T(), "SetCurrentTask", "Write code")
 }
 
+func (s *TimerLoopSuite) TestTimerLoopTickOnceUsesUIScheduler() {
+	s.timer.On("Tick").Return()
+	s.timer.On("ElapsedFraction").Return(0.5)
+	s.timer.On("IsFlashVisible").Return(true)
+	s.timer.On("CurrentTaskName").Return("Write code")
+	s.widget.On("SetProgress", 0.5).Return()
+	s.widget.On("SetFlashVisible", true).Return()
+	s.taskView.On("SetCurrentTask", "Write code").Return()
+
+	loop, err := ui.NewTimerLoop(s.timer, s.widget, s.taskView)
+	s.Require().NoError(err)
+
+	schedulerCalled := false
+	loop.SetUIScheduler(func(fn func()) {
+		schedulerCalled = true
+		fn()
+	})
+
+	loop.TickOnce()
+
+	s.True(schedulerCalled, "TickOnce should dispatch widget updates through UIScheduler")
+}
+
 func (s *TimerLoopSuite) TestTimerLoopStopPreventsMoreTicks() {
 	s.timer.On("Tick").Return()
 	s.timer.On("ElapsedFraction").Return(0.0)

@@ -32,6 +32,7 @@ type TimerLoop struct {
 	timer    TickableTimer
 	widget   TimerWidget
 	taskView TaskUpdater
+	doFunc   UIScheduler
 	stopped  bool
 	cancel   context.CancelFunc
 }
@@ -52,6 +53,11 @@ func NewTimerLoop(timer TickableTimer, widget TimerWidget, taskView TaskUpdater)
 		widget:   widget,
 		taskView: taskView,
 	}, nil
+}
+
+// SetUIScheduler sets the function used to dispatch widget updates to the UI thread.
+func (l *TimerLoop) SetUIScheduler(fn UIScheduler) {
+	// stub: intentionally does not store fn
 }
 
 // TickOnce performs a single tick cycle: calls Tick, then updates UI from timer state.

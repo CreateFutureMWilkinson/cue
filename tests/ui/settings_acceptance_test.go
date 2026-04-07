@@ -3,6 +3,7 @@
 package ui_acceptance_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -732,4 +733,179 @@ func (s *SettingsAcceptanceSuite) TestEachTabHasContent() {
 	for i, item := range tabs.Items {
 		s.NotNilf(item.Content, "tab %d (%s) should have non-nil content", i, item.Text)
 	}
+}
+
+// --- Feature 079: Credential Validation on Save ---
+
+// AC: Invalid Slack token: form stays open with error message, no DB record created.
+func (s *SettingsAcceptanceSuite) TestSlackValidationFailureKeepsFormOpen() {
+	repo := &mockServiceConfigRepo{}
+	failValidator := &mockSlackValidator{err: fmt.Errorf("invalid_auth")}
+	sv := newSettingsViewWithRepo(repo, presenter.WithSlackValidator(failValidator))
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	slackContent := tabs.Items[0].Content
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+	addBtn.OnTapped()
+
+	slackContent = tabs.Items[0].Content
+	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 4)
+	entries[0].SetText("xoxp-bad-token")
+	entries[1].SetText("T12345")
+	entries[2].SetText("testuser")
+	entries[3].SetText("600")
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
+		return b.Text == "Save"
+	})
+	saveBtn.OnTapped()
+
+	// Form should still be showing (entries still present)
+	slackContent = tabs.Items[0].Content
+	entriesAfter := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
+	s.GreaterOrEqual(len(entriesAfter), 4, "form should remain open after validation failure")
+
+	// Error label should contain the validation error
+	_, found := uitest.FindWidget[*widget.Label](slackContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "invalid_auth")
+	})
+	s.True(found, "error label should show the validation error 'invalid_auth'")
+
+	// No DB record should have been created
+	s.Empty(repo.slackAccounts, "no Slack account should be persisted after validation failure")
+}
+
+// AC: Invalid IMAP credentials: form stays open with error message.
+func (s *SettingsAcceptanceSuite) TestEmailValidationFailureKeepsFormOpen() {
+	repo := &mockServiceConfigRepo{}
+	failValidator := &mockEmailValidator{err: fmt.Errorf("IMAP login: authentication failed")}
+	sv := newSettingsViewWithRepo(repo, presenter.WithEmailValidator(failValidator))
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	emailContent := tabs.Items[1].Content
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+	addBtn.OnTapped()
+
+	emailContent = tabs.Items[1].Content
+	entries := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 5)
+	entries[0].SetText("imap.example.com")
+	entries[1].SetText("993")
+	entries[2].SetText("user@example.com")
+	entries[3].SetText("wrong-password")
+	entries[4].SetText("600")
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool {
+		return b.Text == "Save"
+	})
+	saveBtn.OnTapped()
+
+	emailContent = tabs.Items[1].Content
+	entriesAfter := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool { return true })
+	s.GreaterOrEqual(len(entriesAfter), 5, "form should remain open after validation failure")
+
+	_, found := uitest.FindWidget[*widget.Label](emailContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "authentication failed")
+	})
+	s.True(found, "error label should show the validation error 'authentication failed'")
+
+	s.Empty(repo.emailAccounts, "no Email account should be persisted after validation failure")
+}
+
+// AC: Invalid calendar URL: form stays open with error message.
+func (s *SettingsAcceptanceSuite) TestCalendarValidationFailureKeepsFormOpen() {
+	repo := &mockServiceConfigRepo{}
+	failValidator := &mockCalendarValidator{err: fmt.Errorf("404 Not Found")}
+	sv := newSettingsViewWithRepo(repo, presenter.WithCalendarValidator(failValidator))
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	calendarContent := tabs.Items[2].Content
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+	addBtn.OnTapped()
+
+	calendarContent = tabs.Items[2].Content
+	entries := uitest.FindAll[*widget.Entry](calendarContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 3)
+	entries[0].SetText("Bad Calendar")
+	entries[1].SetText("https://example.com/nonexistent.ics")
+	entries[2].SetText("600")
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool {
+		return b.Text == "Save"
+	})
+	saveBtn.OnTapped()
+
+	calendarContent = tabs.Items[2].Content
+	entriesAfter := uitest.FindAll[*widget.Entry](calendarContent, func(_ *widget.Entry) bool { return true })
+	s.GreaterOrEqual(len(entriesAfter), 3, "form should remain open after validation failure")
+
+	_, found := uitest.FindWidget[*widget.Label](calendarContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "404 Not Found")
+	})
+	s.True(found, "error label should show the validation error '404 Not Found'")
+
+	s.Empty(repo.calendarAccounts, "no Calendar account should be persisted after validation failure")
+}
+
+// AC: Valid Slack credentials: saved to DB, returns to account list.
+func (s *SettingsAcceptanceSuite) TestSlackValidationSuccessSavesAndReturnsToList() {
+	repo := &mockServiceConfigRepo{}
+	passValidator := &mockSlackValidator{err: nil}
+	sv := newSettingsViewWithRepo(repo, presenter.WithSlackValidator(passValidator))
+	root := sv.Container()
+
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
+		return true
+	})
+
+	slackContent := tabs.Items[0].Content
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
+		return b.Text == "Add Account"
+	})
+	addBtn.OnTapped()
+
+	slackContent = tabs.Items[0].Content
+	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 4)
+	entries[0].SetText("xoxp-valid-token")
+	entries[1].SetText("T-VALID")
+	entries[2].SetText("validuser")
+	entries[3].SetText("600")
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool {
+		return b.Text == "Save"
+	})
+	saveBtn.OnTapped()
+
+	// Should be back to list view (fewer entries)
+	slackContent = tabs.Items[0].Content
+	entriesAfter := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
+	s.Less(len(entriesAfter), 4, "after successful validation and save, form should be replaced with account list")
+
+	// Account should appear in list
+	_, found := uitest.FindWidget[*widget.Label](slackContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "T-VALID")
+	})
+	s.True(found, "saved Slack account should appear in the account list")
+
+	s.Len(repo.slackAccounts, 1, "one Slack account should be persisted after successful validation")
 }

@@ -17,20 +17,66 @@ type WatcherRemover interface {
 // WatcherFactory creates and registers a watcher for the given account type and ID.
 type WatcherFactory func(accountType string, accountID uuid.UUID) error
 
+// SlackValidator validates Slack credentials before saving.
+type SlackValidator interface {
+	ValidateSlack(ctx context.Context, token string) error
+}
+
+// EmailValidator validates IMAP credentials before saving.
+type EmailValidator interface {
+	ValidateEmail(ctx context.Context, host string, port int, username, password, encryption string) error
+}
+
+// CalendarValidator validates a calendar ICS URL before saving.
+type CalendarValidator interface {
+	ValidateCalendar(ctx context.Context, url string) error
+}
+
+// ServiceSettingsOption is a functional option for configuring ServiceSettingsPresenter.
+type ServiceSettingsOption func(*ServiceSettingsPresenter)
+
+// WithSlackValidator sets the Slack credential validator.
+func WithSlackValidator(v SlackValidator) ServiceSettingsOption {
+	return func(p *ServiceSettingsPresenter) {
+		p.slackValidator = v
+	}
+}
+
+// WithEmailValidator sets the Email credential validator.
+func WithEmailValidator(v EmailValidator) ServiceSettingsOption {
+	return func(p *ServiceSettingsPresenter) {
+		p.emailValidator = v
+	}
+}
+
+// WithCalendarValidator sets the Calendar credential validator.
+func WithCalendarValidator(v CalendarValidator) ServiceSettingsOption {
+	return func(p *ServiceSettingsPresenter) {
+		p.calendarValidator = v
+	}
+}
+
 // ServiceSettingsPresenter mediates between the UI and the service config repository.
 type ServiceSettingsPresenter struct {
-	repo    repository.ServiceConfigRepository
-	mgr     WatcherRemover
-	factory WatcherFactory
+	repo              repository.ServiceConfigRepository
+	mgr               WatcherRemover
+	factory           WatcherFactory
+	slackValidator    SlackValidator
+	emailValidator    EmailValidator
+	calendarValidator CalendarValidator
 }
 
 // NewServiceSettingsPresenter constructs a ServiceSettingsPresenter.
-func NewServiceSettingsPresenter(repo repository.ServiceConfigRepository, mgr WatcherRemover, factory WatcherFactory) *ServiceSettingsPresenter {
-	return &ServiceSettingsPresenter{
+func NewServiceSettingsPresenter(repo repository.ServiceConfigRepository, mgr WatcherRemover, factory WatcherFactory, opts ...ServiceSettingsOption) *ServiceSettingsPresenter {
+	p := &ServiceSettingsPresenter{
 		repo:    repo,
 		mgr:     mgr,
 		factory: factory,
 	}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p
 }
 
 // ListSlackAccounts returns all configured Slack accounts.

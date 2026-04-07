@@ -357,11 +357,40 @@ func newSettingsView() *ui.SettingsView {
 }
 
 // newSettingsViewWithRepo creates a SettingsView backed by a specific mock repo.
-func newSettingsViewWithRepo(repo *mockServiceConfigRepo) *ui.SettingsView {
+func newSettingsViewWithRepo(repo *mockServiceConfigRepo, opts ...presenter.ServiceSettingsOption) *ui.SettingsView {
 	vc := &mockVolumeController{}
 	sp, _ := presenter.NewSettingsPresenter(vc, 50, &mockVolumeController{}, 50)
-	ssp := presenter.NewServiceSettingsPresenter(repo, &mockWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil })
+	ssp := presenter.NewServiceSettingsPresenter(repo, &mockWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil }, opts...)
 	return ui.NewSettingsView(sp, ssp, defaultOllamaConfig(), func() {})
+}
+
+// --- Mock validators ---
+
+// mockSlackValidator is a mock SlackValidator that returns a configurable error.
+type mockSlackValidator struct {
+	err error
+}
+
+func (m *mockSlackValidator) ValidateSlack(_ context.Context, _ string) error {
+	return m.err
+}
+
+// mockEmailValidator is a mock EmailValidator that returns a configurable error.
+type mockEmailValidator struct {
+	err error
+}
+
+func (m *mockEmailValidator) ValidateEmail(_ context.Context, _ string, _ int, _, _, _ string) error {
+	return m.err
+}
+
+// mockCalendarValidator is a mock CalendarValidator that returns a configurable error.
+type mockCalendarValidator struct {
+	err error
+}
+
+func (m *mockCalendarValidator) ValidateCalendar(_ context.Context, _ string) error {
+	return m.err
 }
 
 // --- Sample data ---

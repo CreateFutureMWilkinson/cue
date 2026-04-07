@@ -47,7 +47,7 @@ func (s *ShutdownAnimatorSuite) TestCapturesCurrentStateOnStart() {
 
 	// Advance to midpoint (0.75s).
 	s.clock.Advance(750 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	// Position should be between start (0.2, 0.3) and dormant (0.5, 1.0).
 	x, y := f.Position()
@@ -75,7 +75,7 @@ func (s *ShutdownAnimatorSuite) TestFinalStateIsDormant() {
 
 	// Advance past the full 1.5s shutdown duration.
 	s.clock.Advance(1600 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	// Position should be dormant (0.5, 1.0).
 	x, y := f.Position()
@@ -110,7 +110,7 @@ func (s *ShutdownAnimatorSuite) TestDoneChannelClosesOnCompletion() {
 
 	// Advance past the full 1.5s shutdown duration.
 	s.clock.Advance(1600 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	// Done channel should be closed.
 	select {
@@ -145,7 +145,7 @@ func (s *ShutdownAnimatorSuite) TestPositionInterpolationFromCustomStart() {
 
 	// Advance past the full 1.5s shutdown duration.
 	s.clock.Advance(1600 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	// Final position should be dormant (0.5, 1.0).
 	x, y := f.Position()
@@ -166,7 +166,7 @@ func (s *ShutdownAnimatorSuite) TestColorInterpolationAtMidpoint() {
 
 	// Advance to ~0.75s (midpoint of 1.5s animation).
 	s.clock.Advance(750 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	// At midpoint, color should be between idle (#00FF00) and dormant (#004900).
 	bodyCircle := f.BodyCircle()
@@ -192,7 +192,7 @@ func (s *ShutdownAnimatorSuite) TestGlowInterpolationAtMidpoint() {
 
 	// Advance to ~0.75s (midpoint of 1.5s animation).
 	s.clock.Advance(750 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	// At midpoint, glow should be between start (0.8) and dormant (0.15).
 	glow := f.GlowIntensity()
@@ -215,7 +215,7 @@ func (s *ShutdownAnimatorSuite) TestAnimationFromIdleState() {
 
 	// Advance past the full 1.5s shutdown duration.
 	s.clock.Advance(1600 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	// Final position should still be (0.5, 1.0) -- same as idle origin.
 	x, y := f.Position()
@@ -254,7 +254,7 @@ func (s *ShutdownAnimatorSuite) TestAnimationFromErrorState() {
 
 	// Advance past the full 1.5s shutdown duration.
 	s.clock.Advance(1600 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	// Final position should be dormant (0.5, 1.0).
 	x, y := f.Position()
@@ -302,7 +302,7 @@ func (s *ShutdownAnimatorSuite) TestStopWaitsForCompletion() {
 
 	// Advance clock past full 1.5s duration so the animation can complete.
 	s.clock.Advance(1600 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	// Stop should return without hanging because animation has completed.
 	done := make(chan struct{})
@@ -332,7 +332,7 @@ func (s *ShutdownAnimatorSuite) TestColorCapturePreservesChannelValues() {
 
 	// Advance past the full 1.5s shutdown duration.
 	s.clock.Advance(1600 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	// Final body color should be exactly DormantColor (#004900).
 	bodyCircle := f.BodyCircle()
@@ -379,7 +379,7 @@ func (s *ShutdownAnimatorSuite) TestColorCaptureFromBrightColor() {
 
 	// Advance to midpoint (750ms of 1.5s animation).
 	s.clock.Advance(750 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	// At midpoint, green channel should be between 0xFF and 0x49 (dormant).
 	bodyCircle := f.BodyCircle()

@@ -108,7 +108,7 @@ func (s *FairyCharacterSuite) advanceAndTick(clock *mockClock, d time.Duration) 
 	stepDuration := d / time.Duration(steps)
 	for range steps {
 		clock.Advance(stepDuration)
-		time.Sleep(5 * time.Millisecond) // Let the goroutine process the tick.
+		time.Sleep(50 * time.Millisecond) // Let the goroutine process the tick.
 	}
 }
 
@@ -360,7 +360,7 @@ func (s *FairyCharacterSuite) TestCloseIdempotent() {
 	f, _ := s.newTestFairy()
 
 	f.TransitionTo(character.StateIdle)
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	// Close twice without panic.
 	s.NotPanics(func() {

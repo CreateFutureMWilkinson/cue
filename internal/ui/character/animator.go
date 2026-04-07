@@ -16,9 +16,9 @@ type Clock interface {
 
 // Animation timing constants shared across all character implementations.
 const (
-	AnimationFPS           = 30                  // Target frames per second
-	AnimationTickMs        = 1000 / AnimationFPS // Milliseconds between animation frames
-	AnimationFrameInterval = time.Millisecond    // Frame interval for high-frequency animators
+	AnimationFPS           = 30                    // Target frames per second
+	AnimationTickMs        = 1000 / AnimationFPS   // Milliseconds between animation frames
+	AnimationFrameInterval = 16 * time.Millisecond // ~60fps frame interval for animators
 )
 
 // wallTicker wraps a standard time.Ticker to implement the Ticker interface.

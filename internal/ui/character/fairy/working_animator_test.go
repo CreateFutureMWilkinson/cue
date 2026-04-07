@@ -67,7 +67,7 @@ func (s *WorkingAnimatorSuite) TestBodyColorIsWorkingGreen() {
 	// Send a tick to let the animator process.
 	// After entry completes, body color must be #00DD00.
 	expected := color.RGBA{R: 0x00, G: 0xDD, B: 0x00, A: 0xFF}
-	time.Sleep(5 * time.Millisecond) // Allow goroutine to process
+	time.Sleep(50 * time.Millisecond) // Allow goroutine to process
 
 	bodyCircle := f.BodyCircle()
 	s.Require().NotNil(bodyCircle)
@@ -112,7 +112,7 @@ func (s *WorkingAnimatorSuite) TestEntryTransitionInterpolatesPosition() {
 	// At t=0.25s (midway through entry), position should be interpolated
 	// between (0.5, 1.0) and the first drift position.
 	s.clock.Advance(250 * time.Millisecond)
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	xMid, yMid := f.Position()
 	driftX, driftY := fairy.WorkingPosition(0.25)
@@ -128,7 +128,7 @@ func (s *WorkingAnimatorSuite) TestEntryTransitionInterpolatesPosition() {
 
 	// At t > 0.5s, position should be at drift position.
 	s.clock.Advance(300 * time.Millisecond)
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	xPost, yPost := f.Position()
 	driftXPost, driftYPost := fairy.WorkingPosition(0.55)
@@ -161,7 +161,7 @@ func (s *WorkingAnimatorSuite) TestEntryTransitionInterpolatesColor() {
 
 	// After entry (>0.5s), body color should be working green (#00DD00).
 	s.clock.Advance(600 * time.Millisecond)
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	workingGreen := color.RGBA{R: 0x00, G: 0xDD, B: 0x00, A: 0xFF}
 	r3, g3, b3, a3 := bodyCircle.FillColor.RGBA()

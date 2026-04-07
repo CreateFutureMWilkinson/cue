@@ -293,7 +293,7 @@ func (s *ErrorAnimatorSuite) TestVibrationUpdatesPositionOverTime() {
 	freqHz := fairy.ErrorVibrateFreqHz
 	quarterVibration := time.Duration(float64(time.Second) / (4.0 * freqHz))
 	s.clock.Advance(quarterVibration)
-	time.Sleep(5 * time.Millisecond) // Let animation goroutine tick.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine tick.
 
 	x1, _ := f.Position()
 	// Position should have moved away from 0.5 due to vibration.

@@ -184,7 +184,7 @@ func (s *NotifyAnimatorSuite) TestDartPositionsChangeEveryHalfSecond() {
 
 	// Advance 500ms -- dart should happen.
 	s.clock.Advance(500 * time.Millisecond)
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	x1, y1 := f.Position()
 	posChanged := (x0 != x1) || (y0 != y1)
@@ -193,7 +193,7 @@ func (s *NotifyAnimatorSuite) TestDartPositionsChangeEveryHalfSecond() {
 
 	// Advance another 500ms -- another dart.
 	s.clock.Advance(500 * time.Millisecond)
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	x2, y2 := f.Position()
 	posChanged2 := (x1 != x2) || (y1 != y2)
@@ -221,7 +221,7 @@ func (s *NotifyAnimatorSuite) TestDartPositionsWithinBounds() {
 	// Advance through several darts and check bounds.
 	for i := range 10 {
 		s.clock.Advance(500 * time.Millisecond)
-		time.Sleep(5 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 
 		x, y = f.Position()
 		s.GreaterOrEqual(x, 0.0, "dart %d: x must be >= 0.0", i)

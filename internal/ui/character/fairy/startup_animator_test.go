@@ -78,7 +78,7 @@ func (s *StartupAnimatorSuite) TestFinalStateIsIdle() {
 
 	// Advance the mock clock past the full 1.5s startup duration.
 	s.clock.Advance(1600 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	// Wait for completion callback.
 	select {
@@ -118,7 +118,7 @@ func (s *StartupAnimatorSuite) TestOnCompleteCallbackFires() {
 
 	// Advance past the full 1.5s duration.
 	s.clock.Advance(1600 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	s.Equal(int32(1), callCount.Load(),
 		"onComplete callback should be called exactly once")
@@ -135,7 +135,7 @@ func (s *StartupAnimatorSuite) TestColorInterpolationAtMidpoint() {
 
 	// Advance to ~0.75s (midpoint of 1.5s animation).
 	s.clock.Advance(750 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	// At midpoint, color should be between dormant (#004900) and idle (#00FF00).
 	bodyCircle := f.BodyCircle()
@@ -160,7 +160,7 @@ func (s *StartupAnimatorSuite) TestGlowInterpolationAtMidpoint() {
 
 	// Advance to ~0.75s (midpoint of 1.5s animation).
 	s.clock.Advance(750 * time.Millisecond)
-	time.Sleep(10 * time.Millisecond) // Let animation goroutine process.
+	time.Sleep(50 * time.Millisecond) // Let animation goroutine process.
 
 	// At midpoint with easeInOut(0.5)=0.5, glow should be ~0.3 (lerp 0.1 to 0.5).
 	glow := f.GlowIntensity()

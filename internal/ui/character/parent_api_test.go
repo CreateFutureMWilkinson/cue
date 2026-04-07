@@ -43,9 +43,12 @@ func (s *ParentAPISuite) TestAnimationTickMsStillInParent() {
 	s.Equal(1000/30, character.AnimationTickMs)
 }
 
-// TestAnimationFrameIntervalStillInParent verifies frame interval constant remains.
-func (s *ParentAPISuite) TestAnimationFrameIntervalStillInParent() {
-	s.Equal(time.Millisecond, character.AnimationFrameInterval)
+// TestAnimationFrameIntervalIsReasonable verifies the frame interval won't pin the CPU.
+func (s *ParentAPISuite) TestAnimationFrameIntervalIsReasonable() {
+	s.GreaterOrEqual(character.AnimationFrameInterval, 10*time.Millisecond,
+		"animation frame interval should be >= 10ms to avoid excessive CPU usage")
+	s.LessOrEqual(character.AnimationFrameInterval, 50*time.Millisecond,
+		"animation frame interval should be <= 50ms for smooth animations")
 }
 
 // TestWallClockStillInParent verifies WallClock type remains.

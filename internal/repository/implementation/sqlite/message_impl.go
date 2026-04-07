@@ -299,7 +299,18 @@ func (r *SQLiteMessageRepository) ExistsByMessageID(ctx context.Context, message
 // MaxSourceCursor returns the maximum source_cursor value for a given source + sourceAccount + channel.
 // Returns empty string if no matching records exist.
 func (r *SQLiteMessageRepository) MaxSourceCursor(ctx context.Context, source, sourceAccount, channel string) (string, error) {
-	return "", nil
+	var cursor sql.NullString
+	err := r.db.QueryRowContext(ctx,
+		"SELECT MAX(source_cursor) FROM messages WHERE source = ? AND source_account = ? AND channel = ?",
+		source, sourceAccount, channel,
+	).Scan(&cursor)
+	if err != nil {
+		return "", fmt.Errorf("max source cursor: %w", err)
+	}
+	if !cursor.Valid {
+		return "", nil
+	}
+	return cursor.String, nil
 }
 
 // evictOldestIfNeeded performs FIFO eviction for the given source if at capacity.

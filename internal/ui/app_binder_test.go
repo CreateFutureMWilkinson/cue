@@ -403,6 +403,33 @@ func (s *AppBinderSuite) TestBindWiresPlanMyDayToStartPlanningAndNavigate() {
 	s.viewRouter.AssertCalled(s.T(), "NavigateTo", ui.ViewWizard)
 }
 
+func (s *AppBinderSuite) TestBindStepChangeCallbackUsesUIScheduler() {
+	s.expectBindCalls()
+
+	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
+	s.Require().NoError(err)
+
+	schedulerCalled := false
+	binder.SetUIScheduler(func(fn func()) {
+		schedulerCalled = true
+		fn()
+	})
+
+	binder.Bind()
+
+	s.Require().NotNil(s.plannerP.stepChangeCallback, "Bind should have wired a StepChange callback")
+
+	// Set up expectations for StepActive path
+	s.wizardView.On("Refresh").Return()
+	s.plannerView.On("Refresh").Return()
+	s.viewRouter.On("NavigateTo", ui.ViewPlan).Return()
+	s.focusRail.On("SetActivePlan", true).Return()
+
+	s.plannerP.stepChangeCallback(presenter.StepActive)
+
+	s.True(schedulerCalled, "step-change callback should dispatch view mutations through the UIScheduler")
+}
+
 func (s *AppBinderSuite) TestBindWiresAbandonButtonToPresenterAbandonPlan() {
 	s.expectBindCalls()
 

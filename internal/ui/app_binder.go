@@ -47,6 +47,10 @@ type ViewNavigator interface {
 	NavigateTo(view CenterView)
 }
 
+// UIScheduler dispatches a function to the UI thread.
+// In production this is fyne.Do; in tests it can be a synchronous wrapper.
+type UIScheduler func(func())
+
 // AppBinder wires presenter callbacks to view updates.
 // It coordinates between the planner presenter, focus rail, views, and router
 // to keep the UI synchronized with the underlying application state.
@@ -56,6 +60,13 @@ type AppBinder struct {
 	wizardView  RefreshableView
 	plannerView PlannerViewBindable
 	viewRouter  ViewNavigator
+	doFunc      UIScheduler
+}
+
+// SetUIScheduler sets the function used to dispatch view mutations to the UI thread.
+// In production, pass fyne.Do. If not set, view mutations are called directly.
+func (b *AppBinder) SetUIScheduler(_ UIScheduler) {
+	// stub: intentionally does not store the scheduler yet
 }
 
 // NewAppBinder creates a new AppBinder, validating all dependencies.

@@ -206,6 +206,72 @@ func (s *stubWizardVM) ReorderTask(_, _ int)                             {}
 func (s *stubWizardVM) SelectSchedule(_ context.Context, _ string) error { return nil }
 func (s *stubWizardVM) SelectedCount() int                               { return s.selectedCount }
 
+// mockRoutingRuleRepo satisfies repository.RoutingRuleRepository with in-memory storage.
+type mockRoutingRuleRepo struct {
+	rules []*repository.RoutingRule
+}
+
+func (m *mockRoutingRuleRepo) ListRules(_ context.Context) ([]*repository.RoutingRule, error) {
+	return m.rules, nil
+}
+
+func (m *mockRoutingRuleRepo) ListRulesBySource(_ context.Context, source string) ([]*repository.RoutingRule, error) {
+	var result []*repository.RoutingRule
+	for _, r := range m.rules {
+		if r.Source == source {
+			result = append(result, r)
+		}
+	}
+	return result, nil
+}
+
+func (m *mockRoutingRuleRepo) GetRule(_ context.Context, id uuid.UUID) (*repository.RoutingRule, error) {
+	for _, r := range m.rules {
+		if r.ID == id {
+			return r, nil
+		}
+	}
+	return nil, repository.ErrNotFound
+}
+
+func (m *mockRoutingRuleRepo) UpsertRule(_ context.Context, rule *repository.RoutingRule) error {
+	for i, r := range m.rules {
+		if r.ID == rule.ID {
+			m.rules[i] = rule
+			return nil
+		}
+	}
+	m.rules = append(m.rules, rule)
+	return nil
+}
+
+func (m *mockRoutingRuleRepo) DeleteRule(_ context.Context, id uuid.UUID) error {
+	for i, r := range m.rules {
+		if r.ID == id {
+			m.rules = append(m.rules[:i], m.rules[i+1:]...)
+			return nil
+		}
+	}
+	return nil
+}
+
+// mockQueueRepo satisfies repository.QueueRepository.
+type mockQueueRepo struct {
+	pending int
+}
+
+func (m *mockQueueRepo) Enqueue(_ context.Context, _ uuid.UUID) error                { return nil }
+func (m *mockQueueRepo) DequeueOldest(_ context.Context) (*repository.QueueEntry, error) {
+	return nil, nil
+}
+func (m *mockQueueRepo) MarkDone(_ context.Context, _ uuid.UUID) error               { return nil }
+func (m *mockQueueRepo) MarkFailed(_ context.Context, _ uuid.UUID) error             { return nil }
+func (m *mockQueueRepo) PendingCount(_ context.Context) (int, error)                 { return m.pending, nil }
+func (m *mockQueueRepo) PurgeCompleted(_ context.Context) error                      { return nil }
+func (m *mockQueueRepo) PurgeOlderThan(_ context.Context, _ time.Time) error         { return nil }
+func (m *mockQueueRepo) PurgeAll(_ context.Context) error                            { return nil }
+func (m *mockQueueRepo) ResetProcessing(_ context.Context) (int64, error)            { return 0, nil }
+
 // --- Factory functions ---
 
 // defaultGUIConfig returns a standard GUIConfig for acceptance tests.
@@ -353,7 +419,7 @@ func newSettingsView() *ui.SettingsView {
 	vc := &mockVolumeController{}
 	sp, _ := presenter.NewSettingsPresenter(vc, 50, &mockVolumeController{}, 50)
 	ssp := presenter.NewServiceSettingsPresenter(&mockServiceConfigRepo{}, &mockWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil })
-	return ui.NewSettingsView(sp, ssp, defaultOllamaConfig(), func() {})
+	return ui.NewSettingsView(sp, ssp, nil, defaultOllamaConfig(), func() {})
 }
 
 // newSettingsViewWithRepo creates a SettingsView backed by a specific mock repo.
@@ -361,7 +427,16 @@ func newSettingsViewWithRepo(repo *mockServiceConfigRepo, opts ...presenter.Serv
 	vc := &mockVolumeController{}
 	sp, _ := presenter.NewSettingsPresenter(vc, 50, &mockVolumeController{}, 50)
 	ssp := presenter.NewServiceSettingsPresenter(repo, &mockWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil }, opts...)
-	return ui.NewSettingsView(sp, ssp, defaultOllamaConfig(), func() {})
+	return ui.NewSettingsView(sp, ssp, nil, defaultOllamaConfig(), func() {})
+}
+
+// newSettingsViewWithRules creates a SettingsView with a RulesPresenter backed by mocks.
+func newSettingsViewWithRules(ruleRepo *mockRoutingRuleRepo, queueRepo *mockQueueRepo, warnAt int) *ui.SettingsView {
+	vc := &mockVolumeController{}
+	sp, _ := presenter.NewSettingsPresenter(vc, 50, &mockVolumeController{}, 50)
+	ssp := presenter.NewServiceSettingsPresenter(&mockServiceConfigRepo{}, &mockWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil })
+	rp := presenter.NewRulesPresenter(ruleRepo, queueRepo, warnAt)
+	return ui.NewSettingsView(sp, ssp, rp, defaultOllamaConfig(), func() {})
 }
 
 // --- Mock validators ---

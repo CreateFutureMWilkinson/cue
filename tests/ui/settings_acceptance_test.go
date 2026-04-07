@@ -48,9 +48,9 @@ func (s *SettingsAcceptanceSuite) TestNotificationVolumeSliderRange() {
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	s.Require().Greater(len(tabs.Items), 3, "should have at least 4 tabs (Audio is index 3)")
+	s.Require().Greater(len(tabs.Items), 4, "should have at least 5 tabs (Audio is index 4)")
 
-	audioContent := tabs.Items[3].Content
+	audioContent := tabs.Items[4].Content
 	slider := uitest.RequireWidget[*widget.Slider](s.T(), audioContent, func(_ *widget.Slider) bool {
 		return true
 	})
@@ -68,7 +68,7 @@ func (s *SettingsAcceptanceSuite) TestVolumeSliderOnChangedUpdatesLabel() {
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	audioContent := tabs.Items[3].Content
+	audioContent := tabs.Items[4].Content
 
 	slider := uitest.RequireWidget[*widget.Slider](s.T(), audioContent, func(_ *widget.Slider) bool {
 		return true
@@ -93,7 +93,7 @@ func (s *SettingsAcceptanceSuite) TestSlidersOperateIndependently() {
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	audioContent := tabs.Items[3].Content
+	audioContent := tabs.Items[4].Content
 
 	sliders := uitest.FindAll[*widget.Slider](audioContent, func(_ *widget.Slider) bool {
 		return true
@@ -121,7 +121,7 @@ func (s *SettingsAcceptanceSuite) TestDoneButtonCallsOnClose() {
 	vc := &mockVolumeController{}
 	sp, _ := presenter.NewSettingsPresenter(vc, 50, &mockVolumeController{}, 50)
 	ssp := presenter.NewServiceSettingsPresenter(&mockServiceConfigRepo{}, &mockWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil })
-	sv := ui.NewSettingsView(sp, ssp, defaultOllamaConfig(), func() { closeCalled = true })
+	sv := ui.NewSettingsView(sp, ssp, nil, defaultOllamaConfig(), func() { closeCalled = true })
 	root := sv.Container()
 
 	btn := uitest.RequireWidget[*widget.Button](s.T(), root, func(b *widget.Button) bool {
@@ -983,4 +983,537 @@ func (s *SettingsAcceptanceSuite) TestSlackFormContainsTokenInstructions() {
 		}
 		s.True(scopeFound, "Accordion detail should list required scope: %s", scope)
 	}
+}
+
+// --- Feature 089: Rules Settings Tab ---
+
+// AC: Settings view has 6 tabs.
+func (s *SettingsAcceptanceSuite) TestRulesTabSettingsViewHasSixTabs() {
+	sv := newSettingsView()
+	s.Equal(6, sv.TabCount(), "SettingsView should have 6 tabs")
+}
+
+// AC: Tab names include Rules at index 3.
+func (s *SettingsAcceptanceSuite) TestRulesTabNamesInOrder() {
+	sv := newSettingsView()
+	expected := []string{"Slack", "Email", "Calendar", "Rules", "Audio", "Ollama"}
+	s.Equal(expected, sv.TabNames(), "tab names should include Rules at index 3")
+}
+
+// AC: Rules tab is at index 3.
+func (s *SettingsAcceptanceSuite) TestRulesTabIsAtIndex3() {
+	sv := newSettingsView()
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	s.Require().Greater(len(tabs.Items), 3)
+	s.Equal("Rules", tabs.Items[3].Text, "tab at index 3 should be Rules")
+}
+
+// AC: Rules tab with no rules shows empty state text.
+func (s *SettingsAcceptanceSuite) TestRulesTabEmptyStateText() {
+	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	_, found := uitest.FindWidget[*widget.Label](rulesContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "No routing rules configured")
+	})
+	s.True(found, "Rules tab with no rules should show 'No routing rules configured' text")
+}
+
+// AC: Rules tab with no rules shows "Add Rule" button.
+func (s *SettingsAcceptanceSuite) TestRulesTabEmptyStateHasAddButton() {
+	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	_, found := uitest.FindWidget[*widget.Button](rulesContent, func(b *widget.Button) bool {
+		return b.Text == "Add Rule"
+	})
+	s.True(found, "Rules tab should have an 'Add Rule' button")
+}
+
+// AC: Rules tab with pre-existing rules displays them sorted by priority.
+func (s *SettingsAcceptanceSuite) TestRulesTabDisplaysRulesSortedByPriority() {
+	ruleRepo := &mockRoutingRuleRepo{
+		rules: []*repository.RoutingRule{
+			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 1, Source: "email", Field: "sender", Pattern: "boss@", Action: "notified", Enabled: true},
+		},
+	}
+	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	// Should find labels containing the rule summaries
+	_, found := uitest.FindWidget[*widget.Label](rulesContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "channel") && strings.Contains(l.Text, "general")
+	})
+	s.True(found, "Rules tab should display first rule with channel/general")
+}
+
+// AC: Each rule row shows source, field, pattern, action.
+func (s *SettingsAcceptanceSuite) TestRulesTabRowShowsSummary() {
+	ruleRepo := &mockRoutingRuleRepo{
+		rules: []*repository.RoutingRule{
+			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
+		},
+	}
+	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	_, found := uitest.FindWidget[*widget.Label](rulesContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "notified")
+	})
+	s.True(found, "Rule row should show action in summary")
+}
+
+// AC: Each rule row has an enabled checkbox.
+func (s *SettingsAcceptanceSuite) TestRulesTabRowHasEnabledCheckbox() {
+	ruleRepo := &mockRoutingRuleRepo{
+		rules: []*repository.RoutingRule{
+			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
+		},
+	}
+	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	_, found := uitest.FindWidget[*widget.Check](rulesContent, func(_ *widget.Check) bool { return true })
+	s.True(found, "Rule row should have an enabled checkbox")
+}
+
+// AC: Each rule row has Up/Down reorder buttons.
+func (s *SettingsAcceptanceSuite) TestRulesTabRowHasUpDownButtons() {
+	ruleRepo := &mockRoutingRuleRepo{
+		rules: []*repository.RoutingRule{
+			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 1, Source: "email", Field: "sender", Pattern: "boss@", Action: "notified", Enabled: true},
+		},
+	}
+	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	upBtns := uitest.FindAll[*widget.Button](rulesContent, func(b *widget.Button) bool { return b.Text == "Up" })
+	downBtns := uitest.FindAll[*widget.Button](rulesContent, func(b *widget.Button) bool { return b.Text == "Down" })
+	s.GreaterOrEqual(len(upBtns), 1, "should have at least one Up button")
+	s.GreaterOrEqual(len(downBtns), 1, "should have at least one Down button")
+}
+
+// AC: Each rule row has a Delete button.
+func (s *SettingsAcceptanceSuite) TestRulesTabRowHasDeleteButton() {
+	ruleRepo := &mockRoutingRuleRepo{
+		rules: []*repository.RoutingRule{
+			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
+		},
+	}
+	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	_, found := uitest.FindWidget[*widget.Button](rulesContent, func(b *widget.Button) bool { return b.Text == "Delete" })
+	s.True(found, "Rule row should have a Delete button")
+}
+
+// AC: First rule's Up button is disabled.
+func (s *SettingsAcceptanceSuite) TestRulesTabFirstRuleUpDisabled() {
+	ruleRepo := &mockRoutingRuleRepo{
+		rules: []*repository.RoutingRule{
+			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 1, Source: "email", Field: "sender", Pattern: "boss@", Action: "notified", Enabled: true},
+		},
+	}
+	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	upBtns := uitest.FindAll[*widget.Button](rulesContent, func(b *widget.Button) bool { return b.Text == "Up" })
+	s.Require().GreaterOrEqual(len(upBtns), 1, "should have at least one Up button")
+	s.True(upBtns[0].Disabled(), "first rule's Up button should be disabled")
+}
+
+// AC: Last rule's Down button is disabled.
+func (s *SettingsAcceptanceSuite) TestRulesTabLastRuleDownDisabled() {
+	ruleRepo := &mockRoutingRuleRepo{
+		rules: []*repository.RoutingRule{
+			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 1, Source: "email", Field: "sender", Pattern: "boss@", Action: "notified", Enabled: true},
+		},
+	}
+	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	downBtns := uitest.FindAll[*widget.Button](rulesContent, func(b *widget.Button) bool { return b.Text == "Down" })
+	s.Require().GreaterOrEqual(len(downBtns), 1, "should have at least one Down button")
+	lastDown := downBtns[len(downBtns)-1]
+	s.True(lastDown.Disabled(), "last rule's Down button should be disabled")
+}
+
+// AC: Tapping "Add Rule" replaces list with form.
+func (s *SettingsAcceptanceSuite) TestRulesTabAddRuleShowsForm() {
+	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Add Rule" })
+	addBtn.OnTapped()
+
+	rulesContent = tabs.Items[3].Content
+	_, found := uitest.FindWidget[*widget.Select](rulesContent, func(sel *widget.Select) bool { return true })
+	s.True(found, "Add Rule form should contain a Select dropdown")
+}
+
+// AC: Form has Source dropdown with options: Email, Slack.
+func (s *SettingsAcceptanceSuite) TestRulesTabFormHasSourceDropdown() {
+	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Add Rule" })
+	addBtn.OnTapped()
+	rulesContent = tabs.Items[3].Content
+
+	selects := uitest.FindAll[*widget.Select](rulesContent, func(_ *widget.Select) bool { return true })
+	s.Require().GreaterOrEqual(len(selects), 1, "should have at least one Select (Source)")
+	sourceSelect := selects[0]
+	s.Contains(sourceSelect.Options, "Email", "Source dropdown should include Email")
+	s.Contains(sourceSelect.Options, "Slack", "Source dropdown should include Slack")
+}
+
+// AC: Selecting Email source shows fields: sender, subject.
+func (s *SettingsAcceptanceSuite) TestRulesTabFormEmailFields() {
+	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Add Rule" })
+	addBtn.OnTapped()
+	rulesContent = tabs.Items[3].Content
+
+	selects := uitest.FindAll[*widget.Select](rulesContent, func(_ *widget.Select) bool { return true })
+	s.Require().GreaterOrEqual(len(selects), 2, "should have Source and Field selects")
+	sourceSelect := selects[0]
+	fieldSelect := selects[1]
+
+	sourceSelect.SetSelected("Email")
+	s.Contains(fieldSelect.Options, "sender", "Email fields should include sender")
+	s.Contains(fieldSelect.Options, "subject", "Email fields should include subject")
+}
+
+// AC: Selecting Slack source shows fields: sender, channel, content, message_type.
+func (s *SettingsAcceptanceSuite) TestRulesTabFormSlackFields() {
+	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Add Rule" })
+	addBtn.OnTapped()
+	rulesContent = tabs.Items[3].Content
+
+	selects := uitest.FindAll[*widget.Select](rulesContent, func(_ *widget.Select) bool { return true })
+	s.Require().GreaterOrEqual(len(selects), 2)
+	sourceSelect := selects[0]
+	fieldSelect := selects[1]
+
+	sourceSelect.SetSelected("Slack")
+	s.Contains(fieldSelect.Options, "sender")
+	s.Contains(fieldSelect.Options, "channel")
+	s.Contains(fieldSelect.Options, "content")
+	s.Contains(fieldSelect.Options, "message_type")
+}
+
+// AC: Form has Pattern text entry.
+func (s *SettingsAcceptanceSuite) TestRulesTabFormHasPatternEntry() {
+	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Add Rule" })
+	addBtn.OnTapped()
+	rulesContent = tabs.Items[3].Content
+
+	_, found := uitest.FindWidget[*widget.Entry](rulesContent, func(_ *widget.Entry) bool { return true })
+	s.True(found, "Add Rule form should have a Pattern text entry")
+}
+
+// AC: Form has Negate checkbox.
+func (s *SettingsAcceptanceSuite) TestRulesTabFormHasNegateCheckbox() {
+	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Add Rule" })
+	addBtn.OnTapped()
+	rulesContent = tabs.Items[3].Content
+
+	_, found := uitest.FindWidget[*widget.Check](rulesContent, func(c *widget.Check) bool {
+		return strings.Contains(c.Text, "nvert") || strings.Contains(c.Text, "egate") || strings.Contains(c.Text, "not matches")
+	})
+	s.True(found, "Add Rule form should have a Negate checkbox")
+}
+
+// AC: Form has Action dropdown: Notified, Ignored.
+func (s *SettingsAcceptanceSuite) TestRulesTabFormHasActionDropdown() {
+	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Add Rule" })
+	addBtn.OnTapped()
+	rulesContent = tabs.Items[3].Content
+
+	selects := uitest.FindAll[*widget.Select](rulesContent, func(_ *widget.Select) bool { return true })
+	s.Require().GreaterOrEqual(len(selects), 3, "should have Source, Field, and Action selects")
+	actionSelect := selects[2]
+	s.Contains(actionSelect.Options, "Notified")
+	s.Contains(actionSelect.Options, "Ignored")
+}
+
+// AC: Form has Save and Cancel buttons.
+func (s *SettingsAcceptanceSuite) TestRulesTabFormHasSaveAndCancel() {
+	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Add Rule" })
+	addBtn.OnTapped()
+	rulesContent = tabs.Items[3].Content
+
+	_, saveFound := uitest.FindWidget[*widget.Button](rulesContent, func(b *widget.Button) bool { return b.Text == "Save" })
+	_, cancelFound := uitest.FindWidget[*widget.Button](rulesContent, func(b *widget.Button) bool { return b.Text == "Cancel" })
+	s.True(saveFound, "Add Rule form should have a Save button")
+	s.True(cancelFound, "Add Rule form should have a Cancel button")
+}
+
+// AC: Cancel returns to rule list without saving.
+func (s *SettingsAcceptanceSuite) TestRulesTabFormCancelReturnsToList() {
+	ruleRepo := &mockRoutingRuleRepo{}
+	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Add Rule" })
+	addBtn.OnTapped()
+	rulesContent = tabs.Items[3].Content
+
+	cancelBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Cancel" })
+	cancelBtn.OnTapped()
+	rulesContent = tabs.Items[3].Content
+
+	// Should be back on the list view with Add Rule button
+	_, found := uitest.FindWidget[*widget.Button](rulesContent, func(b *widget.Button) bool { return b.Text == "Add Rule" })
+	s.True(found, "Cancel should return to list view with Add Rule button")
+	s.Empty(ruleRepo.rules, "Cancel should not save any rules")
+}
+
+// AC: Saving with invalid regexp shows inline error.
+func (s *SettingsAcceptanceSuite) TestRulesTabFormInvalidRegexpShowsError() {
+	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Add Rule" })
+	addBtn.OnTapped()
+	rulesContent = tabs.Items[3].Content
+
+	// Fill in form with invalid regex
+	selects := uitest.FindAll[*widget.Select](rulesContent, func(_ *widget.Select) bool { return true })
+	s.Require().GreaterOrEqual(len(selects), 3)
+	selects[0].SetSelected("Slack")
+	selects[1].SetSelected("channel")
+	selects[2].SetSelected("Notified")
+
+	entry := uitest.RequireWidget[*widget.Entry](s.T(), rulesContent, func(_ *widget.Entry) bool { return true })
+	entry.SetText("[invalid(regex")
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Save" })
+	saveBtn.OnTapped()
+
+	rulesContent = tabs.Items[3].Content
+	_, found := uitest.FindWidget[*widget.Label](rulesContent, func(l *widget.Label) bool {
+		return strings.Contains(strings.ToLower(l.Text), "error") || strings.Contains(strings.ToLower(l.Text), "invalid")
+	})
+	s.True(found, "Saving with invalid regexp should show an inline error")
+}
+
+// AC: Saving with valid data persists rule and returns to list.
+func (s *SettingsAcceptanceSuite) TestRulesTabFormSaveValidRuleReturnsToList() {
+	ruleRepo := &mockRoutingRuleRepo{}
+	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Add Rule" })
+	addBtn.OnTapped()
+	rulesContent = tabs.Items[3].Content
+
+	selects := uitest.FindAll[*widget.Select](rulesContent, func(_ *widget.Select) bool { return true })
+	s.Require().GreaterOrEqual(len(selects), 3)
+	selects[0].SetSelected("Slack")
+	selects[1].SetSelected("channel")
+	selects[2].SetSelected("Notified")
+
+	entry := uitest.RequireWidget[*widget.Entry](s.T(), rulesContent, func(_ *widget.Entry) bool { return true })
+	entry.SetText("^general$")
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Save" })
+	saveBtn.OnTapped()
+
+	rulesContent = tabs.Items[3].Content
+	_, found := uitest.FindWidget[*widget.Button](rulesContent, func(b *widget.Button) bool { return b.Text == "Add Rule" })
+	s.True(found, "After saving, should return to list view with Add Rule button")
+}
+
+// AC: Newly saved rule appears in the list.
+func (s *SettingsAcceptanceSuite) TestRulesTabNewlySavedRuleAppearsInList() {
+	ruleRepo := &mockRoutingRuleRepo{}
+	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	addBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Add Rule" })
+	addBtn.OnTapped()
+	rulesContent = tabs.Items[3].Content
+
+	selects := uitest.FindAll[*widget.Select](rulesContent, func(_ *widget.Select) bool { return true })
+	s.Require().GreaterOrEqual(len(selects), 3)
+	selects[0].SetSelected("Slack")
+	selects[1].SetSelected("channel")
+	selects[2].SetSelected("Notified")
+
+	entry := uitest.RequireWidget[*widget.Entry](s.T(), rulesContent, func(_ *widget.Entry) bool { return true })
+	entry.SetText("^general$")
+
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Save" })
+	saveBtn.OnTapped()
+
+	rulesContent = tabs.Items[3].Content
+	_, found := uitest.FindWidget[*widget.Label](rulesContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "general")
+	})
+	s.True(found, "Newly saved rule should appear in the list")
+}
+
+// AC: Queue depth label shown at top of Rules tab.
+func (s *SettingsAcceptanceSuite) TestRulesTabQueueDepthLabel() {
+	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{pending: 3}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	_, found := uitest.FindWidget[*widget.Label](rulesContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "queue") || strings.Contains(l.Text, "Queue")
+	})
+	s.True(found, "Rules tab should show queue depth label")
+}
+
+// AC: Queue depth shows warning text when exceeding threshold.
+func (s *SettingsAcceptanceSuite) TestRulesTabQueueDepthWarning() {
+	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{pending: 57}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	_, found := uitest.FindWidget[*widget.Label](rulesContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "consider adding more rules")
+	})
+	s.True(found, "Queue depth exceeding threshold should show warning text")
+}
+
+// AC: Tapping Down on a rule swaps it with the next rule.
+func (s *SettingsAcceptanceSuite) TestRulesTabDownReordersRule() {
+	id1, id2 := uuid.New(), uuid.New()
+	ruleRepo := &mockRoutingRuleRepo{
+		rules: []*repository.RoutingRule{
+			{ID: id1, Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
+			{ID: id2, Priority: 1, Source: "email", Field: "sender", Pattern: "boss@", Action: "ignored", Enabled: true},
+		},
+	}
+	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	downBtns := uitest.FindAll[*widget.Button](rulesContent, func(b *widget.Button) bool { return b.Text == "Down" })
+	s.Require().GreaterOrEqual(len(downBtns), 1)
+	downBtns[0].OnTapped()
+
+	// After reorder, first rule should now be the email one
+	rulesContent = tabs.Items[3].Content
+	labels := uitest.FindAll[*widget.Label](rulesContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "boss@") || strings.Contains(l.Text, "general")
+	})
+	s.Require().GreaterOrEqual(len(labels), 2, "should still have both rules visible after reorder")
+}
+
+// AC: Tapping Up on a rule swaps it with the previous rule.
+func (s *SettingsAcceptanceSuite) TestRulesTabUpReordersRule() {
+	id1, id2 := uuid.New(), uuid.New()
+	ruleRepo := &mockRoutingRuleRepo{
+		rules: []*repository.RoutingRule{
+			{ID: id1, Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
+			{ID: id2, Priority: 1, Source: "email", Field: "sender", Pattern: "boss@", Action: "ignored", Enabled: true},
+		},
+	}
+	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	upBtns := uitest.FindAll[*widget.Button](rulesContent, func(b *widget.Button) bool { return b.Text == "Up" })
+	s.Require().GreaterOrEqual(len(upBtns), 2, "should have Up buttons for both rules")
+	// Tap Up on second rule
+	upBtns[1].OnTapped()
+
+	rulesContent = tabs.Items[3].Content
+	labels := uitest.FindAll[*widget.Label](rulesContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "boss@") || strings.Contains(l.Text, "general")
+	})
+	s.Require().GreaterOrEqual(len(labels), 2, "should still have both rules visible after reorder")
+}
+
+// AC: Tapping Delete removes the rule from the list.
+func (s *SettingsAcceptanceSuite) TestRulesTabDeleteRemovesRule() {
+	ruleRepo := &mockRoutingRuleRepo{
+		rules: []*repository.RoutingRule{
+			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
+		},
+	}
+	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+	rulesContent := tabs.Items[3].Content
+
+	deleteBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Delete" })
+	deleteBtn.OnTapped()
+
+	rulesContent = tabs.Items[3].Content
+	_, found := uitest.FindWidget[*widget.Label](rulesContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "No routing rules configured")
+	})
+	s.True(found, "After deleting last rule, should show empty state")
 }

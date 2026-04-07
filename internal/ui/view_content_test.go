@@ -133,9 +133,9 @@ func (s *ViewContentSuite) TestSettingsViewWithPresentersContainsTabs() {
 		return true
 	})
 	s.Require().True(found, "ViewSettings content should contain *container.AppTabs, got %T", content)
-	s.Equal(5, len(tabs.Items), "SettingsView should have 5 tabs")
+	s.Equal(6, len(tabs.Items), "SettingsView should have 6 tabs")
 
-	expectedNames := []string{"Slack", "Email", "Calendar", "Audio", "Ollama"}
+	expectedNames := []string{"Slack", "Email", "Calendar", "Rules", "Audio", "Ollama"}
 	for i, item := range tabs.Items {
 		s.Equal(expectedNames[i], item.Text, "tab %d name mismatch", i)
 	}

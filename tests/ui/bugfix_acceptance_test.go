@@ -29,19 +29,19 @@ func TestBug065(t *testing.T) {
 	suite.Run(t, new(Bug065Suite))
 }
 
-// AC: Settings view should have 5 tabs (Slack, Email, Calendar, Audio, Ollama).
+// AC: Settings view should have 6 tabs (Slack, Email, Calendar, Rules, Audio, Ollama).
 func (s *Bug065Suite) TestSettingsViewHasFiveTabs() {
 	sv := newSettingsView()
-	s.Equal(5, sv.TabCount(),
-		"Bug 065: settings view should have 5 tabs (Slack, Email, Calendar, Audio, Ollama)")
+	s.Equal(6, sv.TabCount(),
+		"Bug 065: settings view should have 6 tabs (Slack, Email, Calendar, Rules, Audio, Ollama)")
 }
 
-// AC: Tab order is Slack, Email, Calendar, Audio, Ollama.
+// AC: Tab order is Slack, Email, Calendar, Rules, Audio, Ollama.
 func (s *Bug065Suite) TestSettingsViewTabOrder() {
 	sv := newSettingsView()
-	expected := []string{"Slack", "Email", "Calendar", "Audio", "Ollama"}
+	expected := []string{"Slack", "Email", "Calendar", "Rules", "Audio", "Ollama"}
 	s.Equal(expected, sv.TabNames(),
-		"Bug 065: tab order should be Slack, Email, Calendar, Audio, Ollama")
+		"Bug 065: tab order should be Slack, Email, Calendar, Rules, Audio, Ollama")
 }
 
 // AC: Calendar tab has an "Add Account" button.
@@ -226,7 +226,7 @@ func (s *Bug069Suite) TestAudioTabHasTwoSliders() {
 		return true
 	})
 	s.Require().GreaterOrEqual(len(tabs.Items), 4)
-	audioContent := tabs.Items[3].Content
+	audioContent := tabs.Items[4].Content
 
 	sliders := uitest.FindAll[*widget.Slider](audioContent, func(_ *widget.Slider) bool {
 		return true
@@ -244,7 +244,7 @@ func (s *Bug069Suite) TestAudioTabHasTimerVolumeLabel() {
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	audioContent := tabs.Items[3].Content
+	audioContent := tabs.Items[4].Content
 
 	_, found := uitest.FindWidget[*widget.Label](audioContent, func(l *widget.Label) bool {
 		return strings.Contains(l.Text, "Timer Volume")
@@ -262,7 +262,7 @@ func (s *Bug069Suite) TestTimerVolumeSliderUpdatesLabel() {
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	audioContent := tabs.Items[3].Content
+	audioContent := tabs.Items[4].Content
 
 	sliders := uitest.FindAll[*widget.Slider](audioContent, func(_ *widget.Slider) bool {
 		return true

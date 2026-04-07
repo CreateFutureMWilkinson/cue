@@ -338,11 +338,12 @@ func listAccountWidgets(ssp *presenter.ServiceSettingsPresenter, accountType str
 	return widgets
 }
 
-// NewSettingsView creates a SettingsView with tabs for Slack, Email, Calendar, Audio, and Ollama.
+// NewSettingsView creates a SettingsView with tabs for Slack, Email, Calendar, Rules, Audio, and Ollama.
 // The onClose callback is invoked when the user taps the Done button to exit settings.
 func NewSettingsView(
 	sp *presenter.SettingsPresenter,
 	ssp *presenter.ServiceSettingsPresenter,
+	rp *presenter.RulesPresenter,
 	ollamaCfg config.OllamaConfig,
 	onClose func(),
 ) *SettingsView {
@@ -422,6 +423,12 @@ func NewSettingsView(
 			calendarTab.Content = buildCalendarListContent()
 		})
 	}
+
+	// Rules tab — placeholder; implementation added via TDD micro-loops
+	rulesContent := container.NewVBox(widget.NewLabel("Rules"))
+	rulesTab := container.NewTabItem("Rules", rulesContent)
+	_ = rp // will be wired during implementation
+
 	volumeLabel := widget.NewLabel(fmt.Sprintf("Notification Volume: %d%%", sp.Volume()))
 	volumeSlider := &widget.Slider{
 		Min:   0,
@@ -464,7 +471,7 @@ func NewSettingsView(
 	)
 	ollamaTab := container.NewTabItem("Ollama", ollamaContent)
 
-	tabs := container.NewAppTabs(slackTab, emailTab, calendarTab, audioTab, ollamaTab)
+	tabs := container.NewAppTabs(slackTab, emailTab, calendarTab, rulesTab, audioTab, ollamaTab)
 
 	doneBtn := widget.NewButton("Done", onClose)
 

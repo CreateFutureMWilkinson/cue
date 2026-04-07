@@ -93,33 +93,33 @@ func (s *SettingsViewSuite) SetupTest() {
 }
 
 func (s *SettingsViewSuite) TestNewSettingsViewReturnsNonNil() {
-	sv := ui.NewSettingsView(s.sp, s.ssp, s.ollamaCfg, func() {})
+	sv := ui.NewSettingsView(s.sp, s.ssp, nil, s.ollamaCfg, func() {})
 
 	s.NotNil(sv, "NewSettingsView should return a non-nil SettingsView")
 }
 
 func (s *SettingsViewSuite) TestSettingsViewContainerReturnsNonNil() {
-	sv := ui.NewSettingsView(s.sp, s.ssp, s.ollamaCfg, func() {})
+	sv := ui.NewSettingsView(s.sp, s.ssp, nil, s.ollamaCfg, func() {})
 
 	container := sv.Container()
 
 	s.NotNil(container, "Container() should return a non-nil fyne.CanvasObject")
 }
 
-func (s *SettingsViewSuite) TestSettingsViewHasFiveTabs() {
-	sv := ui.NewSettingsView(s.sp, s.ssp, s.ollamaCfg, func() {})
+func (s *SettingsViewSuite) TestSettingsViewHasSixTabs() {
+	sv := ui.NewSettingsView(s.sp, s.ssp, nil, s.ollamaCfg, func() {})
 
 	tabs := sv.TabCount()
 
-	s.Equal(5, tabs, "SettingsView should have exactly 5 tabs")
+	s.Equal(6, tabs, "SettingsView should have exactly 6 tabs")
 }
 
 func (s *SettingsViewSuite) TestSettingsViewTabNames() {
-	sv := ui.NewSettingsView(s.sp, s.ssp, s.ollamaCfg, func() {})
+	sv := ui.NewSettingsView(s.sp, s.ssp, nil, s.ollamaCfg, func() {})
 
-	expected := []string{"Slack", "Email", "Calendar", "Audio", "Ollama"}
+	expected := []string{"Slack", "Email", "Calendar", "Rules", "Audio", "Ollama"}
 	names := sv.TabNames()
 
 	s.Equal(expected, names,
-		"tab names should be Slack, Email, Calendar, Audio, Ollama in that order")
+		"tab names should be Slack, Email, Calendar, Rules, Audio, Ollama in that order")
 }

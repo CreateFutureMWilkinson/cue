@@ -40,7 +40,7 @@ func (s *SettingsInteractionSuite) SetupTest() {
 	factory := func(_ string, _ uuid.UUID) error { return nil }
 	ssp := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
 
-	s.sv = ui.NewSettingsView(sp, ssp, config.OllamaConfig{
+	s.sv = ui.NewSettingsView(sp, ssp, nil, config.OllamaConfig{
 		Host:           "localhost",
 		Port:           11434,
 		InferenceModel: "neural-chat",
@@ -93,8 +93,8 @@ func (s *SettingsInteractionSuite) TestAudioTabContainsVolumeSlider() {
 		return true
 	})
 
-	s.Require().Greater(len(tabs.Items), 3, "should have at least 4 tabs (Audio is index 3)")
-	audioContent := tabs.Items[3].Content
+	s.Require().Greater(len(tabs.Items), 4, "should have at least 5 tabs (Audio is index 4)")
+	audioContent := tabs.Items[4].Content
 
 	slider, found := uitest.FindWidget[*widget.Slider](audioContent, func(sl *widget.Slider) bool {
 		return true
@@ -124,7 +124,7 @@ func (s *SettingsInteractionSuite) TestAudioSliderOnChangedUpdatesVolumeLabel() 
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	audioContent := tabs.Items[3].Content
+	audioContent := tabs.Items[4].Content
 
 	slider := uitest.RequireWidget[*widget.Slider](s.T(), audioContent, func(_ *widget.Slider) bool {
 		return true
@@ -149,8 +149,8 @@ func (s *SettingsInteractionSuite) TestOllamaTabDisplaysConfigFields() {
 		return true
 	})
 
-	s.Require().Greater(len(tabs.Items), 4, "should have at least 5 tabs (Ollama is index 4)")
-	ollamaContent := tabs.Items[4].Content
+	s.Require().Greater(len(tabs.Items), 5, "should have at least 6 tabs (Ollama is index 5)")
+	ollamaContent := tabs.Items[5].Content
 
 	_, foundHost := uitest.FindWidget[*widget.Label](ollamaContent, func(l *widget.Label) bool {
 		return strings.Contains(l.Text, "localhost")
@@ -209,6 +209,7 @@ func (s *SettingsInteractionSuite) TestDoneButtonCallsOnClose() {
 	closeCalled := false
 	sv := ui.NewSettingsView(s.sp,
 		presenter.NewServiceSettingsPresenter(&stubServiceConfigRepo{}, &stubWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil }),
+		nil,
 		config.OllamaConfig{},
 		func() { closeCalled = true },
 	)
@@ -368,7 +369,7 @@ func (s *SettingsInteractionSuite) TestAudioSliderOnChangedCallsPresenterSetVolu
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	audioContent := tabs.Items[3].Content
+	audioContent := tabs.Items[4].Content
 
 	slider := uitest.RequireWidget[*widget.Slider](s.T(), audioContent, func(_ *widget.Slider) bool {
 		return true
@@ -389,8 +390,8 @@ func (s *SettingsInteractionSuite) TestTimerVolumeSlider() {
 		return true
 	})
 
-	s.Require().Greater(len(tabs.Items), 3, "should have at least 4 tabs (Audio is index 3)")
-	audioContent := tabs.Items[3].Content
+	s.Require().Greater(len(tabs.Items), 4, "should have at least 5 tabs (Audio is index 4)")
+	audioContent := tabs.Items[4].Content
 
 	// There should be 2 sliders: notification volume and timer volume
 	sliders := uitest.FindAll[*widget.Slider](audioContent, func(_ *widget.Slider) bool {
@@ -565,7 +566,7 @@ func (s *SettingsInteractionSuite) TestEmailFormSavesMappedEncryptionValue() {
 	ssp := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
 	vc := &stubVolumeController{}
 	sp, _ := presenter.NewSettingsPresenter(vc, 50, &stubVolumeController{}, 50)
-	sv := ui.NewSettingsView(sp, ssp, config.OllamaConfig{}, func() {})
+	sv := ui.NewSettingsView(sp, ssp, nil, config.OllamaConfig{}, func() {})
 	root := sv.Container()
 
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
@@ -696,7 +697,7 @@ func (s *SettingsInteractionSuite) TestSlackAccountListRendersDeleteButton() {
 	ssp := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
 	vc := &stubVolumeController{}
 	sp, _ := presenter.NewSettingsPresenter(vc, 50, &stubVolumeController{}, 50)
-	sv := ui.NewSettingsView(sp, ssp, config.OllamaConfig{}, func() {})
+	sv := ui.NewSettingsView(sp, ssp, nil, config.OllamaConfig{}, func() {})
 	root := sv.Container()
 
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })

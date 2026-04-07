@@ -178,8 +178,28 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 		onSaved()
 	}
 
+	tokenInstructions := widget.NewAccordion(
+		widget.NewAccordionItem("How to get a token", container.NewVBox(
+			widget.NewLabel("1. Go to https://api.slack.com/apps"),
+			widget.NewLabel("2. Create a new app (or select existing) for your workspace"),
+			widget.NewLabel("3. Add the following User Token Scopes under OAuth & Permissions:"),
+			widget.NewLabel("   - channels:history"),
+			widget.NewLabel("   - channels:read"),
+			widget.NewLabel("   - groups:history"),
+			widget.NewLabel("   - groups:read"),
+			widget.NewLabel("   - im:history"),
+			widget.NewLabel("   - im:read"),
+			widget.NewLabel("   - mpim:history"),
+			widget.NewLabel("   - mpim:read"),
+			widget.NewLabel("   - users:read"),
+			widget.NewLabel("4. Install the app to your workspace"),
+			widget.NewLabel("5. Copy the User OAuth Token (starts with xoxp-)"),
+		)),
+	)
+
 	return container.NewVBox(
 		widget.NewLabel("Add Slack Account"),
+		tokenInstructions,
 		friendlyNameEntry,
 		webURLEntry,
 		tokenEntry,

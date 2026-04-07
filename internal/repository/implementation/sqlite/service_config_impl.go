@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS calendar_accounts (
 `
 
 const (
-	slackAccountColumns    = "id, enabled, token_encrypted, workspace_id, poll_interval_seconds, created_at, updated_at"
+	slackAccountColumns    = "id, enabled, token_encrypted, workspace_id, username, poll_interval_seconds, created_at, updated_at"
 	emailAccountColumns    = "id, enabled, imap_host, imap_port, username, password_encrypted, encryption, poll_interval_seconds, created_at, updated_at"
 	calendarAccountColumns = "id, enabled, name, ics_url_encrypted, poll_interval_seconds, created_at, updated_at"
 )
@@ -83,6 +83,7 @@ func NewSQLiteServiceConfigRepository(db *sql.DB, enc secret.Encryptor) (*SQLite
 	_, _ = db.Exec("ALTER TABLE slack_accounts RENAME COLUMN token TO token_encrypted")
 	_, _ = db.Exec("ALTER TABLE email_accounts RENAME COLUMN password_env TO password_encrypted")
 	_, _ = db.Exec("ALTER TABLE email_accounts ADD COLUMN encryption TEXT NOT NULL DEFAULT 'ssl_tls'")
+	_, _ = db.Exec("ALTER TABLE slack_accounts ADD COLUMN username TEXT NOT NULL DEFAULT ''")
 
 	return &SQLiteServiceConfigRepository{db: db, enc: enc}, nil
 }
@@ -98,12 +99,13 @@ func (r *SQLiteServiceConfigRepository) UpsertSlackAccount(ctx context.Context, 
 	}
 
 	_, err = r.db.ExecContext(ctx, `
-		INSERT INTO slack_accounts (id, enabled, token_encrypted, workspace_id, poll_interval_seconds, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO slack_accounts (id, enabled, token_encrypted, workspace_id, username, poll_interval_seconds, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			enabled = excluded.enabled,
 			token_encrypted = excluded.token_encrypted,
 			workspace_id = excluded.workspace_id,
+			username = excluded.username,
 			poll_interval_seconds = excluded.poll_interval_seconds,
 			updated_at = excluded.updated_at
 	`,
@@ -111,6 +113,7 @@ func (r *SQLiteServiceConfigRepository) UpsertSlackAccount(ctx context.Context, 
 		boolToInt(acct.Enabled),
 		encToken,
 		acct.WorkspaceID,
+		acct.Username,
 		acct.PollIntervalSeconds,
 		acct.CreatedAt.Format(time.RFC3339),
 		acct.UpdatedAt.Format(time.RFC3339),
@@ -374,7 +377,7 @@ func (r *SQLiteServiceConfigRepository) scanSlackAccount(scanner interface {
 		updatedAtStr string
 	)
 
-	err := scanner.Scan(&idStr, &enabled, &tokenEnc, &acct.WorkspaceID, &acct.PollIntervalSeconds, &createdAtStr, &updatedAtStr)
+	err := scanner.Scan(&idStr, &enabled, &tokenEnc, &acct.WorkspaceID, &acct.Username, &acct.PollIntervalSeconds, &createdAtStr, &updatedAtStr)
 	if err != nil {
 		return nil, err
 	}

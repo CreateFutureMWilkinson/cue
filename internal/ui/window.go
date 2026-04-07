@@ -216,6 +216,12 @@ func (m *MainWindow) switchCenterView(view CenterView) {
 // FocusRail returns the focus rail component.
 func (m *MainWindow) FocusRail() *FocusRail { return m.focusRail }
 
+// PlannerViewRef returns the PlannerView as a RefreshableView, or nil.
+func (m *MainWindow) PlannerViewRef() RefreshableView { return nil }
+
+// WizardViewRef returns the WizardView as a RefreshableView, or nil.
+func (m *MainWindow) WizardViewRef() RefreshableView { return nil }
+
 // Run shows the window and starts the Fyne event loop. Blocks until quit.
 func (m *MainWindow) Run() {
 	// Periodic notification refresh.

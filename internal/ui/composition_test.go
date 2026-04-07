@@ -9,7 +9,9 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/CreateFutureMWilkinson/cue/internal/config"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/uitest"
 )
 
@@ -123,4 +125,70 @@ func (s *CompositionSuite) TestMainWindowLeftColumnIsFocusRailContainer() {
 
 	_, isContainer := outerSplit.Leading.(*fyne.Container)
 	s.True(isContainer, "left column should be a *fyne.Container (from FocusRail), got %T", outerSplit.Leading)
+}
+
+// TestPlannerViewRefReturnsNonNilWhenVMProvided verifies that PlannerViewRef()
+// returns a non-nil RefreshableView when PlannerViewModel and TimerViewModel
+// are provided to NewMainWindow.
+func (s *CompositionSuite) TestPlannerViewRefReturnsNonNilWhenVMProvided() {
+	fyneApp := test.NewApp()
+	router := ui.NewCenterViewRouter()
+	vm := &stubPlannerTimerVM{}
+
+	cfg := config.GUIConfig{
+		WindowWidth:  1200,
+		WindowHeight: 800,
+	}
+	mw := ui.NewMainWindow(
+		fyneApp,
+		cfg,
+		(*presenter.NotificationPresenter)(nil),
+		(*presenter.ActivityPresenter)(nil),
+		(*presenter.FeedbackPresenter)(nil),
+		(*presenter.AppPresenter)(nil),
+		(*presenter.SettingsPresenter)(nil),
+		(*presenter.ServiceSettingsPresenter)(nil),
+		config.OllamaConfig{},
+		nil, // characterWidget
+		router,
+		vm,  // plannerVM
+		vm,  // timerVM
+		nil, // wizardVM
+	)
+
+	ref := mw.PlannerViewRef()
+	s.NotNil(ref, "PlannerViewRef() should return non-nil when plannerVM and timerVM are provided")
+}
+
+// TestWizardViewRefReturnsNonNilWhenVMProvided verifies that WizardViewRef()
+// returns a non-nil RefreshableView when WizardViewModel is provided to
+// NewMainWindow.
+func (s *CompositionSuite) TestWizardViewRefReturnsNonNilWhenVMProvided() {
+	fyneApp := test.NewApp()
+	router := ui.NewCenterViewRouter()
+	wvm := &stubWizardVM{}
+
+	cfg := config.GUIConfig{
+		WindowWidth:  1200,
+		WindowHeight: 800,
+	}
+	mw := ui.NewMainWindow(
+		fyneApp,
+		cfg,
+		(*presenter.NotificationPresenter)(nil),
+		(*presenter.ActivityPresenter)(nil),
+		(*presenter.FeedbackPresenter)(nil),
+		(*presenter.AppPresenter)(nil),
+		(*presenter.SettingsPresenter)(nil),
+		(*presenter.ServiceSettingsPresenter)(nil),
+		config.OllamaConfig{},
+		nil, // characterWidget
+		router,
+		nil, // plannerVM
+		nil, // timerVM
+		wvm, // wizardVM
+	)
+
+	ref := mw.WizardViewRef()
+	s.NotNil(ref, "WizardViewRef() should return non-nil when wizardVM is provided")
 }

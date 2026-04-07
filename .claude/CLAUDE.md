@@ -381,9 +381,41 @@ Stub rules:
 - Stubs live in the real package, so the Implementer replaces them in-place
 - Do NOT modify existing implementation code — only append new stubs
 
+### UI Feature Workflow
+
+Features that change UI behavior follow an extended flow. UI acceptance tests (`just test-ui`) are updated **before** TDD micro-loops begin, then serve as the outer verification gate:
+
+```
+Feature Requirement (UI-affecting)
+        ↓
+  1. UPDATE UI TESTS for new/changed behavior
+     - Add/modify UI acceptance tests to cover the new behavior
+     - These tests WILL FAIL — implementation doesn't exist yet
+     - Commit: test(ui): failing test for ...
+        ↓
+  2. TDD MICRO-LOOPS (see Per-Behavior Micro-Loop below)
+     - RED phase writes unit tests only, NOT UI tests
+     - GREEN + REFACTOR as normal
+     - Commit after each phase
+        ↓
+  3. VERIFY UI TESTS PASS (`just test-ui`)
+     - If FAIL → return to step 2 for additional micro-loops
+        ↓
+  4. SECURITY + VULN CHECKS (`just security && just vulncheck`)
+     - If issues found → TDD micro-loops to fix, then re-verify
+        ↓
+  5. FORMAT + LINT (`just fmt && just lint && just tidy`)
+     - Commit: chore(scope): fmt and lint
+        ↓
+  6. DOCUMENTATION
+     - Commit: docs(scope): ...
+```
+
+**Non-UI features** skip step 1 and the UI test gate in step 3, but otherwise follow the same flow (micro-loops → security → fmt/lint → docs).
+
 ### Per-Behavior Micro-Loop
 
-Features are decomposed into atomic behaviors. Each behavior goes through a full RED → GREEN → REFACTOR cycle before moving to the next. Documentation happens only after the entire feature is complete:
+Features are decomposed into atomic behaviors. Each behavior goes through a full RED → GREEN → REFACTOR cycle before moving to the next:
 
 ```
 Feature Requirement (from docs/ or user specification)
@@ -392,14 +424,15 @@ Feature Requirement (from docs/ or user specification)
 │  MICRO-LOOP (repeat per behavior)       │
 │                                         │
 │  1. RED: Test Designer Agent            │
-│     - Write ONE test + noop stubs       │
+│     - Write ONE unit test + noop stubs  │
+│     - Do NOT modify UI tests here       │
 │     - Verify: compiles, test FAILS      │
 │     - Commit: test(scope): ...          │
 │                                         │
 │  2. GREEN: Implementer Agent            │
 │     - Replace relevant stub with code   │
 │     - Leave other stubs untouched       │
-│     - Verify: ALL tests pass            │
+│     - Verify: ALL unit tests pass       │
 │     - Commit: feat(scope): ...          │
 │                                         │
 │  3. REFACTOR: Refactorer Agent          │
@@ -410,8 +443,6 @@ Feature Requirement (from docs/ or user specification)
 │                                         │
 │  ← loop back if more behaviors remain   │
 └─────────────────────────────────────────┘
-        ↓ (all behaviors implemented)
-   Documentation commit: docs(scope): ...
 ```
 
 ### Invoking Agent Teams
@@ -444,9 +475,12 @@ One commit per phase **per behavior**. **Run `just fmt` as the last step before 
 
 | Phase | Scope | Message |
 |---|---|---|
-| Red | ONE failing test + stubs | `test(scope): failing test for ...` |
+| UI tests (UI features only) | Failing UI acceptance tests | `test(ui): failing test for ...` |
+| Red | ONE failing unit test + stubs | `test(scope): failing test for ...` |
 | Green | Minimal implementation for ONE test | `feat(scope): implement ... [tests pass]` |
 | Refactor | Cleanup; tests remain green | `refactor(scope): improve ...` |
+| Fmt/lint | Formatting + lint fixes | `chore(scope): fmt and lint` |
+| Docs | Feature documentation | `docs(scope): ...` |
 
 Keep each commit **tightly scoped to one phase of one behavior**. Do not mix phases or behaviors.
 
@@ -538,15 +572,19 @@ All feature and phase references use **3-digit zero-padded numbers** everywhere:
 
 ## 17. Validation Sequence
 
-Before marking work complete, run in order:
+For **UI features**, follow the UI Feature Workflow in section 13 — UI tests are updated and committed first, then TDD micro-loops drive implementation, followed by security/vuln checks, fmt/lint, and documentation. Commits happen at each stage.
 
-1. `just fmt` — format all Go code
-2. `just lint` — formatting check + go vet
-3. `just tidy` — module hygiene
-4. `just test` — focused tests for changed packages
-5. `just test-ui` — UI acceptance tests (headless, build-tagged)
-6. `just security` — gosec static analysis
-7. `just vulncheck` — vulnerability scan
+For **non-UI features**, the validation sequence before marking work complete is:
+
+1. TDD micro-loops (with commits at each RED/GREEN/REFACTOR phase)
+2. `just security` — gosec static analysis
+3. `just vulncheck` — vulnerability scan
+4. TDD micro-loops to fix any issues found in steps 2–3
+5. `just fmt` — format all Go code
+6. `just lint` — formatting check + go vet
+7. `just tidy` — module hygiene
+8. Commit: `chore(scope): fmt and lint`
+9. Documentation commit: `docs(scope): ...`
 
 ---
 

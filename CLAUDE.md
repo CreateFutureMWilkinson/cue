@@ -35,6 +35,8 @@ go test -count=1 -v -run TestRouter/TestDeterministicChannelJoin ./internal/serv
 
 Validation sequence before marking work complete: `just fmt && just lint && just tidy && just test && just test-ui && just security && just vulncheck`
 
+For UI features, UI tests are updated and committed **before** TDD micro-loops. See "UI Feature Workflow" below.
+
 ## Documentation Structure
 
 ```
@@ -113,6 +115,37 @@ Importance is NEVER determined by sender identity.
 
 The Test Designer creates noop stubs alongside tests so that `go test` **compiles and fails** (not a build error). Stubs return zero values + `ErrNotImplemented` with no logic. The Implementer replaces stubs with real code one test at a time.
 
+### UI Feature Workflow
+
+Features that change UI behavior follow an extended flow. UI acceptance tests (`just test-ui`) are updated **before** TDD micro-loops begin, then serve as the outer verification gate:
+
+```
+Feature Requirement (UI-affecting)
+    ↓
+1. UPDATE UI TESTS for new/changed behavior
+   - Commit: test(ui): failing test for ...
+    ↓
+2. TDD MICRO-LOOPS (repeat per behavior)
+   - RED: Test Designer writes ONE unit test + stubs (NOT UI tests)
+   - GREEN: Implementer makes it pass
+   - REFACTOR: Refactorer cleans up
+   - Commit after each phase as normal
+    ↓
+3. VERIFY UI TESTS PASS (`just test-ui`)
+   - If FAIL → return to step 2 for additional micro-loops
+    ↓
+4. SECURITY + VULN CHECKS (`just security && just vulncheck`)
+   - If issues found → TDD micro-loops to fix, then re-verify
+    ↓
+5. FORMAT + LINT (`just fmt && just lint && just tidy`)
+   - Commit: chore(scope): fmt and lint
+    ↓
+6. DOCUMENTATION
+   - Commit: docs(scope): ...
+```
+
+**Non-UI features** skip step 1 and the UI test gate in step 3, but otherwise follow the same flow.
+
 ### Per-Behavior Micro-Loop
 
 Features are decomposed into atomic behaviors. Each behavior goes through a full RED → GREEN → REFACTOR cycle before moving to the next:
@@ -124,13 +157,14 @@ Feature Requirement
 │  MICRO-LOOP (repeat per behavior)       │
 │                                         │
 │  1. RED: Test Designer                  │
-│     - Write ONE test + noop stubs       │
+│     - Write ONE unit test + noop stubs  │
+│     - Do NOT modify UI tests here       │
 │     - Verify: compiles, test FAILS      │
 │     - Commit: test(scope): ...          │
 │                                         │
 │  2. GREEN: Implementer                  │
 │     - Replace ONE stub with real code   │
-│     - Verify: ALL tests pass            │
+│     - Verify: ALL unit tests pass       │
 │     - Commit: feat(scope): ...          │
 │                                         │
 │  3. REFACTOR: Refactorer                │
@@ -139,8 +173,6 @@ Feature Requirement
 │                                         │
 │  ← loop back if more behaviors remain   │
 └─────────────────────────────────────────┘
-    ↓ (all behaviors implemented)
-Documentation commit: docs(scope): ...
 ```
 
 One commit per phase per behavior. **Run `just fmt` as the last step before every commit** (red, green, and refactor):

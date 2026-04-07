@@ -51,13 +51,7 @@ func NewTodoListView(vm TodoListViewModel) *TodoListView {
 		vm:        vm,
 		container: container.NewVBox(),
 	}
-	v.titleEntry = widget.NewEntry()
-	v.titleEntry.SetPlaceHolder("Task title")
-	v.addBtn = widget.NewButton("Add", func() {
-		v.AddItem(v.titleEntry.Text, 0)
-		v.titleEntry.SetText("")
-		v.buildContainer()
-	})
+	v.setupInlineCreationWidgets()
 	v.loadAndSort()
 	v.buildContainer()
 	return v
@@ -123,6 +117,20 @@ func (v *TodoListView) DetailModalShown() bool {
 // ClearModalState clears the detail modal shown flag.
 func (v *TodoListView) ClearModalState() {
 	v.detailModalShown = false
+}
+
+// setupInlineCreationWidgets initializes the entry and add button for inline task creation.
+func (v *TodoListView) setupInlineCreationWidgets() {
+	v.titleEntry = widget.NewEntry()
+	v.titleEntry.SetPlaceHolder("Task title")
+	v.addBtn = widget.NewButton("Add", v.handleAddButtonClick)
+}
+
+// handleAddButtonClick handles the add button click event.
+func (v *TodoListView) handleAddButtonClick() {
+	v.AddItem(v.titleEntry.Text, 0)
+	v.titleEntry.SetText("")
+	v.buildContainer()
 }
 
 // AddItem adds a new task via the view model if title is valid.

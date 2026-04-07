@@ -379,3 +379,16 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-064 (step 4) | RED | Test Designer | ~61s | ~27,000 | ea1232d |
 | Phase-6-Feature-064 (step 4) | GREEN | Implementer | ~52s | ~28,000 | aca206d |
 | Phase-6-Feature-064 | REFACTOR | orchestrator | manual | — | 29ac978 |
+| Phase-6-Feature-071 (SelectedCount) | RED | Test Designer | ~35s | ~27,000 | d9d72ba |
+| Phase-6-Feature-071 (SelectedCount) | GREEN | Implementer | ~30s | ~25,000 | d2f116d |
+| Phase-6-Feature-071 (Generate) | RED | Test Designer | ~40s | ~28,000 | 2223ce3 |
+| Phase-6-Feature-071 (Generate) | GREEN | Implementer | ~45s | ~30,000 | f655e7c |
+| Phase-6-Feature-071 (Generate) | REFACTOR | Refactorer | ~50s | ~32,000 | b9275a8 |
+| Phase-6-Feature-071 (NoopCalendar) | RED | Test Designer | ~30s | ~25,000 | 6a0da4c |
+| Phase-6-Feature-071 (NoopCalendar) | GREEN | Implementer | ~35s | ~27,000 | 55cc15d |
+| Phase-6-Feature-071 (TimerAlerter) | RED | Test Designer | ~30s | ~25,000 | 193c88a |
+| Phase-6-Feature-071 (TimerAlerter) | GREEN | Implementer | ~35s | ~28,000 | 8081312 |
+| Phase-6-Feature-071 (ViewRefs) | RED | Test Designer | ~40s | ~29,000 | dc23f45 |
+| Phase-6-Feature-071 (ViewRefs) | GREEN | Implementer | ~45s | ~31,000 | bb5d4ad |
+| Phase-6-Feature-071 (main wiring) | GREEN | Implementer | ~60s | ~35,000 | 69b8410 |
+| Phase-6-Feature-071 (nosec) | REFACTOR | orchestrator | ~30s | ~25,000 | 49d3da9 |

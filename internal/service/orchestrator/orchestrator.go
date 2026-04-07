@@ -219,6 +219,15 @@ func (o *Orchestrator) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	o.cancel = cancel
 
+	// Clean up stale queue entries and recover stuck processing entries.
+	interval := time.Duration(o.cfg.PollIntervalSeconds) * time.Second
+	if err := o.queueRepo.PurgeOlderThan(ctx, time.Now().Add(-interval)); err != nil {
+		o.emitEvent("queue", fmt.Sprintf("purge stale entries: %v", err), true)
+	}
+	if _, err := o.queueRepo.ResetProcessing(ctx); err != nil {
+		o.emitEvent("queue", fmt.Sprintf("reset processing: %v", err), true)
+	}
+
 	o.wg.Go(func() {
 		// Immediate first poll
 		o.PollOnce(ctx)

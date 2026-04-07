@@ -124,7 +124,7 @@ func (c *OllamaClient) createJSONRequest(ctx context.Context, prompt string) (*h
 
 // sendRequest sends an HTTP request and returns the response body bytes.
 func (c *OllamaClient) sendRequest(req *http.Request) ([]byte, error) {
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) // #nosec G704 -- URL constructed from validated config baseURL
 	if err != nil {
 		return nil, fmt.Errorf("sending HTTP request to Ollama: %w", err)
 	}

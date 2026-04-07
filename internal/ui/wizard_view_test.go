@@ -712,6 +712,43 @@ func (s *WizardViewSuite) TestStep3UpButtonRefreshesView() {
 		"After tapping Up on second item, first item should move to second position")
 }
 
+// =====================================================================
+// Step Idle — empty state (Bug 077)
+// =====================================================================
+
+func (s *WizardViewSuite) setupIdleDefaults() {
+	s.vm.On("CurrentStep").Return(presenter.StepIdle).Maybe()
+	s.vm.On("AvailableTasks").Return([]presenter.TodoRow{}).Maybe()
+	s.vm.On("SelectedCount").Return(0).Maybe()
+	s.vm.On("Estimates").Return([]presenter.TaskEstimateRow{}).Maybe()
+	s.vm.On("EstimateSummary").Return(presenter.EstimateSummary{}).Maybe()
+	s.vm.On("FocusSchedule").Return((*presenter.SchedulePreview)(nil)).Maybe()
+	s.vm.On("RecoverySchedule").Return((*presenter.SchedulePreview)(nil)).Maybe()
+}
+
+func (s *WizardViewSuite) TestIdleStateRendersContent() {
+	s.setupIdleDefaults()
+
+	view := ui.NewWizardView(s.vm, s.router)
+	root := view.Container()
+
+	s.Greater(len(root.Objects), 0,
+		"StepIdle should render visible content in the wizard container")
+}
+
+func (s *WizardViewSuite) TestIdleStateShowsPromptLabel() {
+	s.setupIdleDefaults()
+
+	view := ui.NewWizardView(s.vm, s.router)
+	root := view.Container()
+
+	_, found := uitest.FindWidget[*widget.Label](root, func(l *widget.Label) bool {
+		return l.Text != ""
+	})
+	s.True(found,
+		"StepIdle should show a prompt label guiding the user")
+}
+
 // filterCallsByMethod returns all mock expected calls except those for the given method.
 func filterCallsByMethod(calls []*mock.Call, method string) []*mock.Call {
 	var filtered []*mock.Call

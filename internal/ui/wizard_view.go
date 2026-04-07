@@ -334,7 +334,6 @@ func (v *WizardView) renderStep1() {
 	v.container.Objects = append(v.container.Objects, widget.NewLabel(v.stepIndicator))
 
 	for _, item := range v.taskCheckboxes {
-		item := item
 		check := widget.NewCheck(item.Title, func(checked bool) {
 			v.vm.SelectTask(item.ID, checked)
 		})

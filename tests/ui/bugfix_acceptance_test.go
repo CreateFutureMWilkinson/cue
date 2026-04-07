@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
@@ -536,4 +537,97 @@ func (t *trackingWizardVM) ReorderTask(from, to int) {
 	t.reorderCalled = true
 	t.reorderFrom = from
 	t.reorderTo = to
+}
+
+// =============================================================================
+// Bug 070A — Activity log button fills entire center panel when closed
+// =============================================================================
+
+type Bug070ASuite struct {
+	suite.Suite
+}
+
+func TestBug070A(t *testing.T) {
+	suite.Run(t, new(Bug070ASuite))
+}
+
+func (s *Bug070ASuite) newActivityPresenter() *presenter.ActivityPresenter {
+	source := newMockActivitySource()
+	ap, err := presenter.NewActivityPresenter(source, 500)
+	s.Require().NoError(err)
+	return ap
+}
+
+// AC: When closed, the stackContainer should have a single child (a Border layout)
+// rather than multiple children in a Stack (which would stretch both to fill).
+// The bug: Stack(character, drawerBox) causes drawerBox to fill the entire panel.
+// The fix: Stack(Border(nil, button, nil, nil, character)) — one child, button at bottom.
+func (s *Bug070ASuite) TestClosedStateSingleChildInStack() {
+	ap := s.newActivityPresenter()
+	drawer := ui.NewActivityLogDrawer(ap)
+	charWidget := widget.NewLabel("Character")
+	root := drawer.ContainerWithCharacter(charWidget)
+
+	topContainer, ok := root.(*fyne.Container)
+	s.Require().True(ok, "root should be a *fyne.Container")
+
+	// In the fixed layout, the top-level Stack should contain exactly 1 object
+	// (a Border layout), not 2+ objects (character + drawerBox both filling via Stack).
+	s.Equal(1, len(topContainer.Objects),
+		"Bug 070A: closed state should have 1 child in the Stack (a Border wrapping character + button), not %d", len(topContainer.Objects))
+}
+
+// AC: When closed, button height matches natural widget.Button MinSize (not panel height).
+func (s *Bug070ASuite) TestClosedButtonAtNaturalHeight() {
+	ap := s.newActivityPresenter()
+	drawer := ui.NewActivityLogDrawer(ap)
+	charWidget := widget.NewLabel("Character")
+	root := drawer.ContainerWithCharacter(charWidget)
+
+	btn, found := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
+		return b.Text == "Activity Log"
+	})
+	s.Require().True(found, "should find Activity Log button")
+
+	// A reference button gives us the natural MinSize height.
+	refBtn := widget.NewButton("Reference", nil)
+	s.Equal(refBtn.MinSize().Height, btn.MinSize().Height,
+		"Bug 070A: closed toggle button MinSize height should match natural widget.Button height")
+}
+
+// AC: When opened then closed again, the single-child Border layout is restored.
+func (s *Bug070ASuite) TestToggleBackToClosedRestoresSingleChild() {
+	ap := s.newActivityPresenter()
+	drawer := ui.NewActivityLogDrawer(ap)
+	charWidget := widget.NewLabel("Character")
+	root := drawer.ContainerWithCharacter(charWidget)
+
+	drawer.ToggleOpen() // open
+	drawer.ToggleOpen() // close again
+
+	topContainer, ok := root.(*fyne.Container)
+	s.Require().True(ok, "root should be a *fyne.Container")
+
+	s.Equal(1, len(topContainer.Objects),
+		"Bug 070A: after toggling back to closed, Stack should have 1 child (Border), not %d", len(topContainer.Objects))
+}
+
+// AC: Open state overlay still has semi-transparent background (regression check).
+func (s *Bug070ASuite) TestOpenOverlayPreservedAfterFix() {
+	ap := s.newActivityPresenter()
+	drawer := ui.NewActivityLogDrawer(ap)
+	charWidget := widget.NewLabel("Character")
+	root := drawer.ContainerWithCharacter(charWidget)
+
+	drawer.ToggleOpen()
+
+	_, found := uitest.FindWidget[*canvas.Rectangle](root, func(r *canvas.Rectangle) bool {
+		if r.FillColor == nil {
+			return false
+		}
+		_, _, _, a := r.FillColor.RGBA()
+		return a > 0 && a < 0xFFFF
+	})
+	s.True(found,
+		"Bug 070A: open state should still have semi-transparent overlay after layout fix")
 }

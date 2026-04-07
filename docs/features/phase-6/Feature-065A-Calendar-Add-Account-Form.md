@@ -3,7 +3,7 @@
 **Phase:** Phase-6-Feature-065A
 **Type:** Bugfix (Hotfix)
 **Severity:** Medium
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/`
 **Related:** Feature 065 (Calendar Settings Tab), Feature 067 (Email Add Account), Feature 068 (Slack Add Account)
 
@@ -133,11 +133,11 @@ func createCalendarAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved 
 
 ## Acceptance Criteria
 
-- [ ] Calendar "Add Account" button opens a form with Name, ICS URL, and Poll Interval fields
-- [ ] Form has Save and Cancel buttons
-- [ ] Empty fields show validation error
-- [ ] Non-numeric poll interval shows validation error
-- [ ] Valid submission calls `ServiceSettingsPresenter.SaveCalendarAccount()`
-- [ ] Save returns to calendar account list view
-- [ ] Cancel returns to calendar account list view without saving
-- [ ] All existing settings tests remain green
+- [x] Calendar "Add Account" button opens a form with Name, ICS URL, and Poll Interval fields
+- [x] Form has Save and Cancel buttons
+- [x] Empty fields show validation error
+- [x] Non-numeric poll interval shows validation error
+- [x] Valid submission calls `ServiceSettingsPresenter.SaveCalendarAccount()`
+- [x] Save returns to calendar account list view
+- [x] Cancel returns to calendar account list view without saving
+- [x] All existing settings tests remain green

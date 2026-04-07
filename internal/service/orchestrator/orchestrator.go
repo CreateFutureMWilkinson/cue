@@ -277,6 +277,25 @@ func (o *Orchestrator) ImportBaseline(ctx context.Context) error {
 	o.watcherMu.RUnlock()
 
 	for name, watcher := range snapshot {
+		// Seed cursor from DB if the watcher supports it.
+		if seedable, ok := watcher.(CursorSeedable); ok {
+			source, sourceAccount := seedable.SourceInfo()
+			channels, err := o.repo.DistinctChannels(ctx, source, sourceAccount)
+			if err != nil {
+				o.emitEvent(name, fmt.Sprintf("import cursor lookup error: %v", err), true)
+			}
+			for _, ch := range channels {
+				cursor, err := o.repo.MaxSourceCursor(ctx, source, sourceAccount, ch)
+				if err != nil {
+					o.emitEvent(name, fmt.Sprintf("import cursor error for %s: %v", ch, err), true)
+					continue
+				}
+				if cursor != "" {
+					seedable.SeedCursor(ch, cursor)
+				}
+			}
+		}
+
 		msgs, err := watcher.Poll(ctx)
 		if err != nil {
 			o.emitEvent(name, fmt.Sprintf("import error: %v", err), true)

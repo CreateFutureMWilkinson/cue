@@ -102,32 +102,24 @@ func (r *SQLiteQueueRepository) DequeueOldest(ctx context.Context) (*repository.
 }
 
 func (r *SQLiteQueueRepository) MarkDone(ctx context.Context, id uuid.UUID) error {
-	res, err := r.db.ExecContext(ctx,
-		"UPDATE ollama_queue SET status = 'done' WHERE id = ?", id.String(),
-	)
-	if err != nil {
-		return fmt.Errorf("mark done %s: %w", id, err)
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("mark done rows affected: %w", err)
-	}
-	if n == 0 {
-		return repository.ErrNotFound
-	}
-	return nil
+	return r.updateStatus(ctx, id, "done")
 }
 
 func (r *SQLiteQueueRepository) MarkFailed(ctx context.Context, id uuid.UUID) error {
+	return r.updateStatus(ctx, id, "failed")
+}
+
+// updateStatus updates a queue entry's status and returns ErrNotFound if no rows were affected.
+func (r *SQLiteQueueRepository) updateStatus(ctx context.Context, id uuid.UUID, status string) error {
 	res, err := r.db.ExecContext(ctx,
-		"UPDATE ollama_queue SET status = 'failed' WHERE id = ?", id.String(),
+		"UPDATE ollama_queue SET status = ? WHERE id = ?", status, id.String(),
 	)
 	if err != nil {
-		return fmt.Errorf("mark failed %s: %w", id, err)
+		return fmt.Errorf("mark %s %s: %w", status, id, err)
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("mark failed rows affected: %w", err)
+		return fmt.Errorf("mark %s rows affected: %w", status, err)
 	}
 	if n == 0 {
 		return repository.ErrNotFound

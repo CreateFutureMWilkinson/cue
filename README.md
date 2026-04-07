@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–5 complete. Phase 6 (The Big Clean — bugfixes + test infrastructure) in progress. Recent: Feature 073 wires the PlannerView navigation buttons (Next, Back, Complete Task, Abandon Plan) to their presenter methods via AppBinder. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–5 complete. Phase 6 (The Big Clean — bugfixes + test infrastructure) in progress. Recent: Feature 067A adds email encryption settings (SSL/TLS, STARTTLS) to the email account form and IMAPClient. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 

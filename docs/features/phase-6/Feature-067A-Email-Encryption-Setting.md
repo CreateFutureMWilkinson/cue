@@ -3,7 +3,7 @@
 **Phase:** Phase-6-Feature-067A
 **Type:** Bugfix (Hotfix)
 **Severity:** High
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/ui/`, `internal/repository/`, `internal/repository/implementation/sqlite/`, `internal/service/watcher/`
 **Related:** Feature 067 (Email Add Account), Feature 053 (Email Mention Detection)
 
@@ -148,13 +148,34 @@ The `ServiceSettingsPresenter.SaveEmailAccount()` already passes through the ful
 
 ## Acceptance Criteria
 
-- [ ] `EmailAccount` struct has `Encryption` field with valid values `"ssl_tls"`, `"starttls"`, `"none"`
-- [ ] SQLite migration adds `encryption` column; existing rows default to `"ssl_tls"`
-- [ ] Email settings form shows encryption dropdown between Password and Poll Interval
-- [ ] Default selection is "SSL/TLS (Recommended)"
-- [ ] Saved accounts persist the selected encryption mode
-- [ ] `IMAPClient` with `ssl_tls` connects via `tls.Dial` (implicit TLS)
-- [ ] `IMAPClient` with `starttls` connects plain then upgrades via STARTTLS
-- [ ] `IMAPClient` with `none` connects via plain TCP (existing behavior)
-- [ ] All existing email tests remain green
-- [ ] All existing settings tests remain green
+- [x] `EmailAccount` struct has `Encryption` field with valid values `"ssl_tls"`, `"starttls"`, `"none"`
+- [x] SQLite migration adds `encryption` column; existing rows default to `"ssl_tls"`
+- [x] Email settings form shows encryption dropdown between Password and Poll Interval
+- [x] Default selection is "SSL/TLS (Recommended)"
+- [x] Saved accounts persist the selected encryption mode
+- [x] `IMAPClient` with `ssl_tls` connects via `tls.Dial` (implicit TLS)
+- [x] `IMAPClient` with `starttls` connects plain then upgrades via STARTTLS
+- [x] `IMAPClient` with `none` connects via plain TCP (existing behavior)
+- [x] All existing email tests remain green
+- [x] All existing settings tests remain green
+
+## Implementation Notes
+
+All 10 acceptance criteria are satisfied. Key implementation details:
+
+- **STARTTLS approach:** Used `imapclient.NewStartTLS()` instead of manual STARTTLS negotiation, because `StartTLS` is unexported in `go-imap/v2`. The `NewStartTLS` constructor connects via plain TCP and immediately upgrades to TLS before the IMAP greeting.
+- **Migration:** SQLite `ALTER TABLE` adds `encryption TEXT NOT NULL DEFAULT 'ssl_tls'` — existing accounts automatically default to the safest option.
+- **UI dropdown:** Three options ("SSL/TLS (Recommended)", "STARTTLS", "None") mapped to stored values `ssl_tls`, `starttls`, `none`.
+
+### TDD Agent Stats
+
+| # | Behavior | TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|---|---|
+| 1 | Model + schema | RED | Test Designer | ~37s | ~26,000 | 0b87e3e |
+| 1 | Model + schema | GREEN | Implementer | ~51s | ~29,000 | 0b87e3e |
+| 3 | UI dropdown | RED | Test Designer | ~40s | ~32,000 | 84dcf88 |
+| 3 | UI dropdown | GREEN | Implementer | ~28s | ~22,000 | 84dcf88 |
+| 4 | Form save | RED | Test Designer | ~67s | ~36,000 | c0d90a6 |
+| 4 | Form save | GREEN | orchestrator | manual | — | c0d90a6 |
+| 5 | IMAPClient constructor | RED+GREEN | Implementer | ~54s | ~30,000 | f3072d8 |
+| 6 | IMAPClient TLS | RED+GREEN | Implementer | ~101s | ~32,000 | 3c4754a |

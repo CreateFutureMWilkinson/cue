@@ -443,3 +443,11 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-6-Feature-065A (behavior 3) | RED | Test Designer | ~43s | ~26,000 | fa65ab5 |
 | Phase-6-Feature-065A (behavior 3) | GREEN | orchestrator | manual | — | b16c52b |
 | Phase-6-Feature-065A (behavior 4) | TEST | orchestrator | manual | — | fa0b56e |
+| Phase-6-Feature-067A (behavior 1) | RED | Test Designer | ~37s | ~26,000 | 0b87e3e |
+| Phase-6-Feature-067A (behavior 1) | GREEN | Implementer | ~51s | ~29,000 | 0b87e3e |
+| Phase-6-Feature-067A (behavior 3) | RED | Test Designer | ~40s | ~32,000 | 84dcf88 |
+| Phase-6-Feature-067A (behavior 3) | GREEN | Implementer | ~28s | ~22,000 | 84dcf88 |
+| Phase-6-Feature-067A (behavior 4) | RED | Test Designer | ~67s | ~36,000 | c0d90a6 |
+| Phase-6-Feature-067A (behavior 4) | GREEN | orchestrator | manual | — | c0d90a6 |
+| Phase-6-Feature-067A (behavior 5) | RED+GREEN | Implementer | ~54s | ~30,000 | f3072d8 |
+| Phase-6-Feature-067A (behavior 6) | RED+GREEN | Implementer | ~101s | ~32,000 | 3c4754a |

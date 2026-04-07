@@ -89,7 +89,7 @@ func (s *ViewContentSuite) TestSettingsViewWithNilPresentersIsPlaceholderLabel()
 
 // TestSettingsViewWithPresentersContainsTabs verifies that when real
 // SettingsPresenter and ServiceSettingsPresenter are provided, the
-// ViewSettings content is a *container.AppTabs with 4 tabs.
+// ViewSettings content is a *container.AppTabs with 5 tabs.
 func (s *ViewContentSuite) TestSettingsViewWithPresentersContainsTabs() {
 	fyneApp := test.NewApp()
 	router := ui.NewCenterViewRouter()
@@ -132,9 +132,9 @@ func (s *ViewContentSuite) TestSettingsViewWithPresentersContainsTabs() {
 		return true
 	})
 	s.Require().True(found, "ViewSettings content should contain *container.AppTabs, got %T", content)
-	s.Equal(4, len(tabs.Items), "SettingsView should have 4 tabs")
+	s.Equal(5, len(tabs.Items), "SettingsView should have 5 tabs")
 
-	expectedNames := []string{"Slack", "Email", "Audio", "Ollama"}
+	expectedNames := []string{"Slack", "Email", "Calendar", "Audio", "Ollama"}
 	for i, item := range tabs.Items {
 		s.Equal(expectedNames[i], item.Text, "tab %d name mismatch", i)
 	}

@@ -91,8 +91,8 @@ func (s *SettingsInteractionSuite) TestAudioTabContainsVolumeSlider() {
 		return true
 	})
 
-	s.Require().Greater(len(tabs.Items), 2, "should have at least 3 tabs (Audio is index 2)")
-	audioContent := tabs.Items[2].Content
+	s.Require().Greater(len(tabs.Items), 3, "should have at least 4 tabs (Audio is index 3)")
+	audioContent := tabs.Items[3].Content
 
 	slider, found := uitest.FindWidget[*widget.Slider](audioContent, func(sl *widget.Slider) bool {
 		return true
@@ -122,7 +122,7 @@ func (s *SettingsInteractionSuite) TestAudioSliderOnChangedUpdatesVolumeLabel() 
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	audioContent := tabs.Items[2].Content
+	audioContent := tabs.Items[3].Content
 
 	slider := uitest.RequireWidget[*widget.Slider](s.T(), audioContent, func(_ *widget.Slider) bool {
 		return true
@@ -147,8 +147,8 @@ func (s *SettingsInteractionSuite) TestOllamaTabDisplaysConfigFields() {
 		return true
 	})
 
-	s.Require().Greater(len(tabs.Items), 3, "should have at least 4 tabs (Ollama is index 3)")
-	ollamaContent := tabs.Items[3].Content
+	s.Require().Greater(len(tabs.Items), 4, "should have at least 5 tabs (Ollama is index 4)")
+	ollamaContent := tabs.Items[4].Content
 
 	_, foundHost := uitest.FindWidget[*widget.Label](ollamaContent, func(l *widget.Label) bool {
 		return strings.Contains(l.Text, "localhost")
@@ -227,7 +227,7 @@ func (s *SettingsInteractionSuite) TestAudioSliderOnChangedCallsPresenterSetVolu
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool {
 		return true
 	})
-	audioContent := tabs.Items[2].Content
+	audioContent := tabs.Items[3].Content
 
 	slider := uitest.RequireWidget[*widget.Slider](s.T(), audioContent, func(_ *widget.Slider) bool {
 		return true

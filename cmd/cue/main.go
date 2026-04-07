@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -21,8 +22,10 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository/implementation/sqlite"
 	"github.com/CreateFutureMWilkinson/cue/internal/secret"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/buffer"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/calendar"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/planner"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/vector"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
@@ -294,6 +297,87 @@ func run() error {
 	// Create service settings presenter.
 	serviceSettingsPresenter := presenter.NewServiceSettingsPresenter(serviceConfigRepo, orch, watcherFactory)
 
+	// === Phase 2: Day Planner Subsystem ===
+
+	// Create planner repositories (share the same DB path).
+	todoRepo, err := sqlite.NewSQLiteTodoRepository(cfg.Database.Path)
+	if err != nil {
+		return fmt.Errorf("creating todo repository: %w", err)
+	}
+
+	categoryRepo, err := sqlite.NewSQLiteCategoryRepository(cfg.Database.Path)
+	if err != nil {
+		return fmt.Errorf("creating category repository: %w", err)
+	}
+
+	scheduleRepo, err := sqlite.NewSQLiteScheduleRepository(cfg.Database.Path)
+	if err != nil {
+		return fmt.Errorf("creating schedule repository: %w", err)
+	}
+
+	// Calendar provider: use noop when no calendar accounts are configured.
+	var calProvider calendar.CalendarProvider
+	calAccounts, calErr := serviceConfigRepo.ListCalendarAccounts(ctx)
+	if calErr != nil || len(calAccounts) == 0 {
+		calProvider = calendar.NewNoopCalendarProvider()
+	} else {
+		// Use first enabled calendar account's ICS URL.
+		for _, acct := range calAccounts {
+			if acct.Enabled {
+				icsProvider, err := calendar.NewICSProvider(
+					acct.ICSURL,
+					&httpClient{},
+					time.Duration(cfg.Ollama.TimeoutSeconds)*time.Second,
+				)
+				if err == nil {
+					calProvider = icsProvider
+					break
+				}
+				log.Printf("warning: failed to create calendar provider for %s: %v", acct.Name, err)
+			}
+		}
+		if calProvider == nil {
+			calProvider = calendar.NewNoopCalendarProvider()
+		}
+	}
+
+	// Create planner clock, estimator, and engine.
+	plannerClock := &wallClock{}
+
+	taskEstimator := planner.NewOllamaTaskEstimator(ollamaClient)
+
+	plannerEngine, err := planner.NewPlanner(cfg.Planner, taskEstimator, plannerClock)
+	if err != nil {
+		return fmt.Errorf("creating planner engine: %w", err)
+	}
+
+	// Create planner presenter.
+	plannerPresenter, err := presenter.NewPlannerPresenter(
+		todoRepo, categoryRepo, calProvider, plannerEngine, taskEstimator, scheduleRepo, plannerClock,
+	)
+	if err != nil {
+		return fmt.Errorf("creating planner presenter: %w", err)
+	}
+
+	// Create timer alert service and adapter.
+	timerAlertSvc, err := alert.NewTimerAlertService(
+		cfg.Notification.AudioDir,
+		cfg.Notification.AudioVolume,
+		alert.NewBeeepBeeper(),
+		&osFileSystem{},
+		alert.NewBeepPlayer(cfg.Notification.AudioDir),
+	)
+	if err != nil {
+		return fmt.Errorf("creating timer alert service: %w", err)
+	}
+	timerAlerter := alert.NewTimerAlerterAdapter(timerAlertSvc)
+
+	// Create timer presenter.
+	timerPresenter, err := presenter.NewTimerPresenter(plannerClock, timerAlerter)
+	if err != nil {
+		return fmt.Errorf("creating timer presenter: %w", err)
+	}
+
 	// Create character from config, with fallback to "none".
 	character.Register("fairy", func() character.Character {
 		f := fairy.NewFairyCharacter()
@@ -341,7 +425,32 @@ func run() error {
 		char.TransitionTo(character.StateStarting)
 	})
 
-	mainWindow := ui.NewMainWindow(fyneApp, cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, serviceSettingsPresenter, cfg.Ollama, char.Widget(), viewRouter, nil, nil, nil)
+	mainWindow := ui.NewMainWindow(fyneApp, cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, serviceSettingsPresenter, cfg.Ollama, char.Widget(), viewRouter, plannerPresenter, timerPresenter, plannerPresenter)
+
+	// Wire AppBinder to connect planner presenter callbacks to views.
+	if pvRef := mainWindow.PlannerViewRef(); pvRef != nil {
+		if wvRef := mainWindow.WizardViewRef(); wvRef != nil {
+			appBinder, err := ui.NewAppBinder(plannerPresenter, mainWindow.FocusRail(), wvRef, pvRef, viewRouter)
+			if err != nil {
+				log.Printf("warning: failed to create app binder: %v", err)
+			} else {
+				appBinder.Bind()
+				if err := appBinder.AutoLoad(ctx); err != nil {
+					log.Printf("warning: failed to auto-load plan: %v", err)
+				}
+			}
+		}
+	}
+
+	// Create and start timer loop (1Hz tick driving countdown timer widget).
+	timerLoop, err := ui.NewTimerLoop(timerPresenter, mainWindow.FocusRail().Timer(), mainWindow.FocusRail())
+	if err != nil {
+		log.Printf("warning: failed to create timer loop: %v", err)
+	} else {
+		timerLoop.Start(ctx)
+		defer timerLoop.Stop()
+	}
+
 	mainWindow.Run()
 
 	// Graceful shutdown: play shutdown animation if character supports it.
@@ -453,4 +562,16 @@ type osFileSystem struct{}
 
 func (o *osFileSystem) ReadDir(path string) ([]fs.DirEntry, error) {
 	return os.ReadDir(path)
+}
+
+// wallClock implements planner.Clock using the real system clock.
+type wallClock struct{}
+
+func (wallClock) Now() time.Time { return time.Now() }
+
+// httpClient implements calendar.HTTPClient using the default http.Client.
+type httpClient struct{}
+
+func (httpClient) Do(req *http.Request) (*http.Response, error) {
+	return http.DefaultClient.Do(req)
 }

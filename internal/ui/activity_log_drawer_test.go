@@ -3,11 +3,13 @@ package ui_test
 import (
 	"testing"
 
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/uitest"
 )
 
 // --- mock ActivitySource ---
@@ -107,4 +109,19 @@ func (s *ActivityLogDrawerSuite) TestDrawerContainerWithNilCharacterWidget() {
 	container := drawer.ContainerWithCharacter(nil)
 
 	s.NotNil(container, "ContainerWithCharacter(nil) should still return a non-nil container")
+}
+
+func (s *ActivityLogDrawerSuite) TestContainerWithCharacterUsesStackNotSplit() {
+	ap := s.newPresenter()
+
+	drawer := ui.NewActivityLogDrawer(ap)
+	drawer.ToggleOpen()
+	characterWidget := widget.NewLabel("Fairy placeholder")
+
+	result := drawer.ContainerWithCharacter(characterWidget)
+
+	_, found := uitest.FindWidget[*container.Split](result, func(_ *container.Split) bool {
+		return true
+	})
+	s.False(found, "ContainerWithCharacter should use a Stack layout, not a Split")
 }

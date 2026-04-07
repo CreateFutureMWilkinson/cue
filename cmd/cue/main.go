@@ -279,7 +279,7 @@ func run() error {
 			if err != nil {
 				return fmt.Errorf("querying email account: %w", err)
 			}
-			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.Password)
+			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.Password, acct.Encryption)
 			if err != nil {
 				return fmt.Errorf("creating IMAP client: %w", err)
 			}
@@ -529,7 +529,7 @@ func buildWatchersFromDB(ctx context.Context, repo repository.ServiceConfigRepos
 			if !acct.Enabled {
 				continue
 			}
-			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.Password)
+			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.Password, acct.Encryption)
 			if err != nil {
 				log.Printf("warning: failed to create IMAP client for %s: %v", acct.Username, err)
 				continue

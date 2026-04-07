@@ -20,7 +20,7 @@ func TestIMAPClient(t *testing.T) {
 // --- Constructor validation tests ---
 
 func (s *IMAPClientSuite) TestNewIMAPClient_EmptyHost() {
-	client, err := watcher.NewIMAPClient("", 993, "user@example.com", "secret")
+	client, err := watcher.NewIMAPClient("", 993, "user@example.com", "secret", "ssl_tls")
 
 	s.Error(err)
 	s.Nil(client)
@@ -28,7 +28,7 @@ func (s *IMAPClientSuite) TestNewIMAPClient_EmptyHost() {
 }
 
 func (s *IMAPClientSuite) TestNewIMAPClient_ZeroPort() {
-	client, err := watcher.NewIMAPClient("imap.example.com", 0, "user@example.com", "secret")
+	client, err := watcher.NewIMAPClient("imap.example.com", 0, "user@example.com", "secret", "ssl_tls")
 
 	s.Error(err)
 	s.Nil(client)
@@ -36,7 +36,7 @@ func (s *IMAPClientSuite) TestNewIMAPClient_ZeroPort() {
 }
 
 func (s *IMAPClientSuite) TestNewIMAPClient_EmptyUsername() {
-	client, err := watcher.NewIMAPClient("imap.example.com", 993, "", "secret")
+	client, err := watcher.NewIMAPClient("imap.example.com", 993, "", "secret", "ssl_tls")
 
 	s.Error(err)
 	s.Nil(client)
@@ -44,7 +44,7 @@ func (s *IMAPClientSuite) TestNewIMAPClient_EmptyUsername() {
 }
 
 func (s *IMAPClientSuite) TestNewIMAPClient_EmptyPassword() {
-	client, err := watcher.NewIMAPClient("imap.example.com", 993, "user@example.com", "")
+	client, err := watcher.NewIMAPClient("imap.example.com", 993, "user@example.com", "", "ssl_tls")
 
 	s.Error(err)
 	s.Nil(client)
@@ -52,10 +52,17 @@ func (s *IMAPClientSuite) TestNewIMAPClient_EmptyPassword() {
 }
 
 func (s *IMAPClientSuite) TestNewIMAPClient_Valid() {
-	client, err := watcher.NewIMAPClient("imap.example.com", 993, "user@example.com", "secret")
+	client, err := watcher.NewIMAPClient("imap.example.com", 993, "user@example.com", "secret", "ssl_tls")
 
 	s.NoError(err)
 	s.NotNil(client)
+}
+
+func (s *IMAPClientSuite) TestNewIMAPClient_StoresEncryption() {
+	client, err := watcher.NewIMAPClient("imap.example.com", 993, "user@example.com", "secret", "starttls")
+	s.NoError(err)
+	s.NotNil(client)
+	s.Equal("starttls", client.Encryption())
 }
 
 // --- FetchNewMessages error tests ---
@@ -67,7 +74,7 @@ func (s *IMAPClientSuite) TestFetchNewMessages_ConnectionRefused() {
 	port := ln.Addr().(*net.TCPAddr).Port
 	ln.Close() // close immediately so the port is unused
 
-	client, err := watcher.NewIMAPClient("127.0.0.1", port, "user@example.com", "secret")
+	client, err := watcher.NewIMAPClient("127.0.0.1", port, "user@example.com", "secret", "ssl_tls")
 	s.Require().NoError(err)
 
 	_, fetchErr := client.FetchNewMessages(context.Background(), 0)
@@ -75,7 +82,7 @@ func (s *IMAPClientSuite) TestFetchNewMessages_ConnectionRefused() {
 }
 
 func (s *IMAPClientSuite) TestFetchNewMessages_ContextCancelled() {
-	client, err := watcher.NewIMAPClient("imap.example.com", 993, "user@example.com", "secret")
+	client, err := watcher.NewIMAPClient("imap.example.com", 993, "user@example.com", "secret", "ssl_tls")
 	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())

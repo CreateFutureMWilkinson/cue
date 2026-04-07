@@ -12,14 +12,15 @@ import (
 
 // IMAPClient is a real IMAP client that connects to an IMAP server.
 type IMAPClient struct {
-	host     string
-	port     int
-	username string
-	password string
+	host       string
+	port       int
+	username   string
+	password   string
+	encryption string
 }
 
 // NewIMAPClient creates a new IMAPClient with the given credentials.
-func NewIMAPClient(host string, port int, username, password string) (*IMAPClient, error) {
+func NewIMAPClient(host string, port int, username, password, encryption string) (*IMAPClient, error) {
 	if host == "" {
 		return nil, fmt.Errorf("host must not be empty")
 	}
@@ -33,11 +34,17 @@ func NewIMAPClient(host string, port int, username, password string) (*IMAPClien
 		return nil, fmt.Errorf("password must not be empty")
 	}
 	return &IMAPClient{
-		host:     host,
-		port:     port,
-		username: username,
-		password: password,
+		host:       host,
+		port:       port,
+		username:   username,
+		password:   password,
+		encryption: encryption,
 	}, nil
+}
+
+// Encryption returns the configured encryption mode.
+func (c *IMAPClient) Encryption() string {
+	return c.encryption
 }
 
 // FetchNewMessages connects to the IMAP server, authenticates, searches for

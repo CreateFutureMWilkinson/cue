@@ -24,6 +24,7 @@ type FocusRailCallbacks interface {
 	SetActivePlan(active bool)
 	SetCurrentTask(task string)
 	SetOnDone(fn func())
+	SetOnBack(fn func())
 }
 
 // RefreshableView abstracts a view that can be refreshed.
@@ -135,6 +136,10 @@ func (b *AppBinder) Bind() {
 	b.focusRail.SetOnDone(func() {
 		// Intentionally discard error - UI callback should not panic on task completion failure
 		_ = b.plannerP.CompleteCurrentTask(context.Background())
+	})
+
+	b.focusRail.SetOnBack(func() {
+		b.plannerP.PreviousStep()
 	})
 
 	b.plannerView.SetOnNext(func() {

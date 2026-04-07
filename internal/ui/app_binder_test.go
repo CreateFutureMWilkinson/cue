@@ -63,6 +63,7 @@ func (m *mockPlannerCallbacks) ActiveSchedule() *presenter.ActiveScheduleState {
 type mockFocusRailCallbacks struct {
 	mock.Mock
 	doneCallback func()
+	backCallback func()
 }
 
 func (m *mockFocusRailCallbacks) SetActivePlan(active bool) {
@@ -76,6 +77,11 @@ func (m *mockFocusRailCallbacks) SetCurrentTask(task string) {
 func (m *mockFocusRailCallbacks) SetOnDone(fn func()) {
 	m.Called(fn)
 	m.doneCallback = fn
+}
+
+func (m *mockFocusRailCallbacks) SetOnBack(fn func()) {
+	m.Called(fn)
+	m.backCallback = fn
 }
 
 type mockRefreshableView struct {
@@ -186,6 +192,7 @@ func (s *AppBinderSuite) TestAppBinderNilViewRouterReturnsError() {
 func (s *AppBinderSuite) expectBindCalls() {
 	s.plannerP.On("SetOnStepChange", mock.AnythingOfType("func(presenter.WizardStep)")).Return()
 	s.focusRail.On("SetOnDone", mock.AnythingOfType("func()")).Return()
+	s.focusRail.On("SetOnBack", mock.AnythingOfType("func()")).Return()
 	s.plannerView.On("SetOnPlanMyDay", mock.AnythingOfType("func()")).Return()
 	s.plannerView.On("SetOnNext", mock.AnythingOfType("func()")).Return()
 	s.plannerView.On("SetOnBack", mock.AnythingOfType("func()")).Return()
@@ -444,4 +451,20 @@ func (s *AppBinderSuite) TestBindWiresAbandonButtonToPresenterAbandonPlan() {
 	s.plannerView.abandonPlanCallback()
 
 	s.plannerP.AssertCalled(s.T(), "AbandonPlan", mock.Anything)
+}
+
+func (s *AppBinderSuite) TestBindWiresFocusRailBackToPreviousStep() {
+	s.expectBindCalls()
+
+	binder, err := ui.NewAppBinder(s.plannerP, s.focusRail, s.wizardView, s.plannerView, s.viewRouter)
+	s.Require().NoError(err)
+
+	binder.Bind()
+
+	s.Require().NotNil(s.focusRail.backCallback, "Bind should wire a Back callback on focusRail")
+
+	s.plannerP.On("PreviousStep").Return()
+	s.focusRail.backCallback()
+
+	s.plannerP.AssertCalled(s.T(), "PreviousStep")
 }

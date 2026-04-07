@@ -92,6 +92,7 @@ type GUIConfig struct {
 	WindowWidth  int    `toml:"window_width"`
 	WindowHeight int    `toml:"window_height"`
 	Character    string `toml:"character"`
+	CharacterDir string `toml:"character_dir"`
 }
 
 type LoggingConfig struct {
@@ -136,6 +137,7 @@ func defaultConfig() *Config {
 			WindowWidth:  1200,
 			WindowHeight: 800,
 			Character:    "none",
+			CharacterDir: "~/.cue/characters",
 		},
 		Logging: LoggingConfig{
 			LogLevel: "info",
@@ -210,6 +212,7 @@ func expandPaths(cfg *Config) {
 	cfg.Logging.LogDir = expandTilde(cfg.Logging.LogDir, home)
 	cfg.Notification.AudioDir = expandTilde(cfg.Notification.AudioDir, home)
 	cfg.Planner.TimerSound = expandTilde(cfg.Planner.TimerSound, home)
+	cfg.GUI.CharacterDir = expandTilde(cfg.GUI.CharacterDir, home)
 }
 
 func expandTilde(path, home string) string {

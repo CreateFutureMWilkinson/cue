@@ -1511,3 +1511,83 @@ batch_process = true
 	s.NoError(err, "TOML with batch_process should load without error (unknown keys ignored)")
 	s.NotNil(cfg)
 }
+
+// ---------------------------------------------------------------------------
+// Feature 069: CharacterDir config field
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestGUIConfigCharacterDirDefault() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "nonexistent", "config.toml")
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	home, err := os.UserHomeDir()
+	s.Require().NoError(err)
+
+	expected := filepath.Join(home, ".cue", "characters")
+	s.Equal(expected, cfg.GUI.CharacterDir)
+}
+
+func (s *ConfigSuite) TestGUIConfigCharacterDirParsesFromTOML() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/data/messages.db"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[gui]
+character_dir = "/custom/plugins"
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	s.Equal("/custom/plugins", cfg.GUI.CharacterDir)
+}
+
+func (s *ConfigSuite) TestExpandPathsExpandsCharacterDir() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/data/messages.db"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+
+[gui]
+character_dir = "~/my-characters"
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	home, err := os.UserHomeDir()
+	s.Require().NoError(err)
+
+	s.True(strings.HasPrefix(cfg.GUI.CharacterDir, home),
+		"CharacterDir should start with home dir, got: %s", cfg.GUI.CharacterDir)
+	s.NotContains(cfg.GUI.CharacterDir, "~")
+}

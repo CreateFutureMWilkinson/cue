@@ -3,6 +3,7 @@ package watcher
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
@@ -60,7 +61,7 @@ func NewEmailWatcher(api EmailAPI, cfg EmailWatcherConfig) (*EmailWatcher, error
 // SetLastUID seeds the UID high-water mark so that the next Poll only fetches
 // messages newer than uid. Used at startup to resume from the last stored cursor.
 func (w *EmailWatcher) SetLastUID(uid uint32) {
-	// stub: not yet implemented
+	w.lastUID = uid
 }
 
 // Poll fetches new email messages and returns them as repository messages.
@@ -96,6 +97,7 @@ func (w *EmailWatcher) convertEmailMessage(email EmailMessage) *repository.Messa
 		Sender:        email.From,
 		MessageID:     email.MessageID,
 		MessageType:   MessageTypeMsg,
+		SourceCursor:  strconv.FormatUint(uint64(email.UID), 10),
 		RawContent:    content,
 		Status:        StatusPending,
 		CreatedAt:     time.Now(),

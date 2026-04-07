@@ -573,5 +573,5 @@ func (wallClock) Now() time.Time { return time.Now() }
 type httpClient struct{}
 
 func (httpClient) Do(req *http.Request) (*http.Response, error) {
-	return http.DefaultClient.Do(req)
+	return http.DefaultClient.Do(req) // #nosec G704 -- URL from user's own calendar config
 }

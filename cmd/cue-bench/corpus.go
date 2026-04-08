@@ -70,15 +70,23 @@ func RatedEntries(entries []CorpusEntry) []CorpusEntry {
 	return result
 }
 
+// candidateWithScore holds a corpus entry with its computed similarity scores
+// for selection ranking.
+type candidateWithScore struct {
+	entry       CorpusEntry
+	tagScore    int // number of overlapping tags
+	sourceScore int // 1 if same source, 0 otherwise
+}
+
 // SelectExamples selects up to n rated entries from pool to serve as few-shot
 // examples for entry. Selection prefers tag overlap, then source match, then
 // seeded random tiebreak. Only entries with non-nil UserRating are eligible.
 func SelectExamples(entry CorpusEntry, pool []CorpusEntry, n int, seed int64) []CorpusEntry {
 	// Filter to rated-only candidates.
 	candidates := make([]CorpusEntry, 0, len(pool))
-	for _, e := range pool {
-		if e.UserRating != nil {
-			candidates = append(candidates, e)
+	for _, candidate := range pool {
+		if candidate.UserRating != nil {
+			candidates = append(candidates, candidate)
 		}
 	}
 
@@ -87,53 +95,55 @@ func SelectExamples(entry CorpusEntry, pool []CorpusEntry, n int, seed int64) []
 	}
 
 	// Build a tag set for the target entry for O(1) lookups.
-	tagSet := make(map[string]struct{}, len(entry.Tags))
-	for _, t := range entry.Tags {
-		tagSet[t] = struct{}{}
+	targetTags := make(map[string]struct{}, len(entry.Tags))
+	for _, tag := range entry.Tags {
+		targetTags[tag] = struct{}{}
 	}
 
 	// Score each candidate.
-	type scored struct {
-		entry       CorpusEntry
-		tagScore    int
-		sourceScore int
-	}
-	items := make([]scored, len(candidates))
-	for i, c := range candidates {
-		ts := 0
-		for _, t := range c.Tags {
-			if _, ok := tagSet[t]; ok {
-				ts++
+	scoredCandidates := make([]candidateWithScore, len(candidates))
+	for i, candidate := range candidates {
+		tagOverlaps := 0
+		for _, tag := range candidate.Tags {
+			if _, exists := targetTags[tag]; exists {
+				tagOverlaps++
 			}
 		}
-		ss := 0
-		if c.Source == entry.Source {
-			ss = 1
+
+		sourceMatch := 0
+		if candidate.Source == entry.Source {
+			sourceMatch = 1
 		}
-		items[i] = scored{entry: c, tagScore: ts, sourceScore: ss}
+
+		scoredCandidates[i] = candidateWithScore{
+			entry:       candidate,
+			tagScore:    tagOverlaps,
+			sourceScore: sourceMatch,
+		}
 	}
 
 	// Seeded shuffle for tiebreaking: shuffle first, then stable-sort so that
 	// equal (tagScore, sourceScore) groups retain the shuffled order.
 	rng := rand.New(rand.NewSource(seed))
-	rng.Shuffle(len(items), func(i, j int) {
-		items[i], items[j] = items[j], items[i]
+	rng.Shuffle(len(scoredCandidates), func(i, j int) {
+		scoredCandidates[i], scoredCandidates[j] = scoredCandidates[j], scoredCandidates[i]
 	})
 
-	sort.SliceStable(items, func(i, j int) bool {
-		if items[i].tagScore != items[j].tagScore {
-			return items[i].tagScore > items[j].tagScore
+	sort.SliceStable(scoredCandidates, func(i, j int) bool {
+		if scoredCandidates[i].tagScore != scoredCandidates[j].tagScore {
+			return scoredCandidates[i].tagScore > scoredCandidates[j].tagScore
 		}
-		return items[i].sourceScore > items[j].sourceScore
+		return scoredCandidates[i].sourceScore > scoredCandidates[j].sourceScore
 	})
 
 	// Cap at n.
-	if n > len(items) {
-		n = len(items)
+	if n > len(scoredCandidates) {
+		n = len(scoredCandidates)
 	}
+
 	result := make([]CorpusEntry, n)
 	for i := 0; i < n; i++ {
-		result[i] = items[i].entry
+		result[i] = scoredCandidates[i].entry
 	}
 	return result
 }

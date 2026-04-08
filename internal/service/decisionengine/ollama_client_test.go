@@ -530,3 +530,92 @@ func (s *OllamaClientSuite) TestScoreWithContext_ExamplesInjectedInPrompt() {
 	s.Equal("neural-chat", result.ScoringModel,
 		"ScoringModel should be set to the configured model name")
 }
+
+func (s *OllamaClientSuite) TestScoreWithContext_ZeroExamples_BasePromptIdentical() {
+	var capturedPrompt string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var receivedBody map[string]any
+		json.Unmarshal(body, &receivedBody)
+		capturedPrompt, _ = receivedBody["prompt"].(string)
+
+		resp := map[string]any{
+			"response": `{"importance_score": 6.0, "confidence_score": 0.8, "reasoning": "normal message"}`,
+			"done":     true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client, err := decisionengine.NewOllamaClient(server.URL, "neural-chat", 10*time.Second)
+	s.Require().NoError(err)
+
+	msg := &repository.Message{
+		Source:     "email",
+		Sender:     "alice@company.com",
+		Channel:    "inbox",
+		RawContent: "please review the quarterly report",
+	}
+
+	_, err = client.ScoreWithContext(context.Background(), msg, nil)
+	s.NoError(err)
+
+	// When no examples are provided, prompt should NOT contain "User rated:"
+	s.NotContains(capturedPrompt, "User rated:",
+		"prompt with zero examples should not contain 'User rated:' text")
+
+	// Should contain the standard prompt template content
+	s.Contains(capturedPrompt, "email", "prompt should contain source")
+	s.Contains(capturedPrompt, "alice@company.com", "prompt should contain sender")
+	s.Contains(capturedPrompt, "inbox", "prompt should contain channel")
+	s.Contains(capturedPrompt, "please review the quarterly report", "prompt should contain content")
+}
+
+func (s *OllamaClientSuite) TestScoreWithContext_FiveExamples_AllInjected() {
+	var capturedPrompt string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var receivedBody map[string]any
+		json.Unmarshal(body, &receivedBody)
+		capturedPrompt, _ = receivedBody["prompt"].(string)
+
+		resp := map[string]any{
+			"response": `{"importance_score": 7.5, "confidence_score": 0.85, "reasoning": "informed by examples"}`,
+			"done":     true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client, err := decisionengine.NewOllamaClient(server.URL, "neural-chat", 10*time.Second)
+	s.Require().NoError(err)
+
+	msg := &repository.Message{
+		Source:     "slack",
+		Sender:     "devops",
+		Channel:    "alerts",
+		RawContent: "memory usage at 95%",
+	}
+
+	examples := []decisionengine.FewShotExample{
+		{Content: "server crashed", UserRating: 10, Similarity: 0.9},
+		{Content: "deployment failed", UserRating: 8, Similarity: 0.85},
+		{Content: "coffee machine broken", UserRating: 2, Similarity: 0.3},
+		{Content: "meeting rescheduled", UserRating: 4, Similarity: 0.6},
+		{Content: "security breach detected", UserRating: 9, Similarity: 0.92},
+	}
+
+	_, err = client.ScoreWithContext(context.Background(), msg, examples)
+	s.NoError(err)
+
+	// All 5 example content strings should appear in the prompt
+	s.Contains(capturedPrompt, "server crashed", "prompt should contain example 1 content")
+	s.Contains(capturedPrompt, "deployment failed", "prompt should contain example 2 content")
+	s.Contains(capturedPrompt, "coffee machine broken", "prompt should contain example 3 content")
+	s.Contains(capturedPrompt, "meeting rescheduled", "prompt should contain example 4 content")
+	s.Contains(capturedPrompt, "security breach detected", "prompt should contain example 5 content")
+}

@@ -1,4 +1,4 @@
-package cuebench_test
+package main
 
 import (
 	"encoding/json"
@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	cuebench "github.com/CreateFutureMWilkinson/cue/cmd/cue-bench"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -22,7 +21,7 @@ func (s *CorpusSuite) TestLoadCorpusFromValidFile() {
 	path := filepath.Join(dir, "test_corpus.json")
 
 	rating := 8
-	entries := []cuebench.CorpusEntry{
+	entries := []CorpusEntry{
 		{
 			ID:           "test-01",
 			Source:       "slack",
@@ -49,7 +48,7 @@ func (s *CorpusSuite) TestLoadCorpusFromValidFile() {
 	s.Require().NoError(err)
 	s.Require().NoError(os.WriteFile(path, data, 0644))
 
-	result, err := cuebench.LoadCorpus(path)
+	result, err := LoadCorpus(path)
 	s.Require().NoError(err)
 	s.Require().Len(result, 2)
 	s.Equal("test-01", result[0].ID)
@@ -60,7 +59,7 @@ func (s *CorpusSuite) TestLoadCorpusFromValidFile() {
 }
 
 func (s *CorpusSuite) TestLoadCorpusFromEmbeddedDefault() {
-	result, err := cuebench.LoadCorpus("")
+	result, err := LoadCorpus("")
 	s.Require().NoError(err)
 	s.Greater(len(result), 0, "embedded corpus should contain entries")
 
@@ -74,7 +73,7 @@ func (s *CorpusSuite) TestLoadCorpusMalformedJSON() {
 	path := filepath.Join(dir, "bad.json")
 	s.Require().NoError(os.WriteFile(path, []byte(`[{"id": broken`), 0644))
 
-	result, err := cuebench.LoadCorpus(path)
+	result, err := LoadCorpus(path)
 	s.Error(err)
 	s.Nil(result)
 }
@@ -82,7 +81,7 @@ func (s *CorpusSuite) TestLoadCorpusMalformedJSON() {
 func (s *CorpusSuite) TestScoredAndRatedEntriesSplit() {
 	r5 := 5
 	r9 := 9
-	entries := []cuebench.CorpusEntry{
+	entries := []CorpusEntry{
 		{ID: "unrated-1", UserRating: nil},
 		{ID: "rated-1", UserRating: &r5},
 		{ID: "unrated-2", UserRating: nil},
@@ -90,8 +89,8 @@ func (s *CorpusSuite) TestScoredAndRatedEntriesSplit() {
 		{ID: "unrated-3", UserRating: nil},
 	}
 
-	scored := cuebench.ScoredEntries(entries)
-	rated := cuebench.RatedEntries(entries)
+	scored := ScoredEntries(entries)
+	rated := RatedEntries(entries)
 
 	s.Require().Len(scored, 3, "ScoredEntries should return entries with nil UserRating")
 	s.Require().Len(rated, 2, "RatedEntries should return entries with non-nil UserRating")
@@ -116,13 +115,13 @@ func TestExampleSelection(t *testing.T) { suite.Run(t, new(ExampleSelectionSuite
 func intPtr(v int) *int { return &v }
 
 func (s *ExampleSelectionSuite) TestSelectExamples_PrefersByTagOverlap() {
-	entry := cuebench.CorpusEntry{
+	entry := CorpusEntry{
 		ID:     "target",
 		Source: "slack",
 		Tags:   []string{"outage", "critical"},
 	}
 
-	pool := []cuebench.CorpusEntry{
+	pool := []CorpusEntry{
 		{
 			ID:         "overlap-0",
 			Source:     "slack",
@@ -143,7 +142,7 @@ func (s *ExampleSelectionSuite) TestSelectExamples_PrefersByTagOverlap() {
 		},
 	}
 
-	result := cuebench.SelectExamples(entry, pool, 3, 42)
+	result := SelectExamples(entry, pool, 3, 42)
 	s.Require().Len(result, 3, "should return all 3 rated entries")
 	s.Equal("overlap-2", result[0].ID, "entry with 2-tag overlap should be first")
 	s.Equal("overlap-1", result[1].ID, "entry with 1-tag overlap should be second")
@@ -151,13 +150,13 @@ func (s *ExampleSelectionSuite) TestSelectExamples_PrefersByTagOverlap() {
 }
 
 func (s *ExampleSelectionSuite) TestSelectExamples_PrefersSourceMatch() {
-	entry := cuebench.CorpusEntry{
+	entry := CorpusEntry{
 		ID:     "target",
 		Source: "slack",
 		Tags:   []string{"outage"},
 	}
 
-	pool := []cuebench.CorpusEntry{
+	pool := []CorpusEntry{
 		{
 			ID:         "email-entry",
 			Source:     "email",
@@ -172,13 +171,13 @@ func (s *ExampleSelectionSuite) TestSelectExamples_PrefersSourceMatch() {
 		},
 	}
 
-	result := cuebench.SelectExamples(entry, pool, 2, 42)
+	result := SelectExamples(entry, pool, 2, 42)
 	s.Require().Len(result, 2, "should return both rated entries")
 	s.Equal("slack-entry", result[0].ID, "same-source entry should rank first when tag overlap is equal")
 }
 
 func (s *ExampleSelectionSuite) TestSelectExamples_ReproducibleWithSeed() {
-	entry := cuebench.CorpusEntry{
+	entry := CorpusEntry{
 		ID:     "target",
 		Source: "slack",
 		Tags:   []string{"misc"},
@@ -186,9 +185,9 @@ func (s *ExampleSelectionSuite) TestSelectExamples_ReproducibleWithSeed() {
 
 	// Build a pool of 10 entries all with identical tag overlap and source so
 	// that ordering depends entirely on the seeded random tiebreak.
-	pool := make([]cuebench.CorpusEntry, 10)
+	pool := make([]CorpusEntry, 10)
 	for i := range pool {
-		pool[i] = cuebench.CorpusEntry{
+		pool[i] = CorpusEntry{
 			ID:         fmt.Sprintf("entry-%02d", i),
 			Source:     "slack",
 			Tags:       []string{"misc"},
@@ -196,8 +195,8 @@ func (s *ExampleSelectionSuite) TestSelectExamples_ReproducibleWithSeed() {
 		}
 	}
 
-	resultA1 := cuebench.SelectExamples(entry, pool, 10, 99)
-	resultA2 := cuebench.SelectExamples(entry, pool, 10, 99)
+	resultA1 := SelectExamples(entry, pool, 10, 99)
+	resultA2 := SelectExamples(entry, pool, 10, 99)
 	s.Require().Len(resultA1, 10)
 	s.Require().Len(resultA2, 10)
 
@@ -207,7 +206,7 @@ func (s *ExampleSelectionSuite) TestSelectExamples_ReproducibleWithSeed() {
 	}
 
 	// Different seed: collect IDs and verify at least one positional difference.
-	resultB := cuebench.SelectExamples(entry, pool, 10, 7777)
+	resultB := SelectExamples(entry, pool, 10, 7777)
 	s.Require().Len(resultB, 10)
 
 	differs := false
@@ -221,13 +220,13 @@ func (s *ExampleSelectionSuite) TestSelectExamples_ReproducibleWithSeed() {
 }
 
 func (s *ExampleSelectionSuite) TestSelectExamples_IgnoresUnratedEntries() {
-	entry := cuebench.CorpusEntry{
+	entry := CorpusEntry{
 		ID:     "target",
 		Source: "slack",
 		Tags:   []string{"outage"},
 	}
 
-	pool := []cuebench.CorpusEntry{
+	pool := []CorpusEntry{
 		{
 			ID:         "rated-1",
 			Source:     "slack",
@@ -254,7 +253,7 @@ func (s *ExampleSelectionSuite) TestSelectExamples_IgnoresUnratedEntries() {
 		},
 	}
 
-	result := cuebench.SelectExamples(entry, pool, 10, 42)
+	result := SelectExamples(entry, pool, 10, 42)
 	s.Require().Len(result, 2, "only rated entries should be returned")
 
 	for _, r := range result {
@@ -265,15 +264,15 @@ func (s *ExampleSelectionSuite) TestSelectExamples_IgnoresUnratedEntries() {
 }
 
 func (s *ExampleSelectionSuite) TestSelectExamples_RespectsMaxN() {
-	entry := cuebench.CorpusEntry{
+	entry := CorpusEntry{
 		ID:     "target",
 		Source: "slack",
 		Tags:   []string{"outage"},
 	}
 
-	pool := make([]cuebench.CorpusEntry, 10)
+	pool := make([]CorpusEntry, 10)
 	for i := range pool {
-		pool[i] = cuebench.CorpusEntry{
+		pool[i] = CorpusEntry{
 			ID:         fmt.Sprintf("pool-%02d", i),
 			Source:     "slack",
 			Tags:       []string{"outage"},
@@ -281,6 +280,6 @@ func (s *ExampleSelectionSuite) TestSelectExamples_RespectsMaxN() {
 		}
 	}
 
-	result := cuebench.SelectExamples(entry, pool, 3, 42)
+	result := SelectExamples(entry, pool, 3, 42)
 	s.Require().Len(result, 3, "should return exactly n entries when pool has more than n rated entries")
 }

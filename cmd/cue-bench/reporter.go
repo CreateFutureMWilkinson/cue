@@ -1,4 +1,4 @@
-package cuebench
+package main
 
 import (
 	"encoding/json"

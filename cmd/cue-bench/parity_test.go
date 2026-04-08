@@ -1,4 +1,4 @@
-package cuebench_test
+package main
 
 import (
 	"testing"

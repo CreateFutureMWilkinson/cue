@@ -1,11 +1,10 @@
-package cuebench_test
+package main
 
 import (
 	"bytes"
 	"encoding/json"
 	"testing"
 
-	cuebench "github.com/CreateFutureMWilkinson/cue/cmd/cue-bench"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -17,13 +16,13 @@ func TestReporter(t *testing.T) { suite.Run(t, new(ReporterSuite)) }
 
 // helperReport builds a BenchReport with one model and both 0-example (base)
 // and 5-example (few-shot) results for use across test methods.
-func (s *ReporterSuite) helperReport() cuebench.BenchReport {
-	return cuebench.BenchReport{
+func (s *ReporterSuite) helperReport() BenchReport {
+	return BenchReport{
 		BaselineName: "neural-chat",
 		CorpusStats:  "58 messages (35 scored, 23 rated examples), 1 run(s)",
-		Results: map[string]map[int]cuebench.AggregateMetrics{
+		Results: map[string]map[int]AggregateMetrics{
 			"neural-chat": {
-				0: cuebench.AggregateMetrics{
+				0: AggregateMetrics{
 					BandAccuracy:      72.5,
 					FalsePositiveRate: 18.3,
 					FalseNegativeRate: 9.1,
@@ -31,7 +30,7 @@ func (s *ReporterSuite) helperReport() cuebench.BenchReport {
 					P50Ms:             120,
 					P95Ms:             340,
 				},
-				5: cuebench.AggregateMetrics{
+				5: AggregateMetrics{
 					BandAccuracy:      80.2,
 					FalsePositiveRate: 12.1,
 					FalseNegativeRate: 7.8,
@@ -50,7 +49,7 @@ func (s *ReporterSuite) TestRenderTable_ContainsHeader() {
 	var buf bytes.Buffer
 	report := s.helperReport()
 
-	cuebench.RenderTable(&buf, report)
+	RenderTable(&buf, report)
 	output := buf.String()
 
 	s.Contains(output, "Model Benchmark Results",
@@ -63,7 +62,7 @@ func (s *ReporterSuite) TestRenderTable_ContainsBaseSection() {
 	var buf bytes.Buffer
 	report := s.helperReport()
 
-	cuebench.RenderTable(&buf, report)
+	RenderTable(&buf, report)
 	output := buf.String()
 
 	s.Contains(output, "Base Scoring",
@@ -88,7 +87,7 @@ func (s *ReporterSuite) TestRenderTable_ContainsModelRow() {
 	var buf bytes.Buffer
 	report := s.helperReport()
 
-	cuebench.RenderTable(&buf, report)
+	RenderTable(&buf, report)
 	output := buf.String()
 
 	s.Contains(output, "neural-chat",
@@ -101,7 +100,7 @@ func (s *ReporterSuite) TestRenderTable_ContainsFewShotSection() {
 	var buf bytes.Buffer
 	report := s.helperReport()
 
-	cuebench.RenderTable(&buf, report)
+	RenderTable(&buf, report)
 	output := buf.String()
 
 	s.Contains(output, "Few-Shot Calibration",
@@ -119,8 +118,8 @@ type JSONReporterSuite struct {
 func TestJSONReporter(t *testing.T) { suite.Run(t, new(JSONReporterSuite)) }
 
 // helperRunResults builds a slice of RunResult for use across JSON reporter tests.
-func (s *JSONReporterSuite) helperRunResults() []cuebench.RunResult {
-	return []cuebench.RunResult{
+func (s *JSONReporterSuite) helperRunResults() []RunResult {
+	return []RunResult{
 		{
 			ModelName:    "neural-chat",
 			EntryID:      "entry-001",
@@ -151,11 +150,11 @@ func (s *JSONReporterSuite) helperRunResults() []cuebench.RunResult {
 }
 
 // helperJSONReport builds a BenchReport populated with RunResults for JSON tests.
-func (s *JSONReporterSuite) helperJSONReport() cuebench.BenchReport {
-	return cuebench.BenchReport{
+func (s *JSONReporterSuite) helperJSONReport() BenchReport {
+	return BenchReport{
 		BaselineName:  "neural-chat",
 		CorpusStats:   "2 messages, 1 run(s)",
-		Results:       map[string]map[int]cuebench.AggregateMetrics{},
+		Results:       map[string]map[int]AggregateMetrics{},
 		ModelOrder:    []string{"neural-chat"},
 		ExampleCounts: []int{0},
 		RunResults:    s.helperRunResults(),
@@ -166,7 +165,7 @@ func (s *JSONReporterSuite) TestRenderJSON_ProducesValidJSON() {
 	var buf bytes.Buffer
 	report := s.helperJSONReport()
 
-	err := cuebench.RenderJSON(&buf, report)
+	err := RenderJSON(&buf, report)
 	s.Require().NoError(err, "RenderJSON must not return an error")
 
 	var decoded []map[string]any
@@ -178,7 +177,7 @@ func (s *JSONReporterSuite) TestRenderJSON_ContainsRunResults() {
 	var buf bytes.Buffer
 	report := s.helperJSONReport()
 
-	err := cuebench.RenderJSON(&buf, report)
+	err := RenderJSON(&buf, report)
 	s.Require().NoError(err, "RenderJSON must not return an error")
 
 	var decoded []map[string]any
@@ -193,7 +192,7 @@ func (s *JSONReporterSuite) TestRenderJSON_FieldsPresent() {
 	var buf bytes.Buffer
 	report := s.helperJSONReport()
 
-	err := cuebench.RenderJSON(&buf, report)
+	err := RenderJSON(&buf, report)
 	s.Require().NoError(err, "RenderJSON must not return an error")
 
 	var decoded []map[string]any

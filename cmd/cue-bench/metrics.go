@@ -34,5 +34,11 @@ type RunResult struct {
 //	IS >= 7 AND CS <  0.8  -> "buffered"
 //	otherwise              -> "ignored"
 func DeriveBand(is, cs float64) string {
-	return "" // stub
+	if is >= importanceThreshold && cs >= confidenceThreshold {
+		return "notified"
+	}
+	if is >= importanceThreshold {
+		return "buffered"
+	}
+	return "ignored"
 }

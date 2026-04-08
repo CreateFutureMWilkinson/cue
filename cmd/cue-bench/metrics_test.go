@@ -58,7 +58,7 @@ func (s *AggregateMetricsSuite) TestCalcMetrics_BandAccuracy() {
 func (s *AggregateMetricsSuite) TestCalcMetrics_FalsePositiveRate() {
 	results := []cuebench.RunResult{
 		{ExpectedBand: "ignored", Band: "notified"}, // false positive
-		{ExpectedBand: "ignored", Band: "ignored"},   // correct
+		{ExpectedBand: "ignored", Band: "ignored"},  // correct
 	}
 	m := cuebench.CalcMetrics(results)
 	s.InDelta(50.0, m.FalsePositiveRate, 0.01, "1/2 expected-ignored got notified should be 50%%")
@@ -67,7 +67,7 @@ func (s *AggregateMetricsSuite) TestCalcMetrics_FalsePositiveRate() {
 func (s *AggregateMetricsSuite) TestCalcMetrics_FalseNegativeRate() {
 	results := []cuebench.RunResult{
 		{ExpectedBand: "notified", Band: "ignored"},  // false negative
-		{ExpectedBand: "notified", Band: "notified"},  // correct
+		{ExpectedBand: "notified", Band: "notified"}, // correct
 	}
 	m := cuebench.CalcMetrics(results)
 	s.InDelta(50.0, m.FalseNegativeRate, 0.01, "1/2 expected-notified got ignored should be 50%%")
@@ -82,6 +82,34 @@ func (s *AggregateMetricsSuite) TestCalcMetrics_JSONCompliance() {
 	}
 	m := cuebench.CalcMetrics(results)
 	s.InDelta(75.0, m.JSONCompliance, 0.01, "3/4 valid JSON should be 75%%")
+}
+
+// CalibrationLiftSuite tests the CalibrationLift function.
+type CalibrationLiftSuite struct {
+	suite.Suite
+}
+
+func TestCalibrationLift(t *testing.T) { suite.Run(t, new(CalibrationLiftSuite)) }
+
+func (s *CalibrationLiftSuite) TestCalibrationLift_PositiveLift() {
+	base := cuebench.AggregateMetrics{BandAccuracy: 75.0}
+	full := cuebench.AggregateMetrics{BandAccuracy: 82.0}
+	lift := cuebench.CalibrationLift(base, full)
+	s.InDelta(7.0, lift, 0.001, "82.0 - 75.0 should yield positive lift of 7.0")
+}
+
+func (s *CalibrationLiftSuite) TestCalibrationLift_ZeroLift() {
+	base := cuebench.AggregateMetrics{BandAccuracy: 80.0}
+	full := cuebench.AggregateMetrics{BandAccuracy: 80.0}
+	lift := cuebench.CalibrationLift(base, full)
+	s.InDelta(0.0, lift, 0.001, "equal band accuracy should yield zero lift")
+}
+
+func (s *CalibrationLiftSuite) TestCalibrationLift_NegativeLift() {
+	base := cuebench.AggregateMetrics{BandAccuracy: 85.0}
+	full := cuebench.AggregateMetrics{BandAccuracy: 80.0}
+	lift := cuebench.CalibrationLift(base, full)
+	s.InDelta(-5.0, lift, 0.001, "80.0 - 85.0 should yield negative lift of -5.0")
 }
 
 func (s *AggregateMetricsSuite) TestCalcMetrics_Percentiles() {

@@ -13,14 +13,15 @@ import (
 // ChromemVectorStore implements vector storage backed by chromem-go,
 // a flat-file persistent vector database with BERT embeddings.
 type ChromemVectorStore struct {
-	db          *chromem.DB
-	collection  *chromem.Collection
-	embeddingFn EmbeddingFunc
+	db                 *chromem.DB
+	collection         *chromem.Collection
+	embeddingFn        EmbeddingFunc
+	embeddingModelName string
 }
 
 // NewChromemVectorStore creates a new ChromemVectorStore with persistent storage
 // at storagePath using the provided embedding function.
-func NewChromemVectorStore(storagePath string, embeddingFn EmbeddingFunc) (*ChromemVectorStore, error) {
+func NewChromemVectorStore(storagePath string, embeddingFn EmbeddingFunc, embeddingModelName string) (*ChromemVectorStore, error) {
 	if storagePath == "" {
 		return nil, errors.New("chromem vector store: storage path is required")
 	}
@@ -42,9 +43,10 @@ func NewChromemVectorStore(storagePath string, embeddingFn EmbeddingFunc) (*Chro
 	}
 
 	return &ChromemVectorStore{
-		db:          db,
-		collection:  collection,
-		embeddingFn: embeddingFn,
+		db:                 db,
+		collection:         collection,
+		embeddingFn:        embeddingFn,
+		embeddingModelName: embeddingModelName,
 	}, nil
 }
 

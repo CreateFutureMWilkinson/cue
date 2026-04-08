@@ -51,7 +51,7 @@ func TestChromemVectorStore(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func (s *ChromemVectorStoreSuite) TestConstructorRejectsEmptyStoragePath() {
-	_, err := vector.NewChromemVectorStore("", chromemDeterministicEmbedding())
+	_, err := vector.NewChromemVectorStore("", chromemDeterministicEmbedding(), "test-model")
 
 	s.Error(err, "NewChromemVectorStore must reject an empty storage path")
 }
@@ -59,7 +59,7 @@ func (s *ChromemVectorStoreSuite) TestConstructorRejectsEmptyStoragePath() {
 func (s *ChromemVectorStoreSuite) TestConstructorRejectsNilEmbeddingFunc() {
 	tmpDir := s.T().TempDir()
 
-	_, err := vector.NewChromemVectorStore(tmpDir, nil)
+	_, err := vector.NewChromemVectorStore(tmpDir, nil, "test-model")
 
 	s.Error(err, "NewChromemVectorStore must reject a nil embedding function")
 }
@@ -67,7 +67,7 @@ func (s *ChromemVectorStoreSuite) TestConstructorRejectsNilEmbeddingFunc() {
 func (s *ChromemVectorStoreSuite) TestConstructorWithValidInputsSucceeds() {
 	tmpDir := s.T().TempDir()
 
-	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding())
+	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding(), "test-model")
 
 	s.NoError(err)
 	s.NotNil(store)
@@ -79,7 +79,7 @@ func (s *ChromemVectorStoreSuite) TestConstructorWithValidInputsSucceeds() {
 
 func (s *ChromemVectorStoreSuite) TestStoreEmbeddingReturnsValidUUID() {
 	tmpDir := s.T().TempDir()
-	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding())
+	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding(), "test-model")
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -94,7 +94,7 @@ func (s *ChromemVectorStoreSuite) TestStoreEmbeddingReturnsValidUUID() {
 
 func (s *ChromemVectorStoreSuite) TestStoreEmbeddingAssociatesWithCorrectMessageID() {
 	tmpDir := s.T().TempDir()
-	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding())
+	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding(), "test-model")
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -118,7 +118,7 @@ func (s *ChromemVectorStoreSuite) TestStoreEmbeddingAssociatesWithCorrectMessage
 
 func (s *ChromemVectorStoreSuite) TestQuerySimilarReturnsSortedBySimilarity() {
 	tmpDir := s.T().TempDir()
-	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding())
+	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding(), "test-model")
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -149,7 +149,7 @@ func (s *ChromemVectorStoreSuite) TestQuerySimilarReturnsSortedBySimilarity() {
 
 func (s *ChromemVectorStoreSuite) TestQuerySimilarEmptyStoreReturnsNil() {
 	tmpDir := s.T().TempDir()
-	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding())
+	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding(), "test-model")
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -166,7 +166,7 @@ func (s *ChromemVectorStoreSuite) TestQuerySimilarEmptyStoreReturnsNil() {
 
 func (s *ChromemVectorStoreSuite) TestRoundTripStoreAndQuery() {
 	tmpDir := s.T().TempDir()
-	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding())
+	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding(), "test-model")
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -199,7 +199,7 @@ func (s *ChromemVectorStoreSuite) TestStoragePersistsAcrossCloseReopen() {
 	msgID := uuid.New()
 
 	// Phase 1: create store, store an embedding, close it.
-	store1, err := vector.NewChromemVectorStore(tmpDir, embFn)
+	store1, err := vector.NewChromemVectorStore(tmpDir, embFn, "test-model")
 	s.Require().NoError(err)
 
 	_, err = store1.StoreEmbedding(ctx, msgID, "deadline tomorrow")
@@ -209,7 +209,7 @@ func (s *ChromemVectorStoreSuite) TestStoragePersistsAcrossCloseReopen() {
 	s.Require().NoError(err)
 
 	// Phase 2: reopen store at same path, query for previously stored data.
-	store2, err := vector.NewChromemVectorStore(tmpDir, embFn)
+	store2, err := vector.NewChromemVectorStore(tmpDir, embFn, "test-model")
 	s.Require().NoError(err)
 
 	results, err := store2.QuerySimilar(ctx, "deadline tomorrow", 1)
@@ -226,7 +226,7 @@ func (s *ChromemVectorStoreSuite) TestStoragePersistsAcrossCloseReopen() {
 
 func (s *ChromemVectorStoreSuite) TestStoreEmbeddingPropagatesEmbeddingError() {
 	tmpDir := s.T().TempDir()
-	store, err := vector.NewChromemVectorStore(tmpDir, chromemFailingEmbedding())
+	store, err := vector.NewChromemVectorStore(tmpDir, chromemFailingEmbedding(), "test-model")
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -239,7 +239,7 @@ func (s *ChromemVectorStoreSuite) TestStoreEmbeddingPropagatesEmbeddingError() {
 
 func (s *ChromemVectorStoreSuite) TestQuerySimilarPropagatesEmbeddingError() {
 	tmpDir := s.T().TempDir()
-	store, err := vector.NewChromemVectorStore(tmpDir, chromemFailingEmbedding())
+	store, err := vector.NewChromemVectorStore(tmpDir, chromemFailingEmbedding(), "test-model")
 	s.Require().NoError(err)
 
 	ctx := context.Background()
@@ -256,10 +256,43 @@ func (s *ChromemVectorStoreSuite) TestQuerySimilarPropagatesEmbeddingError() {
 
 func (s *ChromemVectorStoreSuite) TestCloseReturnsNoError() {
 	tmpDir := s.T().TempDir()
-	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding())
+	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding(), "test-model")
 	s.Require().NoError(err)
 
 	err = store.Close()
 
 	s.NoError(err, "Close must not return an error on a healthy store")
+}
+
+// ---------------------------------------------------------------------------
+// Embedding model metadata filtering
+// ---------------------------------------------------------------------------
+
+func (s *ChromemVectorStoreSuite) TestQuerySimilarFiltersResultsByEmbeddingModel() {
+	tmpDir := s.T().TempDir()
+	embFn := chromemDeterministicEmbedding()
+	ctx := context.Background()
+
+	// Phase 1: create store with model-A, store an embedding.
+	storeA, err := vector.NewChromemVectorStore(tmpDir, embFn, "model-A")
+	s.Require().NoError(err)
+
+	_, err = storeA.StoreEmbedding(ctx, uuid.New(), "critical production outage")
+	s.Require().NoError(err)
+
+	err = storeA.Close()
+	s.Require().NoError(err)
+
+	// Phase 2: reopen the same storage path with a DIFFERENT model name.
+	storeB, err := vector.NewChromemVectorStore(tmpDir, embFn, "model-B")
+	s.Require().NoError(err)
+
+	// QuerySimilar on model-B store should return 0 results because the
+	// stored embedding was created with model-A, and model-B should filter
+	// it out via metadata mismatch.
+	results, err := storeB.QuerySimilar(ctx, "critical production outage", 5)
+
+	s.NoError(err)
+	s.Nil(results,
+		"QuerySimilar must filter out results stored with a different embedding model")
 }

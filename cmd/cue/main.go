@@ -156,7 +156,7 @@ func run() error {
 	ollamaEmbFn := chromem.NewEmbeddingFuncOllama(cfg.Ollama.EmbeddingModel, ollamaURL+"/api")
 
 	// Create chromem-go vector store for persistent embeddings.
-	vectorStore, err := vector.NewChromemVectorStore(vectorPath, vector.EmbeddingFunc(ollamaEmbFn))
+	vectorStore, err := vector.NewChromemVectorStore(vectorPath, vector.EmbeddingFunc(ollamaEmbFn), cfg.Ollama.EmbeddingModel)
 	if err != nil {
 		return fmt.Errorf("creating vector store: %w", err)
 	}

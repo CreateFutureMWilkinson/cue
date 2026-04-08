@@ -16,6 +16,7 @@ type QueueProcessor struct {
 	queueRepo           repository.QueueRepository
 	msgRepo             repository.MessageRepository
 	scorer              decisionengine.Scorer
+	fewShot             decisionengine.FewShotProvider
 	alerter             Alerter
 	eventCh             chan<- ActivityEvent
 	importanceThreshold float64
@@ -159,6 +160,11 @@ func (p *QueueProcessor) Stop() {
 		p.cancel()
 	}
 	p.wg.Wait()
+}
+
+// SetFewShotProvider sets the few-shot provider for calibration. Optional; nil = no calibration.
+func (p *QueueProcessor) SetFewShotProvider(fsp decisionengine.FewShotProvider) {
+	p.fewShot = fsp
 }
 
 // emitEvent sends an activity event if the event channel is configured.

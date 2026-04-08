@@ -165,6 +165,36 @@ func (m *mockScorer) ScoreWithContext(_ context.Context, _ *repository.Message, 
 	return m.result, m.err
 }
 
+// mockFewShotProvider implements decisionengine.FewShotProvider for testing.
+type mockFewShotProvider struct {
+	examples []decisionengine.FewShotExample
+	err      error
+	called   bool
+	content  string // last content passed to GetExamples
+}
+
+func (m *mockFewShotProvider) GetExamples(_ context.Context, content string) ([]decisionengine.FewShotExample, error) {
+	m.called = true
+	m.content = content
+	return m.examples, m.err
+}
+
+// mockCapturingScorer implements decisionengine.Scorer and captures the examples argument.
+type mockCapturingScorer struct {
+	result         *decisionengine.ScorerResult
+	err            error
+	calledExamples []decisionengine.FewShotExample
+	calledWithNil  bool
+}
+
+func (m *mockCapturingScorer) ScoreWithContext(_ context.Context, _ *repository.Message, examples []decisionengine.FewShotExample) (*decisionengine.ScorerResult, error) {
+	if examples == nil {
+		m.calledWithNil = true
+	}
+	m.calledExamples = examples
+	return m.result, m.err
+}
+
 // mockQueueAlerter implements orchestrator.Alerter for queue processor testing.
 type mockQueueAlerter struct {
 	playCount int
@@ -407,4 +437,83 @@ func (s *QueueProcessorSuite) TestStartStopProcessesEntriesAndStops() {
 	s.Require().NotNil(msgRepo.updatedMsg, "Start should launch a goroutine that calls ProcessOne")
 	s.Equal("Notified", msgRepo.updatedMsg.Status)
 	s.Equal(entryID, queueRepo.markDoneID)
+}
+
+func (s *QueueProcessorSuite) TestProcessOne_FewShotProviderExamplesPassedToScorer() {
+	// Arrange
+	entryID := uuid.New()
+	msgID := uuid.New()
+
+	queueRepo := &mockQueueRepo{
+		dequeueEntry: &repository.QueueEntry{
+			ID:        entryID,
+			MessageID: msgID,
+			Status:    "pending",
+		},
+	}
+
+	msg := &repository.Message{
+		ID:         msgID,
+		Status:     "Pending",
+		Source:     "slack",
+		RawContent: "server is on fire",
+	}
+	msgRepo := &mockMsgRepo{
+		queryByIDMsg: msg,
+	}
+
+	fewShotExamples := []decisionengine.FewShotExample{
+		{Content: "prod outage", UserRating: 9, Similarity: 0.95},
+		{Content: "standup reminder", UserRating: 2, Similarity: 0.85},
+	}
+
+	fewShotMock := &mockFewShotProvider{
+		examples: fewShotExamples,
+	}
+
+	scorer := &mockCapturingScorer{
+		result: &decisionengine.ScorerResult{
+			ImportanceScore: 9.0,
+			ConfidenceScore: 0.9,
+			Reasoning:       "server fire is critical",
+			ScoringModel:    "neural-chat",
+		},
+	}
+
+	alerter := &mockQueueAlerter{}
+	eventCh := make(chan orchestrator.ActivityEvent, 10)
+
+	processor, err := orchestrator.NewQueueProcessor(
+		queueRepo,
+		msgRepo,
+		scorer,
+		alerter,
+		eventCh,
+		7,   // importanceThreshold
+		0.8, // confidenceThreshold
+		time.Second,
+	)
+	s.Require().NoError(err)
+
+	processor.SetFewShotProvider(fewShotMock)
+
+	// Act
+	processed, err := processor.ProcessOne(context.Background())
+
+	// Assert
+	s.Require().NoError(err)
+	s.True(processed)
+
+	// FewShotProvider should have been called with the message content
+	s.True(fewShotMock.called, "FewShotProvider.GetExamples should be called")
+	s.Equal("server is on fire", fewShotMock.content, "GetExamples should receive message content")
+
+	// Scorer should have received the examples from the provider
+	s.Require().NotNil(scorer.calledExamples, "ScoreWithContext should receive examples")
+	s.Len(scorer.calledExamples, 2, "ScoreWithContext should receive 2 examples")
+
+	// Message should record examples used and scoring model
+	s.Require().NotNil(msgRepo.updatedMsg)
+	s.Equal(2, msgRepo.updatedMsg.ExamplesUsed, "ExamplesUsed should be set to number of examples")
+	s.Equal("neural-chat", msgRepo.updatedMsg.ScoringModel, "ScoringModel should be set from scorer result")
 }

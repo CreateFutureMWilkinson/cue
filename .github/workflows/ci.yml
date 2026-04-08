@@ -143,8 +143,8 @@ jobs:
         include:
           - os: ubuntu-latest
             name: linux-amd64
-          - os: macos-latest
-            name: darwin-arm64
+#          - os: macos-latest
+#            name: darwin-arm64
     runs-on: ${{ matrix.os }}
     defaults:
       run:

@@ -162,5 +162,5 @@ Replaces the batch-score-everything approach with a two-stage pipeline: configur
 | 090 | Default rules migration (channel_join, @mention) | Feature | Done | 084 | [Feature-090](features/phase-8/Feature-090-Default-Rules-Migration.md) |
 | 091 | Queue health monitoring (depth warnings) | Feature | Done | 086, 087 | [Feature-091](features/phase-8/Feature-091-Queue-Health-Monitoring.md) |
 | 092 | Structured output + prompt optimization | Feature | Done | — | [Feature-092](features/phase-8/Feature-092-Structured-Output-Prompt-Optimization.md) |
-| 093 | Model benchmark tool (cmd/cue-bench) | Feature | Planned | 092, 094 | [Feature-093](features/phase-8/Feature-093-Model-Benchmark-Tool.md) |
+| 093 | Model benchmark tool (cmd/cue-bench) | Feature | Done | 092, 094 | [Feature-093](features/phase-8/Feature-093-Model-Benchmark-Tool.md) |
 | 094 | Calibration loop redesign (few-shot prompt injection) | Feature | Done | 042, 086, 087, 092 | [Feature-094](features/phase-8/Feature-094-Calibration-Loop-Enhancements.md) |

@@ -1,7 +1,7 @@
 # Feature 093: Model Benchmark Tool
 
 **Phase:** Phase-8-Feature-093
-**Status:** Planned
+**Status:** Complete
 **Packages:** `cmd/cue-bench/`, `internal/service/decisionengine/` (shared types only)
 **Depends on:** Feature 092 (uses the optimized prompt), Feature 094 (uses `BuildPromptWithExamples`, `FewShotExample`, `ScoreWithContext`; config uses `calibration_*` field prefix)
 
@@ -286,19 +286,62 @@ The benchmark binary is built separately from the main Cue binary but from the s
 
 | File | Action |
 |---|---|
-| `cmd/cue-bench/main.go` | **New** — CLI entry point, model orchestration |
-| `cmd/cue-bench/corpus.go` | **New** — corpus loading + embedded default corpus |
-| `cmd/cue-bench/corpus.json` | **New** — default test message corpus |
-| `cmd/cue-bench/reporter.go` | **New** — table + JSON output formatting |
-| `internal/service/decisionengine/ollama_client.go` | **Modify** — export shared types/functions for benchmark access |
+| `cmd/cue-bench/main.go` | **New** — CLI entry point (`NewApp`, `BenchConfig`, `main`) |
+| `cmd/cue-bench/corpus.go` | **New** — corpus loading, `ScoredEntries`, `RatedEntries`, `SelectExamples` |
+| `cmd/cue-bench/corpus.json` | **New** — 53-message embedded corpus (27 scored, 26 rated) |
+| `cmd/cue-bench/metrics.go` | **New** — `RunResult`, `AggregateMetrics`, `CalcMetrics`, `DeriveBand`, `CalibrationLift` |
+| `cmd/cue-bench/reporter.go` | **New** — `BenchReport`, `RenderTable`, `RenderJSON` |
+| `cmd/cue-bench/benchmark.go` | **New** — `RunBenchmark`, `scoreEntry`, `exampleCounts`, `formatCorpusStats` |
+| `cmd/cue-bench/*_test.go` | **New** — `corpus_test.go`, `metrics_test.go`, `reporter_test.go`, `benchmark_test.go`, `main_test.go`, `parity_test.go` |
+| `internal/service/decisionengine/ollama_client.go` | **Modify** — export `BuildPrompt`, `BuildPromptWithExamples`, `OllamaRequest`, `OllamaResponse`, `ScorerResponse` |
+| `justfile` | **Modify** — add `bench` recipe |
+
+## Implementation Notes
+
+- **Package structure**: All files use `package main` (binary); test files use internal `package main` (not `main_test`) to access unexported helpers without import
+- **Corpus**: 53 messages — 27 scored (no `user_rating`), 26 rated (pool for few-shot examples). Covers critical, deadline, @mention, routine, noise, ambiguous, and edge-case categories
+- **Example selection**: Seeded shuffle + stable sort by (tagScore DESC, sourceScore DESC). `rand.New(rand.NewSource(seed))` with `#nosec G404` — intentional for reproducibility
+- **Fallback scoring**: Any HTTP/JSON error → IS=7, CS=0.0, JSONValid=false (mirrors production fallback → BUFFERED)
+- **Latency**: `time.Since(start).Milliseconds()` wraps the full HTTP round-trip; sorted with `slices.Sort` for percentile calculation
+- **JSON output**: Encodes `report.RunResults` (per-message detail), not the aggregate map
+- **gosec**: G304 (`#nosec` on `os.ReadFile` for user-supplied path), G404 (`#nosec` on seeded RNG), G104 (defer `resp.Body.Close()` instead)
 
 ## Test Coverage
 
-- Corpus JSON parsing (valid, malformed, empty, entries with/without user_rating)
-- Example selection by tag overlap + source match
-- Metric calculations (band accuracy, calibration lift, false positive/negative rates)
-- Table + JSON output formatting
-- CLI flag validation (missing required flags, invalid model names)
-- Dry-run mode validates corpus and model availability
-- Parity test: assert `buildPromptWithExamples()` output matches between benchmark and production code paths
-- Few-shot runs at 0, 1, 3, 5 example counts produce distinct results
+| Test File | Coverage |
+|---|---|
+| `corpus_test.go` | LoadCorpus (embedded, path, malformed), ScoredEntries, RatedEntries, SelectExamples (tag overlap, source match, seed reproducibility, pool exhaustion) |
+| `metrics_test.go` | DeriveBand (all three bands), CalcMetrics (accuracy, FP/FN rates, JSON compliance, p50/p95), CalibrationLift (positive, negative, zero) |
+| `reporter_test.go` | RenderTable (header, model rows, calibration section), RenderJSON (valid JSON array) |
+| `benchmark_test.go` | RunBenchmark round-trip with mock Ollama server (NoFewShot=true, 2 entries × 1 model = 2 results) |
+| `main_test.go` | CLI flag parsing (missing --models, dry-run, default baseline, default format) |
+| `parity_test.go` | BuildPromptWithExamples content (example text present, rating format, ADHD phrase), zero-example path |
+
+## TDD Agent Stats
+
+| Implementation Phase | TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|---|
+| Phase-8-Feature-093 (export types) | REFACTOR | main | ~5min | ~12,000 | 5f1c89d |
+| Phase-8-Feature-093 (B1-corpus) | RED | Test Designer | ~3min | ~22,000 | 4924d48 |
+| Phase-8-Feature-093 (B1-corpus) | GREEN | Implementer | ~4min | ~28,000 | (inline) |
+| Phase-8-Feature-093 (B2-select) | RED | Test Designer | ~3min | ~24,000 | e65d7ca |
+| Phase-8-Feature-093 (B2-select) | GREEN | Implementer | ~5min | ~32,000 | 7b7df1a |
+| Phase-8-Feature-093 (B2-select) | REFACTOR | Refactorer | ~2min | ~18,000 | 8cbd0fd |
+| Phase-8-Feature-093 (B3-band) | RED | Test Designer | ~2min | ~20,000 | 3de801c |
+| Phase-8-Feature-093 (B3-band) | GREEN | Implementer | ~3min | ~22,000 | 19a3bfe |
+| Phase-8-Feature-093 (B4-metrics) | RED | Test Designer | ~3min | ~25,000 | 4eaa822 |
+| Phase-8-Feature-093 (B4-metrics) | GREEN | Implementer | ~4min | ~28,000 | ae8e07a |
+| Phase-8-Feature-093 (B4-metrics) | REFACTOR | Refactorer | ~2min | ~19,000 | 556a82f |
+| Phase-8-Feature-093 (B5-lift) | RED | Test Designer | ~2min | ~18,000 | 2ee9204 |
+| Phase-8-Feature-093 (B5-lift) | GREEN | Implementer | ~2min | ~16,000 | 49b50e6 |
+| Phase-8-Feature-093 (B6-table) | RED | Test Designer | ~3min | ~24,000 | 42570b1 |
+| Phase-8-Feature-093 (B6-table) | GREEN | Implementer | ~5min | ~35,000 | 17d0138 |
+| Phase-8-Feature-093 (B6-table) | REFACTOR | Refactorer | ~2min | ~20,000 | 3e95bff |
+| Phase-8-Feature-093 (B7-json) | RED | Test Designer | ~2min | ~18,000 | 73aa866 |
+| Phase-8-Feature-093 (B7-json) | GREEN | Implementer | ~2min | ~16,000 | ba5ee91 |
+| Phase-8-Feature-093 (B8-parity) | RED | Test Designer | ~3min | ~22,000 | 8992ffb |
+| Phase-8-Feature-093 (B9-cli) | RED | Test Designer | ~3min | ~24,000 | 57bdc8e |
+| Phase-8-Feature-093 (B9-cli) | GREEN | Implementer | ~4min | ~30,000 | d9a6bba |
+| Phase-8-Feature-093 (B10-bench) | RED | Test Designer | ~3min | ~25,000 | e740e71 |
+| Phase-8-Feature-093 (B10-bench) | GREEN | Implementer | ~5min | ~35,000 | f7cea41 |
+| Phase-8-Feature-093 (B10-bench) | REFACTOR | Refactorer | ~3min | ~22,000 | 94db975 |

@@ -603,3 +603,26 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-8-Feature-094 (B5-VectorModel) | RED | Test Designer | ~2min | ~39,071 | a916ae7 |
 | Phase-8-Feature-094 (B5-VectorModel) | GREEN | Implementer | ~1min | ~26,411 | 397e29d |
 | Phase-8-Feature-094 (B5-VectorModel) | REFACTOR | Refactorer | ~1min | ~28,113 | f07fa3a |
+| Phase-8-Feature-093 (export types) | REFACTOR | main | ~5min | ~12,000 | 5f1c89d |
+| Phase-8-Feature-093 (B1-corpus) | RED | Test Designer | ~3min | ~22,000 | 4924d48 |
+| Phase-8-Feature-093 (B2-select) | RED | Test Designer | ~3min | ~24,000 | e65d7ca |
+| Phase-8-Feature-093 (B2-select) | GREEN | Implementer | ~5min | ~32,000 | 7b7df1a |
+| Phase-8-Feature-093 (B2-select) | REFACTOR | Refactorer | ~2min | ~18,000 | 8cbd0fd |
+| Phase-8-Feature-093 (B3-band) | RED | Test Designer | ~2min | ~20,000 | 3de801c |
+| Phase-8-Feature-093 (B3-band) | GREEN | Implementer | ~3min | ~22,000 | 19a3bfe |
+| Phase-8-Feature-093 (B4-metrics) | RED | Test Designer | ~3min | ~25,000 | 4eaa822 |
+| Phase-8-Feature-093 (B4-metrics) | GREEN | Implementer | ~4min | ~28,000 | ae8e07a |
+| Phase-8-Feature-093 (B4-metrics) | REFACTOR | Refactorer | ~2min | ~19,000 | 556a82f |
+| Phase-8-Feature-093 (B5-lift) | RED | Test Designer | ~2min | ~18,000 | 2ee9204 |
+| Phase-8-Feature-093 (B5-lift) | GREEN | Implementer | ~2min | ~16,000 | 49b50e6 |
+| Phase-8-Feature-093 (B6-table) | RED | Test Designer | ~3min | ~24,000 | 42570b1 |
+| Phase-8-Feature-093 (B6-table) | GREEN | Implementer | ~5min | ~35,000 | 17d0138 |
+| Phase-8-Feature-093 (B6-table) | REFACTOR | Refactorer | ~2min | ~20,000 | 3e95bff |
+| Phase-8-Feature-093 (B7-json) | RED | Test Designer | ~2min | ~18,000 | 73aa866 |
+| Phase-8-Feature-093 (B7-json) | GREEN | Implementer | ~2min | ~16,000 | ba5ee91 |
+| Phase-8-Feature-093 (B8-parity) | RED | Test Designer | ~3min | ~22,000 | 8992ffb |
+| Phase-8-Feature-093 (B9-cli) | RED | Test Designer | ~3min | ~24,000 | 57bdc8e |
+| Phase-8-Feature-093 (B9-cli) | GREEN | Implementer | ~4min | ~30,000 | d9a6bba |
+| Phase-8-Feature-093 (B10-bench) | RED | Test Designer | ~3min | ~25,000 | e740e71 |
+| Phase-8-Feature-093 (B10-bench) | GREEN | Implementer | ~5min | ~35,000 | f7cea41 |
+| Phase-8-Feature-093 (B10-bench) | REFACTOR | Refactorer | ~3min | ~22,000 | 94db975 |

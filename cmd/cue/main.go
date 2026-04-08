@@ -605,18 +605,6 @@ func buildWatchersFromDB(ctx context.Context, repo repository.ServiceConfigRepos
 	}
 }
 
-// buildVectorAdvisor creates a VectorScoreAdvisor if vector scoring is enabled
-// in the router config, or returns nil if disabled.
-func buildVectorAdvisor(cfg config.RouterConfig, querier vector.VectorQuerier, msgQuerier decisionengine.MessageQuerier) (decisionengine.VectorScoreAdvisor, error) {
-	if !cfg.CalibrationEnabled {
-		return nil, nil
-	}
-	return decisionengine.NewVectorScoreAdvisor(querier, msgQuerier, decisionengine.VectorAdvisorConfig{
-		SimilarityThreshold: cfg.CalibrationSimilarityThreshold,
-		TopN:                cfg.CalibrationMaxExamples,
-	})
-}
-
 // osFileSystem implements alert.FileSystem using the real OS.
 type osFileSystem struct{}
 

@@ -2,7 +2,6 @@ package decisionengine
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
@@ -10,8 +9,6 @@ import (
 
 	"github.com/google/uuid"
 )
-
-var ErrNotImplemented = errors.New("not implemented")
 
 // FewShotExample is a previously-rated message used as LLM context.
 type FewShotExample struct {

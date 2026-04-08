@@ -237,6 +237,22 @@ func run() error {
 		return fmt.Errorf("creating queue processor: %w", err)
 	}
 
+	// Wire few-shot calibration when enabled in config.
+	if cfg.Orchestrator.Router.CalibrationEnabled {
+		fewShotProvider, err := decisionengine.NewFewShotProvider(
+			vectorStore,
+			repo,
+			decisionengine.FewShotProviderConfig{
+				SimilarityThreshold: cfg.Orchestrator.Router.CalibrationSimilarityThreshold,
+				MaxExamples:         cfg.Orchestrator.Router.CalibrationMaxExamples,
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("creating few-shot provider: %w", err)
+		}
+		queueProcessor.SetFewShotProvider(fewShotProvider)
+	}
+
 	// Build watchers from enabled service accounts in the DB.
 	buildWatchersFromDB(ctx, serviceConfigRepo, orch)
 

@@ -1,0 +1,532 @@
+[
+  {
+    "id": "critical-outage-01",
+    "source": "slack",
+    "sender": "ops-bot",
+    "channel": "#incidents",
+    "content": "🔴 CRITICAL: API gateway returning 503 for all regions. P0 incident declared. On-call paged.",
+    "expected_band": "notified",
+    "tags": ["outage", "critical", "p0"],
+    "user_rating": null
+  },
+  {
+    "id": "critical-db-02",
+    "source": "slack",
+    "sender": "alice",
+    "channel": "#ops",
+    "content": "Production database is down. All write operations failing. Replication broken since 14:32 UTC.",
+    "expected_band": "notified",
+    "tags": ["outage", "critical", "database"],
+    "user_rating": 10
+  },
+  {
+    "id": "critical-security-03",
+    "source": "slack",
+    "sender": "security-bot",
+    "channel": "#security-alerts",
+    "content": "SECURITY INCIDENT: Credential breach detected. API keys for prod environment exposed in public GitHub repo. Rotate immediately.",
+    "expected_band": "notified",
+    "tags": ["security", "critical", "credentials"],
+    "user_rating": null
+  },
+  {
+    "id": "critical-cert-04",
+    "source": "slack",
+    "sender": "monitoring-bot",
+    "channel": "#alerts",
+    "content": "TLS certificate for api.prod.example.com expired 2 hours ago. Users seeing SSL errors.",
+    "expected_band": "notified",
+    "tags": ["outage", "critical", "certificate"],
+    "user_rating": 9
+  },
+  {
+    "id": "critical-memory-05",
+    "source": "slack",
+    "sender": "pagerduty-bot",
+    "channel": "#oncall",
+    "content": "PagerDuty ALERT: Memory exhaustion on prod-worker-03. OOM killer triggered. Service degraded.",
+    "expected_band": "notified",
+    "tags": ["outage", "critical", "memory"],
+    "user_rating": null
+  },
+  {
+    "id": "critical-ddos-06",
+    "source": "email",
+    "sender": "network-ops@company.com",
+    "channel": "inbox",
+    "content": "DDoS attack in progress. Traffic spike 10x normal baseline. Mitigation rules applied but load balancers at 95% capacity.",
+    "expected_band": "notified",
+    "tags": ["security", "critical", "network"],
+    "user_rating": 10
+  },
+  {
+    "id": "critical-data-loss-07",
+    "source": "slack",
+    "sender": "bob",
+    "channel": "#incidents",
+    "content": "Data corruption in payments table. Roughly 2000 rows affected since the migration at 09:00. Rolling back now.",
+    "expected_band": "notified",
+    "tags": ["critical", "data", "database"],
+    "user_rating": null
+  },
+  {
+    "id": "critical-deploy-fail-08",
+    "source": "slack",
+    "sender": "deploy-bot",
+    "channel": "#deployments",
+    "content": "DEPLOY FAILED: service-payments v4.2.0 rollout aborted. Health checks failing on 8/10 instances. Previous version restored.",
+    "expected_band": "notified",
+    "tags": ["critical", "deployment"],
+    "user_rating": 8
+  },
+  {
+    "id": "deadline-eod-01",
+    "source": "email",
+    "sender": "cto@company.com",
+    "channel": "inbox",
+    "content": "Reminder: quarterly budget proposal is due by EOD today. Finance needs it before the board meeting tomorrow.",
+    "expected_band": "notified",
+    "tags": ["deadline", "urgent"],
+    "user_rating": 9
+  },
+  {
+    "id": "deadline-contract-02",
+    "source": "email",
+    "sender": "legal@company.com",
+    "channel": "inbox",
+    "content": "Contract renewal with vendor X expires tomorrow. We need a signed copy or service will be suspended.",
+    "expected_band": "notified",
+    "tags": ["deadline", "contract"],
+    "user_rating": null
+  },
+  {
+    "id": "deadline-review-03",
+    "source": "slack",
+    "sender": "manager",
+    "channel": "#team",
+    "content": "Performance reviews are due Friday. HR is waiting on yours — this blocks the team's compensation cycle.",
+    "expected_band": "notified",
+    "tags": ["deadline", "hr"],
+    "user_rating": 8
+  },
+  {
+    "id": "deadline-release-04",
+    "source": "slack",
+    "sender": "pm-jane",
+    "channel": "#releases",
+    "content": "Release freeze starts in 3 hours. Any PRs not merged by then miss the 2.4 train. This is the last window.",
+    "expected_band": "notified",
+    "tags": ["deadline", "release"],
+    "user_rating": null
+  },
+  {
+    "id": "deadline-compliance-05",
+    "source": "email",
+    "sender": "compliance@company.com",
+    "channel": "inbox",
+    "content": "SOC 2 audit evidence submission deadline is tomorrow at noon. We're missing documentation for 3 controls.",
+    "expected_band": "notified",
+    "tags": ["deadline", "compliance"],
+    "user_rating": null
+  },
+  {
+    "id": "mention-thread-01",
+    "source": "slack",
+    "sender": "carol",
+    "channel": "#backend",
+    "content": "Hey @you can you take a look at this? The auth middleware is dropping sessions and I think it's related to your recent changes.",
+    "expected_band": "notified",
+    "tags": ["mention", "urgent"],
+    "user_rating": 8
+  },
+  {
+    "id": "mention-review-02",
+    "source": "slack",
+    "sender": "dan",
+    "channel": "#code-review",
+    "content": "@you this PR is blocking the release — please approve or request changes ASAP. Team is waiting.",
+    "expected_band": "notified",
+    "tags": ["mention", "review", "urgent"],
+    "user_rating": null
+  },
+  {
+    "id": "mention-question-03",
+    "source": "slack",
+    "sender": "eve",
+    "channel": "#infra",
+    "content": "@you quick question: did you change the Terraform state backend? My plan is failing with permission errors.",
+    "expected_band": "notified",
+    "tags": ["mention", "question"],
+    "user_rating": null
+  },
+  {
+    "id": "mention-email-04",
+    "source": "email",
+    "sender": "colleague@company.com",
+    "channel": "inbox",
+    "content": "Looping you in on this thread. Client is asking specifically about the API rate limits you designed. Can you respond?",
+    "expected_band": "notified",
+    "tags": ["mention", "client"],
+    "user_rating": 7
+  },
+  {
+    "id": "routine-standup-01",
+    "source": "slack",
+    "sender": "frank",
+    "channel": "#standup",
+    "content": "Yesterday: finished the refactor of the user service. Today: starting on the new endpoint. Blocker: none.",
+    "expected_band": "ignored",
+    "tags": ["routine", "standup"],
+    "user_rating": 2
+  },
+  {
+    "id": "routine-pr-merged-02",
+    "source": "slack",
+    "sender": "github-bot",
+    "channel": "#dev",
+    "content": "PR #1234 merged: Add pagination to /api/users endpoint by @frank",
+    "expected_band": "ignored",
+    "tags": ["routine", "pr", "bot"],
+    "user_rating": 1
+  },
+  {
+    "id": "routine-sprint-03",
+    "source": "slack",
+    "sender": "jira-bot",
+    "channel": "#dev",
+    "content": "Sprint 42 started. 18 tickets in scope. Sprint goal: improve API response times by 20%.",
+    "expected_band": "ignored",
+    "tags": ["routine", "sprint", "bot"],
+    "user_rating": null
+  },
+  {
+    "id": "routine-meeting-04",
+    "source": "slack",
+    "sender": "calendar-bot",
+    "channel": "#team",
+    "content": "Reminder: Weekly team sync in 15 minutes. Agenda: sprint review, blockers, roadmap update.",
+    "expected_band": "ignored",
+    "tags": ["routine", "meeting"],
+    "user_rating": 2
+  },
+  {
+    "id": "routine-welcome-05",
+    "source": "slack",
+    "sender": "hr-bot",
+    "channel": "#general",
+    "content": "Please welcome Grace to the team! She's joining as a senior frontend engineer. Say hi! 👋",
+    "expected_band": "ignored",
+    "tags": ["routine", "onboarding"],
+    "user_rating": null
+  },
+  {
+    "id": "routine-docs-06",
+    "source": "slack",
+    "sender": "henry",
+    "channel": "#dev",
+    "content": "Updated the API documentation for the new v3 endpoints. Let me know if you spot anything incorrect.",
+    "expected_band": "ignored",
+    "tags": ["routine", "docs"],
+    "user_rating": 2
+  },
+  {
+    "id": "routine-review-approved-07",
+    "source": "slack",
+    "sender": "github-bot",
+    "channel": "#code-review",
+    "content": "✅ PR #1240 approved by @iris — 'Refactor config loading' — 2 approvals, ready to merge.",
+    "expected_band": "ignored",
+    "tags": ["routine", "pr", "bot"],
+    "user_rating": null
+  },
+  {
+    "id": "routine-status-email-08",
+    "source": "email",
+    "sender": "manager@company.com",
+    "channel": "inbox",
+    "content": "Hi team, here's your weekly engineering status update. Last week's highlights: shipped 3 features, resolved 12 bugs. This week: focusing on performance work.",
+    "expected_band": "ignored",
+    "tags": ["routine", "status"],
+    "user_rating": 3
+  },
+  {
+    "id": "routine-pr-review-req-09",
+    "source": "slack",
+    "sender": "jack",
+    "channel": "#backend",
+    "content": "Would someone be able to review my PR when they get a chance? No rush, it's a small cleanup.",
+    "expected_band": "ignored",
+    "tags": ["routine", "review"],
+    "user_rating": null
+  },
+  {
+    "id": "routine-lunch-10",
+    "source": "slack",
+    "sender": "kate",
+    "channel": "#random",
+    "content": "Anyone up for lunch at the Thai place around the corner? Heading there at 12:30.",
+    "expected_band": "ignored",
+    "tags": ["routine", "social"],
+    "user_rating": null
+  },
+  {
+    "id": "routine-retro-11",
+    "source": "slack",
+    "sender": "scrum-bot",
+    "channel": "#agile",
+    "content": "Retrospective notes from Sprint 41 are posted in Confluence. Key themes: test coverage, deploy process, documentation.",
+    "expected_band": "ignored",
+    "tags": ["routine", "process"],
+    "user_rating": 2
+  },
+  {
+    "id": "noise-deploy-success-01",
+    "source": "slack",
+    "sender": "deploy-bot",
+    "channel": "#deployments",
+    "content": "✅ Deployed service-foo v2.3.1 to staging. All health checks passing. Duration: 1m 42s.",
+    "expected_band": "ignored",
+    "tags": ["noise", "bot", "deployment"],
+    "user_rating": 1
+  },
+  {
+    "id": "noise-health-02",
+    "source": "slack",
+    "sender": "monitoring-bot",
+    "channel": "#alerts",
+    "content": "Healthcheck PASS: All 24 services responding. p99 latency: 142ms. No anomalies detected.",
+    "expected_band": "ignored",
+    "tags": ["noise", "bot", "monitoring"],
+    "user_rating": 1
+  },
+  {
+    "id": "noise-ci-03",
+    "source": "slack",
+    "sender": "github-bot",
+    "channel": "#ci",
+    "content": "✅ CI passed — main branch — build #4821 — 312 tests, 0 failures. Coverage: 84.3%.",
+    "expected_band": "ignored",
+    "tags": ["noise", "bot", "ci"],
+    "user_rating": 0
+  },
+  {
+    "id": "noise-dependency-04",
+    "source": "slack",
+    "sender": "renovate-bot",
+    "channel": "#dependencies",
+    "content": "Dependency update: golang.org/x/net v0.23.0 → v0.24.0. PR #1251 opened.",
+    "expected_band": "ignored",
+    "tags": ["noise", "bot", "dependencies"],
+    "user_rating": null
+  },
+  {
+    "id": "noise-report-05",
+    "source": "email",
+    "sender": "analytics-noreply@company.com",
+    "channel": "inbox",
+    "content": "Your weekly analytics report is ready. Dashboard views: 1,204. Active users: 342. Avg session: 4m 32s.",
+    "expected_band": "ignored",
+    "tags": ["noise", "report", "automated"],
+    "user_rating": 0
+  },
+  {
+    "id": "noise-backup-06",
+    "source": "slack",
+    "sender": "ops-bot",
+    "channel": "#ops",
+    "content": "Nightly backup completed successfully. 42.3 GB written to S3. Retention: 30 days.",
+    "expected_band": "ignored",
+    "tags": ["noise", "bot", "backup"],
+    "user_rating": 0
+  },
+  {
+    "id": "noise-alert-resolved-07",
+    "source": "slack",
+    "sender": "pagerduty-bot",
+    "channel": "#oncall",
+    "content": "PagerDuty RESOLVED: High memory alert on prod-worker-03 auto-resolved. No action needed.",
+    "expected_band": "ignored",
+    "tags": ["noise", "bot", "monitoring"],
+    "user_rating": null
+  },
+  {
+    "id": "noise-log-rotation-08",
+    "source": "slack",
+    "sender": "cron-bot",
+    "channel": "#ops",
+    "content": "Log rotation completed. 12.4 GB archived. 3.1 GB freed on prod servers.",
+    "expected_band": "ignored",
+    "tags": ["noise", "bot", "maintenance"],
+    "user_rating": null
+  },
+  {
+    "id": "noise-star-09",
+    "source": "slack",
+    "sender": "github-bot",
+    "channel": "#dev",
+    "content": "⭐ your-org/your-repo just got its 100th GitHub star!",
+    "expected_band": "ignored",
+    "tags": ["noise", "bot"],
+    "user_rating": 1
+  },
+  {
+    "id": "noise-changelog-10",
+    "source": "slack",
+    "sender": "release-bot",
+    "channel": "#releases",
+    "content": "CHANGELOG auto-generated for v2.3.1. 14 commits, 3 bug fixes, 2 features. See GitHub release.",
+    "expected_band": "ignored",
+    "tags": ["noise", "bot", "release"],
+    "user_rating": null
+  },
+  {
+    "id": "ambiguous-concern-01",
+    "source": "slack",
+    "sender": "liam",
+    "channel": "#backend",
+    "content": "I've been noticing something concerning in the error rates over the past few days. Not urgent, but worth a look when you have time.",
+    "expected_band": "buffered",
+    "tags": ["ambiguous", "monitoring"],
+    "user_rating": 5
+  },
+  {
+    "id": "ambiguous-cve-02",
+    "source": "slack",
+    "sender": "mia",
+    "channel": "#security",
+    "content": "FYI, our auth library has a CVE filed against it (CVSS 6.5). Not critical, but we should patch it this sprint.",
+    "expected_band": "buffered",
+    "tags": ["ambiguous", "security", "cve"],
+    "user_rating": 6
+  },
+  {
+    "id": "ambiguous-client-03",
+    "source": "email",
+    "sender": "account-manager@company.com",
+    "channel": "inbox",
+    "content": "Heads up: the Acme client mentioned some concerns about API response times on their call today. They're not escalating yet but want to see improvement.",
+    "expected_band": "buffered",
+    "tags": ["ambiguous", "client"],
+    "user_rating": null
+  },
+  {
+    "id": "ambiguous-architecture-04",
+    "source": "slack",
+    "sender": "noah",
+    "channel": "#architecture",
+    "content": "We might need to rethink our database sharding strategy. Current approach won't scale past 10M users. Let's discuss.",
+    "expected_band": "buffered",
+    "tags": ["ambiguous", "architecture"],
+    "user_rating": 5
+  },
+  {
+    "id": "ambiguous-latency-05",
+    "source": "slack",
+    "sender": "olivia",
+    "channel": "#ops",
+    "content": "Something seems off with our response times on the /checkout endpoint. p99 has been creeping up this week. Not alarming yet.",
+    "expected_band": "buffered",
+    "tags": ["ambiguous", "performance"],
+    "user_rating": null
+  },
+  {
+    "id": "ambiguous-team-churn-06",
+    "source": "slack",
+    "sender": "paul",
+    "channel": "#general",
+    "content": "FYI there's been some churn on the platform team. Two engineers are leaving next month. Might affect the Q3 roadmap.",
+    "expected_band": "buffered",
+    "tags": ["ambiguous", "team", "risk"],
+    "user_rating": null
+  },
+  {
+    "id": "ambiguous-direction-07",
+    "source": "slack",
+    "sender": "quinn",
+    "channel": "#product",
+    "content": "Can we chat about the project direction when you have a moment? Some things came up in the customer interviews that I think we should factor in.",
+    "expected_band": "buffered",
+    "tags": ["ambiguous", "product"],
+    "user_rating": 4
+  },
+  {
+    "id": "ambiguous-disk-08",
+    "source": "slack",
+    "sender": "monitoring-bot",
+    "channel": "#alerts",
+    "content": "Disk usage on prod-db-01 at 78%. Not critical yet, but trending up. Worth scheduling a cleanup.",
+    "expected_band": "buffered",
+    "tags": ["ambiguous", "monitoring", "disk"],
+    "user_rating": 4
+  },
+  {
+    "id": "edge-empty-01",
+    "source": "slack",
+    "sender": "bot",
+    "channel": "#general",
+    "content": "",
+    "expected_band": "ignored",
+    "tags": ["edge", "empty"],
+    "user_rating": null
+  },
+  {
+    "id": "edge-long-02",
+    "source": "email",
+    "sender": "vendor@example.com",
+    "channel": "inbox",
+    "content": "Thank you for reaching out. We wanted to provide a comprehensive update on the state of our partnership and the deliverables discussed in the last quarterly business review. As you may recall, we committed to three primary workstreams: (1) API performance improvements targeting p99 under 200ms, (2) enhanced SLA guarantees covering 99.95% uptime, and (3) a revised billing model with volume discounts. On workstream one, our engineering team has completed the refactoring of the core routing layer, resulting in a 35% improvement in throughput. However, there are still some edge cases around retry logic that need to be addressed. On workstream two, we have updated the SLA documentation and the new contracts are ready for review. On workstream three, the finance team is still finalizing the discount tiers. We expect to have a proposal ready by end of next week. Please let us know if you have any questions or concerns.",
+    "expected_band": "ignored",
+    "tags": ["edge", "long"],
+    "user_rating": null
+  },
+  {
+    "id": "edge-nonenglish-03",
+    "source": "slack",
+    "sender": "remote-colleague",
+    "channel": "#general",
+    "content": "Hola equipo, recuerden que la reunión de mañana ha sido cancelada. Nos vemos la próxima semana.",
+    "expected_band": "ignored",
+    "tags": ["edge", "non-english"],
+    "user_rating": null
+  },
+  {
+    "id": "edge-code-04",
+    "source": "slack",
+    "sender": "rachel",
+    "channel": "#backend",
+    "content": "```go\nfunc (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {\n    ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)\n    defer cancel()\n    // TODO: add auth\n}\n```",
+    "expected_band": "ignored",
+    "tags": ["edge", "code"],
+    "user_rating": null
+  },
+  {
+    "id": "edge-single-word-05",
+    "source": "slack",
+    "sender": "sam",
+    "channel": "#incidents",
+    "content": "urgent",
+    "expected_band": "buffered",
+    "tags": ["edge", "ambiguous"],
+    "user_rating": null
+  },
+  {
+    "id": "edge-emoji-06",
+    "source": "slack",
+    "sender": "emoji-user",
+    "channel": "#random",
+    "content": "🎉🎊🥳",
+    "expected_band": "ignored",
+    "tags": ["edge", "emoji"],
+    "user_rating": null
+  },
+  {
+    "id": "edge-critical-short-07",
+    "source": "slack",
+    "sender": "tom",
+    "channel": "#incidents",
+    "content": "site is down",
+    "expected_band": "notified",
+    "tags": ["edge", "outage", "critical"],
+    "user_rating": 9
+  }
+]

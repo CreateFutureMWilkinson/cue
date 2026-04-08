@@ -589,3 +589,17 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-8-Feature-092 (prompt) | RED | Test Designer | ~36s | ~32,500 | 599cd19 |
 | Phase-8-Feature-092 (prompt) | GREEN | Implementer | ~24s | ~22,400 | b10bb2e |
 | Phase-8-Feature-092 (prompt) | REFACTOR | orchestrator | manual | — | eb07cf5 |
+| Phase-8-Feature-094 (B1-sqlite) | GREEN | Implementer | ~51min | ~34,478 | 435b812 |
+| Phase-8-Feature-094 (B1-sqlite) | REFACTOR | Refactorer | ~11min | ~26,195 | 65022ee |
+| Phase-8-Feature-094 (B2-FewShot) | RED | Test Designer | ~2min | ~54,924 | c7f4f69 |
+| Phase-8-Feature-094 (B2-FewShot) | GREEN | Implementer | ~1min | ~27,716 | 46af98b |
+| Phase-8-Feature-094 (B2-FewShot) | REFACTOR | Refactorer | ~1min | ~26,077 | 151dc3f |
+| Phase-8-Feature-094 (B3-ScoreWithContext) | RED | Test Designer | ~3min | ~52,270 | e6a0017 |
+| Phase-8-Feature-094 (B3-ScoreWithContext) | GREEN | Implementer | ~1min | ~31,799 | 1b97881 |
+| Phase-8-Feature-094 (B3-ScoreWithContext) | REFACTOR | Refactorer | ~1min | ~32,940 | c1ce07b |
+| Phase-8-Feature-094 (B4-QueueProcessor) | RED | Test Designer | ~2min | ~37,929 | f8fe547 |
+| Phase-8-Feature-094 (B4-QueueProcessor) | GREEN | Implementer | ~1min | ~27,690 | e91e971 |
+| Phase-8-Feature-094 (B4-QueueProcessor) | REFACTOR | Refactorer | ~2min | ~37,576 | e68dd68 |
+| Phase-8-Feature-094 (B5-VectorModel) | RED | Test Designer | ~2min | ~39,071 | a916ae7 |
+| Phase-8-Feature-094 (B5-VectorModel) | GREEN | Implementer | ~1min | ~26,411 | 397e29d |
+| Phase-8-Feature-094 (B5-VectorModel) | REFACTOR | Refactorer | ~1min | ~28,113 | f07fa3a |

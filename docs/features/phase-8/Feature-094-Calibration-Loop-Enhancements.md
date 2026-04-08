@@ -1,65 +1,29 @@
 # Feature 094: Calibration Loop Redesign
 
 **Phase:** Phase-8-Feature-094
-**Status:** Planned
-**Packages:** `internal/service/decisionengine/`, `internal/service/buffer/`, `internal/service/vector/`, `internal/config/`
-**Depends on:** Feature 042 (replaces current implementation), Feature 086 (queue processor), Feature 087 (orchestrator refactor), Feature 092 (prompt optimization)
+**Status:** Done
+**Packages:** `internal/service/decisionengine/`, `internal/service/orchestrator/`, `internal/service/vector/`, `internal/repository/implementation/sqlite/`, `internal/config/`
+**Depends on:** Feature 042 (replaces), Feature 086 (QueueProcessor), Feature 087 (Orchestrator), Feature 092 (prompt optimization)
 
 ---
 
 ## Overview
 
-Replace the current arithmetic-based `VectorScoreAdvisor` (Feature 042) with the originally intended design: few-shot prompt injection. Instead of computing a post-hoc score adjustment, similar previously-rated messages are included directly in the Ollama scoring prompt as context examples. The LLM reasons about the examples and produces a single importance/confidence score informed by real user feedback.
+Replaced the arithmetic `VectorScoreAdvisor` (Feature 042) with few-shot prompt injection. Similar previously-rated messages are included directly in the Ollama scoring prompt as examples, so the LLM reasons about them and produces a single importance/confidence score informed by real user feedback. No post-processing arithmetic applied.
 
-## Why the Current Implementation Is Wrong
+## Why the Old Implementation Was Wrong
 
-Feature 042 was intended to close the feedback loop by feeding similar rated messages back into the LLM as context. The implementation drifted from this design and instead:
+The old `VectorScoreAdvisor`:
+1. Computed a weighted average of user ratings vs Ollama scores
+2. Derived an arithmetic adjustment (`avgUserRating - avgImportanceScore`)
+3. Clamped to ±2.0 and applied a damping factor
+4. Added the adjustment to the Ollama score after the fact
 
-1. Queries the vector store for similar rated messages
-2. Computes a weighted average of user ratings vs Ollama scores
-3. Derives an arithmetic adjustment (`avgUserRating - avgImportanceScore`)
-4. Clamps to ±2.0, applies a damping factor
-5. Adds the result to the Ollama score after the fact
+This bypassed the LLM entirely, couldn't reason about context, introduced arbitrary constraints, and was coupled to score distributions (model transitions invalidated stored deltas).
 
-This is fundamentally wrong because:
+## Design: Few-Shot Prompt Injection
 
-- **It bypasses the LLM entirely.** The adjustment is pure arithmetic — cosine similarity + weighted averages. The LLM never sees the user feedback.
-- **It can't reason about context.** A numeric adjustment of -1.3 can't distinguish "the user ignores all bot messages" from "the user ignores messages from #random." The LLM can.
-- **It introduces artificial constraints.** The ±2.0 clamp and damping factor are arbitrary guardrails needed because the arithmetic approach is crude. Few-shot prompting doesn't need them — the LLM produces the score directly.
-- **It couples calibration to score distributions.** Changing the model or prompt shifts importance scores, invalidating the `avgUserRating - avgImportanceScore` delta. Few-shot examples are model-agnostic — the LLM reads the examples fresh each time.
-
-## Intended Design: Few-Shot Prompt Injection
-
-### Flow
-
-After Feature 087, the full message pipeline is:
-
-```
-Watcher.Poll() → new messages
-    ↓
-Orchestrator.PollOnce():
-    ExistsByMessageID → dedup
-    RulesEngine.Evaluate → "notified"/"ignored" (deterministic, stored immediately)
-                         → "queue" (enqueued for Ollama)
-    ↓
-QueueProcessor (background, one at a time):
-    DequeueOldest → message
-    FewShotProvider.GetExamples → 0-5 similar rated messages
-    ↓
-    Build prompt:
-        - Scoring instruction (from Feature 092)
-        - Few-shot examples: [content, user_rating] × 0-5
-        - New message to score
-    ↓
-    Scorer.ScoreWithContext → single Ollama request
-    ↓
-    LLM returns importance/confidence/reasoning
-        (informed by examples — no post-processing)
-    ↓
-    Assign status on thresholds, update message, alert if Notified
-```
-
-### Prompt Structure
+When `calibration_enabled = true`, the `QueueProcessor` calls `FewShotProvider.GetExamples` before scoring. Up to `calibration_max_examples` (default 5) similar rated messages are retrieved from the vector store. Their content and user ratings are injected into the Ollama prompt:
 
 ```
 Score this message's importance for an ADHD user who needs to catch critical
@@ -69,141 +33,40 @@ The user has rated similar messages in the past:
 
 - "API latency alert resolved, all clear" → User rated: 1/10
 - "Reminder: quarterly review is tomorrow at 2pm" → User rated: 8/10
-- "Updated the README with new setup instructions" → User rated: 2/10
 
 Now score this message:
 
-Source: %s | Sender: %s | Channel: %s
-Content: %s
+Source: slack | Sender: ops-bot | Channel: incidents
+Content: database connection pool exhausted
 
 {"importance_score": 0-10, "confidence_score": 0.0-1.0, "reasoning": "one sentence"}
 ```
 
-When no rated similar messages exist, the examples section is omitted entirely and the prompt is identical to the base prompt from Feature 092. Graceful degradation — zero examples means current behavior, more examples means better calibration.
+When no rated examples exist, the prompt is identical to the base prompt (graceful degradation).
 
-### Example Selection
+## API
 
-- Query the vector store for the top 5 most similar messages to the incoming message content
-- Only messages with a user rating are in the vector store (explicit design constraint — see "Vector Store Invariant" below)
-- Include all results returned (0-5), ordered by descending similarity
-- Each example includes only: truncated content (first 200 chars) and user rating (0-10)
-- **User rating only — do not include the original Ollama score.** The LLM's job is to understand what the user considers important, not to reason about its own past mistakes. Keeping examples simple also reduces token count, which matters for smaller models.
-
-### Why User Rating Only
-
-Including the Ollama score ("Ollama scored this 4, user rated it 8") would ask the model to reason about the correction direction. This is problematic for smaller models:
-
-- Extra tokens per example (doubles the context cost)
-- Requires the model to understand meta-reasoning ("I should score higher because the user disagreed with a previous score")
-- Couples the examples to the scoring model's distribution — if the model changes, the Ollama scores in examples become misleading
-
-User rating alone is clean signal: "messages like this are important to this user" or "messages like this are not."
-
-## Vector Store Invariant
-
-**Only Ollama-scored messages with user ratings enter the vector store.** This is enforced by the existing `BufferService.SaveRating()` code path — embedding happens at rating time, not at message arrival. This means:
-
-- Messages routed by deterministic rules (channel_join, @mention) → NOTIFIED → never enter the buffer → never rated → never embedded
-- Messages scored by Ollama → NOTIFIED/BUFFERED/IGNORED → only BUFFERED messages appear in the feedback buffer → only rated messages get embedded
-- The few-shot examples are always messages that Ollama would actually see in production
-
-This invariant ensures that calibration examples are relevant to the LLM's actual task. Deterministic-rule messages are excluded by design because Ollama never evaluates them.
-
-## What Gets Removed
-
-The current `VectorScoreAdvisor` and its associated infrastructure are replaced:
-
-| Remove | Reason |
-|---|---|
-| `VectorScoreAdvisor` interface | No longer needed — calibration happens in the prompt |
-| `vectorScoreAdvisor` implementation | Replaced by few-shot prompt building |
-| `ScoreAdvice` struct | No adjustment step |
-| `VectorAdvisorConfig` (similarity threshold, damping, top-N) | Replaced by simpler config |
-| `MessageQuerier` interface in vector_advisor.go | Message lookup moves to the `FewShotProvider` |
-| Config fields: `vector_damping_factor` | Not applicable to few-shot |
-
-Note: The `Router` struct and its `advisor` field are already removed by Feature 087. This feature removes the `VectorScoreAdvisor` infrastructure from `vector_advisor.go` and rewrites the file to contain the `FewShotProvider` instead.
-
-## What Gets Added
-
-| Add | Purpose |
-|---|---|
-| `FewShotProvider` interface | Retrieves similar rated messages for prompt injection |
-| `fewShotProvider` implementation | Queries vector store + message repo, returns examples |
-| `buildPromptWithExamples()` function | Constructs the few-shot prompt |
-| Modified `OllamaClient.ScoreWithContext()` | Replaces `Score()`, accepts optional few-shot examples |
-| Config field: `calibration_max_examples` | Max few-shot examples (default 5) |
-
-### FewShotProvider Interface
+### FewShotExample
 
 ```go
-// FewShotExample is a previously-rated message used as LLM context.
 type FewShotExample struct {
-    Content    string // Truncated to 200 chars
-    UserRating int    // 0-10
-    Similarity float32 // For logging/debugging, not sent to LLM
+    Content    string  // Truncated to 200 chars
+    UserRating int     // 0-10
+    Similarity float32 // For logging; not sent to LLM
 }
+```
 
-// FewShotProvider retrieves similar rated messages for prompt injection.
-// MaxExamples is set at construction time via FewShotProviderConfig.
+### FewShotProvider interface
+
+```go
 type FewShotProvider interface {
     GetExamples(ctx context.Context, content string) ([]FewShotExample, error)
 }
 ```
 
-The provider queries the vector store, looks up each message's user rating, truncates content, and returns up to `MaxExamples` examples (configured at construction time). It replaces `VectorScoreAdvisor` and is injected into the `QueueProcessor` (Feature 086).
+Constructor: `NewFewShotProvider(querier VectorQuerier, msgQuerier MessageQuerier, cfg FewShotProviderConfig)`
 
-### QueueProcessor Integration
-
-After Feature 087, the `Router` struct is removed. Deterministic rules are evaluated by the `RulesEngine` in the orchestrator, and Ollama scoring is performed by the `QueueProcessor` (Feature 086). The few-shot logic is added to the `QueueProcessor`, which already holds the `Scorer` interface.
-
-```go
-type QueueProcessor struct {
-    queue               QueueRepository
-    messages            MessageRepository
-    scorer              Scorer
-    fewShot             FewShotProvider  // NEW — replaces Router's advisor (optional, nil = no calibration)
-    alerter             Alerter
-    cooldown            time.Duration
-    importanceThreshold float64
-    confidenceThreshold float64
-    eventCh             chan<- ActivityEvent
-}
-```
-
-The processing loop becomes:
-
-```go
-// In the QueueProcessor's scoring step:
-msg := messages.QueryByID(ctx, entry.MessageID)
-
-// Get few-shot examples (nil-safe, best-effort)
-var examples []FewShotExample
-if p.fewShot != nil {
-    examples, _ = p.fewShot.GetExamples(ctx, msg.RawContent)
-}
-
-// Score with examples included in prompt
-result, err := p.scorer.ScoreWithContext(ctx, msg, examples)
-if err != nil {
-    // Fallback: IS=7, CS=0.0, BUFFERED
-    msg.ImportanceScore = 7.0
-    msg.ConfidenceScore = 0.0
-    msg.Status = "Buffered"
-    msg.Reasoning = "Ollama scoring failed: " + err.Error()
-} else {
-    msg.ImportanceScore = result.ImportanceScore
-    msg.ConfidenceScore = result.ConfidenceScore
-    msg.Reasoning = result.Reasoning
-    msg.ExamplesUsed = len(examples)
-    // Status assignment using thresholds
-    ...
-}
-```
-
-No post-processing, no adjustment arithmetic. The LLM produces the final score.
-
-### Scorer Interface Extension
+### Scorer interface (breaking change)
 
 ```go
 type Scorer interface {
@@ -211,137 +74,71 @@ type Scorer interface {
 }
 ```
 
-`ScoreWithContext` fully replaces the old `Score` method. When `examples` is nil or empty, the prompt is identical to the base prompt (no few-shot block). There is no backward-compatible `Score` method — all callers pass examples explicitly (or nil).
+`Score` is gone. All callers pass `examples` explicitly (nil = no calibration).
+
+### ScorerResult
+
+```go
+type ScorerResult struct {
+    ImportanceScore float64
+    ConfidenceScore float64
+    Reasoning       string
+    ScoringModel    string // NEW: model that produced this score
+}
+```
+
+### QueueProcessor
+
+`SetFewShotProvider(fsp FewShotProvider)` wires calibration into the processor. When nil, scoring is unchanged (backward compatible). `ExamplesUsed` and `ScoringModel` are recorded on each scored message.
+
+### ChromemVectorStore
+
+`NewChromemVectorStore(storagePath, embeddingFn, embeddingModelName)` — new third parameter. Vectors are tagged with `embedding_model` metadata. `QuerySimilar` filters out vectors from a different embedding model, preventing cross-model similarity comparisons.
 
 ## Configuration
 
 ```toml
 [orchestrator.router]
-# Existing fields
-importance_threshold = 7
-confidence_threshold = 0.8
-buffer_size_per_source = 100
-
-# Calibration (replaces old vector_* fields)
-calibration_enabled = false             # Enable few-shot calibration
-calibration_similarity_threshold = 0.75 # Minimum cosine similarity for examples
-calibration_max_examples = 5            # Maximum few-shot examples per scoring call
+calibration_enabled = false              # Enable few-shot calibration
+calibration_similarity_threshold = 0.75  # Min cosine similarity
+calibration_max_examples = 5             # Max examples per scoring call
 ```
 
-Removed fields: `vector_enabled`, `vector_similarity_threshold`, `vector_top_n`, `vector_damping_factor`. All replaced by `calibration_*` equivalents above.
-
-## Model Transition Resilience
-
-Few-shot prompting is inherently model-agnostic. The examples contain raw content and user ratings — no model-specific scores or embeddings in the prompt text. When the inference model changes:
-
-- The LLM reads the same examples and produces scores in its own distribution
-- No "score distribution shift" problem — each model interprets examples fresh
-- The embedding model is separate from the inference model, so stored vectors remain valid across inference model changes
-
-If the *embedding* model changes, stored vectors become incomparable (different vector spaces). This is an existing limitation of the vector store. The `calibration_similarity_threshold` provides natural protection — incomparable vectors produce low similarity scores and are filtered out.
+Removed fields: `vector_enabled`, `vector_similarity_threshold`, `vector_top_n`, `vector_damping_factor`.
 
 ## Error Handling
 
-| Scenario | Behavior |
+| Scenario | Behaviour |
 |---|---|
-| Vector store empty (no ratings yet) | No examples in prompt, scoring works as normal |
-| Fewer than `max_examples` matches | Include however many are available (0-4) |
-| All matches below similarity threshold | No examples in prompt |
-| Vector store query fails | Log warning, score without examples |
-| `FewShotProvider` is nil | Score without examples (backward compatible) |
-| Ollama fails with examples in prompt | Same fallback as today: IS=7, CS=0.0, BUFFERED |
+| No rated examples in vector store | No examples block in prompt; normal scoring |
+| FewShotProvider returns error | Log suppressed; score without examples (graceful) |
+| FewShotProvider is nil | Score without examples (backward compatible) |
+| Ollama fails with examples in prompt | IS=7, CS=0.0, BUFFERED (unchanged fallback) |
+| Different embedding model in store | Filtered by `embedding_model` metadata |
 
-## Calibration Enhancements (Model Tagging, Recency, Cold Start)
-
-The following enhancements from the original Feature 094 scope remain relevant and are incorporated into this redesign:
-
-### Model Version Tagging
-
-Store `scoring_model` on each message so we can track which model produced which scores. This is useful for analytics and debugging even though the few-shot approach doesn't depend on it for correctness. The few-shot examples show user ratings, not Ollama scores, so model transitions don't break calibration.
-
-```sql
-ALTER TABLE messages ADD COLUMN scoring_model TEXT NOT NULL DEFAULT '';
-```
-
-### No Recency Weighting
-
-Examples are ranked purely by cosine similarity with no age decay. A user's rating of "this type of message is a 2/10" is just as valid six months later as the day it was rated. Adding age decay would force the user to constantly re-rate the same types of messages, defeating the purpose of the calibration loop.
-
-### Cold Start
-
-No special handling needed. With 0 examples, the prompt is identical to the base prompt. With 1-4 examples, the LLM has partial context. With 5 examples, full context. The few-shot approach degrades gracefully by nature — unlike the arithmetic approach, there's no "minimum corpus" threshold below which adjustments become unstable.
-
-### Adjustment Tracking
-
-Record whether few-shot examples were available and how many were used:
-
-```go
-type Message struct {
-    // ... existing fields ...
-    ScoringModel    string // Model that scored this message
-    ExamplesUsed    int    // Number of few-shot examples in scoring prompt (0 = no calibration)
-}
-```
+## SQLite Schema Migrations
 
 ```sql
 ALTER TABLE messages ADD COLUMN scoring_model TEXT NOT NULL DEFAULT '';
 ALTER TABLE messages ADD COLUMN examples_used INTEGER NOT NULL DEFAULT 0;
 ```
 
-This replaces `AdjustmentApplied` and `PreAdjustmentScore` from the arithmetic approach. We can't meaningfully track "adjustment" since the LLM produces a single score — but knowing "this message was scored with 3 examples" vs "this message was scored with 0 examples" is useful for evaluating calibration effectiveness.
+Both migrations are idempotent (duplicate column name errors are ignored).
 
-### Embedding Model Guard
+## Vector Store Invariant
 
-Store the embedding model name in vector metadata (as originally proposed). This is still valuable — if the embedding model changes, old vectors produce meaningless similarity scores. Tagging them allows the provider to filter by current embedding model.
+Only Ollama-scored messages with user ratings enter the vector store (embedded at rating time by `BufferService.SaveRating`). Deterministic-rule messages are excluded by design — the calibration examples are always relevant to the LLM's actual task.
 
-## Files
+## Test Coverage Summary
 
-| File | Action |
+| Component | Tests |
 |---|---|
-| `internal/service/decisionengine/vector_advisor.go` | **Rewrite** — replace `VectorScoreAdvisor` with `FewShotProvider` interface + implementation |
-| `internal/service/decisionengine/vector_advisor_test.go` | **Rewrite** — test few-shot example retrieval, truncation, filtering |
-| `internal/service/decisionengine/ollama_client.go` | **Modify** — add `ScoreWithContext()`, `buildPromptWithExamples()` |
-| `internal/service/decisionengine/ollama_client_test.go` | **Modify** — test prompt construction with 0, 1, 5 examples |
-| `internal/service/orchestrator/queue_processor.go` | **Modify** — add `FewShotProvider` field, use `ScoreWithContext`, record `ExamplesUsed` |
-| `internal/service/orchestrator/queue_processor_test.go` | **Modify** — test scoring with few-shot examples, graceful degradation |
-| `internal/service/vector/chromem_store.go` | **Modify** — add `modelName` to constructor + metadata |
-| `internal/service/vector/chromem_store_test.go` | **Modify** — test embedding model metadata |
-| `internal/service/vector/interfaces.go` | **Modify** — update constructor signature if needed |
-| `internal/repository/message.go` | **Modify** — add `ScoringModel`, `ExamplesUsed` fields |
-| `internal/repository/implementation/sqlite/message_impl.go` | **Modify** — persist new fields, schema migration |
-| `internal/repository/implementation/sqlite/message_impl_test.go` | **Modify** — test new field persistence |
-| `internal/config/config.go` | **Modify** — rename `vector_*` fields to `calibration_*`, remove `vector_damping_factor` |
-| `internal/config/config_test.go` | **Modify** — validate renamed fields |
-| `cmd/cue/main.go` | **Modify** — wire `FewShotProvider` into `QueueProcessor` instead of `VectorScoreAdvisor` into Router |
+| FewShotProvider | Empty store, threshold filtering, content truncation, unrated excluded, max cap, query error, nil guards |
+| OllamaClient.ScoreWithContext | 0 examples (base prompt identical), N examples injected, rating formatted as N/10, ScoringModel in result |
+| QueueProcessor | Nil provider (backward compat), provider error (graceful), examples forwarded to scorer, ExamplesUsed set, ScoringModel set |
+| ChromemVectorStore | Model stored in metadata, same model returns results, different model filtered, empty model name allowed |
+| SQLite | ScoringModel + ExamplesUsed round-trip |
 
-## Test Coverage
+## TDD Agent Stats
 
-### FewShotProvider
-- Empty vector store → returns empty slice
-- 3 matches in store, max_examples=5 → returns 3 examples
-- 7 matches in store, max_examples=5 → returns 5 examples
-- Matches below similarity threshold filtered out
-- Content truncated to 200 chars
-- Results ordered by similarity (descending)
-- Messages without user ratings excluded (should not exist in store, but defensive)
-
-### Prompt Construction
-- 0 examples → base prompt identical to Feature 092
-- 1 example → examples section with single entry
-- 5 examples → examples section with all entries
-- Content in examples is truncated, not raw
-- User rating formatted as "N/10"
-- JSON mode format field present in request
-
-### QueueProcessor Integration
-- Nil FewShotProvider → scoring without examples (backward compatible)
-- FewShotProvider returns examples → passed to ScoreWithContext
-- FewShotProvider errors → scoring without examples (graceful degradation)
-- Fallback scoring unchanged when Ollama fails (IS=7, CS=0.0, BUFFERED)
-- `ExamplesUsed` recorded on scored message
-- Status assignment uses same thresholds as before
-
-### Model/Embedding Tagging
-- `ScoringModel` recorded on all Ollama-scored messages
-- Embedding model stored in vector metadata
-- Vectors with wrong embedding model filtered on query
+See `docs/agent-log.md` — Phase-8-Feature-094 entries.

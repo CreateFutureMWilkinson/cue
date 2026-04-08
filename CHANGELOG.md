@@ -11,7 +11,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Breaking
+
+- **Scorer interface renamed** — `Scorer.Score(ctx, msg)` replaced by `Scorer.ScoreWithContext(ctx, msg, []FewShotExample)`. All callers pass examples explicitly; pass nil for no calibration. `VectorScoreAdvisor`, `ScoreAdvice`, `VectorAdvisorConfig`, and their arithmetic adjustment logic are removed. (Phase-8-Feature-094)
+
 ### Added
+
+- **Calibration loop redesign (few-shot prompt injection)** — Replaces the arithmetic `VectorScoreAdvisor` with few-shot prompt injection. When `calibration_enabled = true`, the `QueueProcessor` queries the vector store for similar rated messages and injects them into the Ollama prompt as examples. The LLM reasons about examples and produces a calibrated score directly — no post-processing arithmetic. `FewShotProvider` interface queries vector store + message repo; `FewShotProviderConfig` controls `similarity_threshold` and `max_examples`. `ScorerResult` gains `ScoringModel`; `Message` gains `ScoringModel` and `ExamplesUsed` (persisted in SQLite). Embedding model name stored in vector metadata and used for cross-model filtering. Config fields `vector_*` renamed to `calibration_*`; `vector_damping_factor` removed. (Phase-8-Feature-094)
 
 - **Structured output + prompt optimization** — Ollama scoring requests now use `format: "json"` for guaranteed valid JSON output. Prompt template simplified from ~130 to ~80 input tokens with ADHD-context framing and one-sentence reasoning constraint. `extractJSON()` markdown fence stripping removed (dead code with JSON mode). Internal `sendRequest` refactored into `createRequest`/`createJSONRequest`/`sendRequest`/`processResponse`/`processJSONResponse` for separation of concerns. `Generate` (free-text) remains unaffected. (Phase-8-Feature-092)
 - **Queue health monitoring** — After each poll cycle, the orchestrator checks `PendingCount()` against `QueueWarningThreshold` (default 50). Emits warning activity event when queue depth exceeds threshold, ok event when below, and skips the check entirely when threshold is 0. Visible in the activity log drawer. (Phase-8-Feature-091)

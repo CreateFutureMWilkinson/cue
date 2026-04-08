@@ -56,21 +56,21 @@ func NewOllamaClient(baseURL string, model string, timeout time.Duration) (*Olla
 	}, nil
 }
 
-// ollamaRequest is the JSON body sent to the Ollama /api/generate endpoint.
-type ollamaRequest struct {
+// OllamaRequest is the JSON body sent to the Ollama /api/generate endpoint.
+type OllamaRequest struct {
 	Model  string `json:"model"`
 	Prompt string `json:"prompt"`
 	Stream bool   `json:"stream"`
 	Format string `json:"format,omitempty"`
 }
 
-// ollamaResponse is the outer JSON response from Ollama.
-type ollamaResponse struct {
+// OllamaResponse is the outer JSON response from Ollama.
+type OllamaResponse struct {
 	Response string `json:"response"`
 }
 
-// scorerResponse is the inner JSON parsed from the Ollama response field.
-type scorerResponse struct {
+// ScorerResponse is the inner JSON parsed from the Ollama response field.
+type ScorerResponse struct {
 	ImportanceScore float64 `json:"importance_score"`
 	ConfidenceScore float64 `json:"confidence_score"`
 	Reasoning       string  `json:"reasoning"`
@@ -78,7 +78,7 @@ type scorerResponse struct {
 
 // createRequest builds an HTTP request for Generate without format field.
 func (c *OllamaClient) createRequest(ctx context.Context, prompt string) (*http.Request, error) {
-	reqBody := ollamaRequest{
+	reqBody := OllamaRequest{
 		Model:  c.model,
 		Prompt: prompt,
 		Stream: false,
@@ -101,7 +101,7 @@ func (c *OllamaClient) createRequest(ctx context.Context, prompt string) (*http.
 
 // createJSONRequest builds an HTTP request for Score with format: "json".
 func (c *OllamaClient) createJSONRequest(ctx context.Context, prompt string) (*http.Request, error) {
-	reqBody := ollamaRequest{
+	reqBody := OllamaRequest{
 		Model:  c.model,
 		Prompt: prompt,
 		Stream: false,
@@ -145,7 +145,7 @@ func (c *OllamaClient) sendRequest(req *http.Request) ([]byte, error) {
 
 // processResponse parses the outer Ollama JSON and returns the response field.
 func (c *OllamaClient) processResponse(body []byte) (string, error) {
-	var outerResp ollamaResponse
+	var outerResp OllamaResponse
 	if err := json.Unmarshal(body, &outerResp); err != nil {
 		return "", fmt.Errorf("parsing Ollama response JSON: %w", err)
 	}
@@ -160,7 +160,7 @@ func (c *OllamaClient) processJSONResponse(body []byte) (*ScorerResult, error) {
 		return nil, err
 	}
 
-	var inner scorerResponse
+	var inner ScorerResponse
 	if err := json.Unmarshal([]byte(responseText), &inner); err != nil {
 		return nil, fmt.Errorf("parsing scorer response JSON: %w", err)
 	}
@@ -175,7 +175,7 @@ func (c *OllamaClient) processJSONResponse(body []byte) (*ScorerResult, error) {
 // ScoreWithContext sends a message to Ollama for scoring and returns the result.
 // When examples are provided, they are injected as few-shot context in the prompt.
 func (c *OllamaClient) ScoreWithContext(ctx context.Context, msg *repository.Message, examples []FewShotExample) (*ScorerResult, error) {
-	prompt := buildPromptWithExamples(msg, examples)
+	prompt := BuildPromptWithExamples(msg, examples)
 
 	req, err := c.createJSONRequest(ctx, prompt)
 	if err != nil {
@@ -196,18 +196,18 @@ func (c *OllamaClient) ScoreWithContext(ctx context.Context, msg *repository.Mes
 	return result, nil
 }
 
-// buildPrompt constructs the LLM prompt from the message fields.
-func buildPrompt(msg *repository.Message) string {
+// BuildPrompt constructs the LLM prompt from the message fields.
+func BuildPrompt(msg *repository.Message) string {
 	return fmt.Sprintf(promptTemplate, msg.Source, msg.Sender, msg.Channel, msg.RawContent)
 }
 
-// buildPromptWithExamples constructs the scoring prompt, optionally including
+// BuildPromptWithExamples constructs the scoring prompt, optionally including
 // few-shot examples from previous user ratings.
-func buildPromptWithExamples(msg *repository.Message, examples []FewShotExample) string {
+func BuildPromptWithExamples(msg *repository.Message, examples []FewShotExample) string {
 	const baseInstruction = `Score this message's importance for an ADHD user who needs to catch critical items (deadlines, outages, @mentions) without noise.`
 
 	if len(examples) == 0 {
-		return buildPrompt(msg)
+		return BuildPrompt(msg)
 	}
 
 	var sb strings.Builder

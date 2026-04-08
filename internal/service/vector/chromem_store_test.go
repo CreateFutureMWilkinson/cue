@@ -73,6 +73,15 @@ func (s *ChromemVectorStoreSuite) TestConstructorWithValidInputsSucceeds() {
 	s.NotNil(store)
 }
 
+func (s *ChromemVectorStoreSuite) TestNewChromemVectorStore_EmptyModelName_Succeeds() {
+	tmpDir := s.T().TempDir()
+
+	store, err := vector.NewChromemVectorStore(tmpDir, chromemDeterministicEmbedding(), "")
+
+	s.NoError(err)
+	s.NotNil(store)
+}
+
 // ---------------------------------------------------------------------------
 // StoreEmbedding
 // ---------------------------------------------------------------------------
@@ -295,4 +304,51 @@ func (s *ChromemVectorStoreSuite) TestQuerySimilarFiltersResultsByEmbeddingModel
 	s.NoError(err)
 	s.Nil(results,
 		"QuerySimilar must filter out results stored with a different embedding model")
+}
+
+func (s *ChromemVectorStoreSuite) TestQuerySimilar_SameModel_ReturnsResults() {
+	tmpDir := s.T().TempDir()
+	embFn := chromemDeterministicEmbedding()
+	ctx := context.Background()
+
+	// Create store with specific model name.
+	store, err := vector.NewChromemVectorStore(tmpDir, embFn, "model-X")
+	s.Require().NoError(err)
+
+	msgID := uuid.New()
+	_, err = store.StoreEmbedding(ctx, msgID, "critical production outage")
+	s.Require().NoError(err)
+
+	// Query with same model should return results.
+	results, err := store.QuerySimilar(ctx, "critical production outage", 5)
+
+	s.NoError(err)
+	s.Require().NotNil(results)
+	s.Require().Len(results, 1)
+	s.Equal(msgID, results[0].MessageID,
+		"QuerySimilar with same model must return stored embeddings")
+}
+
+func (s *ChromemVectorStoreSuite) TestStoreEmbedding_MetadataContainsEmbeddingModel() {
+	tmpDir := s.T().TempDir()
+	embFn := chromemDeterministicEmbedding()
+	ctx := context.Background()
+
+	// Create store with specific model name.
+	store, err := vector.NewChromemVectorStore(tmpDir, embFn, "model-A")
+	s.Require().NoError(err)
+
+	msgID := uuid.New()
+	_, err = store.StoreEmbedding(ctx, msgID, "server alert message")
+	s.Require().NoError(err)
+
+	// Verify the model name is in metadata by testing the positive case:
+	// querying with same model returns results.
+	results, err := store.QuerySimilar(ctx, "server alert message", 1)
+
+	s.NoError(err)
+	s.Require().NotNil(results)
+	s.Require().Len(results, 1)
+	s.Equal(msgID, results[0].MessageID,
+		"stored embedding metadata must contain the embedding model name")
 }

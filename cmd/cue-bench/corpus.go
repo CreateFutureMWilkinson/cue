@@ -33,7 +33,7 @@ func LoadCorpus(path string) ([]CorpusEntry, error) {
 		data = defaultCorpusJSON
 	} else {
 		var err error
-		data, err = os.ReadFile(path)
+		data, err = os.ReadFile(path) // #nosec G304 -- path is a user-supplied CLI flag
 		if err != nil {
 			return nil, fmt.Errorf("read corpus file: %w", err)
 		}
@@ -124,7 +124,7 @@ func SelectExamples(entry CorpusEntry, pool []CorpusEntry, n int, seed int64) []
 
 	// Seeded shuffle for tiebreaking: shuffle first, then stable-sort so that
 	// equal (tagScore, sourceScore) groups retain the shuffled order.
-	rng := rand.New(rand.NewSource(seed))
+	rng := rand.New(rand.NewSource(seed)) // #nosec G404 -- seeded math/rand intentional for reproducible benchmark ordering
 	rng.Shuffle(len(scoredCandidates), func(i, j int) {
 		scoredCandidates[i], scoredCandidates[j] = scoredCandidates[j], scoredCandidates[i]
 	})

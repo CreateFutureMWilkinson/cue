@@ -46,8 +46,8 @@ func scoreEntry(ctx context.Context, model, prompt, host string, httpClient *htt
 	}
 
 	// Read response body.
+	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
 	if err != nil {
 		return decisionengine.ScorerResponse{}, inferenceMs, false, fmt.Errorf("read response: %w", err)
 	}

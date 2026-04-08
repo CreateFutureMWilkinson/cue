@@ -1,14 +1,9 @@
 package main
 
 import (
-	"errors"
 	"math"
 	"slices"
 )
-
-// ErrNotImplemented is returned by stub functions that have not yet been
-// replaced with real implementations.
-var ErrNotImplemented = errors.New("not implemented")
 
 // Routing threshold constants matching production values.
 const (

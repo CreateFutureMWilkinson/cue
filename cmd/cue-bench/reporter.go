@@ -7,6 +7,12 @@ import (
 	"strings"
 )
 
+// RenderJSON marshals the report's RunResults into a JSON array and writes
+// it to w.
+func RenderJSON(w io.Writer, report BenchReport) error {
+	return ErrNotImplemented
+}
+
 // Table column widths
 const (
 	modelColWidth   = 16
@@ -25,6 +31,7 @@ type BenchReport struct {
 	Results       map[string]map[int]AggregateMetrics
 	ModelOrder    []string
 	ExampleCounts []int
+	RunResults    []RunResult // per-message results for JSON export
 }
 
 // RenderTable writes an ASCII table summary of the benchmark report to w.

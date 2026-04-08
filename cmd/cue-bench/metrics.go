@@ -19,17 +19,17 @@ const (
 // RunResult holds per-message scoring output for one model x entry x
 // example-count combination.
 type RunResult struct {
-	ModelName    string
-	EntryID      string
-	ExampleCount int
-	InferenceMs  int64
-	IS           float64
-	CS           float64
-	Reasoning    string
-	JSONValid    bool
-	Band         string // derived by DeriveBand
-	ExpectedBand string // ground-truth band from calibration entry
-	BandCorrect  bool   // Band == entry.ExpectedBand
+	ModelName    string  `json:"model_name"`
+	EntryID      string  `json:"entry_id"`
+	ExampleCount int     `json:"example_count"`
+	InferenceMs  int64   `json:"inference_ms"`
+	IS           float64 `json:"importance_score"`
+	CS           float64 `json:"confidence_score"`
+	Reasoning    string  `json:"reasoning"`
+	JSONValid    bool    `json:"json_valid"`
+	Band         string  `json:"band"`          // derived by DeriveBand
+	ExpectedBand string  `json:"expected_band"` // ground-truth band from calibration entry
+	BandCorrect  bool    `json:"band_correct"`  // Band == entry.ExpectedBand
 }
 
 // AggregateMetrics holds computed aggregate statistics over a set of RunResults.

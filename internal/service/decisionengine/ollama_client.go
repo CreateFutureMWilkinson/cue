@@ -171,8 +171,9 @@ func (c *OllamaClient) processJSONResponse(body []byte) (*ScorerResult, error) {
 	}, nil
 }
 
-// Score sends a message to Ollama for scoring and returns the result.
-func (c *OllamaClient) Score(ctx context.Context, msg *repository.Message) (*ScorerResult, error) {
+// ScoreWithContext sends a message to Ollama for scoring and returns the result.
+// The examples parameter provides few-shot examples for prompt injection (not yet used).
+func (c *OllamaClient) ScoreWithContext(ctx context.Context, msg *repository.Message, _ []FewShotExample) (*ScorerResult, error) {
 	prompt := buildPrompt(msg)
 
 	req, err := c.createJSONRequest(ctx, prompt)
@@ -185,7 +186,13 @@ func (c *OllamaClient) Score(ctx context.Context, msg *repository.Message) (*Sco
 		return nil, err
 	}
 
-	return c.processJSONResponse(body)
+	result, err := c.processJSONResponse(body)
+	if err != nil {
+		return nil, err
+	}
+
+	result.ScoringModel = c.model
+	return result, nil
 }
 
 // buildPrompt constructs the LLM prompt from the message fields.

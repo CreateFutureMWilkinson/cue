@@ -87,7 +87,7 @@ func (s *OllamaClientSuite) TestScore_ValidResponse_ReturnsScores() {
 		RawContent: "production database is down, all services affected",
 	}
 
-	result, err := client.Score(context.Background(), msg)
+	result, err := client.ScoreWithContext(context.Background(), msg, nil)
 	s.NoError(err)
 	s.NotNil(result)
 	s.Equal(8.5, result.ImportanceScore)
@@ -127,7 +127,7 @@ func (s *OllamaClientSuite) TestScore_SendsCorrectRequestToOllama() {
 		RawContent: "has anyone seen the new design?",
 	}
 
-	_, err = client.Score(context.Background(), msg)
+	_, err = client.ScoreWithContext(context.Background(), msg, nil)
 	s.NoError(err)
 
 	// Verify model is set correctly
@@ -172,7 +172,7 @@ func (s *OllamaClientSuite) TestScore_PromptIncludesSource() {
 		RawContent: "urgent: need response by EOD",
 	}
 
-	_, err = client.Score(context.Background(), msg)
+	_, err = client.ScoreWithContext(context.Background(), msg, nil)
 	s.NoError(err)
 
 	prompt := receivedBody["prompt"].(string)
@@ -204,7 +204,7 @@ func (s *OllamaClientSuite) TestScore_ContextTimeout_ReturnsError() {
 		RawContent: "some message",
 	}
 
-	_, err = client.Score(ctx, msg)
+	_, err = client.ScoreWithContext(ctx, msg, nil)
 	s.Error(err, "should return error on context timeout")
 }
 
@@ -229,7 +229,7 @@ func (s *OllamaClientSuite) TestScore_InvalidJSONInResponse_ReturnsError() {
 		RawContent: "test message",
 	}
 
-	_, err = client.Score(context.Background(), msg)
+	_, err = client.ScoreWithContext(context.Background(), msg, nil)
 	s.Error(err, "should return error when Ollama response is not valid JSON")
 }
 
@@ -250,7 +250,7 @@ func (s *OllamaClientSuite) TestScore_Non200StatusCode_ReturnsError() {
 		RawContent: "test message",
 	}
 
-	_, err = client.Score(context.Background(), msg)
+	_, err = client.ScoreWithContext(context.Background(), msg, nil)
 	s.Error(err, "should return error on non-200 status code")
 	s.Contains(err.Error(), "500")
 }
@@ -272,7 +272,7 @@ func (s *OllamaClientSuite) TestScore_InvalidOuterJSON_ReturnsError() {
 		RawContent: "test message",
 	}
 
-	_, err = client.Score(context.Background(), msg)
+	_, err = client.ScoreWithContext(context.Background(), msg, nil)
 	s.Error(err, "should return error when Ollama returns invalid JSON")
 }
 
@@ -287,7 +287,7 @@ func (s *OllamaClientSuite) TestScore_ConnectionRefused_ReturnsError() {
 		RawContent: "test message",
 	}
 
-	_, err = client.Score(context.Background(), msg)
+	_, err = client.ScoreWithContext(context.Background(), msg, nil)
 	s.Error(err, "should return error when cannot connect to Ollama")
 }
 
@@ -315,7 +315,7 @@ func (s *OllamaClientSuite) TestScore_RequestIncludesJSONFormat() {
 
 	msg := &repository.Message{Source: "slack", RawContent: "hello"}
 
-	_, err = client.Score(context.Background(), msg)
+	_, err = client.ScoreWithContext(context.Background(), msg, nil)
 	s.NoError(err)
 
 	var receivedBody map[string]any
@@ -323,8 +323,8 @@ func (s *OllamaClientSuite) TestScore_RequestIncludesJSONFormat() {
 	s.Require().NoError(err, "request body should be valid JSON")
 
 	formatVal, exists := receivedBody["format"]
-	s.True(exists, "Score request body must contain a 'format' field")
-	s.Equal("json", formatVal, "Score request 'format' field must be \"json\"")
+	s.True(exists, "ScoreWithContext request body must contain a 'format' field")
+	s.Equal("json", formatVal, "ScoreWithContext request 'format' field must be \"json\"")
 }
 
 func (s *OllamaClientSuite) TestGenerate_RequestOmitsFormat() {
@@ -419,7 +419,7 @@ func (s *OllamaClientSuite) TestScore_SimplifiedPromptFormat() {
 		RawContent: "deployment completed successfully",
 	}
 
-	_, err = client.Score(context.Background(), msg)
+	_, err = client.ScoreWithContext(context.Background(), msg, nil)
 	s.NoError(err)
 
 	prompt, ok := receivedBody["prompt"].(string)
@@ -471,7 +471,7 @@ func (s *OllamaClientSuite) TestScore_PromptRequestsJSONFormat() {
 
 	msg := &repository.Message{Source: "slack", RawContent: "hello"}
 
-	_, err = client.Score(context.Background(), msg)
+	_, err = client.ScoreWithContext(context.Background(), msg, nil)
 	s.NoError(err)
 
 	prompt := receivedBody["prompt"].(string)
@@ -480,4 +480,53 @@ func (s *OllamaClientSuite) TestScore_PromptRequestsJSONFormat() {
 		strings.Contains(prompt, "importance_score") && strings.Contains(prompt, "confidence_score") && strings.Contains(prompt, "reasoning"),
 		"prompt should request JSON with importance_score, confidence_score, and reasoning fields",
 	)
+}
+
+// --- ScoreWithContext with examples ---
+
+func (s *OllamaClientSuite) TestScoreWithContext_ExamplesInjectedInPrompt() {
+	var capturedPrompt string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var receivedBody map[string]any
+		json.Unmarshal(body, &receivedBody)
+		capturedPrompt, _ = receivedBody["prompt"].(string)
+
+		resp := map[string]any{
+			"response": `{"importance_score": 8.0, "confidence_score": 0.9, "reasoning": "similar to past critical message"}`,
+			"done":     true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client, err := decisionengine.NewOllamaClient(server.URL, "neural-chat", 10*time.Second)
+	s.Require().NoError(err)
+
+	msg := &repository.Message{
+		Source:     "slack",
+		Sender:     "ops-bot",
+		Channel:    "incidents",
+		RawContent: "database connection pool exhausted",
+	}
+
+	examples := []decisionengine.FewShotExample{
+		{Content: "server down", UserRating: 9, Similarity: 0.95},
+	}
+
+	result, err := client.ScoreWithContext(context.Background(), msg, examples)
+	s.NoError(err)
+	s.NotNil(result)
+
+	// The prompt should contain the few-shot example content and rating
+	s.Contains(capturedPrompt, "server down",
+		"prompt should contain few-shot example content")
+	s.Contains(capturedPrompt, "9/10",
+		"prompt should contain few-shot example rating formatted as N/10")
+
+	// ScoringModel should be populated
+	s.Equal("neural-chat", result.ScoringModel,
+		"ScoringModel should be set to the configured model name")
 }

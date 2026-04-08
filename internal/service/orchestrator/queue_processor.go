@@ -78,7 +78,7 @@ func (p *QueueProcessor) ProcessOne(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("query message %s: %w", entry.MessageID, err)
 	}
 
-	result, scorerErr := p.scorer.Score(ctx, msg)
+	result, scorerErr := p.scorer.ScoreWithContext(ctx, msg, nil)
 	if scorerErr != nil {
 		msg.ImportanceScore = 7
 		msg.ConfidenceScore = 0

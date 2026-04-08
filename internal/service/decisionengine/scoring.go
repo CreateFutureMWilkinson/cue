@@ -27,9 +27,10 @@ type ScorerResult struct {
 	ImportanceScore float64 // 0-10 importance rating
 	ConfidenceScore float64 // 0.0-1.0 confidence in the rating
 	Reasoning       string  // Human-readable explanation
+	ScoringModel    string  // Model that produced this score
 }
 
 // Scorer evaluates message content and returns importance/confidence scores.
 type Scorer interface {
-	Score(ctx context.Context, msg *repository.Message) (*ScorerResult, error)
+	ScoreWithContext(ctx context.Context, msg *repository.Message, examples []FewShotExample) (*ScorerResult, error)
 }

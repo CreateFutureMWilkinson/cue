@@ -161,7 +161,7 @@ type mockScorer struct {
 	err    error
 }
 
-func (m *mockScorer) Score(_ context.Context, _ *repository.Message) (*decisionengine.ScorerResult, error) {
+func (m *mockScorer) ScoreWithContext(_ context.Context, _ *repository.Message, _ []decisionengine.FewShotExample) (*decisionengine.ScorerResult, error) {
 	return m.result, m.err
 }
 

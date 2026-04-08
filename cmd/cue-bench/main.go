@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -45,7 +46,7 @@ func NewApp(onRun func(cfg BenchConfig)) *cli.Command {
 			&cli.BoolFlag{Name: "no-fewshot", Usage: "Disable few-shot prompt injection"},
 			&cli.IntFlag{Name: "seed", Value: 42, Usage: "Random seed for reproducibility"},
 		},
-		Action: func(_ context.Context, cmd *cli.Command) error {
+		Action: func(ctx context.Context, cmd *cli.Command) error {
 			cfg := BenchConfig{
 				Baseline:   cmd.String("baseline"),
 				Models:     strings.Split(cmd.String("models"), ","),
@@ -69,7 +70,25 @@ func NewApp(onRun func(cfg BenchConfig)) *cli.Command {
 				return nil
 			}
 
-			return ErrNotImplemented
+			entries, err := LoadCorpus(cfg.CorpusPath)
+			if err != nil {
+				return fmt.Errorf("load corpus: %w", err)
+			}
+			scored := ScoredEntries(entries)
+			pool := RatedEntries(entries)
+
+			report, err := RunBenchmark(ctx, cfg, scored, pool, &http.Client{Timeout: cfg.Timeout})
+			if err != nil {
+				return fmt.Errorf("run benchmark: %w", err)
+			}
+
+			switch cfg.Format {
+			case "json":
+				return RenderJSON(os.Stdout, report)
+			default:
+				RenderTable(os.Stdout, report)
+				return nil
+			}
 		},
 	}
 }

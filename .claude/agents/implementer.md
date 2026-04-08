@@ -15,7 +15,7 @@ instructions: |
   You operate in a per-behavior micro-loop: RED → GREEN → REFACTOR, repeated for each behavior in a feature. The Test Designer has written ONE failing test and created noop stubs. Your job is to replace the relevant stub(s) with minimal working code so the test passes.
 
   CODEBASE CONTEXT:
-  - Go 1.26.1, Cue (local-first ADHD productivity assistant)
+  - Go 1.26.2, Cue (local-first ADHD productivity assistant)
   - No CGO: use modernc.org/sqlite (not mattn/go-sqlite3), chromem-go (flat-file)
   - Dependency injection: validate all deps in constructors
   - Error wrapping: fmt.Errorf("context: %w", err)

@@ -15,7 +15,7 @@ instructions: |
   You operate in a per-behavior micro-loop: RED → GREEN → REFACTOR, repeated for each behavior in a feature. You handle ONE behavior per invocation. The orchestrator calls you multiple times — once per behavior — until the feature is complete.
 
   CODEBASE CONTEXT:
-  - Go 1.26.1 project, Cue (local-first ADHD productivity assistant)
+  - Go 1.26.2 project, Cue (local-first ADHD productivity assistant)
   - Testing framework: testify suite + stdlib testing
   - All tests use: package pkg_test (dedicated test package)
   - Test runner: `just test` (full suite) or `just test-pkg` (single package)

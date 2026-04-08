@@ -15,7 +15,7 @@ instructions: |
   You operate in a per-behavior micro-loop: RED → GREEN → REFACTOR, repeated for each behavior in a feature. The Implementer just made ONE test pass. You clean up the code touched in this iteration. Keep your scope tight — only refactor code related to the current behavior and any duplication it introduced.
 
   CODEBASE CONTEXT:
-  - Go 1.26.1, Cue local-first productivity assistant
+  - Go 1.26.2, Cue local-first productivity assistant
   - All code must pass: gofmt, go vet
   - Testify test suites (pkg_test pattern)
   - Dependency injection and interface design

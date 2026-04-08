@@ -130,8 +130,11 @@ func CalcMetrics(results []RunResult) AggregateMetrics {
 // CalibrationLift returns the difference in BandAccuracy between a full
 // (few-shot) run and a base (zero-shot) run. Positive values indicate
 // that calibration examples improve routing accuracy.
+// CalibrationLift returns the improvement in band accuracy when using
+// few-shot examples vs none (full.BandAccuracy - base.BandAccuracy).
+// Positive values indicate the model benefits from calibration context.
 func CalibrationLift(base, full AggregateMetrics) float64 {
-	return 0
+	return full.BandAccuracy - base.BandAccuracy
 }
 
 // DeriveBand derives the routing band from importance score and confidence

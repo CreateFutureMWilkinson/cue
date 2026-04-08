@@ -79,7 +79,13 @@ func (p *QueueProcessor) ProcessOne(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("query message %s: %w", entry.MessageID, err)
 	}
 
-	result, scorerErr := p.scorer.ScoreWithContext(ctx, msg, nil)
+	// Get few-shot examples for calibration (nil-safe, best-effort).
+	var examples []decisionengine.FewShotExample
+	if p.fewShot != nil {
+		examples, _ = p.fewShot.GetExamples(ctx, msg.RawContent)
+	}
+
+	result, scorerErr := p.scorer.ScoreWithContext(ctx, msg, examples)
 	if scorerErr != nil {
 		msg.ImportanceScore = 7
 		msg.ConfidenceScore = 0
@@ -95,6 +101,8 @@ func (p *QueueProcessor) ProcessOne(ctx context.Context) (bool, error) {
 	msg.ConfidenceScore = result.ConfidenceScore
 	msg.Reasoning = result.Reasoning
 	msg.Status = p.determineStatus(result.ImportanceScore, result.ConfidenceScore)
+	msg.ExamplesUsed = len(examples)
+	msg.ScoringModel = result.ScoringModel
 
 	if err := p.msgRepo.Update(ctx, msg); err != nil {
 		_ = p.queueRepo.MarkFailed(ctx, entry.ID)

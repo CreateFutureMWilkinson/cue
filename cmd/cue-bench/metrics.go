@@ -3,7 +3,7 @@ package cuebench
 import (
 	"errors"
 	"math"
-	"sort"
+	"slices"
 )
 
 // ErrNotImplemented is returned by stub functions that have not yet been
@@ -42,66 +42,88 @@ type AggregateMetrics struct {
 	P95Ms             int64   // 95th percentile inference time
 }
 
+// percentile calculates the specified percentile from sorted latency data.
+// p should be between 0.0 and 1.0 (e.g., 0.5 for median, 0.95 for 95th percentile).
+func percentile(sortedLatencies []int64, p float64) int64 {
+	if len(sortedLatencies) == 0 {
+		return 0
+	}
+
+	if p == 0.5 {
+		// Median: use standard definition
+		return sortedLatencies[len(sortedLatencies)/2]
+	}
+
+	// For other percentiles: use ceiling approach
+	idx := int(math.Ceil(float64(len(sortedLatencies))*p)) - 1
+	if idx < 0 {
+		idx = 0
+	}
+	if idx >= len(sortedLatencies) {
+		idx = len(sortedLatencies) - 1
+	}
+	return sortedLatencies[idx]
+}
+
 // CalcMetrics computes aggregate statistics from a slice of RunResult.
 func CalcMetrics(results []RunResult) AggregateMetrics {
-	n := len(results)
-	if n == 0 {
+	totalResults := len(results)
+	if totalResults == 0 {
 		return AggregateMetrics{}
 	}
 
-	var bandCorrectCount int
-	var jsonValidCount int
-	var fpNumerator, fpDenominator int
-	var fnNumerator, fnDenominator int
-	inferenceMs := make([]int64, 0, n)
+	var correctBandCount int
+	var validJSONCount int
+	var falsePositives, ignoredMessages int
+	var falseNegatives, notifiedMessages int
+	inferenceLatencies := make([]int64, 0, totalResults)
 
-	for _, r := range results {
-		if r.BandCorrect {
-			bandCorrectCount++
+	for _, result := range results {
+		if result.BandCorrect {
+			correctBandCount++
 		}
-		if r.JSONValid {
-			jsonValidCount++
+		if result.JSONValid {
+			validJSONCount++
 		}
-		if r.ExpectedBand == "ignored" {
-			fpDenominator++
-			if r.Band == "notified" {
-				fpNumerator++
+
+		// Count false positives: ignored messages incorrectly notified
+		if result.ExpectedBand == "ignored" {
+			ignoredMessages++
+			if result.Band == "notified" {
+				falsePositives++
 			}
 		}
-		if r.ExpectedBand == "notified" {
-			fnDenominator++
-			if r.Band == "ignored" {
-				fnNumerator++
+
+		// Count false negatives: notified messages incorrectly ignored
+		if result.ExpectedBand == "notified" {
+			notifiedMessages++
+			if result.Band == "ignored" {
+				falseNegatives++
 			}
 		}
-		inferenceMs = append(inferenceMs, r.InferenceMs)
+
+		inferenceLatencies = append(inferenceLatencies, result.InferenceMs)
 	}
 
-	sort.Slice(inferenceMs, func(i, j int) bool {
-		return inferenceMs[i] < inferenceMs[j]
-	})
+	slices.Sort(inferenceLatencies)
 
-	var fpr float64
-	if fpDenominator > 0 {
-		fpr = float64(fpNumerator) / float64(fpDenominator) * 100
+	var falsePositiveRate float64
+	if ignoredMessages > 0 {
+		falsePositiveRate = float64(falsePositives) / float64(ignoredMessages) * 100
 	}
 
-	var fnr float64
-	if fnDenominator > 0 {
-		fnr = float64(fnNumerator) / float64(fnDenominator) * 100
+	var falseNegativeRate float64
+	if notifiedMessages > 0 {
+		falseNegativeRate = float64(falseNegatives) / float64(notifiedMessages) * 100
 	}
-
-	p50 := inferenceMs[n/2]
-	p95Idx := int(math.Ceil(float64(n)*0.95)) - 1
-	p95 := inferenceMs[p95Idx]
 
 	return AggregateMetrics{
-		BandAccuracy:      float64(bandCorrectCount) / float64(n) * 100,
-		FalsePositiveRate: fpr,
-		FalseNegativeRate: fnr,
-		JSONCompliance:    float64(jsonValidCount) / float64(n) * 100,
-		P50Ms:             p50,
-		P95Ms:             p95,
+		BandAccuracy:      float64(correctBandCount) / float64(totalResults) * 100,
+		FalsePositiveRate: falsePositiveRate,
+		FalseNegativeRate: falseNegativeRate,
+		JSONCompliance:    float64(validJSONCount) / float64(totalResults) * 100,
+		P50Ms:             percentile(inferenceLatencies, 0.5),
+		P95Ms:             percentile(inferenceLatencies, 0.95),
 	}
 }
 

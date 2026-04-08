@@ -1,6 +1,7 @@
 package cuebench
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -10,7 +11,7 @@ import (
 // RenderJSON marshals the report's RunResults into a JSON array and writes
 // it to w.
 func RenderJSON(w io.Writer, report BenchReport) error {
-	return ErrNotImplemented
+	return json.NewEncoder(w).Encode(report.RunResults)
 }
 
 // Table column widths

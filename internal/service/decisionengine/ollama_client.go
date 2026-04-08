@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
@@ -172,9 +173,9 @@ func (c *OllamaClient) processJSONResponse(body []byte) (*ScorerResult, error) {
 }
 
 // ScoreWithContext sends a message to Ollama for scoring and returns the result.
-// The examples parameter provides few-shot examples for prompt injection (not yet used).
-func (c *OllamaClient) ScoreWithContext(ctx context.Context, msg *repository.Message, _ []FewShotExample) (*ScorerResult, error) {
-	prompt := buildPrompt(msg)
+// When examples are provided, they are injected as few-shot context in the prompt.
+func (c *OllamaClient) ScoreWithContext(ctx context.Context, msg *repository.Message, examples []FewShotExample) (*ScorerResult, error) {
+	prompt := buildPromptWithExamples(msg, examples)
 
 	req, err := c.createJSONRequest(ctx, prompt)
 	if err != nil {
@@ -198,6 +199,27 @@ func (c *OllamaClient) ScoreWithContext(ctx context.Context, msg *repository.Mes
 // buildPrompt constructs the LLM prompt from the message fields.
 func buildPrompt(msg *repository.Message) string {
 	return fmt.Sprintf(promptTemplate, msg.Source, msg.Sender, msg.Channel, msg.RawContent)
+}
+
+// buildPromptWithExamples constructs the scoring prompt, optionally including
+// few-shot examples from previous user ratings.
+func buildPromptWithExamples(msg *repository.Message, examples []FewShotExample) string {
+	const baseInstruction = `Score this message's importance for an ADHD user who needs to catch critical items (deadlines, outages, @mentions) without noise.`
+
+	if len(examples) == 0 {
+		return buildPrompt(msg)
+	}
+
+	var sb strings.Builder
+	sb.WriteString(baseInstruction)
+	sb.WriteString("\n\nThe user has rated similar messages in the past:\n")
+	for _, ex := range examples {
+		fmt.Fprintf(&sb, "\n- %q → User rated: %d/10", ex.Content, ex.UserRating)
+	}
+	sb.WriteString("\n\nNow score this message:\n\n")
+	fmt.Fprintf(&sb, "Source: %s | Sender: %s | Channel: %s\nContent: %s\n\n", msg.Source, msg.Sender, msg.Channel, msg.RawContent)
+	sb.WriteString(`{"importance_score": 0-10, "confidence_score": 0.0-1.0, "reasoning": "one sentence"}`)
+	return sb.String()
 }
 
 // Generate sends a raw prompt to Ollama and returns the response text.

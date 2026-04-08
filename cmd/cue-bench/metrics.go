@@ -24,7 +24,23 @@ type RunResult struct {
 	Reasoning    string
 	JSONValid    bool
 	Band         string // derived by DeriveBand
+	ExpectedBand string // ground-truth band from calibration entry
 	BandCorrect  bool   // Band == entry.ExpectedBand
+}
+
+// AggregateMetrics holds computed aggregate statistics over a set of RunResults.
+type AggregateMetrics struct {
+	BandAccuracy      float64 // % messages routed to correct band
+	FalsePositiveRate float64 // % ignored messages incorrectly notified
+	FalseNegativeRate float64 // % notified messages incorrectly ignored
+	JSONCompliance    float64 // % responses that were valid JSON
+	P50Ms             int64   // median inference time
+	P95Ms             int64   // 95th percentile inference time
+}
+
+// CalcMetrics computes aggregate statistics from a slice of RunResult.
+func CalcMetrics(results []RunResult) AggregateMetrics {
+	return AggregateMetrics{}
 }
 
 // DeriveBand derives the routing band from importance score and confidence

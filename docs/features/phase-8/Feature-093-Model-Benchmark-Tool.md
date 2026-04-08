@@ -3,7 +3,7 @@
 **Phase:** Phase-8-Feature-093
 **Status:** Planned
 **Packages:** `cmd/cue-bench/`, `internal/service/decisionengine/` (shared types only)
-**Depends on:** Feature 092 (uses the optimized prompt), Feature 094 (uses `BuildPromptWithExamples`, `FewShotExample`, `ScoreWithContext`)
+**Depends on:** Feature 092 (uses the optimized prompt), Feature 094 (uses `BuildPromptWithExamples`, `FewShotExample`, `ScoreWithContext`; config uses `calibration_*` field prefix)
 
 ---
 

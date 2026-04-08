@@ -25,6 +25,8 @@ type Message struct {
 	UserRating      *int       // nullable
 	UserFeedback    *string    // nullable
 	VectorID        *uuid.UUID // nullable
+	ScoringModel    string     // Model used for scoring (e.g. "neural-chat")
+	ExamplesUsed    int        // Number of few-shot examples used in prompt
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 	ResolvedAt      *time.Time // nullable

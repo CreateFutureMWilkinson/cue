@@ -53,14 +53,13 @@ type OrchestratorConfig struct {
 }
 
 type RouterConfig struct {
-	ImportanceThreshold       int     `toml:"importance_threshold"`
-	ConfidenceThreshold       float64 `toml:"confidence_threshold"`
-	BufferSizePerSource       int     `toml:"buffer_size_per_source"`
-	QueueWarningThreshold     int     `toml:"queue_warning_threshold"`
-	VectorEnabled             bool    `toml:"vector_enabled"`
-	VectorSimilarityThreshold float64 `toml:"vector_similarity_threshold"`
-	VectorTopN                int     `toml:"vector_top_n"`
-	VectorDampingFactor       float64 `toml:"vector_damping_factor"`
+	ImportanceThreshold            int     `toml:"importance_threshold"`
+	ConfidenceThreshold            float64 `toml:"confidence_threshold"`
+	BufferSizePerSource            int     `toml:"buffer_size_per_source"`
+	QueueWarningThreshold          int     `toml:"queue_warning_threshold"`
+	CalibrationEnabled             bool    `toml:"calibration_enabled"`
+	CalibrationSimilarityThreshold float64 `toml:"calibration_similarity_threshold"`
+	CalibrationMaxExamples         int     `toml:"calibration_max_examples"`
 }
 
 type OllamaConfig struct {
@@ -110,14 +109,13 @@ func defaultConfig() *Config {
 		},
 		Orchestrator: OrchestratorConfig{
 			Router: RouterConfig{
-				ImportanceThreshold:       7,
-				ConfidenceThreshold:       0.8,
-				BufferSizePerSource:       100,
-				VectorEnabled:             false,
-				VectorSimilarityThreshold: 0.75,
-				VectorTopN:                5,
-				VectorDampingFactor:       0.5,
-				QueueWarningThreshold:     50,
+				ImportanceThreshold:            7,
+				ConfidenceThreshold:            0.8,
+				BufferSizePerSource:            100,
+				CalibrationEnabled:             false,
+				CalibrationSimilarityThreshold: 0.75,
+				CalibrationMaxExamples:         5,
+				QueueWarningThreshold:          50,
 			},
 			PollIntervalSeconds:   600,
 			OllamaCooldownSeconds: 10,
@@ -236,14 +234,11 @@ func applyDefaults(cfg *Config, md toml.MetaData) {
 	if !md.IsDefined("orchestrator", "ollama_cooldown_seconds") {
 		cfg.Orchestrator.OllamaCooldownSeconds = defaults.Orchestrator.OllamaCooldownSeconds
 	}
-	if !md.IsDefined("orchestrator", "router", "vector_similarity_threshold") {
-		cfg.Orchestrator.Router.VectorSimilarityThreshold = defaults.Orchestrator.Router.VectorSimilarityThreshold
+	if !md.IsDefined("orchestrator", "router", "calibration_similarity_threshold") {
+		cfg.Orchestrator.Router.CalibrationSimilarityThreshold = defaults.Orchestrator.Router.CalibrationSimilarityThreshold
 	}
-	if !md.IsDefined("orchestrator", "router", "vector_top_n") {
-		cfg.Orchestrator.Router.VectorTopN = defaults.Orchestrator.Router.VectorTopN
-	}
-	if !md.IsDefined("orchestrator", "router", "vector_damping_factor") {
-		cfg.Orchestrator.Router.VectorDampingFactor = defaults.Orchestrator.Router.VectorDampingFactor
+	if !md.IsDefined("orchestrator", "router", "calibration_max_examples") {
+		cfg.Orchestrator.Router.CalibrationMaxExamples = defaults.Orchestrator.Router.CalibrationMaxExamples
 	}
 }
 
@@ -367,23 +362,17 @@ func (c *Config) Validate() error {
 				return cfg.Planner.TimerVolume >= 0 && cfg.Planner.TimerVolume <= 100
 			},
 			"planner.timer_volume must be between 0 and 100"),
-		// Vector-assisted routing validation (only when enabled)
+		// Calibration-assisted routing validation (only when enabled)
 		conditionalRule(
-			func(cfg *Config) bool { return cfg.Orchestrator.Router.VectorEnabled },
+			func(cfg *Config) bool { return cfg.Orchestrator.Router.CalibrationEnabled },
 			func(cfg *Config) bool {
-				return cfg.Orchestrator.Router.VectorSimilarityThreshold >= 0.0 && cfg.Orchestrator.Router.VectorSimilarityThreshold <= 1.0
+				return cfg.Orchestrator.Router.CalibrationSimilarityThreshold >= 0.0 && cfg.Orchestrator.Router.CalibrationSimilarityThreshold <= 1.0
 			},
-			"orchestrator.router.vector_similarity_threshold must be between 0.0 and 1.0"),
+			"orchestrator.router.calibration_similarity_threshold must be between 0.0 and 1.0"),
 		conditionalRule(
-			func(cfg *Config) bool { return cfg.Orchestrator.Router.VectorEnabled },
-			func(cfg *Config) bool { return cfg.Orchestrator.Router.VectorTopN > 0 },
-			"orchestrator.router.vector_top_n must be greater than 0"),
-		conditionalRule(
-			func(cfg *Config) bool { return cfg.Orchestrator.Router.VectorEnabled },
-			func(cfg *Config) bool {
-				return cfg.Orchestrator.Router.VectorDampingFactor >= 0.0 && cfg.Orchestrator.Router.VectorDampingFactor <= 1.0
-			},
-			"orchestrator.router.vector_damping_factor must be between 0.0 and 1.0"),
+			func(cfg *Config) bool { return cfg.Orchestrator.Router.CalibrationEnabled },
+			func(cfg *Config) bool { return cfg.Orchestrator.Router.CalibrationMaxExamples > 0 },
+			"orchestrator.router.calibration_max_examples must be greater than 0"),
 	}
 
 	for _, rule := range rules {

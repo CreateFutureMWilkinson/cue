@@ -131,8 +131,8 @@ Note: The `Router` struct and its `advisor` field are already removed by Feature
 | `FewShotProvider` interface | Retrieves similar rated messages for prompt injection |
 | `fewShotProvider` implementation | Queries vector store + message repo, returns examples |
 | `buildPromptWithExamples()` function | Constructs the few-shot prompt |
-| Modified `OllamaClient.Score()` | Accepts optional few-shot examples |
-| Config field: `vector_max_examples` | Max few-shot examples (default 5) |
+| Modified `OllamaClient.ScoreWithContext()` | Replaces `Score()`, accepts optional few-shot examples |
+| Config field: `calibration_max_examples` | Max few-shot examples (default 5) |
 
 ### FewShotProvider Interface
 
@@ -145,12 +145,13 @@ type FewShotExample struct {
 }
 
 // FewShotProvider retrieves similar rated messages for prompt injection.
+// MaxExamples is set at construction time via FewShotProviderConfig.
 type FewShotProvider interface {
-    GetExamples(ctx context.Context, content string, maxN int) ([]FewShotExample, error)
+    GetExamples(ctx context.Context, content string) ([]FewShotExample, error)
 }
 ```
 
-The provider queries the vector store, looks up each message's user rating, truncates content, and returns up to `maxN` examples. It replaces `VectorScoreAdvisor` and is injected into the `QueueProcessor` (Feature 086).
+The provider queries the vector store, looks up each message's user rating, truncates content, and returns up to `MaxExamples` examples (configured at construction time). It replaces `VectorScoreAdvisor` and is injected into the `QueueProcessor` (Feature 086).
 
 ### QueueProcessor Integration
 
@@ -161,12 +162,11 @@ type QueueProcessor struct {
     queue               QueueRepository
     messages            MessageRepository
     scorer              Scorer
-    fewShot             FewShotProvider  // NEW — replaces Router's advisor
+    fewShot             FewShotProvider  // NEW — replaces Router's advisor (optional, nil = no calibration)
     alerter             Alerter
     cooldown            time.Duration
     importanceThreshold float64
     confidenceThreshold float64
-    maxExamples         int
     eventCh             chan<- ActivityEvent
 }
 ```
@@ -180,7 +180,7 @@ msg := messages.QueryByID(ctx, entry.MessageID)
 // Get few-shot examples (nil-safe, best-effort)
 var examples []FewShotExample
 if p.fewShot != nil {
-    examples, _ = p.fewShot.GetExamples(ctx, msg.RawContent, p.maxExamples)
+    examples, _ = p.fewShot.GetExamples(ctx, msg.RawContent)
 }
 
 // Score with examples included in prompt
@@ -207,12 +207,11 @@ No post-processing, no adjustment arithmetic. The LLM produces the final score.
 
 ```go
 type Scorer interface {
-    Score(ctx context.Context, msg *repository.Message) (*ScorerResult, error)
     ScoreWithContext(ctx context.Context, msg *repository.Message, examples []FewShotExample) (*ScorerResult, error)
 }
 ```
 
-`ScoreWithContext` builds the few-shot prompt and sends it to Ollama. `Score` remains for backward compatibility (equivalent to `ScoreWithContext` with nil examples). The `OllamaClient` implements both.
+`ScoreWithContext` fully replaces the old `Score` method. When `examples` is nil or empty, the prompt is identical to the base prompt (no few-shot block). There is no backward-compatible `Score` method — all callers pass examples explicitly (or nil).
 
 ## Configuration
 
@@ -224,12 +223,12 @@ confidence_threshold = 0.8
 buffer_size_per_source = 100
 
 # Calibration (replaces old vector_* fields)
-vector_enabled = false                  # Enable few-shot calibration
-vector_similarity_threshold = 0.75      # Minimum cosine similarity for examples
-vector_max_examples = 5                 # Maximum few-shot examples per scoring call
+calibration_enabled = false             # Enable few-shot calibration
+calibration_similarity_threshold = 0.75 # Minimum cosine similarity for examples
+calibration_max_examples = 5            # Maximum few-shot examples per scoring call
 ```
 
-Removed fields: `vector_top_n` (renamed to `vector_max_examples` for clarity), `vector_damping_factor` (not applicable).
+Removed fields: `vector_enabled`, `vector_similarity_threshold`, `vector_top_n`, `vector_damping_factor`. All replaced by `calibration_*` equivalents above.
 
 ## Model Transition Resilience
 
@@ -239,7 +238,7 @@ Few-shot prompting is inherently model-agnostic. The examples contain raw conten
 - No "score distribution shift" problem — each model interprets examples fresh
 - The embedding model is separate from the inference model, so stored vectors remain valid across inference model changes
 
-If the *embedding* model changes, stored vectors become incomparable (different vector spaces). This is an existing limitation of the vector store. The `vector_similarity_threshold` provides natural protection — incomparable vectors produce low similarity scores and are filtered out.
+If the *embedding* model changes, stored vectors become incomparable (different vector spaces). This is an existing limitation of the vector store. The `calibration_similarity_threshold` provides natural protection — incomparable vectors produce low similarity scores and are filtered out.
 
 ## Error Handling
 
@@ -264,16 +263,9 @@ Store `scoring_model` on each message so we can track which model produced which
 ALTER TABLE messages ADD COLUMN scoring_model TEXT NOT NULL DEFAULT '';
 ```
 
-### Recency Weighting
+### No Recency Weighting
 
-When selecting few-shot examples, prefer recent ratings over old ones. The vector store returns results by similarity — add a secondary sort by recency. If two messages have similar cosine scores, the more recently rated one is preferred.
-
-This is handled in the `FewShotProvider` implementation: after querying the vector store, sort results by `(similarity * recencyWeight)` where recency decays with a configurable half-life.
-
-```toml
-[orchestrator.router]
-vector_decay_half_life_days = 30  # 0 = no decay, prefer by similarity only
-```
+Examples are ranked purely by cosine similarity with no age decay. A user's rating of "this type of message is a 2/10" is just as valid six months later as the day it was rated. Adding age decay would force the user to constantly re-rate the same types of messages, defeating the purpose of the calibration loop.
 
 ### Cold Start
 
@@ -318,8 +310,8 @@ Store the embedding model name in vector metadata (as originally proposed). This
 | `internal/repository/message.go` | **Modify** — add `ScoringModel`, `ExamplesUsed` fields |
 | `internal/repository/implementation/sqlite/message_impl.go` | **Modify** — persist new fields, schema migration |
 | `internal/repository/implementation/sqlite/message_impl_test.go` | **Modify** — test new field persistence |
-| `internal/config/config.go` | **Modify** — replace `vector_damping_factor` + `vector_top_n` with `vector_max_examples` + `vector_decay_half_life_days` |
-| `internal/config/config_test.go` | **Modify** — validate new/changed fields |
+| `internal/config/config.go` | **Modify** — rename `vector_*` fields to `calibration_*`, remove `vector_damping_factor` |
+| `internal/config/config_test.go` | **Modify** — validate renamed fields |
 | `cmd/cue/main.go` | **Modify** — wire `FewShotProvider` into `QueueProcessor` instead of `VectorScoreAdvisor` into Router |
 
 ## Test Coverage
@@ -330,8 +322,7 @@ Store the embedding model name in vector metadata (as originally proposed). This
 - 7 matches in store, max_examples=5 → returns 5 examples
 - Matches below similarity threshold filtered out
 - Content truncated to 200 chars
-- Results ordered by similarity (descending), with recency as tiebreaker
-- Recency decay applied correctly (half-life weighting)
+- Results ordered by similarity (descending)
 - Messages without user ratings excluded (should not exist in store, but defensive)
 
 ### Prompt Construction

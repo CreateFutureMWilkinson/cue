@@ -1305,23 +1305,22 @@ func (s *ConfigSuite) TestDefaultTOMLHasNoSlackOrEmail() {
 }
 
 // ---------------------------------------------------------------------------
-// Feature 042: Vector routing config defaults and validation
+// Feature 094: Calibration routing config defaults and validation
 // ---------------------------------------------------------------------------
 
-func (s *ConfigSuite) TestVectorConfigDefaults() {
+func (s *ConfigSuite) TestCalibrationConfigDefaults() {
 	dir := s.T().TempDir()
 	cfgPath := filepath.Join(dir, "config.toml")
 
 	cfg, err := config.Load(cfgPath)
 	s.Require().NoError(err)
 
-	s.False(cfg.Orchestrator.Router.VectorEnabled, "vector_enabled should default to false")
-	s.InDelta(0.75, cfg.Orchestrator.Router.VectorSimilarityThreshold, 0.001)
-	s.Equal(5, cfg.Orchestrator.Router.VectorTopN)
-	s.InDelta(0.5, cfg.Orchestrator.Router.VectorDampingFactor, 0.001)
+	s.False(cfg.Orchestrator.Router.CalibrationEnabled, "calibration_enabled should default to false")
+	s.InDelta(0.75, cfg.Orchestrator.Router.CalibrationSimilarityThreshold, 0.001)
+	s.Equal(5, cfg.Orchestrator.Router.CalibrationMaxExamples)
 }
 
-func (s *ConfigSuite) TestVectorConfigValidation_DampingFactorTooHigh() {
+func (s *ConfigSuite) TestCalibrationConfigValidation_MaxExamplesZero() {
 	dir := s.T().TempDir()
 	cfgPath := filepath.Join(dir, "config.toml")
 
@@ -1336,24 +1335,24 @@ inference_model = "neural-chat"
 embedding_model = "nomic-embed-text"
 
 [orchestrator.router]
-vector_enabled = true
-vector_damping_factor = 1.5
+calibration_enabled = true
+calibration_max_examples = 0
 `
 	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
 	s.Require().NoError(err)
 
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		s.Contains(err.Error(), "damping")
+		s.Contains(err.Error(), "max_examples")
 		return
 	}
 
 	err = cfg.Validate()
 	s.Require().Error(err)
-	s.Contains(err.Error(), "damping")
+	s.Contains(err.Error(), "max_examples")
 }
 
-func (s *ConfigSuite) TestVectorConfigValidation_DampingFactorNegative() {
+func (s *ConfigSuite) TestCalibrationConfigValidation_SimilarityThresholdOutOfRange() {
 	dir := s.T().TempDir()
 	cfgPath := filepath.Join(dir, "config.toml")
 
@@ -1368,72 +1367,8 @@ inference_model = "neural-chat"
 embedding_model = "nomic-embed-text"
 
 [orchestrator.router]
-vector_enabled = true
-vector_damping_factor = -0.1
-`
-	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
-	s.Require().NoError(err)
-
-	cfg, err := config.Load(cfgPath)
-	if err != nil {
-		s.Contains(err.Error(), "damping")
-		return
-	}
-
-	err = cfg.Validate()
-	s.Require().Error(err)
-	s.Contains(err.Error(), "damping")
-}
-
-func (s *ConfigSuite) TestVectorConfigValidation_TopNZero() {
-	dir := s.T().TempDir()
-	cfgPath := filepath.Join(dir, "config.toml")
-
-	tomlContent := `
-[database]
-path = "/tmp/db.sqlite"
-
-[ollama]
-host = "localhost"
-port = 11434
-inference_model = "neural-chat"
-embedding_model = "nomic-embed-text"
-
-[orchestrator.router]
-vector_enabled = true
-vector_top_n = 0
-`
-	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
-	s.Require().NoError(err)
-
-	cfg, err := config.Load(cfgPath)
-	if err != nil {
-		s.Contains(err.Error(), "top_n")
-		return
-	}
-
-	err = cfg.Validate()
-	s.Require().Error(err)
-	s.Contains(err.Error(), "top_n")
-}
-
-func (s *ConfigSuite) TestVectorConfigValidation_SimilarityThresholdOutOfRange() {
-	dir := s.T().TempDir()
-	cfgPath := filepath.Join(dir, "config.toml")
-
-	tomlContent := `
-[database]
-path = "/tmp/db.sqlite"
-
-[ollama]
-host = "localhost"
-port = 11434
-inference_model = "neural-chat"
-embedding_model = "nomic-embed-text"
-
-[orchestrator.router]
-vector_enabled = true
-vector_similarity_threshold = 1.5
+calibration_enabled = true
+calibration_similarity_threshold = 1.5
 `
 	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
 	s.Require().NoError(err)
@@ -1449,7 +1384,7 @@ vector_similarity_threshold = 1.5
 	s.Contains(err.Error(), "similarity")
 }
 
-func (s *ConfigSuite) TestVectorConfigValidation_SimilarityThresholdNegative() {
+func (s *ConfigSuite) TestCalibrationConfigValidation_SimilarityThresholdNegative() {
 	dir := s.T().TempDir()
 	cfgPath := filepath.Join(dir, "config.toml")
 
@@ -1464,8 +1399,8 @@ inference_model = "neural-chat"
 embedding_model = "nomic-embed-text"
 
 [orchestrator.router]
-vector_enabled = true
-vector_similarity_threshold = -0.1
+calibration_enabled = true
+calibration_similarity_threshold = -0.1
 `
 	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
 	s.Require().NoError(err)

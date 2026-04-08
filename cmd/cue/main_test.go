@@ -36,10 +36,9 @@ func TestBuildVectorAdvisor(t *testing.T) {
 
 func (s *BuildVectorAdvisorSuite) TestBuildVectorAdvisor_Enabled() {
 	cfg := config.RouterConfig{
-		VectorEnabled:             true,
-		VectorSimilarityThreshold: 0.7,
-		VectorTopN:                5,
-		VectorDampingFactor:       0.5,
+		CalibrationEnabled:             true,
+		CalibrationSimilarityThreshold: 0.7,
+		CalibrationMaxExamples:         5,
 	}
 
 	advisor, err := buildVectorAdvisor(cfg, &mockVectorQuerier{}, &mockMessageQuerier{})
@@ -50,7 +49,7 @@ func (s *BuildVectorAdvisorSuite) TestBuildVectorAdvisor_Enabled() {
 
 func (s *BuildVectorAdvisorSuite) TestBuildVectorAdvisor_Disabled() {
 	cfg := config.RouterConfig{
-		VectorEnabled: false,
+		CalibrationEnabled: false,
 	}
 
 	advisor, err := buildVectorAdvisor(cfg, &mockVectorQuerier{}, &mockMessageQuerier{})

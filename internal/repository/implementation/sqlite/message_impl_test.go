@@ -933,3 +933,27 @@ func (s *MessageRepoSuite) TestDistinctChannelsReturnsEmptyForNoMatches() {
 	s.Require().NoError(err)
 	s.Empty(channels, "should return empty result when no messages match")
 }
+
+func (s *MessageRepoSuite) TestScoringModelAndExamplesUsedRoundTrip() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	msg := makeTestMessage("slack", "Notified", now)
+	msg.ScoringModel = "neural-chat"
+	msg.ExamplesUsed = 3
+
+	err = repo.Insert(ctx, msg)
+	s.Require().NoError(err)
+
+	got, err := repo.QueryByID(ctx, msg.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+
+	s.Equal("neural-chat", got.ScoringModel, "ScoringModel should round-trip through insert and query")
+	s.Equal(3, got.ExamplesUsed, "ExamplesUsed should round-trip through insert and query")
+}

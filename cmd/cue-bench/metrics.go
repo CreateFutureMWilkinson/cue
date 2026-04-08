@@ -1,6 +1,10 @@
 package cuebench
 
-import "errors"
+import (
+	"errors"
+	"math"
+	"sort"
+)
 
 // ErrNotImplemented is returned by stub functions that have not yet been
 // replaced with real implementations.
@@ -40,7 +44,65 @@ type AggregateMetrics struct {
 
 // CalcMetrics computes aggregate statistics from a slice of RunResult.
 func CalcMetrics(results []RunResult) AggregateMetrics {
-	return AggregateMetrics{}
+	n := len(results)
+	if n == 0 {
+		return AggregateMetrics{}
+	}
+
+	var bandCorrectCount int
+	var jsonValidCount int
+	var fpNumerator, fpDenominator int
+	var fnNumerator, fnDenominator int
+	inferenceMs := make([]int64, 0, n)
+
+	for _, r := range results {
+		if r.BandCorrect {
+			bandCorrectCount++
+		}
+		if r.JSONValid {
+			jsonValidCount++
+		}
+		if r.ExpectedBand == "ignored" {
+			fpDenominator++
+			if r.Band == "notified" {
+				fpNumerator++
+			}
+		}
+		if r.ExpectedBand == "notified" {
+			fnDenominator++
+			if r.Band == "ignored" {
+				fnNumerator++
+			}
+		}
+		inferenceMs = append(inferenceMs, r.InferenceMs)
+	}
+
+	sort.Slice(inferenceMs, func(i, j int) bool {
+		return inferenceMs[i] < inferenceMs[j]
+	})
+
+	var fpr float64
+	if fpDenominator > 0 {
+		fpr = float64(fpNumerator) / float64(fpDenominator) * 100
+	}
+
+	var fnr float64
+	if fnDenominator > 0 {
+		fnr = float64(fnNumerator) / float64(fnDenominator) * 100
+	}
+
+	p50 := inferenceMs[n/2]
+	p95Idx := int(math.Ceil(float64(n)*0.95)) - 1
+	p95 := inferenceMs[p95Idx]
+
+	return AggregateMetrics{
+		BandAccuracy:      float64(bandCorrectCount) / float64(n) * 100,
+		FalsePositiveRate: fpr,
+		FalseNegativeRate: fnr,
+		JSONCompliance:    float64(jsonValidCount) / float64(n) * 100,
+		P50Ms:             p50,
+		P95Ms:             p95,
+	}
 }
 
 // DeriveBand derives the routing band from importance score and confidence

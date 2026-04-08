@@ -1,7 +1,7 @@
 # Feature 092: Structured Output + Prompt Optimization
 
 **Phase:** Phase-8-Feature-092
-**Status:** Planned
+**Status:** Done
 **Packages:** `internal/service/decisionengine/`
 **Depends on:** None (can be implemented independently)
 
@@ -24,20 +24,38 @@ With the trickle queue (Feature 086) processing one message at a time, total thr
 
 ### 1. Add `format` Field to Request
 
+The `ollamaRequest` struct now includes a `Format` field with `omitempty` tag:
+
 ```go
 type ollamaRequest struct {
     Model  string `json:"model"`
     Prompt string `json:"prompt"`
     Stream bool   `json:"stream"`
-    Format string `json:"format,omitempty"` // NEW
+    Format string `json:"format,omitempty"`
 }
 ```
 
-Set `Format: "json"` in `sendRequest()`. This tells Ollama to constrain generation to valid JSON, eliminating the need for `extractJSON()`.
+Score requests include `Format: "json"`. Generate requests omit it (empty string + omitempty = absent from JSON).
 
-### 2. Simplified Prompt Template
+### 2. Refactored Request/Response Pipeline
 
-**Current** (~130 input tokens):
+The monolithic `sendRequest` method was decomposed into focused methods:
+
+| Method | Responsibility |
+|---|---|
+| `createRequest(ctx, prompt)` | Builds HTTP request without format field (for Generate) |
+| `createJSONRequest(ctx, prompt)` | Builds HTTP request with `format: "json"` (for Score) |
+| `sendRequest(req)` | Sends HTTP request, checks status, returns body bytes |
+| `processResponse(body)` | Parses outer Ollama JSON envelope, returns response string |
+| `processJSONResponse(body)` | Calls processResponse then parses inner scorer JSON |
+
+Call chains:
+- **Score:** `createJSONRequest` → `sendRequest` → `processJSONResponse`
+- **Generate:** `createRequest` → `sendRequest` → `processResponse`
+
+### 3. Simplified Prompt Template
+
+**Before** (~130 input tokens):
 ```
 You are an ADHD-friendly message importance scorer. Evaluate the following message and return a JSON object with these fields:
 - importance_score: a float from 0 to 10 indicating how important/urgent this message is
@@ -53,7 +71,7 @@ Message details:
 Respond ONLY with valid JSON. Do not include any other text.
 ```
 
-**Proposed** (~80 input tokens):
+**After** (~80 input tokens):
 ```
 Score this message's importance for an ADHD user who needs to catch critical items (deadlines, outages, @mentions) without noise.
 
@@ -70,23 +88,20 @@ Key changes:
 - Constrained reasoning to "one sentence" via the example JSON structure
 - The example JSON at the end acts as a schema hint for smaller models
 
-### 3. Remove `extractJSON()`
+### 4. Removed Dead Code
 
-With `format: json` enforced, the `extractJSON()` function and `markdownFence` constant become dead code. Remove them and parse the response directly.
+- `extractJSON()` function — no longer needed with JSON mode
+- `markdownFence` constant — only used by extractJSON
+- `TestScore_ResponseWithMarkdownWrapping_ExtractsJSON` test — tests dead code path
 
 ## Calibration Impact
 
 **This change affects the calibration loop (Feature 042).** A simplified prompt may produce a different score distribution than the current prompt.
 
-If Feature 092 is implemented **before** Feature 094 (calibration loop redesign):
+Since Feature 092 is implemented **before** Feature 094 (calibration loop redesign):
 - The current `VectorScoreAdvisor` computes `adjustment = avgUserRating - avgImportanceScore` — if the new prompt shifts importance scores systematically, the advisor will over-correct until new ratings accumulate
 - **Mitigation:** The ±2.0 clamp and 0.5 damping factor limit the impact. The system self-corrects as new ratings replace old ones.
 - **Recommendation:** Temporarily set `vector_enabled = false` after the prompt change, re-enable once ~20 new ratings accumulate.
-
-If Feature 092 is implemented **after** Feature 094:
-- The few-shot approach (Feature 094) is inherently resilient to prompt changes — the LLM reads examples fresh each time. No special mitigation needed.
-
-Once available, the benchmark tool (Feature 093, implemented later) can quantify the score distribution shift.
 
 ## Error Handling
 
@@ -96,17 +111,31 @@ No change to error handling strategy. JSON parse failures on Ollama response rem
 
 No new configuration fields. The prompt change is internal — the config file controls thresholds, not prompt content.
 
-## Files
+## Files Changed
 
 | File | Action |
 |---|---|
-| `internal/service/decisionengine/ollama_client.go` | **Modify** — add `Format` to `ollamaRequest`, simplify `promptTemplate`, remove `extractJSON()` + `markdownFence` |
-| `internal/service/decisionengine/ollama_client_test.go` | **Modify** — update prompt expectations, remove `extractJSON` tests, add test for `format: json` in request body |
+| `internal/service/decisionengine/ollama_client.go` | **Modified** — added `Format` to `ollamaRequest`, split `sendRequest` into 5 focused methods, simplified `promptTemplate`, removed `extractJSON()` + `markdownFence` |
+| `internal/service/decisionengine/ollama_client_test.go` | **Modified** — added format:json tests, added simplified prompt test, removed markdown wrapping test |
 
 ## Test Coverage
 
-- Request body includes `"format": "json"` field
-- Simplified prompt produces valid scoring for representative messages (mock Ollama)
-- Raw JSON response (no markdown fences) parsed correctly
-- Malformed JSON still triggers fallback behavior
-- Reasoning field is single-sentence (validated in mock response tests)
+- Request body includes `"format": "json"` field for Score calls
+- Request body omits `"format"` field for Generate calls
+- Simplified prompt contains ADHD context, pipe-delimited metadata, JSON schema hint
+- Simplified prompt does not contain removed verbose instructions
+- Raw JSON response parsed correctly (existing tests)
+- Malformed JSON still triggers fallback behavior (existing test)
+- All existing Score/Generate tests pass with refactored pipeline
+
+## TDD Agent Stats
+
+| Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| RED (format:json) | Test Designer | ~44s | ~30,500 | 8a2ccd0 |
+| GREEN (format:json) | Implementer | ~38s | ~25,100 | 4c6d28c |
+| REFACTOR (split sendRequest) | Refactorer | ~105s | ~38,100 | 8461806 |
+| RED (simplified prompt) | Test Designer | ~36s | ~32,500 | 599cd19 |
+| GREEN (simplified prompt) | Implementer | ~24s | ~22,400 | b10bb2e |
+| REFACTOR (unused ctx, SplitSeq) | orchestrator | manual | — | eb07cf5 |
+| CHORE (nosec G704) | orchestrator | manual | — | e727859 |

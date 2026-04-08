@@ -67,3 +67,10 @@ func RatedEntries(entries []CorpusEntry) []CorpusEntry {
 	}
 	return result
 }
+
+// SelectExamples selects up to n rated entries from pool to serve as few-shot
+// examples for entry. Selection prefers tag overlap, then source match, then
+// seeded random tiebreak. Only entries with non-nil UserRating are eligible.
+func SelectExamples(entry CorpusEntry, pool []CorpusEntry, n int, seed int64) []CorpusEntry {
+	return nil
+}

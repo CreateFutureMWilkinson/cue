@@ -61,5 +61,35 @@ func NewFewShotProvider(querier vector.VectorQuerier, msgQuerier MessageQuerier,
 
 // GetExamples returns similar rated messages for use as few-shot examples.
 func (p *fewShotProvider) GetExamples(ctx context.Context, content string) ([]FewShotExample, error) {
-	return nil, ErrNotImplemented
+	results, err := p.querier.QuerySimilar(ctx, content, p.cfg.MaxExamples)
+	if err != nil {
+		return nil, err
+	}
+
+	var examples []FewShotExample
+	for _, r := range results {
+		if float64(r.Score) < p.cfg.SimilarityThreshold {
+			continue
+		}
+
+		msg, err := p.msgQuerier.QueryByID(ctx, r.MessageID)
+		if err != nil || msg == nil || msg.UserRating == nil {
+			continue
+		}
+
+		examples = append(examples, FewShotExample{
+			Content:    truncateContent(msg.RawContent, 200),
+			UserRating: *msg.UserRating,
+			Similarity: r.Score,
+		})
+	}
+
+	return examples, nil
+}
+
+func truncateContent(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen]
 }

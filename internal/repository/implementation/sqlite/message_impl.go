@@ -51,7 +51,7 @@ const (
 
 const messageColumnsStr = "id, source, source_account, channel, sender, message_id, message_type, source_cursor, " +
 	"raw_content, importance_score, confidence_score, status, reasoning, " +
-	"user_rating, user_feedback, vector_id, created_at, updated_at, resolved_at"
+	"user_rating, user_feedback, vector_id, scoring_model, examples_used, created_at, updated_at, resolved_at"
 
 // SQLiteMessageRepository implements repository.MessageRepository using SQLite.
 type SQLiteMessageRepository struct {
@@ -101,6 +101,20 @@ func NewSQLiteMessageRepository(dbPath string, maxMessagesPerSource int) (*SQLit
 		return nil, fmt.Errorf("migrate source_cursor column: %w", err)
 	}
 
+	// Migration: add scoring_model column (idempotent).
+	_, err = db.Exec("ALTER TABLE messages ADD COLUMN scoring_model TEXT NOT NULL DEFAULT ''")
+	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+		_ = db.Close()
+		return nil, fmt.Errorf("migrate scoring_model column: %w", err)
+	}
+
+	// Migration: add examples_used column (idempotent).
+	_, err = db.Exec("ALTER TABLE messages ADD COLUMN examples_used INTEGER NOT NULL DEFAULT 0")
+	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+		_ = db.Close()
+		return nil, fmt.Errorf("migrate examples_used column: %w", err)
+	}
+
 	return &SQLiteMessageRepository{db: db, maxMessagesPerSource: maxMessagesPerSource}, nil
 }
 
@@ -128,8 +142,9 @@ func (r *SQLiteMessageRepository) Insert(ctx context.Context, msg *repository.Me
 		INSERT INTO messages (
 			id, source, source_account, channel, sender, message_id, message_type, source_cursor,
 			raw_content, importance_score, confidence_score, status, reasoning,
-			user_rating, user_feedback, vector_id, created_at, updated_at, resolved_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			user_rating, user_feedback, vector_id, scoring_model, examples_used,
+			created_at, updated_at, resolved_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(message_id) DO UPDATE SET
 			id = excluded.id,
 			source = excluded.source,
@@ -146,6 +161,8 @@ func (r *SQLiteMessageRepository) Insert(ctx context.Context, msg *repository.Me
 			user_rating = excluded.user_rating,
 			user_feedback = excluded.user_feedback,
 			vector_id = excluded.vector_id,
+			scoring_model = excluded.scoring_model,
+			examples_used = excluded.examples_used,
 			created_at = excluded.created_at,
 			updated_at = excluded.updated_at,
 			resolved_at = excluded.resolved_at
@@ -166,6 +183,8 @@ func (r *SQLiteMessageRepository) Insert(ctx context.Context, msg *repository.Me
 		nullable(msg.UserRating),
 		nullable(msg.UserFeedback),
 		nullableUUID(msg.VectorID),
+		msg.ScoringModel,
+		msg.ExamplesUsed,
 		msg.CreatedAt.Format(time.RFC3339),
 		msg.UpdatedAt.Format(time.RFC3339),
 		nullableTime(msg.ResolvedAt),
@@ -196,6 +215,8 @@ func (r *SQLiteMessageRepository) Update(ctx context.Context, msg *repository.Me
 			user_rating = ?,
 			user_feedback = ?,
 			vector_id = ?,
+			scoring_model = ?,
+			examples_used = ?,
 			updated_at = ?,
 			resolved_at = ?
 		WHERE id = ?
@@ -215,6 +236,8 @@ func (r *SQLiteMessageRepository) Update(ctx context.Context, msg *repository.Me
 		nullable(msg.UserRating),
 		nullable(msg.UserFeedback),
 		nullableUUID(msg.VectorID),
+		msg.ScoringModel,
+		msg.ExamplesUsed,
 		msg.UpdatedAt.Format(time.RFC3339),
 		nullableTime(msg.ResolvedAt),
 		msg.ID.String(),
@@ -379,6 +402,8 @@ func scanMessage(rows *sql.Rows) (*repository.Message, error) {
 		userRating   sql.NullInt64
 		userFeedback sql.NullString
 		vectorIDStr  sql.NullString
+		scoringModel string
+		examplesUsed int
 		createdAtStr string
 		updatedAtStr string
 		resolvedAt   sql.NullString
@@ -401,6 +426,8 @@ func scanMessage(rows *sql.Rows) (*repository.Message, error) {
 		&userRating,
 		&userFeedback,
 		&vectorIDStr,
+		&scoringModel,
+		&examplesUsed,
 		&createdAtStr,
 		&updatedAtStr,
 		&resolvedAt,
@@ -413,6 +440,9 @@ func scanMessage(rows *sql.Rows) (*repository.Message, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse message ID: %w", err)
 	}
+
+	msg.ScoringModel = scoringModel
+	msg.ExamplesUsed = examplesUsed
 
 	msg.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
 	if err != nil {

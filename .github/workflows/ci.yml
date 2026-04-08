@@ -24,7 +24,7 @@ jobs:
       run:
         shell: bash
     env:
-      GO_VERSION: '1.26.1'
+      GO_VERSION: '1.26.2'
       GOTOOLCHAIN: auto
       GOSEC_VERSION: v2.25.0
     steps:
@@ -150,7 +150,7 @@ jobs:
       run:
         shell: bash
     env:
-      GO_VERSION: '1.26.1'
+      GO_VERSION: '1.26.2'
       GOTOOLCHAIN: auto
     steps:
       - name: Checkout
@@ -195,12 +195,12 @@ jobs:
       - name: Run unit tests
         run: |
           set -euo pipefail
-          go test -count=1 -race ./...
+          go test -count=1 -race -tags ci ./...
 
       - name: Run UI acceptance tests
         run: |
           set -euo pipefail
-          go test -count=1 -tags=ui_acceptance ./tests/ui/...
+          go test -count=1 -tags "ci ui_acceptance" ./tests/ui/...
 
       - name: Build binaries
         run: |

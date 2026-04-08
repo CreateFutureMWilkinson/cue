@@ -11,7 +11,7 @@ This file is the authoritative instruction set for AI coding agents (Claude Code
 **User Profile:** ADHD-sufferer juggling dozens of Slack channels and hundreds of emails. Needs to catch critical messages (missed deadlines, outages, new channel assignments, direct mentions) without drowning in noise. Acceptable false positive rate: 20–30%.
 
 Module path: `github.com/CreateFutureMWilkinson/cue`
-Go version: `1.26.1`
+Go version: `1.26.2`
 
 ---
 

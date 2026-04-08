@@ -80,6 +80,7 @@ func (p *QueueProcessor) ProcessOne(ctx context.Context) (bool, error) {
 	}
 
 	// Get few-shot examples for calibration (nil-safe, best-effort).
+	// If provider is nil or GetExamples fails, we proceed with empty examples.
 	var examples []decisionengine.FewShotExample
 	if p.fewShot != nil {
 		examples, _ = p.fewShot.GetExamples(ctx, msg.RawContent)

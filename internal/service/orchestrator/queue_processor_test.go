@@ -517,3 +517,203 @@ func (s *QueueProcessorSuite) TestProcessOne_FewShotProviderExamplesPassedToScor
 	s.Equal(2, msgRepo.updatedMsg.ExamplesUsed, "ExamplesUsed should be set to number of examples")
 	s.Equal("neural-chat", msgRepo.updatedMsg.ScoringModel, "ScoringModel should be set from scorer result")
 }
+
+func (s *QueueProcessorSuite) TestProcessOne_NilFewShotProvider_ScoresWithoutExamples() {
+	// Arrange
+	entryID := uuid.New()
+	msgID := uuid.New()
+
+	queueRepo := &mockQueueRepo{
+		dequeueEntry: &repository.QueueEntry{
+			ID:        entryID,
+			MessageID: msgID,
+			Status:    "pending",
+		},
+	}
+
+	msg := &repository.Message{
+		ID:         msgID,
+		Status:     "Pending",
+		Source:     "slack",
+		RawContent: "server is on fire",
+	}
+	msgRepo := &mockMsgRepo{
+		queryByIDMsg: msg,
+	}
+
+	scorer := &mockCapturingScorer{
+		result: &decisionengine.ScorerResult{
+			ImportanceScore: 8.5,
+			ConfidenceScore: 0.85,
+			Reasoning:       "server issue detected",
+			ScoringModel:    "neural-chat",
+		},
+	}
+
+	alerter := &mockQueueAlerter{}
+	eventCh := make(chan orchestrator.ActivityEvent, 10)
+
+	processor, err := orchestrator.NewQueueProcessor(
+		queueRepo,
+		msgRepo,
+		scorer,
+		alerter,
+		eventCh,
+		7,   // importanceThreshold
+		0.8, // confidenceThreshold
+		time.Second,
+	)
+	s.Require().NoError(err)
+
+	// No FewShotProvider set (nil by default)
+
+	// Act
+	processed, err := processor.ProcessOne(context.Background())
+
+	// Assert
+	s.Require().NoError(err)
+	s.True(processed)
+
+	// Scorer should have been called with nil examples
+	s.True(scorer.calledWithNil, "ScoreWithContext should be called with nil examples when no FewShotProvider")
+	s.Nil(scorer.calledExamples, "calledExamples should be nil when no FewShotProvider")
+
+	// Message should record zero examples used
+	s.Require().NotNil(msgRepo.updatedMsg)
+	s.Equal(0, msgRepo.updatedMsg.ExamplesUsed, "ExamplesUsed should be 0 when no FewShotProvider")
+	s.Equal("neural-chat", msgRepo.updatedMsg.ScoringModel, "ScoringModel should still be set")
+	s.Equal("Notified", msgRepo.updatedMsg.Status)
+}
+
+func (s *QueueProcessorSuite) TestProcessOne_FewShotProviderError_ScoresWithoutExamples() {
+	// Arrange
+	entryID := uuid.New()
+	msgID := uuid.New()
+
+	queueRepo := &mockQueueRepo{
+		dequeueEntry: &repository.QueueEntry{
+			ID:        entryID,
+			MessageID: msgID,
+			Status:    "pending",
+		},
+	}
+
+	msg := &repository.Message{
+		ID:         msgID,
+		Status:     "Pending",
+		Source:     "slack",
+		RawContent: "server is on fire",
+	}
+	msgRepo := &mockMsgRepo{
+		queryByIDMsg: msg,
+	}
+
+	fewShotMock := &mockFewShotProvider{
+		err: errors.New("vector store connection failed"),
+	}
+
+	scorer := &mockCapturingScorer{
+		result: &decisionengine.ScorerResult{
+			ImportanceScore: 8.0,
+			ConfidenceScore: 0.75,
+			Reasoning:       "server issue without context",
+			ScoringModel:    "neural-chat",
+		},
+	}
+
+	alerter := &mockQueueAlerter{}
+	eventCh := make(chan orchestrator.ActivityEvent, 10)
+
+	processor, err := orchestrator.NewQueueProcessor(
+		queueRepo,
+		msgRepo,
+		scorer,
+		alerter,
+		eventCh,
+		7,   // importanceThreshold
+		0.8, // confidenceThreshold
+		time.Second,
+	)
+	s.Require().NoError(err)
+
+	processor.SetFewShotProvider(fewShotMock)
+
+	// Act
+	processed, err := processor.ProcessOne(context.Background())
+
+	// Assert
+	s.Require().NoError(err)
+	s.True(processed)
+
+	// FewShotProvider should have been called but failed
+	s.True(fewShotMock.called, "FewShotProvider.GetExamples should be called")
+	s.Equal("server is on fire", fewShotMock.content, "GetExamples should receive message content")
+
+	// Scorer should have been called with nil examples due to graceful degradation
+	s.True(scorer.calledWithNil, "ScoreWithContext should be called with nil examples when GetExamples fails")
+	s.Nil(scorer.calledExamples, "calledExamples should be nil when GetExamples fails")
+
+	// Message should record zero examples used despite having a provider
+	s.Require().NotNil(msgRepo.updatedMsg)
+	s.Equal(0, msgRepo.updatedMsg.ExamplesUsed, "ExamplesUsed should be 0 when GetExamples fails")
+	s.Equal("neural-chat", msgRepo.updatedMsg.ScoringModel, "ScoringModel should still be set")
+	s.Equal("Buffered", msgRepo.updatedMsg.Status) // IS=8.0, CS=0.75 → Buffered
+}
+
+func (s *QueueProcessorSuite) TestProcessOne_ScoringModelRecordedOnMessage() {
+	// Arrange
+	entryID := uuid.New()
+	msgID := uuid.New()
+
+	queueRepo := &mockQueueRepo{
+		dequeueEntry: &repository.QueueEntry{
+			ID:        entryID,
+			MessageID: msgID,
+			Status:    "pending",
+		},
+	}
+
+	msg := &repository.Message{
+		ID:     msgID,
+		Status: "Pending",
+		Source: "slack",
+	}
+	msgRepo := &mockMsgRepo{
+		queryByIDMsg: msg,
+	}
+
+	scorer := &mockScorer{
+		result: &decisionengine.ScorerResult{
+			ImportanceScore: 6.5,
+			ConfidenceScore: 0.9,
+			Reasoning:       "routine update",
+			ScoringModel:    "llama3.2:1b",
+		},
+	}
+
+	alerter := &mockQueueAlerter{}
+	eventCh := make(chan orchestrator.ActivityEvent, 10)
+
+	processor, err := orchestrator.NewQueueProcessor(
+		queueRepo,
+		msgRepo,
+		scorer,
+		alerter,
+		eventCh,
+		7,   // importanceThreshold
+		0.8, // confidenceThreshold
+		time.Second,
+	)
+	s.Require().NoError(err)
+
+	// Act
+	processed, err := processor.ProcessOne(context.Background())
+
+	// Assert
+	s.Require().NoError(err)
+	s.True(processed)
+
+	s.Require().NotNil(msgRepo.updatedMsg)
+	s.Equal("llama3.2:1b", msgRepo.updatedMsg.ScoringModel, "ScoringModel should match the result from scorer")
+	s.Equal("Ignored", msgRepo.updatedMsg.Status) // IS=6.5 < 7 → Ignored
+}

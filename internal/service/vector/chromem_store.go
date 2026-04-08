@@ -60,7 +60,8 @@ func (s *ChromemVectorStore) StoreEmbedding(ctx context.Context, messageID uuid.
 		ID:      vectorID.String(),
 		Content: content,
 		Metadata: map[string]string{
-			"message_id": messageID.String(),
+			"message_id":      messageID.String(),
+			"embedding_model": s.embeddingModelName,
 		},
 	})
 	if err != nil {
@@ -89,7 +90,7 @@ func (s *ChromemVectorStore) QuerySimilar(ctx context.Context, queryText string,
 		return nil, fmt.Errorf("chromem vector store: query failed: %w", err)
 	}
 
-	similarResults := make([]SimilarResult, 0, len(results))
+	var similarResults []SimilarResult
 	for _, r := range results {
 		msgIDStr, ok := r.Metadata["message_id"]
 		if !ok {
@@ -97,6 +98,10 @@ func (s *ChromemVectorStore) QuerySimilar(ctx context.Context, queryText string,
 		}
 		msgID, err := uuid.Parse(msgIDStr)
 		if err != nil {
+			continue
+		}
+		// Filter by embedding model if stored.
+		if model, ok := r.Metadata["embedding_model"]; ok && model != s.embeddingModelName {
 			continue
 		}
 		similarResults = append(similarResults, SimilarResult{

@@ -7,6 +7,16 @@ import (
 	"strings"
 )
 
+// Table column widths
+const (
+	modelColWidth   = 16
+	metricColWidth  = 6
+	jsonColWidth    = 5
+	latencyColWidth = 6
+	calibColWidth   = 6
+	separatorWidth  = 8 // for header separators
+)
+
 // BenchReport holds all data needed to render benchmark output in either
 // table or JSON format.
 type BenchReport struct {
@@ -51,15 +61,7 @@ func renderBaseSection(w io.Writer, report BenchReport) {
 		if !ok {
 			continue
 		}
-		fmt.Fprintf(w, "%-16s| %6s | %6s | %6s | %5s | %6d | %6d\n",
-			model,
-			fmtPct(metrics.BandAccuracy),
-			fmtPct(metrics.FalsePositiveRate),
-			fmtPct(metrics.FalseNegativeRate),
-			fmtPct(metrics.JSONCompliance),
-			metrics.P50Ms,
-			metrics.P95Ms,
-		)
+		renderMetricRow(w, model, metrics, "")
 	}
 	fmt.Fprintf(w, "\n")
 }
@@ -76,16 +78,7 @@ func renderFewShotSection(w io.Writer, n int, report BenchReport) {
 		baseMetrics := report.Results[model][0]
 		lift := CalibrationLift(baseMetrics, metrics)
 		liftStr := fmt.Sprintf("%+.1f%%", lift)
-		fmt.Fprintf(w, "%-16s| %6s | %6s | %6s | %5s | %6d | %6d | %6s\n",
-			model,
-			fmtPct(metrics.BandAccuracy),
-			fmtPct(metrics.FalsePositiveRate),
-			fmtPct(metrics.FalseNegativeRate),
-			fmtPct(metrics.JSONCompliance),
-			metrics.P50Ms,
-			metrics.P95Ms,
-			liftStr,
-		)
+		renderMetricRow(w, model, metrics, liftStr)
 	}
 	fmt.Fprintf(w, "\n")
 }
@@ -96,15 +89,42 @@ func renderTableHeader(w io.Writer, headers []string) {
 	sepParts := make([]string, len(headers))
 	for i, h := range headers {
 		if i == 0 {
-			parts[i] = fmt.Sprintf("%-16s", h)
-			sepParts[i] = strings.Repeat("-", 16)
+			parts[i] = fmt.Sprintf("%-*s", modelColWidth, h)
+			sepParts[i] = strings.Repeat("-", modelColWidth)
 		} else {
-			parts[i] = fmt.Sprintf(" %6s ", h)
-			sepParts[i] = strings.Repeat("-", 8)
+			parts[i] = fmt.Sprintf(" %*s ", metricColWidth, h)
+			sepParts[i] = strings.Repeat("-", separatorWidth)
 		}
 	}
 	fmt.Fprintf(w, "%s\n", strings.Join(parts, "|"))
 	fmt.Fprintf(w, "%s\n", strings.Join(sepParts, "|"))
+}
+
+// renderMetricRow outputs a single row of metrics. If calibrationLift is empty,
+// no calibration column is included.
+func renderMetricRow(w io.Writer, model string, metrics AggregateMetrics, calibrationLift string) {
+	if calibrationLift == "" {
+		fmt.Fprintf(w, "%-*s| %*s | %*s | %*s | %*s | %*d | %*d\n",
+			modelColWidth, model,
+			metricColWidth, fmtPct(metrics.BandAccuracy),
+			metricColWidth, fmtPct(metrics.FalsePositiveRate),
+			metricColWidth, fmtPct(metrics.FalseNegativeRate),
+			jsonColWidth, fmtPct(metrics.JSONCompliance),
+			latencyColWidth, metrics.P50Ms,
+			latencyColWidth, metrics.P95Ms,
+		)
+	} else {
+		fmt.Fprintf(w, "%-*s| %*s | %*s | %*s | %*s | %*d | %*d | %*s\n",
+			modelColWidth, model,
+			metricColWidth, fmtPct(metrics.BandAccuracy),
+			metricColWidth, fmtPct(metrics.FalsePositiveRate),
+			metricColWidth, fmtPct(metrics.FalseNegativeRate),
+			jsonColWidth, fmtPct(metrics.JSONCompliance),
+			latencyColWidth, metrics.P50Ms,
+			latencyColWidth, metrics.P95Ms,
+			calibColWidth, calibrationLift,
+		)
+	}
 }
 
 func fmtPct(v float64) string {

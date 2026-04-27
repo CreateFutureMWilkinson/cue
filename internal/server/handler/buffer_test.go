@@ -358,6 +358,92 @@ func (s *BufferHandlerSuite) TestRateBufferedNotFound() {
 	s.Equal(http.StatusNotFound, rec.Code, "expected 404 Not Found")
 }
 
+func (s *BufferHandlerSuite) TestDeleteBufferedSuccess() {
+	now := time.Now().UTC().Truncate(time.Second)
+	msgID := uuid.New()
+
+	msg := &repository.Message{
+		ID:              msgID,
+		Source:          "slack",
+		SourceAccount:   "T12345",
+		Channel:         "#deployments",
+		Sender:          "bob",
+		MessageID:       "slack-msg-042",
+		RawContent:      "Deploy scheduled for tonight",
+		ImportanceScore: 7.5,
+		ConfidenceScore: 0.6,
+		Reasoning:       "Deployment notice with potential impact",
+		Status:          "Buffered",
+		CreatedAt:       now.Add(-10 * time.Minute),
+		UpdatedAt:       now.Add(-9 * time.Minute),
+	}
+
+	repo := &mockMessageQuerier{
+		queryByIDMessage: msg,
+	}
+	buf := &mockBufferRater{}
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/buffer/"+msgID.String(), nil)
+	req.SetPathValue("id", msgID.String())
+	rec := httptest.NewRecorder()
+
+	handler.DeleteBufferedHandler(repo, buf)(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code, "expected 200 OK")
+
+	// Verify DeleteMessage was called with correct ID.
+	s.Equal(msgID, buf.deleteMessageID, "DeleteMessage should receive the message ID")
+
+	// Verify response body contains the message ID.
+	var respBody map[string]any
+	err := json.NewDecoder(rec.Body).Decode(&respBody)
+	s.Require().NoError(err, "response body should be valid JSON")
+	s.Equal(msgID.String(), respBody["id"], "response should contain the message ID")
+}
+
+func (s *BufferHandlerSuite) TestDeleteBufferedNotFound() {
+	repo := &mockMessageQuerier{
+		queryByIDErr: repository.ErrNotFound,
+	}
+	buf := &mockBufferRater{}
+
+	unknownID := uuid.New()
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/buffer/"+unknownID.String(), nil)
+	req.SetPathValue("id", unknownID.String())
+	rec := httptest.NewRecorder()
+
+	handler.DeleteBufferedHandler(repo, buf)(rec, req)
+
+	s.Equal(http.StatusNotFound, rec.Code, "expected 404 Not Found")
+}
+
+func (s *BufferHandlerSuite) TestDeleteBufferedAlreadyResolved() {
+	now := time.Now().UTC().Truncate(time.Second)
+	resolvedAt := now.Add(-1 * time.Minute)
+	msgID := uuid.New()
+
+	msg := &repository.Message{
+		ID:         msgID,
+		Status:     "Resolved",
+		CreatedAt:  now.Add(-10 * time.Minute),
+		UpdatedAt:  now.Add(-2 * time.Minute),
+		ResolvedAt: &resolvedAt,
+	}
+
+	repo := &mockMessageQuerier{
+		queryByIDMessage: msg,
+	}
+	buf := &mockBufferRater{}
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/buffer/"+msgID.String(), nil)
+	req.SetPathValue("id", msgID.String())
+	rec := httptest.NewRecorder()
+
+	handler.DeleteBufferedHandler(repo, buf)(rec, req)
+
+	s.Equal(http.StatusConflict, rec.Code, "expected 409 for already-resolved message")
+}
+
 func (s *BufferHandlerSuite) TestRateBufferedAlreadyResolved() {
 	now := time.Now().UTC().Truncate(time.Second)
 	resolvedAt := now.Add(-1 * time.Minute)

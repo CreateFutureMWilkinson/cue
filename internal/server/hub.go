@@ -31,10 +31,10 @@ type Subscriber struct {
 type Hub struct {
 	mu          sync.RWMutex
 	subscribers map[string]*Subscriber
-	seq         uint64
-	ring        []ActivityEnvelope
-	ringPos     int
-	ringLen     int
+	seq         uint64             // monotonic sequence counter for ActivityEnvelopes
+	ring        []ActivityEnvelope // circular buffer for history replay
+	ringPos     int                // current write position in ring buffer
+	ringUsed    int                // number of occupied slots in ring buffer
 }
 
 // NewHub creates a Hub ready to accept subscribers.
@@ -96,7 +96,8 @@ func (h *Hub) Broadcast(data []byte) error {
 }
 
 // Publish creates an ActivityEnvelope for the given data, assigns a
-// monotonically increasing sequence number, and stores it internally.
+// monotonically increasing sequence number, and stores it in the ring
+// buffer for history replay. Does not broadcast to current subscribers.
 func (h *Hub) Publish(data ActivityData) ActivityEnvelope {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -111,8 +112,8 @@ func (h *Hub) Publish(data ActivityData) ActivityEnvelope {
 
 	h.ring[h.ringPos] = env
 	h.ringPos = (h.ringPos + 1) % ringCapacity
-	if h.ringLen < ringCapacity {
-		h.ringLen++
+	if h.ringUsed < ringCapacity {
+		h.ringUsed++
 	}
 
 	return env

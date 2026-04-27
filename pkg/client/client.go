@@ -34,6 +34,13 @@ func (c *APIClient) SetToken(token string) {
 	c.token = token
 }
 
+// Token returns the bearer token currently stored on the client. Exposed so
+// callers can persist a token that was auto-issued by the server on the
+// first-client TOKEN_ISSUED flow (Feature 106 Loop 4).
+func (c *APIClient) Token() string {
+	return c.token
+}
+
 // Health calls GET /health on the server and returns nil on a 2xx response.
 func (c *APIClient) Health(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/health", nil)

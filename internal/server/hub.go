@@ -119,6 +119,12 @@ func (h *Hub) Publish(data ActivityData) ActivityEnvelope {
 	return env
 }
 
+// oldestSeq returns the sequence number of the oldest retained envelope.
+// Must be called with at least a read lock held and ringUsed > 0.
+func (h *Hub) oldestSeq() uint64 {
+	return h.seq - uint64(h.ringUsed) + 1
+}
+
 // HistoryResponse is the return value of Hub.History, containing a slice
 // of retained activity envelopes plus metadata for client-side replay.
 type HistoryResponse struct {
@@ -140,7 +146,7 @@ func (h *Hub) History(sinceSeq uint64) HistoryResponse {
 	}
 
 	latestSeq := h.seq
-	oldestSeq := h.seq - uint64(h.ringUsed) + 1
+	oldestSeq := h.oldestSeq()
 
 	if sinceSeq >= latestSeq {
 		h.mu.RUnlock()
@@ -150,21 +156,24 @@ func (h *Hub) History(sinceSeq uint64) HistoryResponse {
 		}
 	}
 
+	// Truncation occurs when: (1) client requests sequence that's been evicted,
+	// or (2) client requests from beginning (sinceSeq=0) but ring is full
 	truncated := (sinceSeq > 0 && sinceSeq < oldestSeq) ||
 		(sinceSeq == 0 && h.ringUsed == ringCapacity)
-	startSeq := sinceSeq + 1
-	if startSeq < oldestSeq {
-		startSeq = oldestSeq
-	}
+
+	// Start from the next sequence after sinceSeq, but clamp to oldest available
+	startSeq := max(sinceSeq+1, oldestSeq)
 
 	count := int(latestSeq - startSeq + 1)
 	events := make([]ActivityEnvelope, count)
 
-	// The oldest envelope lives at ring index: (ringPos - ringUsed + ringCapacity) % ringCapacity
-	// We want the envelope with seq == startSeq, which is offset (startSeq - oldestSeq) from the oldest.
+	// Calculate ring buffer positions for traversal:
+	// - oldestIdx: ring position of the oldest retained envelope
+	// - startIdx: ring position of the envelope with seq == startSeq
 	oldestIdx := (h.ringPos - h.ringUsed + ringCapacity) % ringCapacity
 	startIdx := (oldestIdx + int(startSeq-oldestSeq)) % ringCapacity
 
+	// Traverse the ring buffer in chronological order, wrapping as needed
 	for i := 0; i < count; i++ {
 		events[i] = h.ring[(startIdx+i)%ringCapacity]
 	}

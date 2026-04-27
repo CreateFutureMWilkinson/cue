@@ -19,26 +19,93 @@ type TaskRepository interface {
 	QueryFiltered(ctx context.Context, filter repository.TaskFilter) ([]*repository.Task, int, error)
 }
 
+// CategoryRepository defines the persistence operations the service needs
+// for category management. All methods take canonical (already-normalized)
+// keys; the service is the single boundary that calls
+// repository.NormalizeCategoryKey before invoking these methods.
+type CategoryRepository interface {
+	Insert(ctx context.Context, c *repository.Category) error
+	Rename(ctx context.Context, oldKey, newKey string) error
+	UpdateColour(ctx context.Context, key string, colour *string) error
+	Delete(ctx context.Context, key string) error
+	GetByKey(ctx context.Context, key string) (*repository.Category, error)
+	QueryAll(ctx context.Context, withCounts bool) ([]*repository.CategoryWithCount, error)
+}
+
 // TimeEstimator provides LLM-based time estimates for task items.
 type TimeEstimator interface {
 	EstimateMinutes(ctx context.Context, title, description string) (int, error)
 }
 
-// Service provides CRUD operations for task items.
+// Service provides CRUD operations for task items and their categories.
 type Service struct {
-	repo      TaskRepository
-	estimator TimeEstimator
+	repo       TaskRepository
+	categories CategoryRepository
+	estimator  TimeEstimator
 }
 
-// NewService creates a new Service. Both repo and estimator must be non-nil.
-func NewService(repo TaskRepository, estimator TimeEstimator) (*Service, error) {
-	if repo == nil {
+// NewService creates a new Service. tasks, categories, and estimator must be non-nil.
+func NewService(tasks TaskRepository, categories CategoryRepository, estimator TimeEstimator) (*Service, error) {
+	if tasks == nil {
 		return nil, fmt.Errorf("todo service: repository must not be nil")
+	}
+	if categories == nil {
+		return nil, fmt.Errorf("todo service: category repository must not be nil")
 	}
 	if estimator == nil {
 		return nil, fmt.Errorf("todo service: estimator must not be nil")
 	}
-	return &Service{repo: repo, estimator: estimator}, nil
+	return &Service{repo: tasks, categories: categories, estimator: estimator}, nil
+}
+
+// CreateCategory normalizes rawName, validates colour, and inserts a new
+// category. The service is the only boundary that calls
+// repository.NormalizeCategoryKey before reaching the repo.
+//
+// Stub: returns ErrNotImplemented; replaced in Loop 5 GREEN.
+func (s *Service) CreateCategory(_ context.Context, _ string, _ *string) (*repository.Category, error) {
+	return nil, repository.ErrNotImplemented
+}
+
+// RenameCategory normalizes newRawName to a key. If the new key equals
+// oldKey, returns the existing category unchanged. Otherwise calls
+// categories.Rename and returns the renamed category via GetByKey.
+//
+// Stub: returns ErrNotImplemented; replaced in Loop 5 GREEN.
+func (s *Service) RenameCategory(_ context.Context, _ string, _ string) (*repository.Category, error) {
+	return nil, repository.ErrNotImplemented
+}
+
+// SetCategoryColour validates colour (if non-nil) then updates it via
+// categories.UpdateColour.
+//
+// Stub: returns ErrNotImplemented; replaced in Loop 5 GREEN.
+func (s *Service) SetCategoryColour(_ context.Context, _ string, _ *string) error {
+	return repository.ErrNotImplemented
+}
+
+// DeleteCategory removes a category by key. Tasks with this category get
+// their FK SET NULL via the schema-level cascade.
+//
+// Stub: returns ErrNotImplemented; replaced in Loop 5 GREEN.
+func (s *Service) DeleteCategory(_ context.Context, _ string) error {
+	return repository.ErrNotImplemented
+}
+
+// GetCategory looks up a category by either its canonical key or any raw
+// presentation form. It first tries GetByKey on the input as-is; on
+// ErrNotFound it normalizes the input and retries.
+//
+// Stub: returns ErrNotImplemented; replaced in Loop 5 GREEN.
+func (s *Service) GetCategory(_ context.Context, _ string) (*repository.Category, error) {
+	return nil, repository.ErrNotImplemented
+}
+
+// ListCategories returns all categories, optionally enriched with task counts.
+//
+// Stub: returns ErrNotImplemented; replaced in Loop 5 GREEN.
+func (s *Service) ListCategories(_ context.Context, _ bool) ([]*repository.CategoryWithCount, error) {
+	return nil, repository.ErrNotImplemented
 }
 
 // Create inserts a new task. Sets ID and CreatedAt if zero. Returns the created task (re-fetched from DB).

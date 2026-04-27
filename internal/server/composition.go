@@ -115,8 +115,13 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, fmt.Errorf("opening task repository: %w", err)
 	}
 
+	categoryRepo, err := sqlite.NewSQLiteCategoryRepository(cfg.Database.Path)
+	if err != nil {
+		return nil, fmt.Errorf("opening category repository: %w", err)
+	}
+
 	taskEstimator := planner.NewOllamaTaskEstimator(ollamaClient)
-	todoSvc, err := todosvc.NewService(taskRepo, taskEstimator)
+	todoSvc, err := todosvc.NewService(taskRepo, categoryRepo, taskEstimator)
 	if err != nil {
 		return nil, fmt.Errorf("creating todo service: %w", err)
 	}

@@ -2,6 +2,7 @@ package todo_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -57,6 +58,59 @@ func (m *mockTaskRepo) QueryFiltered(ctx context.Context, f repository.TaskFilte
 		return m.queryFilteredFn(ctx, f)
 	}
 	return nil, 0, fmt.Errorf("unexpected QueryFiltered call")
+}
+
+// --- Mock category repository ---
+
+type mockCategoryRepo struct {
+	insertFn       func(ctx context.Context, c *repository.Category) error
+	renameFn       func(ctx context.Context, oldKey, newKey string) error
+	updateColourFn func(ctx context.Context, key string, colour *string) error
+	deleteFn       func(ctx context.Context, key string) error
+	getByKeyFn     func(ctx context.Context, key string) (*repository.Category, error)
+	queryAllFn     func(ctx context.Context, withCounts bool) ([]*repository.CategoryWithCount, error)
+}
+
+func (m *mockCategoryRepo) Insert(ctx context.Context, c *repository.Category) error {
+	if m.insertFn != nil {
+		return m.insertFn(ctx, c)
+	}
+	return fmt.Errorf("unexpected Insert call")
+}
+
+func (m *mockCategoryRepo) Rename(ctx context.Context, oldKey, newKey string) error {
+	if m.renameFn != nil {
+		return m.renameFn(ctx, oldKey, newKey)
+	}
+	return fmt.Errorf("unexpected Rename call")
+}
+
+func (m *mockCategoryRepo) UpdateColour(ctx context.Context, key string, colour *string) error {
+	if m.updateColourFn != nil {
+		return m.updateColourFn(ctx, key, colour)
+	}
+	return fmt.Errorf("unexpected UpdateColour call")
+}
+
+func (m *mockCategoryRepo) Delete(ctx context.Context, key string) error {
+	if m.deleteFn != nil {
+		return m.deleteFn(ctx, key)
+	}
+	return fmt.Errorf("unexpected Delete call")
+}
+
+func (m *mockCategoryRepo) GetByKey(ctx context.Context, key string) (*repository.Category, error) {
+	if m.getByKeyFn != nil {
+		return m.getByKeyFn(ctx, key)
+	}
+	return nil, fmt.Errorf("unexpected GetByKey call")
+}
+
+func (m *mockCategoryRepo) QueryAll(ctx context.Context, withCounts bool) ([]*repository.CategoryWithCount, error) {
+	if m.queryAllFn != nil {
+		return m.queryAllFn(ctx, withCounts)
+	}
+	return nil, fmt.Errorf("unexpected QueryAll call")
 }
 
 // --- Mock estimator ---
@@ -167,13 +221,13 @@ func TestTodoService(t *testing.T) {
 // --- Constructor tests ---
 
 func (s *TodoServiceSuite) TestNewServiceNilRepo() {
-	svc, err := todo.NewService(nil, &mockEstimator{})
+	svc, err := todo.NewService(nil, &mockCategoryRepo{}, &mockEstimator{})
 	s.Error(err)
 	s.Nil(svc)
 }
 
 func (s *TodoServiceSuite) TestNewServiceNilEstimator() {
-	svc, err := todo.NewService(&mockTaskRepo{}, nil)
+	svc, err := todo.NewService(&mockTaskRepo{}, &mockCategoryRepo{}, nil)
 	s.Error(err)
 	s.Nil(svc)
 }
@@ -198,7 +252,7 @@ func (s *TodoServiceSuite) TestCreateSetIDAndCreatedAt() {
 		},
 	}
 
-	svc, err := todo.NewService(repo, &mockEstimator{})
+	svc, err := todo.NewService(repo, &mockCategoryRepo{}, &mockEstimator{})
 	s.Require().NoError(err)
 
 	input := &repository.Task{Title: "test task"}
@@ -230,7 +284,7 @@ func (s *TodoServiceSuite) TestCreatePreservesUserFields() {
 		},
 	}
 
-	svc, err := todo.NewService(repo, &mockEstimator{})
+	svc, err := todo.NewService(repo, &mockCategoryRepo{}, &mockEstimator{})
 	s.Require().NoError(err)
 
 	input := &repository.Task{
@@ -266,7 +320,7 @@ func (s *TodoServiceSuite) TestGet() {
 		},
 	}
 
-	svc, err := todo.NewService(repo, &mockEstimator{})
+	svc, err := todo.NewService(repo, &mockCategoryRepo{}, &mockEstimator{})
 	s.Require().NoError(err)
 
 	result, err := svc.Get(ctx, id)
@@ -284,7 +338,7 @@ func (s *TodoServiceSuite) TestGetNotFound() {
 		},
 	}
 
-	svc, err := todo.NewService(repo, &mockEstimator{})
+	svc, err := todo.NewService(repo, &mockCategoryRepo{}, &mockEstimator{})
 	s.Require().NoError(err)
 
 	result, err := svc.Get(ctx, id)
@@ -309,7 +363,7 @@ func (s *TodoServiceSuite) TestList() {
 		},
 	}
 
-	svc, err := todo.NewService(repo, &mockEstimator{})
+	svc, err := todo.NewService(repo, &mockCategoryRepo{}, &mockEstimator{})
 	s.Require().NoError(err)
 
 	results, total, err := svc.List(ctx, filter)
@@ -338,7 +392,7 @@ func (s *TodoServiceSuite) TestUpdate() {
 		},
 	}
 
-	svc, err := todo.NewService(repo, &mockEstimator{})
+	svc, err := todo.NewService(repo, &mockCategoryRepo{}, &mockEstimator{})
 	s.Require().NoError(err)
 
 	result, err := svc.Update(ctx, input)
@@ -362,7 +416,7 @@ func (s *TodoServiceSuite) TestDelete() {
 		},
 	}
 
-	svc, err := todo.NewService(repo, &mockEstimator{})
+	svc, err := todo.NewService(repo, &mockCategoryRepo{}, &mockEstimator{})
 	s.Require().NoError(err)
 
 	err = svc.Delete(ctx, id)
@@ -402,7 +456,7 @@ func (s *TodoServiceSuite) TestCreateTriggersAsyncEstimation() {
 	repo := newInMemoryTodoRepo()
 	estimator := newTrackingEstimator(25, nil)
 
-	svc, err := todo.NewService(repo, estimator)
+	svc, err := todo.NewService(repo, &mockCategoryRepo{}, estimator)
 	s.Require().NoError(err)
 
 	// Create a task with no user estimate — should trigger async LLM estimation.
@@ -437,7 +491,7 @@ func (s *TodoServiceSuite) TestCreateSkipsEstimationWhenUserEstimateProvided() {
 	repo := newInMemoryTodoRepo()
 	estimator := newTrackingEstimator(25, nil)
 
-	svc, err := todo.NewService(repo, estimator)
+	svc, err := todo.NewService(repo, &mockCategoryRepo{}, estimator)
 	s.Require().NoError(err)
 
 	// Create a todo WITH a user estimate — should NOT trigger LLM estimation.
@@ -460,7 +514,7 @@ func (s *TodoServiceSuite) TestUpdateTriggersReEstimationWhenEstimateCleared() {
 	repo := newInMemoryTodoRepo()
 	estimator := newTrackingEstimator(30, nil)
 
-	svc, err := todo.NewService(repo, estimator)
+	svc, err := todo.NewService(repo, &mockCategoryRepo{}, estimator)
 	s.Require().NoError(err)
 
 	// Pre-seed a todo with a user estimate and an existing LLM estimate.
@@ -511,7 +565,7 @@ func (s *TodoServiceSuite) TestUpdateSkipsEstimationWhenEstimateStaysNonZero() {
 	repo := newInMemoryTodoRepo()
 	estimator := newTrackingEstimator(30, nil)
 
-	svc, err := todo.NewService(repo, estimator)
+	svc, err := todo.NewService(repo, &mockCategoryRepo{}, estimator)
 	s.Require().NoError(err)
 
 	// Pre-seed a todo with a user estimate.
@@ -541,4 +595,304 @@ func (s *TodoServiceSuite) TestUpdateSkipsEstimationWhenEstimateStaysNonZero() {
 	time.Sleep(200 * time.Millisecond)
 
 	s.False(estimator.called(), "estimator should NOT be called when EstimateMinutes stays non-zero")
+}
+
+// --- Category tests (Loop 5) ---
+
+func (s *TodoServiceSuite) TestNewServiceRequiresCategoryRepo() {
+	svc, err := todo.NewService(&mockTaskRepo{}, nil, &mockEstimator{})
+	s.Error(err)
+	s.Nil(svc)
+}
+
+func (s *TodoServiceSuite) TestCreateCategoryHappyPath() {
+	ctx := context.Background()
+	var got *repository.Category
+	cats := &mockCategoryRepo{
+		insertFn: func(_ context.Context, c *repository.Category) error {
+			got = c
+			return nil
+		},
+	}
+	svc, err := todo.NewService(&mockTaskRepo{}, cats, &mockEstimator{})
+	s.Require().NoError(err)
+
+	colour := "#abcdef"
+	result, err := svc.CreateCategory(ctx, "foo BAR", &colour)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+	s.Equal("foo_bar", got.NameKey)
+	s.Require().NotNil(got.Colour)
+	s.Equal("#abcdef", *got.Colour)
+	s.False(got.CreatedAt.IsZero(), "CreatedAt should be set by service")
+	s.Require().NotNil(result)
+	s.Equal("foo_bar", result.NameKey)
+}
+
+func (s *TodoServiceSuite) TestCreateCategoryRejectsBadName() {
+	ctx := context.Background()
+	called := false
+	cats := &mockCategoryRepo{
+		insertFn: func(_ context.Context, _ *repository.Category) error {
+			called = true
+			return nil
+		},
+	}
+	svc, err := todo.NewService(&mockTaskRepo{}, cats, &mockEstimator{})
+	s.Require().NoError(err)
+
+	result, err := svc.CreateCategory(ctx, "foo_bar", nil)
+	s.Error(err)
+	s.Nil(result)
+	s.False(called, "Insert should NOT be called when name normalization fails")
+}
+
+func (s *TodoServiceSuite) TestCreateCategoryRejectsBadColour() {
+	ctx := context.Background()
+	called := false
+	cats := &mockCategoryRepo{
+		insertFn: func(_ context.Context, _ *repository.Category) error {
+			called = true
+			return nil
+		},
+	}
+	svc, err := todo.NewService(&mockTaskRepo{}, cats, &mockEstimator{})
+	s.Require().NoError(err)
+
+	bad := "red"
+	result, err := svc.CreateCategory(ctx, "work", &bad)
+	s.Error(err)
+	s.Nil(result)
+	s.False(called, "Insert should NOT be called when colour validation fails")
+}
+
+func (s *TodoServiceSuite) TestCreateCategoryDuplicate() {
+	ctx := context.Background()
+	cats := &mockCategoryRepo{
+		insertFn: func(_ context.Context, _ *repository.Category) error {
+			return repository.ErrDuplicate
+		},
+	}
+	svc, err := todo.NewService(&mockTaskRepo{}, cats, &mockEstimator{})
+	s.Require().NoError(err)
+
+	result, err := svc.CreateCategory(ctx, "work", nil)
+	s.Error(err)
+	s.True(errorsIs(err, repository.ErrDuplicate), "duplicate error should be surfaced")
+	s.Nil(result)
+}
+
+func (s *TodoServiceSuite) TestRenameCategoryHappyPath() {
+	ctx := context.Background()
+	renameCalled := false
+	cats := &mockCategoryRepo{
+		renameFn: func(_ context.Context, oldKey, newKey string) error {
+			renameCalled = true
+			s.Equal("old_key", oldKey)
+			s.Equal("new_key", newKey)
+			return nil
+		},
+		getByKeyFn: func(_ context.Context, key string) (*repository.Category, error) {
+			s.Equal("new_key", key)
+			return &repository.Category{NameKey: "new_key"}, nil
+		},
+	}
+	svc, err := todo.NewService(&mockTaskRepo{}, cats, &mockEstimator{})
+	s.Require().NoError(err)
+
+	result, err := svc.RenameCategory(ctx, "old_key", "new key")
+	s.Require().NoError(err)
+	s.True(renameCalled, "Rename should have been called")
+	s.Require().NotNil(result)
+	s.Equal("new_key", result.NameKey)
+}
+
+func (s *TodoServiceSuite) TestRenameCategoryNoOp() {
+	ctx := context.Background()
+	renameCalled := false
+	cats := &mockCategoryRepo{
+		renameFn: func(_ context.Context, _, _ string) error {
+			renameCalled = true
+			return nil
+		},
+		getByKeyFn: func(_ context.Context, key string) (*repository.Category, error) {
+			s.Equal("foo_bar", key)
+			return &repository.Category{NameKey: "foo_bar"}, nil
+		},
+	}
+	svc, err := todo.NewService(&mockTaskRepo{}, cats, &mockEstimator{})
+	s.Require().NoError(err)
+
+	result, err := svc.RenameCategory(ctx, "foo_bar", "foo BAR")
+	s.Require().NoError(err)
+	s.False(renameCalled, "Rename should NOT be called when keys match")
+	s.Require().NotNil(result)
+	s.Equal("foo_bar", result.NameKey)
+}
+
+func (s *TodoServiceSuite) TestRenameCategoryNotFound() {
+	ctx := context.Background()
+	cats := &mockCategoryRepo{
+		renameFn: func(_ context.Context, _, _ string) error {
+			return repository.ErrNotFound
+		},
+	}
+	svc, err := todo.NewService(&mockTaskRepo{}, cats, &mockEstimator{})
+	s.Require().NoError(err)
+
+	result, err := svc.RenameCategory(ctx, "missing_key", "fresh")
+	s.Error(err)
+	s.True(errorsIs(err, repository.ErrNotFound), "not-found error should be surfaced")
+	s.Nil(result)
+}
+
+func (s *TodoServiceSuite) TestSetCategoryColourValidates() {
+	ctx := context.Background()
+	called := false
+	cats := &mockCategoryRepo{
+		updateColourFn: func(_ context.Context, _ string, _ *string) error {
+			called = true
+			return nil
+		},
+	}
+	svc, err := todo.NewService(&mockTaskRepo{}, cats, &mockEstimator{})
+	s.Require().NoError(err)
+
+	bad := "not-a-colour"
+	err = svc.SetCategoryColour(ctx, "work", &bad)
+	s.Error(err)
+	s.False(called, "UpdateColour should NOT be called when colour is invalid")
+}
+
+func (s *TodoServiceSuite) TestSetCategoryColourHappyPath() {
+	ctx := context.Background()
+	var gotKey string
+	var gotColour *string
+	cats := &mockCategoryRepo{
+		updateColourFn: func(_ context.Context, key string, colour *string) error {
+			gotKey = key
+			gotColour = colour
+			return nil
+		},
+	}
+	svc, err := todo.NewService(&mockTaskRepo{}, cats, &mockEstimator{})
+	s.Require().NoError(err)
+
+	colour := "#FF0000"
+	err = svc.SetCategoryColour(ctx, "work", &colour)
+	s.Require().NoError(err)
+	s.Equal("work", gotKey)
+	s.Require().NotNil(gotColour)
+	s.Equal("#FF0000", *gotColour)
+}
+
+func (s *TodoServiceSuite) TestSetCategoryColourClearsToNil() {
+	ctx := context.Background()
+	var receivedNil bool
+	var keySeen string
+	cats := &mockCategoryRepo{
+		updateColourFn: func(_ context.Context, key string, colour *string) error {
+			keySeen = key
+			receivedNil = colour == nil
+			return nil
+		},
+	}
+	svc, err := todo.NewService(&mockTaskRepo{}, cats, &mockEstimator{})
+	s.Require().NoError(err)
+
+	err = svc.SetCategoryColour(ctx, "work", nil)
+	s.Require().NoError(err)
+	s.Equal("work", keySeen)
+	s.True(receivedNil, "nil colour should be passed through")
+}
+
+func (s *TodoServiceSuite) TestDeleteCategoryHappyPath() {
+	ctx := context.Background()
+	var gotKey string
+	cats := &mockCategoryRepo{
+		deleteFn: func(_ context.Context, key string) error {
+			gotKey = key
+			return nil
+		},
+	}
+	svc, err := todo.NewService(&mockTaskRepo{}, cats, &mockEstimator{})
+	s.Require().NoError(err)
+
+	err = svc.DeleteCategory(ctx, "work")
+	s.Require().NoError(err)
+	s.Equal("work", gotKey)
+}
+
+func (s *TodoServiceSuite) TestGetCategoryByKey() {
+	ctx := context.Background()
+	calls := 0
+	cats := &mockCategoryRepo{
+		getByKeyFn: func(_ context.Context, key string) (*repository.Category, error) {
+			calls++
+			s.Equal("foo_bar", key)
+			return &repository.Category{NameKey: "foo_bar"}, nil
+		},
+	}
+	svc, err := todo.NewService(&mockTaskRepo{}, cats, &mockEstimator{})
+	s.Require().NoError(err)
+
+	result, err := svc.GetCategory(ctx, "foo_bar")
+	s.Require().NoError(err)
+	s.Require().NotNil(result)
+	s.Equal("foo_bar", result.NameKey)
+	s.Equal(1, calls, "should resolve directly without a normalization retry")
+}
+
+func (s *TodoServiceSuite) TestGetCategoryByDisplay() {
+	ctx := context.Background()
+	keysSeen := []string{}
+	cats := &mockCategoryRepo{
+		getByKeyFn: func(_ context.Context, key string) (*repository.Category, error) {
+			keysSeen = append(keysSeen, key)
+			if key == "foo_bar" {
+				return &repository.Category{NameKey: "foo_bar"}, nil
+			}
+			return nil, repository.ErrNotFound
+		},
+	}
+	svc, err := todo.NewService(&mockTaskRepo{}, cats, &mockEstimator{})
+	s.Require().NoError(err)
+
+	result, err := svc.GetCategory(ctx, "Foo Bar")
+	s.Require().NoError(err)
+	s.Require().NotNil(result)
+	s.Equal("foo_bar", result.NameKey)
+	s.Equal([]string{"Foo Bar", "foo_bar"}, keysSeen, "should fall back to normalized lookup")
+}
+
+func (s *TodoServiceSuite) TestListCategoriesPassthrough() {
+	ctx := context.Background()
+	expected := []*repository.CategoryWithCount{
+		{Category: repository.Category{NameKey: "work"}, TaskCount: 3},
+	}
+
+	calls := []bool{}
+	cats := &mockCategoryRepo{
+		queryAllFn: func(_ context.Context, withCounts bool) ([]*repository.CategoryWithCount, error) {
+			calls = append(calls, withCounts)
+			return expected, nil
+		},
+	}
+	svc, err := todo.NewService(&mockTaskRepo{}, cats, &mockEstimator{})
+	s.Require().NoError(err)
+
+	result1, err := svc.ListCategories(ctx, true)
+	s.Require().NoError(err)
+	s.Equal(expected, result1)
+
+	result2, err := svc.ListCategories(ctx, false)
+	s.Require().NoError(err)
+	s.Equal(expected, result2)
+
+	s.Equal([]bool{true, false}, calls, "withCounts flag should pass through")
+}
+
+// errorsIs wraps errors.Is for readability.
+func errorsIs(err, target error) bool {
+	return errors.Is(err, target)
 }

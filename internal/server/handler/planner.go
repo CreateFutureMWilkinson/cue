@@ -78,11 +78,58 @@ func parseBlockType(s string) (repository.ScheduleBlockType, bool) {
 	}
 }
 
+// scheduleToResponse converts a repository.Schedule to its JSON response form.
+func scheduleToResponse(s *repository.Schedule) scheduleResponse {
+	blocks := make([]scheduleBlockItem, len(s.Blocks))
+	for i, b := range s.Blocks {
+		item := scheduleBlockItem{
+			Start:    b.Start.Format("15:04"),
+			End:      b.End.Format("15:04"),
+			Type:     blockTypeString(b.Type),
+			TaskName: b.TaskName,
+		}
+		if b.TaskID != nil {
+			str := b.TaskID.String()
+			item.TaskID = &str
+		}
+		blocks[i] = item
+	}
+	return scheduleResponse{
+		Date:      s.Date.Format("2006-01-02"),
+		Strategy:  s.Strategy,
+		Blocks:    blocks,
+		CreatedAt: s.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+// parseDateParam extracts and validates a {date} path parameter.
+func parseDateParam(r *http.Request) (time.Time, error) {
+	return time.Parse("2006-01-02", r.PathValue("date"))
+}
+
+// GetScheduleHandler returns an http.HandlerFunc for GET /api/v1/planner/{date}.
+func GetScheduleHandler(repo ScheduleStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		date, err := parseDateParam(r)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid date format")
+			return
+		}
+
+		schedule, err := repo.LoadByDate(r.Context(), date)
+		if err != nil {
+			writeNotFoundOrError(w, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, scheduleToResponse(schedule))
+	}
+}
+
 // PutScheduleHandler returns an http.HandlerFunc for PUT /api/v1/planner/{date}.
 func PutScheduleHandler(store ScheduleStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		dateStr := r.PathValue("date")
-		date, err := time.Parse("2006-01-02", dateStr)
+		date, err := parseDateParam(r)
 		if err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid date format")
 			return
@@ -132,36 +179,14 @@ func PutScheduleHandler(store ScheduleStore) http.HandlerFunc {
 			return
 		}
 
-		respBlocks := make([]scheduleBlockItem, len(schedule.Blocks))
-		for i, b := range schedule.Blocks {
-			item := scheduleBlockItem{
-				Start:    b.Start.Format("15:04"),
-				End:      b.End.Format("15:04"),
-				Type:     blockTypeString(b.Type),
-				TaskName: b.TaskName,
-			}
-			if b.TaskID != nil {
-				s := b.TaskID.String()
-				item.TaskID = &s
-			}
-			respBlocks[i] = item
-		}
-
-		resp := scheduleResponse{
-			Date:      schedule.Date.Format("2006-01-02"),
-			Strategy:  schedule.Strategy,
-			Blocks:    respBlocks,
-			CreatedAt: schedule.CreatedAt.Format(time.RFC3339),
-		}
-		writeJSON(w, http.StatusOK, resp)
+		writeJSON(w, http.StatusOK, scheduleToResponse(schedule))
 	}
 }
 
 // DeleteScheduleHandler returns an http.HandlerFunc for DELETE /api/v1/planner/{date}.
 func DeleteScheduleHandler(store ScheduleStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		dateStr := r.PathValue("date")
-		date, err := time.Parse("2006-01-02", dateStr)
+		date, err := parseDateParam(r)
 		if err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid date format")
 			return
@@ -178,46 +203,5 @@ func DeleteScheduleHandler(store ScheduleStore) http.HandlerFunc {
 		}
 
 		w.WriteHeader(http.StatusNoContent)
-	}
-}
-
-// GetScheduleHandler returns an http.HandlerFunc for GET /api/v1/planner/{date}.
-func GetScheduleHandler(repo ScheduleStore) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		dateStr := r.PathValue("date")
-		date, err := time.Parse("2006-01-02", dateStr)
-		if err != nil {
-			writeJSONError(w, http.StatusBadRequest, "invalid date format")
-			return
-		}
-
-		schedule, err := repo.LoadByDate(r.Context(), date)
-		if err != nil {
-			writeNotFoundOrError(w, err)
-			return
-		}
-
-		blocks := make([]scheduleBlockItem, len(schedule.Blocks))
-		for i, b := range schedule.Blocks {
-			item := scheduleBlockItem{
-				Start:    b.Start.Format("15:04"),
-				End:      b.End.Format("15:04"),
-				Type:     blockTypeString(b.Type),
-				TaskName: b.TaskName,
-			}
-			if b.TaskID != nil {
-				s := b.TaskID.String()
-				item.TaskID = &s
-			}
-			blocks[i] = item
-		}
-
-		resp := scheduleResponse{
-			Date:      schedule.Date.Format("2006-01-02"),
-			Strategy:  schedule.Strategy,
-			Blocks:    blocks,
-			CreatedAt: schedule.CreatedAt.Format(time.RFC3339),
-		}
-		writeJSON(w, http.StatusOK, resp)
 	}
 }

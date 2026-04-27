@@ -174,9 +174,34 @@ func DeleteBufferedHandler(repo MessageQuerier, buf BufferRater) http.HandlerFun
 	}
 }
 
+// bufferStatsResponse is the JSON envelope for the buffer stats endpoint.
+type bufferStatsResponse struct {
+	TotalBuffered int            `json:"total_buffered"`
+	BySource      map[string]int `json:"by_source"`
+}
+
 // BufferStatsHandler returns an http.HandlerFunc for GET /api/v1/buffer/stats.
 func BufferStatsHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeJSONError(w, http.StatusNotImplemented, "not implemented")
+		filter := repository.MessageFilter{
+			Status: "Buffered",
+			Limit:  10000,
+		}
+
+		msgs, total, err := repo.QueryFiltered(r.Context(), filter)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to query buffered messages")
+			return
+		}
+
+		bySource := make(map[string]int)
+		for _, m := range msgs {
+			bySource[m.Source]++
+		}
+
+		writeJSON(w, http.StatusOK, bufferStatsResponse{
+			TotalBuffered: total,
+			BySource:      bySource,
+		})
 	}
 }

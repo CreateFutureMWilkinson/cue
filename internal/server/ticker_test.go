@@ -3,6 +3,7 @@ package server_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -348,4 +349,260 @@ func (s *TickerSuite) TestStopsOnContextCancellation() {
 	// Verify no further events arrive after cancellation has settled.
 	_, gotMore := readTickEvent(sub, 100*time.Millisecond)
 	s.False(gotMore, "expected no further ticks after context cancellation")
+}
+
+// ---------------------------------------------------------------------------
+// Behavior 15: Start with no schedule — does not tick
+// ---------------------------------------------------------------------------
+
+func (s *TickerSuite) TestStartWithNoScheduleDoesNotTick() {
+	now := time.Date(2026, 4, 22, 9, 0, 0, 0, time.UTC)
+	clock := &mockTickerClock{now: now}
+
+	loader := &mockScheduleLoader{
+		schedule: nil,
+		loadErr:  errors.New("not found"),
+	}
+	hub := server.NewHub()
+	sub, err := hub.Subscribe("test-no-schedule")
+	s.Require().NoError(err)
+
+	ticker := server.NewTicker(loader, hub, clock, "09:00", "17:00")
+	ticker.TickInterval = 10 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ticker.Start(ctx)
+	defer ticker.Stop()
+
+	// Wait long enough for several ticks to have occurred if the ticker were running.
+	_, ok := readTickEvent(sub, 100*time.Millisecond)
+	s.False(ok, "expected no timer_tick events when schedule load fails")
+}
+
+// ---------------------------------------------------------------------------
+// Behavior 17: Late start — computes correct position in schedule
+// ---------------------------------------------------------------------------
+
+func (s *TickerSuite) TestLateStartComputesCorrectPosition() {
+	base := time.Date(2026, 4, 22, 9, 0, 0, 0, time.UTC)
+	// Start 15 minutes into a 25-minute focus block.
+	now := base.Add(15 * time.Minute)
+	clock := &mockTickerClock{now: now}
+
+	schedule := makeSchedule([]repository.ScheduleBlock{
+		{
+			Start:    base,
+			End:      base.Add(25 * time.Minute),
+			Type:     repository.ScheduleBlockFocus,
+			TaskName: "Late start task",
+		},
+	})
+
+	loader := &mockScheduleLoader{schedule: schedule}
+	hub := server.NewHub()
+	sub, err := hub.Subscribe("test-late-start")
+	s.Require().NoError(err)
+
+	ticker := server.NewTicker(loader, hub, clock, "09:00", "17:00")
+	ticker.TickInterval = 10 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ticker.Start(ctx)
+	defer ticker.Stop()
+
+	tick, ok := readTickEvent(sub, 500*time.Millisecond)
+	s.Require().True(ok, "expected at least one timer_tick event")
+	s.True(tick.Running)
+	s.Equal(900, tick.ElapsedSeconds, "should report 900 elapsed seconds (15 min)")
+	s.Equal(600, tick.RemainingSeconds, "should report 600 remaining seconds (10 min)")
+}
+
+// ---------------------------------------------------------------------------
+// Behavior 18: Work window — stops outside window
+// ---------------------------------------------------------------------------
+
+func (s *TickerSuite) TestStopsOutsideWorkWindow() {
+	base := time.Date(2026, 4, 22, 9, 0, 0, 0, time.UTC)
+	// Start 10 minutes into the block.
+	now := base.Add(10 * time.Minute)
+	clock := &mockTickerClock{now: now}
+
+	schedule := makeSchedule([]repository.ScheduleBlock{
+		{
+			Start:    base,
+			End:      base.Add(25 * time.Minute),
+			Type:     repository.ScheduleBlockFocus,
+			TaskName: "Window test",
+		},
+	})
+
+	loader := &mockScheduleLoader{schedule: schedule}
+	hub := server.NewHub()
+	sub, err := hub.Subscribe("test-work-window")
+	s.Require().NoError(err)
+
+	// Work window ends at 09:12, so the ticker should stop shortly after.
+	ticker := server.NewTicker(loader, hub, clock, "09:00", "09:12")
+	ticker.TickInterval = 10 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ticker.Start(ctx)
+	defer ticker.Stop()
+
+	// Confirm at least one tick while within the work window.
+	tick, ok := readTickEvent(sub, 500*time.Millisecond)
+	s.Require().True(ok, "expected at least one tick within work window")
+	s.True(tick.Running)
+
+	// Advance clock past the work window end (09:12).
+	clock.Advance(3 * time.Minute) // now at 09:13
+
+	// After advancing past work end, collect ticks for a bounded period.
+	// The ticker should either emit Running=false or stop entirely.
+	// Use a short deadline so the test fails fast if the ticker keeps running.
+	deadline := time.After(500 * time.Millisecond)
+	foundRunningAfterWindow := false
+	foundStopped := false
+
+	for !foundStopped {
+		select {
+		case raw := <-sub.Events:
+			var env server.ActivityEnvelope
+			if err := json.Unmarshal(raw, &env); err != nil {
+				continue
+			}
+			if env.Type != "timer_tick" {
+				continue
+			}
+			dataBytes, _ := json.Marshal(env.Data)
+			var td server.TimerTickData
+			if err := json.Unmarshal(dataBytes, &td); err != nil {
+				continue
+			}
+			if !td.Running {
+				foundStopped = true
+			} else if td.ElapsedSeconds > 720 {
+				foundRunningAfterWindow = true
+			}
+		case <-deadline:
+			// If we hit the deadline without a stopped tick, the ticker is still
+			// running past the work window — this is the expected RED failure.
+			s.Fail("ticker did not stop after work window ended (timed out waiting)")
+			return
+		}
+	}
+
+	s.False(foundRunningAfterWindow, "expected ticker to stop after work window ends")
+	s.True(foundStopped, "expected a Running=false tick after work window ends")
+}
+
+// ---------------------------------------------------------------------------
+// Behavior 19: NotifyScheduleChanged — reloads and restarts
+// ---------------------------------------------------------------------------
+
+func (s *TickerSuite) TestNotifyScheduleChangedReloadsSchedule() {
+	now := time.Date(2026, 4, 22, 9, 0, 0, 0, time.UTC)
+	clock := &mockTickerClock{now: now}
+
+	scheduleA := makeSchedule([]repository.ScheduleBlock{
+		{
+			Start:    now,
+			End:      now.Add(25 * time.Minute),
+			Type:     repository.ScheduleBlockFocus,
+			TaskName: "Task A",
+		},
+	})
+
+	loader := &mockScheduleLoader{schedule: scheduleA}
+	hub := server.NewHub()
+	sub, err := hub.Subscribe("test-schedule-changed")
+	s.Require().NoError(err)
+
+	ticker := server.NewTicker(loader, hub, clock, "09:00", "17:00")
+	ticker.TickInterval = 10 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ticker.Start(ctx)
+	defer ticker.Stop()
+
+	// Confirm we receive a tick with "Task A".
+	tickA, ok := readTickEvent(sub, 500*time.Millisecond)
+	s.Require().True(ok, "expected a tick from schedule A")
+	s.Equal("Task A", tickA.TaskName)
+
+	// Swap the mock store to schedule B.
+	scheduleB := makeSchedule([]repository.ScheduleBlock{
+		{
+			Start:    now,
+			End:      now.Add(25 * time.Minute),
+			Type:     repository.ScheduleBlockFocus,
+			TaskName: "Task B",
+		},
+	})
+	loader.mu.Lock()
+	loader.schedule = scheduleB
+	loader.mu.Unlock()
+
+	// Notify the ticker that the schedule changed.
+	ticker.NotifyScheduleChanged(ctx)
+
+	// Read ticks until we see "Task B".
+	foundTaskB := false
+	for i := 0; i < 20; i++ {
+		tick, ok := readTickEvent(sub, 200*time.Millisecond)
+		if !ok {
+			break
+		}
+		if tick.TaskName == "Task B" {
+			foundTaskB = true
+			break
+		}
+	}
+	s.True(foundTaskB, "expected ticks from schedule B after NotifyScheduleChanged")
+}
+
+// ---------------------------------------------------------------------------
+// Behavior 20: Stop is idempotent
+// ---------------------------------------------------------------------------
+
+func (s *TickerSuite) TestStopIdempotent() {
+	now := time.Date(2026, 4, 22, 9, 0, 0, 0, time.UTC)
+	clock := &mockTickerClock{now: now}
+
+	schedule := makeSchedule([]repository.ScheduleBlock{
+		{
+			Start:    now,
+			End:      now.Add(25 * time.Minute),
+			Type:     repository.ScheduleBlockFocus,
+			TaskName: "Idempotent stop",
+		},
+	})
+
+	loader := &mockScheduleLoader{schedule: schedule}
+	hub := server.NewHub()
+
+	ticker := server.NewTicker(loader, hub, clock, "09:00", "17:00")
+	ticker.TickInterval = 10 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ticker.Start(ctx)
+
+	// Give the ticker time to start its goroutine.
+	time.Sleep(30 * time.Millisecond)
+
+	// Call Stop twice — should not panic or deadlock.
+	ticker.Stop()
+	ticker.Stop()
+
+	// If we reach here, no panic or deadlock occurred.
 }

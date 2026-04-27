@@ -69,12 +69,24 @@ func (t *Ticker) tickLoop(ctx context.Context, schedule planner.DaySchedule) {
 	ticker := time.NewTicker(t.TickInterval)
 	defer ticker.Stop()
 
+	endParsed, _ := time.Parse("15:04", t.workEnd)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			now := t.clock.Now()
+
+			// Stop if the clock has passed the work window end time.
+			workEndToday := time.Date(now.Year(), now.Month(), now.Day(), endParsed.Hour(), endParsed.Minute(), 0, 0, time.UTC)
+			if !now.Before(workEndToday) {
+				t.hub.PublishTimerTick(TimerTickData{
+					Running: false,
+				})
+				return
+			}
+
 			state := planner.ComputeTimerState(&schedule, now)
 
 			if !state.Running {

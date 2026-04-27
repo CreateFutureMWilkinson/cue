@@ -17,7 +17,10 @@ import (
 // Nil fields disable the corresponding API surface.
 type Deps struct {
 	Messages handler.MessageQuerier
-	Hub      *Hub // optional: if nil, New creates its own hub
+	// Hub is the WebSocket event broadcaster. If nil, New creates its own hub.
+	// Inject a shared hub when you need external components (orchestrator, queue processor)
+	// to publish events to the same WebSocket clients that connect to this server.
+	Hub *Hub
 }
 
 // Server is the headless HTTP/WebSocket entry point for Cue.

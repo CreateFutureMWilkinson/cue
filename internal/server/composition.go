@@ -50,8 +50,8 @@ type Composition struct {
 	// RulesEngine holds compiled deterministic routing rules
 	RulesEngine *decisionengine.RulesEngine
 
-	// HTTP is the headless HTTP/WebSocket server surface.
-	// TODO(B10): construct HTTP server and wire shared hub
+	// HTTP is the headless HTTP/WebSocket server surface. It exposes REST and WebSocket
+	// APIs for GUI clients. Started by the caller via HTTP.Start().
 	HTTP *Server
 
 	// Hub is the central event broadcaster for WebSocket clients
@@ -91,11 +91,9 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, err
 	}
 
-	// Construct the HTTP server surface, sharing the orchestration hub so
-	// that WebSocket clients and the publisher goroutine use the same Hub.
-	httpSrv, err := New(cfg.Server, Deps{Messages: msgRepo, Hub: hub})
+	httpSrv, err := constructHTTPServer(cfg, msgRepo, hub)
 	if err != nil {
-		return nil, fmt.Errorf("creating http server: %w", err)
+		return nil, err
 	}
 
 	return &Composition{
@@ -189,6 +187,11 @@ func constructServices(ctx context.Context, cfg config.Config, ruleRepo reposito
 	rulesEngine := decisionengine.NewRulesEngine(ruleList)
 
 	return ollamaClient, vectorStore, rulesEngine, nil
+}
+
+// constructHTTPServer builds the HTTP/WebSocket server surface with shared hub.
+func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository, hub *Hub) (*Server, error) {
+	return New(cfg.Server, Deps{Messages: msgRepo, Hub: hub})
 }
 
 // startOrchestration creates the hub, alerter, orchestrator, and queue processor,

@@ -12,6 +12,18 @@ import (
 // embedded API documentation files are served.
 const docsAPIBasePath = "/docs/api/"
 
+// docsAPISwaggerPath is the Swagger UI endpoint path.
+const docsAPISwaggerPath = "/docs/api"
+
+// docsAPIWebSocketPath is the WebSocket reference documentation endpoint path.
+const docsAPIWebSocketPath = "/docs/api/websocket"
+
+// Content-Type constants for embedded documentation assets.
+const (
+	yamlContentType     = "application/yaml; charset=utf-8"
+	markdownContentType = "text/plain; charset=utf-8"
+)
+
 // registerDocsRoutes mounts the API documentation surface:
 //
 //   - GET /docs/api               -> Swagger UI (HTML)
@@ -30,17 +42,17 @@ func (s *Server) registerDocsRoutes() {
 	)
 
 	// Swagger UI HTML at both /docs/api and /docs/api/.
-	s.mux.Handle("GET /docs/api", swaggerUI)
-	s.mux.Handle("GET /docs/api/", swaggerUI)
+	s.mux.Handle("GET "+docsAPISwaggerPath, swaggerUI)
+	s.mux.Handle("GET "+docsAPISwaggerPath+"/", swaggerUI)
 
 	// Serve the embedded OpenAPI spec.
 	s.mux.HandleFunc("GET "+docsAPIBasePath+apidocs.OpenAPISpecFile, func(w http.ResponseWriter, r *http.Request) {
-		serveEmbeddedFile(w, r, apidocs.OpenAPISpecFile, "application/yaml; charset=utf-8")
+		serveEmbeddedFile(w, r, apidocs.OpenAPISpecFile, yamlContentType)
 	})
 
 	// Serve the embedded WebSocket reference (Markdown).
-	s.mux.HandleFunc("GET /docs/api/websocket", func(w http.ResponseWriter, r *http.Request) {
-		serveEmbeddedFile(w, r, apidocs.WebSocketRefFile, "text/plain; charset=utf-8")
+	s.mux.HandleFunc("GET "+docsAPIWebSocketPath, func(w http.ResponseWriter, r *http.Request) {
+		serveEmbeddedFile(w, r, apidocs.WebSocketRefFile, markdownContentType)
 	})
 }
 
@@ -48,7 +60,7 @@ func (s *Server) registerDocsRoutes() {
 func serveEmbeddedFile(w http.ResponseWriter, _ *http.Request, name, contentType string) {
 	data, err := apidocs.FS.ReadFile(name)
 	if err != nil {
-		http.Error(w, "documentation asset not found", http.StatusNotFound)
+		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 	w.Header().Set("Content-Type", contentType)

@@ -1,0 +1,80 @@
+package servicemanager
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/google/uuid"
+
+	"github.com/CreateFutureMWilkinson/cue/internal/repository"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
+)
+
+// ErrNotImplemented is returned by stubs that have not yet been replaced with real logic.
+var ErrNotImplemented = errors.New("not implemented")
+
+// ServiceConfigRepo defines the subset of repository.ServiceConfigRepository used by ServiceManager
+// for managing service account configurations across Slack, Email, and Calendar providers.
+type ServiceConfigRepo interface {
+	ListSlackAccounts(ctx context.Context) ([]*repository.SlackAccount, error)
+	GetSlackAccount(ctx context.Context, id uuid.UUID) (*repository.SlackAccount, error)
+	UpsertSlackAccount(ctx context.Context, acct *repository.SlackAccount) error
+	DeleteSlackAccount(ctx context.Context, id uuid.UUID) error
+	ListEmailAccounts(ctx context.Context) ([]*repository.EmailAccount, error)
+	GetEmailAccount(ctx context.Context, id uuid.UUID) (*repository.EmailAccount, error)
+	UpsertEmailAccount(ctx context.Context, acct *repository.EmailAccount) error
+	DeleteEmailAccount(ctx context.Context, id uuid.UUID) error
+	ListCalendarAccounts(ctx context.Context) ([]*repository.CalendarAccount, error)
+	GetCalendarAccount(ctx context.Context, id uuid.UUID) (*repository.CalendarAccount, error)
+	UpsertCalendarAccount(ctx context.Context, acct *repository.CalendarAccount) error
+	DeleteCalendarAccount(ctx context.Context, id uuid.UUID) error
+}
+
+// WatcherLifecycle defines the subset of orchestrator.Orchestrator used for watcher
+// lifecycle management - adding, removing, and listing active watchers.
+type WatcherLifecycle interface {
+	AddWatcher(name string, w orchestrator.Watcher)
+	RemoveWatcher(name string)
+	ListWatcherNames() []string
+}
+
+// WatcherFactory creates and registers a watcher for the given account type and ID.
+type WatcherFactory func(accountType string, accountID uuid.UUID) error
+
+// MessageDeleter deletes messages associated with a source account, providing
+// cascade deletion when service accounts are removed.
+type MessageDeleter interface {
+	DeleteBySourceAccount(ctx context.Context, source, sourceAccount string) (int64, error)
+}
+
+// ServiceManager coordinates service configuration CRUD with watcher lifecycle management.
+type ServiceManager struct {
+	repo           ServiceConfigRepo
+	watchers       WatcherLifecycle
+	watcherFactory WatcherFactory
+	messageDeleter MessageDeleter
+}
+
+// NewServiceManager creates a ServiceManager with the given dependencies.
+// Returns an error if any dependency is nil.
+func NewServiceManager(repo ServiceConfigRepo, watchers WatcherLifecycle, factory WatcherFactory, messageDeleter MessageDeleter) (*ServiceManager, error) {
+	if repo == nil {
+		return nil, fmt.Errorf("service manager: repository must not be nil")
+	}
+	if watchers == nil {
+		return nil, fmt.Errorf("service manager: watcher lifecycle must not be nil")
+	}
+	if factory == nil {
+		return nil, fmt.Errorf("service manager: watcher factory must not be nil")
+	}
+	if messageDeleter == nil {
+		return nil, fmt.Errorf("service manager: message deleter must not be nil")
+	}
+	return &ServiceManager{
+		repo:           repo,
+		watchers:       watchers,
+		watcherFactory: factory,
+		messageDeleter: messageDeleter,
+	}, nil
+}

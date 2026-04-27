@@ -13,6 +13,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Message & notification REST API** — Six endpoints under `/api/v1/`: list/get/resolve/dismiss notifications, list/get messages. Notifications endpoint returns messages with status "Notified"; messages endpoint supports filtering by status, source, channel, and date. Pagination via limit/offset (default 50, max 200). New `QueryFiltered` method on `MessageRepository` with dynamic SQL WHERE clause. Handlers use `MessageQuerier` consumer-focused interface. Server accepts optional `Deps` for dependency injection. (Phase-9-Feature-098)
 - **`cue-server` binary + HTTP server foundation** — New headless entry point at `cmd/cue-server/` that loads `~/.cue/config.toml`, starts an HTTP server, and shuts down cleanly on SIGINT/SIGTERM. `internal/server/` provides the lifecycle (`Server`), a WebSocket-ready broadcaster (`Hub`), `/health` + `/health/ready` endpoints with pluggable `SubsystemChecker`s, and a middleware stack (Recovery, RequestID, CORS, ContentType, Logging). Config gains a `[server]` section (host, port, read/write timeouts; defaults to `0.0.0.0:7130` with TOFU auth as the trust boundary). Repository/service/watcher wiring and authentication are deferred to subsequent Phase 9 features. (Phase-9-Feature-097)
 
 ### Breaking

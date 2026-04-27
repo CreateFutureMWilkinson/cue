@@ -1,170 +1,97 @@
 # Feature 098: Message & Notification API
 
 **Phase:** Phase-9-Feature-098
-**Status:** Planning
-**Package:** `internal/server/handler/`
+**Status:** Complete
+**Package:** `internal/server/handler/`, `internal/repository/`
 
 ---
 
 ## Overview
 
-Expose message querying and notification management over REST. This is the highest-value API surface — it's what any alternative UI needs first to show the user what requires their attention.
+Exposes message querying and notification management over REST. This is the highest-value API surface — it's what any alternative UI needs first to show the user what requires their attention.
 
-## Endpoints
+## Design Decisions
 
-### List Notifications
+### Preview vs Full Content
 
-```
-GET /api/v1/notifications?limit=50&offset=0
-```
-
-Returns messages with status "Notified" that haven't been resolved. Ordered by `created_at` descending (newest first).
-
-**Response:**
-```json
-{
-  "notifications": [
-    {
-      "id": "uuid",
-      "source": "slack",
-      "source_account": "T...",
-      "sender": "alice",
-      "channel": "#incidents",
-      "preview": "Server CPU at 9...",
-      "importance_score": 9.0,
-      "confidence_score": 0.95,
-      "created_at": "2026-04-10T14:30:00Z"
-    }
-  ],
-  "total": 12
-}
-```
-
-**Question: Preview truncation.** The GUI truncates fields to 15 characters for the notification queue. Should the API return full content and let the client truncate, or include both `preview` (truncated) and `content` (full)? Recommend: return full content, let clients decide presentation.
-
-### Get Notification Detail
-
-```
-GET /api/v1/notifications/{id}
-```
-
-Returns full message details including raw content, reasoning, and timestamps.
-
-**Response:**
-```json
-{
-  "id": "uuid",
-  "source": "slack",
-  "source_account": "T...",
-  "channel": "#incidents",
-  "sender": "alice",
-  "message_id": "slack-native-id",
-  "content": "Server CPU at 98% — need someone to look at prod-web-03 immediately",
-  "importance_score": 9.0,
-  "confidence_score": 0.95,
-  "reasoning": "Server incident requiring immediate attention, high urgency language",
-  "status": "Notified",
-  "created_at": "2026-04-10T14:30:00Z",
-  "updated_at": "2026-04-10T14:30:00Z"
-}
-```
-
-### Resolve Notification
-
-```
-POST /api/v1/notifications/{id}/resolve
-```
-
-Sets status to "Resolved" and records `resolved_at`. Returns 200 on success, 404 if not found, 409 if already resolved.
-
-### Dismiss Notification
-
-```
-POST /api/v1/notifications/{id}/dismiss
-```
-
-Sets status to "Ignored". Returns 200 on success, 404 if not found.
-
-### List Messages (General)
-
-```
-GET /api/v1/messages?status=Notified&source=slack&limit=50&offset=0
-```
-
-More general query endpoint. Supports filtering by status, source, date range.
-
-**Query parameters:**
-- `status` — Filter by status (Notified, Buffered, Ignored, Resolved, Pending)
-- `source` — Filter by source (slack, email)
-- `channel` — Filter by channel name
-- `since` — Only messages created after this RFC 3339 timestamp
-- `limit` — Page size (default 50, max 200)
-- `offset` — Pagination offset
-
-**Question: Should this endpoint exist alongside the notifications endpoint?** The notifications endpoint is a convenience view (status=Notified, unresolved). The messages endpoint is the general-purpose query. Having both reduces confusion — clients that only care about "what needs attention" use `/notifications`, clients that need full history use `/messages`.
-
-### Get Message by ID
-
-```
-GET /api/v1/messages/{id}
-```
-
-Same shape as notification detail but works for any message regardless of status.
-
-## Design Decisions to Make
+**Decision: Return full content.** The API returns `content` (the full `RawContent` field) and lets clients decide on truncation and presentation. The GUI truncates to 15 characters, but a TUI or mobile client may want different truncation or none at all.
 
 ### Pagination Strategy
 
-**Question: Offset-based or cursor-based pagination?**
+**Decision: Offset-based for v1.** Both `/notifications` and `/messages` use `?limit=N&offset=N`. The notification list is typically small (<100 items) and refreshed frequently; the messages list could grow but offset is simpler to implement. Revisit cursor-based if clients report pagination issues.
 
-- **Offset-based** (`?offset=50&limit=50`): Simple, familiar. But if new messages arrive between page fetches, items can shift — client might see duplicates or miss items.
-- **Cursor-based** (`?after=uuid&limit=50`): Stable under concurrent writes. More complex to implement (need indexed cursor column). Better for real-time systems.
-
-The notification list is small (typically <100 items) and refreshed frequently. Offset is probably fine. The general messages endpoint could grow large over time — cursor might be worth it there.
-
-**Recommendation:** Offset for v1 on both endpoints. Revisit if clients report pagination issues with large message histories.
+Limit is clamped: default 50, max 200 (enforced in `QueryFiltered`).
 
 ### Content Sanitization
 
-**Question: Should `raw_content` be returned as-is, or sanitized?**
-
-Message content comes from Slack and Email — it could contain HTML, markdown, emoji shortcodes, or arbitrary formatting. Options:
-- Return raw, let client handle rendering
-- Strip to plain text server-side
-- Return both `raw_content` and `plain_text`
-
-**Recommendation:** Return `content` as the raw stored value. The server shouldn't make presentation decisions for unknown future clients.
+**Decision: Return raw.** The server returns `content` as the raw stored value from Slack/Email. No server-side sanitization — unknown future clients need to make their own rendering decisions.
 
 ### Batch Operations
 
-**Question: Should resolve/dismiss support batch operations?**
+**Decision: Deferred.** Resolve/dismiss operate on single notifications. Batch support (`POST /api/v1/notifications/batch`) can be added as a non-breaking new endpoint later.
 
-```
-POST /api/v1/notifications/batch
-{"action": "resolve", "ids": ["uuid1", "uuid2", ...]}
-```
+### Handler Architecture
 
-A TUI or mobile UI might want "resolve all" or "resolve selected". Adding batch support later is non-breaking (new endpoint), so deferring is safe.
+**Decision: Consumer-focused interface.** Handlers depend on `MessageQuerier` (a 3-method interface: `QueryFiltered`, `QueryByID`, `Update`) rather than the full `MessageRepository`. This keeps the handler package testable with minimal mocks and decoupled from repository internals.
 
-## Behaviors to Implement
+The server accepts an optional `Deps` struct with a `Messages` field. When nil, notification/message routes are not registered — the server still functions for health checks.
 
-1. **List notifications handler** — Query messages with status "Notified", return paginated JSON.
-2. **Get notification detail handler** — Query by ID, return full message, 404 if missing.
-3. **Resolve notification handler** — Update status to "Resolved", set `resolved_at`, 404/409 error cases.
-4. **Dismiss notification handler** — Update status to "Ignored", 404 if missing.
-5. **List messages handler** — General query with status/source/channel/date filters, pagination.
-6. **Get message handler** — By ID, any status.
+## Endpoints
 
-## Dependencies
+### GET /api/v1/notifications
 
-- `MessageRepository` interface (already exists: `QueryByStatus`, `QueryByID`, `Update`)
-- May need a new `QueryFiltered(ctx, filters) ([]*Message, int, error)` method on the repository for the general messages endpoint with combined filters, or compose from existing methods.
+Lists messages with status "Notified", newest first. Pagination via `?limit=50&offset=0`.
 
-## Questions Summary
+### GET /api/v1/notifications/{id}
 
-1. Return full content or truncated previews?
-2. Offset or cursor pagination?
-3. Sanitize content or return raw?
-4. Batch resolve/dismiss in v1 or defer?
-5. Does `MessageRepository` need a new filtered query method, or can existing methods compose?
-6. Should the response include a `self` link or other HATEOAS-style navigation?
+Full message detail including reasoning, timestamps, and resolved_at.
+
+### POST /api/v1/notifications/{id}/resolve
+
+Sets status to "Resolved" and records `resolved_at`. Returns 404 if not found, 409 if already resolved.
+
+### POST /api/v1/notifications/{id}/dismiss
+
+Sets status to "Ignored". Returns 404 if not found.
+
+### GET /api/v1/messages
+
+General query with filters: `status`, `source`, `channel`, `since` (RFC 3339), `limit`, `offset`.
+
+### GET /api/v1/messages/{id}
+
+Full message detail for any message regardless of status.
+
+## Repository Changes
+
+Added `MessageFilter` struct and `QueryFiltered(ctx, filter) ([]*Message, int, error)` to `MessageRepository` interface. The SQLite implementation builds a dynamic WHERE clause from non-empty filter fields, runs a COUNT(*) for the total, and applies LIMIT/OFFSET with clamping. Existing `QueryByStatus` is unchanged (has a TODO for the user to consolidate later).
+
+## Error Handling
+
+| Condition | HTTP Status | Response |
+|---|---|---|
+| Message not found | 404 | `{"error": "not found"}` |
+| Invalid UUID in path | 404 | `{"error": "not found"}` |
+| Already resolved | 409 | `{"error": "already resolved"}` |
+| Database error | 500 | `{"error": "..."}` |
+
+## Test Coverage
+
+| Suite | Tests | Coverage |
+|---|---|---|
+| NotificationHandlerSuite | 8 tests | List, get detail, resolve (success/not-found/conflict), dismiss (success/not-found) |
+| MessageHandlerSuite | 3 tests | List with filters, get detail, not found |
+| MessageRepoSuite (QueryFiltered) | 1 test | Filter by status with pagination |
+
+## TDD Agent Stats
+
+| Behavior | RED | GREEN | REFACTOR |
+|---|---|---|---|
+| QueryFiltered | b54e45d | a0bddf1 | 7d2ee1d |
+| ListNotifications | 2b5d7bd | c8d8f19 | — |
+| GetNotification | ba6f12a | e8c9006 | — |
+| ResolveNotification | e41b4b8 | 49285a0 | — |
+| DismissNotification | ea91780 | 513d893 | — |
+| ListMessages | c5a7d34 | 02d99eb | — |
+| GetMessage | 45e53fe | a72e487 | — |
+| Wiring | — | 49e6d37 | — |

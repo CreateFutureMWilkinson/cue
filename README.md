@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–7 complete. Phase 8 in progress: routing rules (084-085), Ollama queue (086), orchestrator refactor (087), startup import (088), Rules settings tab (089), default rules migration (090), queue health monitoring (091), structured output + prompt optimization (092), model benchmark tool (093), and calibration loop redesign (094) done. Phase 9 started: server infrastructure + composition root (097) — `cue-server` headless binary with health endpoints, middleware stack, and WebSocket-ready broadcaster. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–8 complete. Phase 9 in progress: server infrastructure + composition root (097) and message & notification REST API (098) done — `cue-server` headless binary with health endpoints, middleware stack, WebSocket-ready broadcaster, and six REST endpoints for querying/managing notifications and messages. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 

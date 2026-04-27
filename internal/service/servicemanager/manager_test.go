@@ -103,6 +103,7 @@ func (m *mockRepo) DeleteCalendarAccount(_ context.Context, id uuid.UUID) error 
 
 type mockWatchers struct {
 	removedNames []string
+	watcherNames []string
 }
 
 func (m *mockWatchers) AddWatcher(_ string, _ orchestrator.Watcher) {}
@@ -112,7 +113,7 @@ func (m *mockWatchers) RemoveWatcher(name string) {
 }
 
 func (m *mockWatchers) ListWatcherNames() []string {
-	return nil
+	return m.watcherNames
 }
 
 type mockMessageDeleter struct {
@@ -1625,4 +1626,144 @@ func (s *ServiceManagerSuite) TestToggleCalendarAccount_Disable() {
 	s.Empty(watchers.removedNames)
 	s.Equal("", factory.calledType)
 	s.Equal(uuid.Nil, factory.calledID)
+}
+
+// --- Status ---
+
+func (s *ServiceManagerSuite) TestStatus_ReturnsAllAccounts() {
+	slackID := uuid.New()
+	emailID := uuid.New()
+	calendarID := uuid.New()
+
+	repo := &mockRepo{
+		slackAccounts: []*repository.SlackAccount{
+			{ID: slackID, Enabled: true, WorkspaceID: "T001", FriendlyName: "my-workspace"},
+		},
+		emailAccounts: []*repository.EmailAccount{
+			{ID: emailID, Enabled: true, Username: "user@example.com", FriendlyName: "personal"},
+		},
+		calendarAccounts: []*repository.CalendarAccount{
+			{ID: calendarID, Enabled: true, Name: "work-cal"},
+		},
+	}
+	watchers := &mockWatchers{
+		watcherNames: []string{"slack:T001", "email:user@example.com"},
+	}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	statuses, err := mgr.Status(context.Background())
+	s.NoError(err)
+	s.Require().Len(statuses, 3)
+
+	// Slack
+	s.Equal(slackID, statuses[0].ID)
+	s.Equal("slack", statuses[0].Type)
+	s.Equal("my-workspace", statuses[0].Name)
+	s.True(statuses[0].Enabled)
+	s.True(statuses[0].WatcherRegistered)
+
+	// Email
+	s.Equal(emailID, statuses[1].ID)
+	s.Equal("email", statuses[1].Type)
+	s.Equal("personal", statuses[1].Name)
+	s.True(statuses[1].Enabled)
+	s.True(statuses[1].WatcherRegistered)
+
+	// Calendar
+	s.Equal(calendarID, statuses[2].ID)
+	s.Equal("calendar", statuses[2].Type)
+	s.Equal("work-cal", statuses[2].Name)
+	s.True(statuses[2].Enabled)
+	s.False(statuses[2].WatcherRegistered)
+}
+
+func (s *ServiceManagerSuite) TestStatus_DisabledAccountNoWatcher() {
+	slackID := uuid.New()
+
+	repo := &mockRepo{
+		slackAccounts: []*repository.SlackAccount{
+			{ID: slackID, Enabled: false, WorkspaceID: "T001", FriendlyName: "disabled-ws"},
+		},
+	}
+	watchers := &mockWatchers{
+		watcherNames: []string{}, // no watchers registered
+	}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	statuses, err := mgr.Status(context.Background())
+	s.NoError(err)
+	s.Require().Len(statuses, 1)
+
+	s.Equal(slackID, statuses[0].ID)
+	s.Equal("slack", statuses[0].Type)
+	s.Equal("disabled-ws", statuses[0].Name)
+	s.False(statuses[0].Enabled)
+	s.False(statuses[0].WatcherRegistered)
+}
+
+func (s *ServiceManagerSuite) TestStatus_EmptyAccounts() {
+	repo := &mockRepo{}
+	watchers := &mockWatchers{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	statuses, err := mgr.Status(context.Background())
+	s.NoError(err)
+	s.NotNil(statuses)
+	s.Empty(statuses)
+}
+
+func (s *ServiceManagerSuite) TestStatus_RepoError() {
+	repoErr := errors.New("slack list failed")
+	repo := &mockRepo{slackErr: repoErr}
+	watchers := &mockWatchers{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	statuses, err := mgr.Status(context.Background())
+	s.Error(err)
+	s.ErrorIs(err, repoErr)
+	s.Nil(statuses)
+}
+
+func (s *ServiceManagerSuite) TestStatus_FallsBackToWorkspaceID() {
+	slackID := uuid.New()
+
+	repo := &mockRepo{
+		slackAccounts: []*repository.SlackAccount{
+			{ID: slackID, Enabled: true, WorkspaceID: "T999", FriendlyName: ""},
+		},
+	}
+	watchers := &mockWatchers{
+		watcherNames: []string{"slack:T999"},
+	}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	statuses, err := mgr.Status(context.Background())
+	s.NoError(err)
+	s.Require().Len(statuses, 1)
+	s.Equal("T999", statuses[0].Name)
+}
+
+func (s *ServiceManagerSuite) TestStatus_FallsBackToUsername() {
+	emailID := uuid.New()
+
+	repo := &mockRepo{
+		emailAccounts: []*repository.EmailAccount{
+			{ID: emailID, Enabled: true, Username: "fallback@example.com", FriendlyName: ""},
+		},
+	}
+	watchers := &mockWatchers{
+		watcherNames: []string{"email:fallback@example.com"},
+	}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	statuses, err := mgr.Status(context.Background())
+	s.NoError(err)
+	s.Require().Len(statuses, 1)
+	s.Equal("fallback@example.com", statuses[0].Name)
 }

@@ -391,6 +391,83 @@ func (m *ServiceManager) ToggleEmailAccount(ctx context.Context, id uuid.UUID, e
 	return nil
 }
 
+// ServiceStatus represents the status of a configured service account.
+type ServiceStatus struct {
+	ID                uuid.UUID `json:"id"`
+	Type              string    `json:"type"` // "slack", "email", "calendar"
+	Name              string    `json:"name"` // friendly identifier
+	Enabled           bool      `json:"enabled"`
+	WatcherRegistered bool      `json:"watcher_registered"`
+}
+
+// Status returns a summary of all configured service accounts and their watcher registration state.
+func (m *ServiceManager) Status(ctx context.Context) ([]ServiceStatus, error) {
+	var statuses []ServiceStatus
+
+	watcherNames := m.watchers.ListWatcherNames()
+	watcherSet := make(map[string]bool, len(watcherNames))
+	for _, name := range watcherNames {
+		watcherSet[name] = true
+	}
+
+	slackAccounts, err := m.repo.ListSlackAccounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("status: list slack accounts: %w", err)
+	}
+	for _, acct := range slackAccounts {
+		name := acct.FriendlyName
+		if name == "" {
+			name = acct.WorkspaceID
+		}
+		statuses = append(statuses, ServiceStatus{
+			ID:                acct.ID,
+			Type:              "slack",
+			Name:              name,
+			Enabled:           acct.Enabled,
+			WatcherRegistered: watcherSet["slack:"+acct.WorkspaceID],
+		})
+	}
+
+	emailAccounts, err := m.repo.ListEmailAccounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("status: list email accounts: %w", err)
+	}
+	for _, acct := range emailAccounts {
+		name := acct.FriendlyName
+		if name == "" {
+			name = acct.Username
+		}
+		statuses = append(statuses, ServiceStatus{
+			ID:                acct.ID,
+			Type:              "email",
+			Name:              name,
+			Enabled:           acct.Enabled,
+			WatcherRegistered: watcherSet["email:"+acct.Username],
+		})
+	}
+
+	calendarAccounts, err := m.repo.ListCalendarAccounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("status: list calendar accounts: %w", err)
+	}
+	for _, acct := range calendarAccounts {
+		name := acct.Name
+		statuses = append(statuses, ServiceStatus{
+			ID:                acct.ID,
+			Type:              "calendar",
+			Name:              name,
+			Enabled:           acct.Enabled,
+			WatcherRegistered: false,
+		})
+	}
+
+	if statuses == nil {
+		statuses = []ServiceStatus{}
+	}
+
+	return statuses, nil
+}
+
 // ToggleCalendarAccount enables or disables a Calendar account. Calendar accounts have
 // no watcher lifecycle, so only the enabled state is persisted.
 func (m *ServiceManager) ToggleCalendarAccount(ctx context.Context, id uuid.UUID, enabled bool) error {

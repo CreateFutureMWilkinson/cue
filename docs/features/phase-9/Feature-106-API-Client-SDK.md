@@ -23,21 +23,22 @@ The package lives under `pkg/client/` so it is importable by external consumers 
 
 ```
 pkg/client/
-  client.go            # APIClient base (HTTP client, server URL, token, helpers)
+  client.go            # APIClient base (HTTP client, server URL, token, helpers, TOKEN_ISSUED auto-retry)
   errors.go            # Structured error types (APIError, error code constants)
-  messages.go          # MessageClient interface + adapter
-  activity.go          # ActivityClient (WebSocket event stream)
-  feedback.go          # FeedbackClient interface + adapter
-  planner.go           # PlannerClient interface + adapter (todos, categories, schedule generation)
-  schedule.go          # ScheduleClient interface + adapter
-  service_config.go    # ServiceConfigClient interface + adapter (Slack, Email, Calendar accounts)
-  rules.go             # RulesClient interface + adapter
-  queue.go             # QueueClient interface + adapter
-  timer.go             # TimerClient interface + adapter
   auth.go              # AuthClient interface + adapter (pairing, token management)
+  messages.go          # MessageClient interface + adapter (messages + notifications)
+  activity.go          # ActivityClient (WebSocket event stream + replay)
+  feedback.go          # FeedbackClient interface + adapter (buffer operations)
+  tasks.go             # TaskClient interface + adapter (task CRUD)
+  rules.go             # RulesClient interface + adapter
+  service_config.go    # ServiceConfigClient interface + adapter (Slack, Email, Calendar accounts)
+  schedule.go          # ScheduleClient interface + adapter (active + date-based schedules, generate)
+  timer.go             # TimerClient interface + adapter (get state)
 ```
 
 Rationale: Mirrors the server handler file layout. Each file contains one interface and its concrete adapter type. All adapters share the base `APIClient` for HTTP transport.
+
+Note: The server has no queue endpoint, so no `queue.go` exists. The server's "planner" concerns split naturally into `tasks.go` (task CRUD from `/api/v1/tasks`), `schedule.go` (schedule state from `/api/v1/planner/*`), and `timer.go` (`/api/v1/timer`), matching the handler layout.
 
 ### 2. Transport Layer
 
@@ -58,7 +59,7 @@ These handle auth headers (`Authorization: Bearer <token>`), content-type, statu
 
 **Decision: Adapters align with the server's handler interfaces, not the Fyne presenter interfaces.**
 
-The server has handler-level interfaces like `TodoServicer`, `RulesManager`, `ServiceManager`, etc. The SDK provides matching client types (`TodoClient`, `RulesClient`, `ServiceConfigClient`) that map 1:1 to server endpoints.
+The server has handler-level interfaces like `TodoServicer`, `RulesManager`, `ServiceManager`, etc. The SDK provides matching client types (`TaskClient`, `RulesClient`, `ServiceConfigClient`) that map 1:1 to server endpoints.
 
 Feature 107 (Fyne Client Re-wire) composes these SDK types to satisfy presenter interface requirements. For example, the presenter's `BufferReviewer` combines methods from `FeedbackClient` and `MessageClient`.
 
@@ -72,19 +73,28 @@ Each domain file exports an interface and a concrete struct implementing it. Con
 
 ### 5. JSON Field Naming
 
-**Decision: `camelCase` per Feature 096 ADR, explicit DTO types.**
+**Decision: `snake_case` matching the actual server response format, explicit DTO types.**
 
-Adapter code marshals/unmarshals using `camelCase` JSON tags matching the server's response format. Each adapter file defines its own request/response DTO types. Domain types from `internal/repository/` are not reused directly — the SDK has its own types to avoid coupling consumers to internal packages.
+Every handler in `internal/server/handler/` uses `snake_case` JSON tags (e.g., `source_account`, `created_at`, `importance_score`, `elapsed_fraction`). SDK DTO types mirror this exactly. The Feature 096 ADR mentioned camelCase aspirationally, but the implementation landed on snake_case throughout — cleanup to a single convention is deferred.
+
+Each adapter file defines its own request/response DTO types. Domain types from `internal/repository/` are not reused directly — the SDK has its own types to avoid coupling consumers to internal packages.
 
 ### 6. Structured Error Types
 
-**Decision: `*APIError` type with error code and message, preserving server error semantics.**
+**Decision: `*APIError` type with code and message. Server returns flat `{"error": "message"}` strings; the SDK derives the code from the HTTP status.**
+
+The server's `writeJSONError` helper (in `internal/server/handler/notification.go`) emits a flat error shape:
+```json
+{"error": "message describing what went wrong"}
+```
+
+There is no structured `error.code` field on non-auth endpoints. The SDK's `parseErrorResponse` reads the `error` string as `Message` and derives `Code` from the HTTP status code.
 
 ```go
 type APIError struct {
     StatusCode int    // HTTP status code
-    Code       string // Server error code (e.g., "NOT_FOUND", "VALIDATION_ERROR")
-    Message    string // Human-readable error message
+    Code       string // Derived from StatusCode (e.g., "NOT_FOUND" for 404)
+    Message    string // Server's flat "error" string
 }
 
 func (e *APIError) Error() string {
@@ -92,15 +102,15 @@ func (e *APIError) Error() string {
 }
 ```
 
-Error code constants:
+Error code constants (mapped from HTTP status):
 ```go
 const (
-    ErrCodeNotFound        = "NOT_FOUND"
-    ErrCodeConflict        = "CONFLICT"
-    ErrCodeValidation      = "VALIDATION_ERROR"
-    ErrCodeServerError     = "SERVER_ERROR"
-    ErrCodeTokenIssued     = "TOKEN_ISSUED"
-    ErrCodeUnauthorized    = "UNAUTHORIZED"
+    ErrCodeValidation   = "VALIDATION_ERROR" // 400
+    ErrCodeUnauthorized = "UNAUTHORIZED"     // 401
+    ErrCodeNotFound     = "NOT_FOUND"        // 404
+    ErrCodeConflict     = "CONFLICT"         // 409
+    ErrCodeServerError  = "SERVER_ERROR"     // 5xx
+    ErrCodeTokenIssued  = "TOKEN_ISSUED"     // Special: 401 with nested auth error body (see §7)
 )
 ```
 
@@ -121,13 +131,26 @@ Network errors are wrapped with context: `fmt.Errorf("GET /api/v1/...: %w", err)
 The `APIClient` stores a token string, sent as `Authorization: Bearer <token>` on every HTTP request and as a `?token=` query parameter on WebSocket upgrade.
 
 Token acquisition uses the `AuthClient` interface:
-- `Pair(ctx, label) (PairSession, error)` — initiates pairing, returns session with code and poll method
-- `PollPairResult(ctx, requestID) (PairResult, error)` — polls for approval/denial
-- `ListTokens(ctx) ([]TokenInfo, error)` — list connected devices
-- `RevokeToken(ctx, id) error` — revoke a token
-- `Logout(ctx) error` — revoke current session
+- `InitiatePairing(ctx, label) (PairSession, error)` — `POST /api/v1/auth/pair`, returns `{request_id, code}`
+- `PollPairing(ctx, requestID) (PairResult, error)` — `GET /api/v1/auth/pair/{id}`, returns `{status, token}`
+- `ApprovePairing(ctx, requestID) error` — `POST /api/v1/auth/pair/{id}/approve` (authenticated)
+- `DenyPairing(ctx, requestID) error` — `POST /api/v1/auth/pair/{id}/deny` (authenticated)
+- `ListTokens(ctx) ([]TokenInfo, error)` — `GET /api/v1/auth/tokens`
+- `UpdateTokenLabel(ctx, id, label) error` — `PUT /api/v1/auth/tokens/{id}`
+- `RevokeToken(ctx, id) error` — `DELETE /api/v1/auth/tokens/{id}`
 
-For the first-client flow, the API helpers detect `TOKEN_ISSUED` in the 401 response, store the token, and retry automatically. This is handled internally by the `APIClient` — callers don't need to manage it.
+There is no `/auth/logout` endpoint per Feature 108's decision — `DELETE /auth/tokens/{id}` covers revocation.
+
+The pairing initiate response contains `{request_id, code}` only — no `expires_at` field. The 60-second expiry is enforced server-side; clients poll until the status changes to `approved`, `denied`, or `expired`.
+
+For the first-client flow, the `APIClient` helpers detect the TOKEN_ISSUED shape on a 401 response, store the token, and retry the original request automatically. The actual response body shape is:
+```json
+{
+  "error": {"code": "TOKEN_ISSUED", "message": "..."},
+  "token": "<plaintext-bearer-token>"
+}
+```
+Note the nested `error` object — this differs from the flat error shape used elsewhere. This is handled internally by the `APIClient` — callers don't need to manage it.
 
 ### 8. WebSocket Event Stream
 
@@ -141,7 +164,20 @@ The `ActivityClient` adapter maintains a persistent WebSocket connection to `/ap
 
 **No automatic replay.** When the connection drops and reconnects, there may be a gap in the event sequence. The `Events() <-chan EventEnvelope` channel exposes sequence numbers; consumers who care about gaps can call `Replay(ctx, sinceSeq)` to fetch missed events via `GET /api/v1/events?since={seq}`.
 
+The replay endpoint returns a `ReplayResponse` mirroring the server's `HistoryResponse`:
+```json
+{
+  "events": [ {"seq": 42, "type": "activity", "timestamp": "...", "data": {...}}, ... ],
+  "truncated": false,
+  "oldest_seq": 1,
+  "latest_seq": 42
+}
+```
+`truncated` is `true` when requested `sinceSeq` is older than the server's ring buffer (500 events) retained.
+
 The `Events()` channel is never closed — it just stops receiving during disconnects. The `LastSeq() uint64` method returns the highest sequence number received.
+
+Event envelopes use `json.RawMessage` for the `data` field so consumers can unmarshal type-specific payloads (`ActivityData`, `AlertData`, `TimerTickData`, `TimerBlockCompleteData`) on demand.
 
 ### 9. VolumeController — Client-Local Only
 
@@ -171,14 +207,13 @@ type ScheduleClient interface {
 
 | SDK Interface | Adapter Type | Endpoints |
 |---|---|---|
-| `AuthClient` | `authAdapter` | `POST /auth/pair`, `GET /auth/pair/{id}`, `POST .../approve`, `POST .../deny`, `GET /auth/tokens`, `PUT /auth/tokens/{id}`, `DELETE /auth/tokens/{id}`, `POST /auth/logout` |
+| `AuthClient` | `authAdapter` | `POST /auth/pair`, `GET /auth/pair/{id}`, `POST .../approve`, `POST .../deny`, `GET /auth/tokens`, `PUT /auth/tokens/{id}`, `DELETE /auth/tokens/{id}` |
 | `MessageClient` | `messageAdapter` | `GET /messages`, `GET /messages/{id}`, `GET /notifications`, `GET /notifications/{id}`, `POST /notifications/{id}/resolve`, `POST /notifications/{id}/dismiss` |
 | `FeedbackClient` | `feedbackAdapter` | `GET /buffer`, `GET /buffer/{id}`, `GET /buffer/stats`, `POST /buffer/{id}/rate`, `DELETE /buffer/{id}` |
-| `PlannerClient` | `plannerAdapter` | `GET/POST /tasks`, `GET/PUT/DELETE /tasks/{id}`, `POST /planner/generate` |
-| `ScheduleClient` | `scheduleAdapter` | `GET/DELETE /planner/active`, `GET/PUT/DELETE /planner/{date}` |
+| `TaskClient` | `taskAdapter` | `GET/POST /tasks`, `GET/PUT/DELETE /tasks/{id}` |
+| `ScheduleClient` | `scheduleAdapter` | `GET/DELETE /planner/active`, `GET/PUT/DELETE /planner/{date}`, `POST /planner/generate` |
 | `ServiceConfigClient` | `serviceConfigAdapter` | `CRUD /services/slack/{id}`, `CRUD /services/email/{id}`, `CRUD /services/calendar/{id}`, `POST .../toggle`, `GET /services/status` |
 | `RulesClient` | `rulesAdapter` | `GET/POST /rules`, `GET/PUT/PATCH/DELETE /rules/{id}` |
-| `QueueClient` | `queueAdapter` | `GET /queue/depth` (if exposed), queue operations |
 | `TimerClient` | `timerAdapter` | `GET /timer` |
 
 All paths are prefixed with `/api/v1/`.
@@ -205,36 +240,37 @@ The SDK defines its own types rather than importing from `internal/`. This avoid
 Key types include:
 - `Message`, `NotificationSummary`, `NotificationDetail`
 - `BufferedMessage`, `BufferStats`
-- `Task`, `Category`
-- `Schedule`, `ScheduleOption`, `GenerateRequest`
+- `Task`, `CreateTaskRequest`, `UpdateTaskRequest`
+- `Schedule`, `ScheduleBlock`, `GenerateRequest`, `GenerateResponse`, `ScheduleOption`
 - `SlackAccount`, `EmailAccount`, `CalendarAccount`, `ServiceStatus`
-- `RoutingRule`
+- `RoutingRule`, `PatchRuleRequest`
 - `TimerState`
-- `EventEnvelope`, `ActivityEvent`, `NotificationEvent`, `TimerTickEvent`, `PairingRequestEvent`
+- `EventEnvelope` (with `json.RawMessage` `data`), `ReplayResponse`
 - `TokenInfo`, `PairSession`, `PairResult`
 - `APIError`
 
+All types use `snake_case` JSON tags matching the server's `internal/server/handler/*.go` DTOs exactly.
+
 ## TDD Behaviors
 
-| # | Behavior | Adapter | Test Strategy |
+Structured as **12 grouped micro-loops** (RED → GREEN → REFACTOR per loop). Loops are ordered by dependency: foundation first, then auth (needed by all authenticated calls), then domain adapters.
+
+| Loop | Adapter | Behaviors Covered | Test Strategy |
 |---|---|---|---|
-| 1 | APIClient creation + health check | `client.go` | `httptest.NewServer` returning 200/503 |
-| 2 | Structured error parsing from server responses | `errors.go` | Mock server returning 4xx/5xx with error body |
-| 3 | Auth header injection on all requests | `client.go` | Mock server verifying `Authorization` header |
-| 4 | First-client auto-token flow (401 TOKEN_ISSUED → retry) | `auth.go` | Mock server issuing token on first request |
-| 5 | Pairing initiation + polling | `auth.go` | Mock server with pair/poll endpoints |
-| 6 | MessageClient.ListNotifications + GetNotification | `messages.go` | Mock server returns JSON |
-| 7 | MessageClient.ResolveNotification + DismissNotification | `messages.go` | Mock server accepts POST |
-| 8 | ActivityClient.Events (WebSocket connect + receive) | `activity.go` | `httptest.NewServer` with WS upgrade |
-| 9 | ActivityClient reconnection with exponential backoff | `activity.go` | Mock server that disconnects then accepts |
-| 10 | ActivityClient.Replay (manual event replay) | `activity.go` | Mock GET /events?since=N |
-| 11 | FeedbackClient (list, get, stats, rate, delete) | `feedback.go` | Mock server per endpoint |
-| 12 | PlannerClient (task CRUD, generate schedules) | `planner.go` | Mock CRUD + POST compute |
-| 13 | ScheduleClient (active, get, put, delete by date) | `schedule.go` | Mock CRUD with date paths |
-| 14 | ServiceConfigClient (Slack/Email/Calendar CRUD + toggle + status) | `service_config.go` | Mock per-type CRUD |
-| 15 | RulesClient (CRUD + patch) | `rules.go` | Mock CRUD |
-| 16 | QueueClient (depth query) | `queue.go` | Mock GET |
-| 17 | TimerClient.GetState | `timer.go` | Mock GET |
+| 1 | `client.go` | `New(serverURL)`, `SetToken`, `Health(ctx)`, HTTP helpers set auth header + content-type | `httptest.NewServer` returning 200/503 |
+| 2 | `errors.go` | `APIError` parsing from flat `{"error":"msg"}` responses, HTTP status → code mapping, `errors.As` | Mock server returning 4xx/5xx |
+| 3 | `auth.go` | InitiatePairing, PollPairing, ApprovePairing, DenyPairing, ListTokens, UpdateTokenLabel, RevokeToken | Mock server per endpoint |
+| 4 | `client.go` (mod) | First-client auto-token: 401 with nested TOKEN_ISSUED body → store token + retry once | Mock server issuing token on first request |
+| 5 | `messages.go` | List/Get messages, List/Get/Resolve/Dismiss notifications | Mock server returning canned JSON |
+| 6 | `feedback.go` | List/Get buffered, BufferStats, RateBuffered, DeleteBuffered | Mock server per endpoint |
+| 7 | `tasks.go` | Task CRUD (ListTasks, CreateTask, GetTask, UpdateTask, DeleteTask) | Mock CRUD |
+| 8 | `rules.go` | Rules CRUD + PatchRule (priority/enabled) | Mock CRUD + PATCH |
+| 9 | `service_config.go` | Slack/Email/Calendar CRUD + toggle + ServiceStatus (grouped, shared helper) | Mock per-type CRUD |
+| 10 | `schedule.go` + `timer.go` | ActiveSchedule, Delete/Get/Put/Delete by date, GenerateSchedules, GetTimerState | Mock with date paths |
+| 11 | `activity.go` | WebSocket Connect, Events channel, LastSeq, Replay via GET /events?since= | `httptest.NewServer` with WS upgrade + HTTP replay |
+| 12 | `activity.go` (mod) | Reconnection with exponential backoff (1s → 30s cap, reset on success, context-cancellable) | Mock server that disconnects then accepts |
+
+Total distinct behaviors: 15 (11 HTTP adapter groups, 1 WS connect/receive/replay, 1 WS reconnect, 1 error parsing, 1 first-client auto-token).
 
 ## Dependencies
 
@@ -246,7 +282,7 @@ Key types include:
 All adapter methods tested against `httptest.NewServer` mock servers. Tests verify:
 - Correct HTTP method and path
 - Authorization header present with token
-- Request body marshaling (camelCase JSON)
+- Request body marshaling (snake_case JSON)
 - Response unmarshaling to SDK types
 - Structured error handling for 4xx/5xx responses
 - WebSocket connection lifecycle and event delivery

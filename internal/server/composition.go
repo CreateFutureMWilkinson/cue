@@ -220,6 +220,8 @@ func startOrchestration(
 	}
 	queueProcessor.Start(ctx)
 
+	// TODO(B6): register watchers from DB
+
 	return hub, alerter, orch, queueProcessor, eventCh, nil
 }
 

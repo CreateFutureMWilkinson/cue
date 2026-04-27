@@ -37,7 +37,7 @@ type authErrorDetail struct {
 func writeAuthError(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
-	json.NewEncoder(w).Encode(authErrorResponse{
+	_ = json.NewEncoder(w).Encode(authErrorResponse{
 		Error: authErrorDetail{
 			Code:    "UNAUTHORIZED",
 			Message: message,
@@ -98,7 +98,7 @@ func tryAutoIssueFirstClient(w http.ResponseWriter, ctx context.Context, repo Au
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
-	json.NewEncoder(w).Encode(map[string]any{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"error": map[string]any{
 			"code":    "TOKEN_ISSUED",
 			"message": "First client — token auto-issued",
@@ -186,6 +186,8 @@ func AuthMiddleware(repo AuthTokenLookup, authEnabled bool) func(http.Handler) h
 			lastSeenMu.Unlock()
 
 			if shouldUpdate {
+				// #nosec G118 -- intentionally use background context; the request context
+				// may cancel before the fire-and-forget DB write completes.
 				go repo.UpdateLastSeen(context.Background(), token.ID, time.Now())
 			}
 

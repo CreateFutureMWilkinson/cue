@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
 `
 
 const (
-	authTokenColumns = "id, label, token_hash, created_at, last_seen, revoked"
+	authTokenColumns = "id, label, token_hash, created_at, last_seen, revoked" // #nosec G101 -- SQL column list, not credentials
 )
 
 // Compile-time check that SQLiteAuthTokenRepository satisfies AuthTokenRepository.

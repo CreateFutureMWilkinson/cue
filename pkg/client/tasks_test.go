@@ -15,7 +15,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/pkg/client"
 )
 
-// TaskSuite covers the TaskClient adapter over /api/v1/tasks.
+// TaskSuite covers the TaskClient adapter over /api/v1/todo/tasks.
 type TaskSuite struct {
 	suite.Suite
 }
@@ -35,15 +35,16 @@ func intPtr(i int) *int { return &i }
 
 // TestListTasksSendsAllFiltersAsQueryParams verifies that every populated
 // field of TaskFilter (status, category, search, limit, offset) is emitted
-// as a query parameter on GET /api/v1/tasks.
+// as a query parameter on GET /api/v1/todo/tasks. Per Feature 109, Category
+// accepts any form (display, mixed case, key) — the server normalizes.
 func (s *TaskSuite) TestListTasksSendsAllFiltersAsQueryParams() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.Equal(http.MethodGet, r.Method)
-		s.Equal("/api/v1/tasks", r.URL.Path)
+		s.Equal("/api/v1/todo/tasks", r.URL.Path)
 
 		q := r.URL.Query()
 		s.Equal("active", q.Get("status"))
-		s.Equal("work", q.Get("category"))
+		s.Equal("Foo Bar", q.Get("category"))
 		s.Equal("design", q.Get("search"))
 		s.Equal("20", q.Get("limit"))
 		s.Equal("40", q.Get("offset"))
@@ -61,7 +62,7 @@ func (s *TaskSuite) TestListTasksSendsAllFiltersAsQueryParams() {
 	tc := client.NewTaskClient(client.New(ts.URL))
 	tasks, total, err := tc.ListTasks(context.Background(), client.TaskFilter{
 		Status:   "active",
-		Category: "work",
+		Category: "Foo Bar",
 		Search:   "design",
 		Limit:    20,
 		Offset:   40,
@@ -72,13 +73,14 @@ func (s *TaskSuite) TestListTasksSendsAllFiltersAsQueryParams() {
 }
 
 // TestListTasksDecodesResponse verifies that snake_case JSON fields on the
-// task list payload — including nullable pointer fields (estimate_minutes,
-// due_date, completed_at) — decode into the typed Task struct.
+// task list payload — including the embedded `category: {key,name}` object
+// (or null) and the nullable pointer fields — decode into the typed Task
+// struct.
 func (s *TaskSuite) TestListTasksDecodesResponse() {
 	secondID := uuid.MustParse("ffffffff-ffff-ffff-ffff-ffffffffffff")
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s.Equal("/api/v1/tasks", r.URL.Path)
+		s.Equal("/api/v1/todo/tasks", r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -90,7 +92,7 @@ func (s *TaskSuite) TestListTasksDecodesResponse() {
 					"description":                "review v2 spec",
 					"priority":                   2,
 					"due_date":                   "2026-05-01T10:00:00Z",
-					"categories":                 []string{"work", "urgent"},
+					"category":                   map[string]any{"key": "foo_bar", "name": "Foo Bar"},
 					"estimate_minutes":           45,
 					"llm_estimate_minutes":       30,
 					"effective_estimate_minutes": 45,
@@ -102,7 +104,7 @@ func (s *TaskSuite) TestListTasksDecodesResponse() {
 					"title":                      "Submit timesheet",
 					"description":                "",
 					"priority":                   1,
-					"categories":                 []string{},
+					"category":                   nil,
 					"estimate_minutes":           nil,
 					"llm_estimate_minutes":       nil,
 					"effective_estimate_minutes": nil,
@@ -129,7 +131,9 @@ func (s *TaskSuite) TestListTasksDecodesResponse() {
 	s.Equal(2, first.Priority)
 	s.Require().NotNil(first.DueDate)
 	s.Equal("2026-05-01T10:00:00Z", *first.DueDate)
-	s.Equal([]string{"work", "urgent"}, first.Categories)
+	s.Require().NotNil(first.Category, "category embed must decode for tagged tasks")
+	s.Equal("foo_bar", first.Category.Key)
+	s.Equal("Foo Bar", first.Category.Name)
 	s.Require().NotNil(first.EstimateMinutes)
 	s.Equal(45, *first.EstimateMinutes)
 	s.Require().NotNil(first.LLMEstimateMinutes)
@@ -142,6 +146,7 @@ func (s *TaskSuite) TestListTasksDecodesResponse() {
 	second := tasks[1]
 	s.Equal(secondID, second.ID)
 	s.Equal("Submit timesheet", second.Title)
+	s.Nil(second.Category, "category null on the wire must decode to nil pointer")
 	s.Nil(second.EstimateMinutes, "estimate_minutes must decode to nil when server sends null")
 	s.Nil(second.LLMEstimateMinutes)
 	s.Nil(second.EffectiveEstimateMinutes)
@@ -150,24 +155,25 @@ func (s *TaskSuite) TestListTasksDecodesResponse() {
 }
 
 // TestCreateTaskPostsBody verifies that CreateTask POSTs a JSON body with
-// title, priority, and categories, and decodes the returned Task (including
-// server-populated id, created_at, and effective_estimate_minutes).
+// title, priority, and category (raw string), and decodes the returned
+// Task with its embedded category object.
 func (s *TaskSuite) TestCreateTaskPostsBody() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.Equal(http.MethodPost, r.Method)
-		s.Equal("/api/v1/tasks", r.URL.Path)
+		s.Equal("/api/v1/todo/tasks", r.URL.Path)
 
 		var body struct {
-			Title           string   `json:"title"`
-			Description     string   `json:"description"`
-			Priority        int      `json:"priority"`
-			Categories      []string `json:"categories"`
-			EstimateMinutes *int     `json:"estimate_minutes"`
+			Title           string  `json:"title"`
+			Description     string  `json:"description"`
+			Priority        int     `json:"priority"`
+			Category        *string `json:"category"`
+			EstimateMinutes *int    `json:"estimate_minutes"`
 		}
 		s.Require().NoError(json.NewDecoder(r.Body).Decode(&body))
 		s.Equal("New task", body.Title)
 		s.Equal(3, body.Priority)
-		s.Equal([]string{"home"}, body.Categories)
+		s.Require().NotNil(body.Category)
+		s.Equal("home", *body.Category)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
@@ -176,7 +182,7 @@ func (s *TaskSuite) TestCreateTaskPostsBody() {
 			"title":                      "New task",
 			"description":                "",
 			"priority":                   3,
-			"categories":                 []string{"home"},
+			"category":                   map[string]any{"key": "home", "name": "Home"},
 			"estimate_minutes":           nil,
 			"llm_estimate_minutes":       nil,
 			"effective_estimate_minutes": 60,
@@ -186,28 +192,66 @@ func (s *TaskSuite) TestCreateTaskPostsBody() {
 	defer ts.Close()
 
 	tc := client.NewTaskClient(client.New(ts.URL))
+	homeRaw := "home"
 	task, err := tc.CreateTask(context.Background(), client.CreateTaskRequest{
-		Title:      "New task",
-		Priority:   3,
-		Categories: []string{"home"},
+		Title:    "New task",
+		Priority: 3,
+		Category: &homeRaw,
 	})
 	s.Require().NoError(err)
 	s.Require().NotNil(task)
 	s.Equal(testTaskID, task.ID)
 	s.Equal("New task", task.Title)
 	s.Equal(3, task.Priority)
-	s.Equal([]string{"home"}, task.Categories)
+	s.Require().NotNil(task.Category)
+	s.Equal("home", task.Category.Key)
+	s.Equal("Home", task.Category.Name)
 	s.Require().NotNil(task.EffectiveEstimateMinutes)
 	s.Equal(60, *task.EffectiveEstimateMinutes)
 	s.Equal("2026-04-24T12:00:00Z", task.CreatedAt)
 }
 
+// TestCreateTaskWithoutCategoryOmitsField verifies that a CreateTaskRequest
+// with Category == nil omits the "category" key from the outgoing body
+// entirely, so the server can distinguish "no category" from "explicit null".
+func (s *TaskSuite) TestCreateTaskWithoutCategoryOmitsField() {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, err := io.ReadAll(r.Body)
+		s.Require().NoError(err)
+		var body map[string]json.RawMessage
+		s.Require().NoError(json.Unmarshal(raw, &body))
+		s.NotContains(body, "category", "nil Category must omit the JSON key entirely")
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":                         testTaskID.String(),
+			"title":                      "New task",
+			"description":                "",
+			"priority":                   0,
+			"category":                   nil,
+			"estimate_minutes":           nil,
+			"llm_estimate_minutes":       nil,
+			"effective_estimate_minutes": 60,
+			"created_at":                 "2026-04-24T12:00:00Z",
+		})
+	}))
+	defer ts.Close()
+
+	tc := client.NewTaskClient(client.New(ts.URL))
+	_, err := tc.CreateTask(context.Background(), client.CreateTaskRequest{
+		Title: "New task",
+	})
+	s.Require().NoError(err)
+}
+
 // TestGetTaskReturnsTask verifies that GetTask issues
-// GET /api/v1/tasks/{id} and decodes the Task payload.
+// GET /api/v1/todo/tasks/{id} and decodes the Task payload, including the
+// embedded category {key,name}.
 func (s *TaskSuite) TestGetTaskReturnsTask() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.Equal(http.MethodGet, r.Method)
-		s.Equal("/api/v1/tasks/"+testTaskID.String(), r.URL.Path)
+		s.Equal("/api/v1/todo/tasks/"+testTaskID.String(), r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -216,7 +260,7 @@ func (s *TaskSuite) TestGetTaskReturnsTask() {
 			"title":                      "Existing task",
 			"description":                "details",
 			"priority":                   1,
-			"categories":                 []string{"work"},
+			"category":                   map[string]any{"key": "work", "name": "Work"},
 			"estimate_minutes":           20,
 			"llm_estimate_minutes":       nil,
 			"effective_estimate_minutes": 20,
@@ -233,7 +277,9 @@ func (s *TaskSuite) TestGetTaskReturnsTask() {
 	s.Equal("Existing task", task.Title)
 	s.Equal("details", task.Description)
 	s.Equal(1, task.Priority)
-	s.Equal([]string{"work"}, task.Categories)
+	s.Require().NotNil(task.Category)
+	s.Equal("work", task.Category.Key)
+	s.Equal("Work", task.Category.Name)
 	s.Require().NotNil(task.EstimateMinutes)
 	s.Equal(20, *task.EstimateMinutes)
 	s.Nil(task.LLMEstimateMinutes)
@@ -243,12 +289,13 @@ func (s *TaskSuite) TestGetTaskReturnsTask() {
 }
 
 // TestUpdateTaskSendsPartialBody verifies that UpdateTask sends only the
-// fields the caller populated; nil pointer and nil slice fields must be
-// omitted from the outgoing JSON body (via json:",omitempty").
+// fields the caller populated; nil pointer fields must be omitted from the
+// outgoing JSON body. The "category" key MUST also be absent in the
+// "no change" case (Category == nil and ClearCategory == false).
 func (s *TaskSuite) TestUpdateTaskSendsPartialBody() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.Equal(http.MethodPut, r.Method)
-		s.Equal("/api/v1/tasks/"+testTaskID.String(), r.URL.Path)
+		s.Equal("/api/v1/todo/tasks/"+testTaskID.String(), r.URL.Path)
 
 		// Decode the raw body as a map to assert omitted keys are absent.
 		raw, err := io.ReadAll(r.Body)
@@ -260,10 +307,10 @@ func (s *TaskSuite) TestUpdateTaskSendsPartialBody() {
 		s.Contains(body, "title")
 		s.Contains(body, "priority")
 
-		// All other update fields MUST be absent due to omitempty.
+		// All other update fields MUST be absent due to omitempty / no-change.
 		s.NotContains(body, "description")
 		s.NotContains(body, "due_date")
-		s.NotContains(body, "categories")
+		s.NotContains(body, "category", "no-change category must omit the key entirely")
 		s.NotContains(body, "estimate_minutes")
 		s.NotContains(body, "completed_at")
 
@@ -284,7 +331,7 @@ func (s *TaskSuite) TestUpdateTaskSendsPartialBody() {
 			"title":                      "new title",
 			"description":                "old description",
 			"priority":                   3,
-			"categories":                 []string{"work"},
+			"category":                   map[string]any{"key": "work", "name": "Work"},
 			"estimate_minutes":           15,
 			"llm_estimate_minutes":       nil,
 			"effective_estimate_minutes": 15,
@@ -305,13 +352,88 @@ func (s *TaskSuite) TestUpdateTaskSendsPartialBody() {
 	s.Equal(3, task.Priority)
 }
 
+// TestUpdateTaskSetCategoryEmitsString verifies that an UpdateTaskRequest
+// with Category set to a non-nil string emits `"category":"<value>"` on
+// the wire — distinct from "absent" and "explicit null".
+func (s *TaskSuite) TestUpdateTaskSetCategoryEmitsString() {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, err := io.ReadAll(r.Body)
+		s.Require().NoError(err)
+		var body map[string]json.RawMessage
+		s.Require().NoError(json.Unmarshal(raw, &body))
+
+		s.Require().Contains(body, "category", "set Category must include the key")
+		var got string
+		s.Require().NoError(json.Unmarshal(body["category"], &got))
+		s.Equal("work", got)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":                         testTaskID.String(),
+			"title":                      "x",
+			"description":                "",
+			"priority":                   0,
+			"category":                   map[string]any{"key": "work", "name": "Work"},
+			"estimate_minutes":           nil,
+			"llm_estimate_minutes":       nil,
+			"effective_estimate_minutes": 0,
+			"created_at":                 "2026-04-01T10:00:00Z",
+		})
+	}))
+	defer ts.Close()
+
+	tc := client.NewTaskClient(client.New(ts.URL))
+	work := "work"
+	_, err := tc.UpdateTask(context.Background(), testTaskID, client.UpdateTaskRequest{
+		Category: &work,
+	})
+	s.Require().NoError(err)
+}
+
+// TestUpdateTaskClearCategoryEmitsNull verifies that an UpdateTaskRequest
+// with ClearCategory == true (and Category == nil) emits `"category":null`
+// on the wire so the server clears the FK on the task row.
+func (s *TaskSuite) TestUpdateTaskClearCategoryEmitsNull() {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, err := io.ReadAll(r.Body)
+		s.Require().NoError(err)
+		var body map[string]json.RawMessage
+		s.Require().NoError(json.Unmarshal(raw, &body))
+
+		s.Require().Contains(body, "category", "ClearCategory must include the key")
+		s.Equal("null", string(body["category"]), "ClearCategory must serialise as JSON null")
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":                         testTaskID.String(),
+			"title":                      "x",
+			"description":                "",
+			"priority":                   0,
+			"category":                   nil,
+			"estimate_minutes":           nil,
+			"llm_estimate_minutes":       nil,
+			"effective_estimate_minutes": 0,
+			"created_at":                 "2026-04-01T10:00:00Z",
+		})
+	}))
+	defer ts.Close()
+
+	tc := client.NewTaskClient(client.New(ts.URL))
+	_, err := tc.UpdateTask(context.Background(), testTaskID, client.UpdateTaskRequest{
+		ClearCategory: true,
+	})
+	s.Require().NoError(err)
+}
+
 // TestDeleteTaskReturns204 verifies that DeleteTask issues
-// DELETE /api/v1/tasks/{id} and tolerates a 204 No Content response with
-// an empty body (the doJSON transport must not attempt to decode empty).
+// DELETE /api/v1/todo/tasks/{id} and tolerates a 204 No Content response
+// with an empty body.
 func (s *TaskSuite) TestDeleteTaskReturns204() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.Equal(http.MethodDelete, r.Method)
-		s.Equal("/api/v1/tasks/"+testTaskID.String(), r.URL.Path)
+		s.Equal("/api/v1/todo/tasks/"+testTaskID.String(), r.URL.Path)
 
 		_, _ = io.Copy(io.Discard, r.Body)
 		w.WriteHeader(http.StatusNoContent)
@@ -328,7 +450,7 @@ func (s *TaskSuite) TestDeleteTaskReturns204() {
 func (s *TaskSuite) TestGetTaskNotFoundReturnsAPIError() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.Equal(http.MethodGet, r.Method)
-		s.Equal("/api/v1/tasks/"+testTaskID.String(), r.URL.Path)
+		s.Equal("/api/v1/todo/tasks/"+testTaskID.String(), r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)

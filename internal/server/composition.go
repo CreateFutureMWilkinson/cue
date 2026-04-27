@@ -69,6 +69,46 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, err
 	}
 
+	hub := NewHub()
+	alerter := NewHubAlerter(hub)
+
+	eventCh := make(chan orchestrator.ActivityEvent, 100)
+
+	orch, err := orchestrator.NewOrchestrator(
+		orchestrator.OrchestratorConfig{
+			PollIntervalSeconds:   cfg.Orchestrator.PollIntervalSeconds,
+			QueueWarningThreshold: cfg.Orchestrator.Router.QueueWarningThreshold,
+		},
+		rulesEngine,
+		queueRepo,
+		msgRepo,
+		nil, // watchers wired in B6
+		eventCh,
+		alerter,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating orchestrator: %w", err)
+	}
+
+	queueProcessor, err := orchestrator.NewQueueProcessor(
+		queueRepo,
+		msgRepo,
+		ollamaClient,
+		alerter,
+		eventCh,
+		float64(cfg.Orchestrator.Router.ImportanceThreshold),
+		cfg.Orchestrator.Router.ConfidenceThreshold,
+		time.Duration(cfg.Orchestrator.OllamaCooldownSeconds)*time.Second,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating queue processor: %w", err)
+	}
+
+	if err := orch.Start(ctx); err != nil {
+		return nil, fmt.Errorf("starting orchestrator: %w", err)
+	}
+	queueProcessor.Start(ctx)
+
 	return &Composition{
 		MessageRepo:       msgRepo,
 		QueueRepo:         queueRepo,
@@ -77,6 +117,11 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		OllamaClient:      ollamaClient,
 		VectorStore:       vectorStore,
 		RulesEngine:       rulesEngine,
+		Hub:               hub,
+		Alerter:           alerter,
+		Orchestrator:      orch,
+		QueueProcessor:    queueProcessor,
+		EventCh:           eventCh,
 	}, nil
 }
 

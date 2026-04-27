@@ -1039,8 +1039,8 @@ func (s *SettingsAcceptanceSuite) TestRulesTabEmptyStateHasAddButton() {
 func (s *SettingsAcceptanceSuite) TestRulesTabDisplaysRulesSortedByPriority() {
 	ruleRepo := &mockRoutingRuleRepo{
 		rules: []*repository.RoutingRule{
-			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
-			{ID: uuid.New(), Priority: 1, Source: "email", Field: "sender", Pattern: "boss@", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 0, SourceType: "slack", ChannelPattern: "^general$", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 1, SourceType: "email", ContentPattern: "boss@", Action: "notified", Enabled: true},
 		},
 	}
 	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
@@ -1048,18 +1048,18 @@ func (s *SettingsAcceptanceSuite) TestRulesTabDisplaysRulesSortedByPriority() {
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
 	rulesContent := tabs.Items[3].Content
 
-	// Should find labels containing the rule summaries
+	// Should find labels containing the rule summaries (new model shows channel pattern)
 	_, found := uitest.FindWidget[*widget.Label](rulesContent, func(l *widget.Label) bool {
-		return strings.Contains(l.Text, "channel") && strings.Contains(l.Text, "general")
+		return strings.Contains(l.Text, "general") && strings.Contains(l.Text, "notified")
 	})
-	s.True(found, "Rules tab should display first rule with channel/general")
+	s.True(found, "Rules tab should display first rule summary")
 }
 
 // AC: Each rule row shows source, field, pattern, action.
 func (s *SettingsAcceptanceSuite) TestRulesTabRowShowsSummary() {
 	ruleRepo := &mockRoutingRuleRepo{
 		rules: []*repository.RoutingRule{
-			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 0, SourceType: "slack", ChannelPattern: "^general$", Action: "notified", Enabled: true},
 		},
 	}
 	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
@@ -1077,7 +1077,7 @@ func (s *SettingsAcceptanceSuite) TestRulesTabRowShowsSummary() {
 func (s *SettingsAcceptanceSuite) TestRulesTabRowHasEnabledCheckbox() {
 	ruleRepo := &mockRoutingRuleRepo{
 		rules: []*repository.RoutingRule{
-			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 0, SourceType: "slack", ChannelPattern: "^general$", Action: "notified", Enabled: true},
 		},
 	}
 	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
@@ -1093,8 +1093,8 @@ func (s *SettingsAcceptanceSuite) TestRulesTabRowHasEnabledCheckbox() {
 func (s *SettingsAcceptanceSuite) TestRulesTabRowHasUpDownButtons() {
 	ruleRepo := &mockRoutingRuleRepo{
 		rules: []*repository.RoutingRule{
-			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
-			{ID: uuid.New(), Priority: 1, Source: "email", Field: "sender", Pattern: "boss@", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 0, SourceType: "slack", ChannelPattern: "^general$", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 1, SourceType: "email", ContentPattern: "boss@", Action: "notified", Enabled: true},
 		},
 	}
 	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
@@ -1112,7 +1112,7 @@ func (s *SettingsAcceptanceSuite) TestRulesTabRowHasUpDownButtons() {
 func (s *SettingsAcceptanceSuite) TestRulesTabRowHasDeleteButton() {
 	ruleRepo := &mockRoutingRuleRepo{
 		rules: []*repository.RoutingRule{
-			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 0, SourceType: "slack", ChannelPattern: "^general$", Action: "notified", Enabled: true},
 		},
 	}
 	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
@@ -1128,8 +1128,8 @@ func (s *SettingsAcceptanceSuite) TestRulesTabRowHasDeleteButton() {
 func (s *SettingsAcceptanceSuite) TestRulesTabFirstRuleUpDisabled() {
 	ruleRepo := &mockRoutingRuleRepo{
 		rules: []*repository.RoutingRule{
-			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
-			{ID: uuid.New(), Priority: 1, Source: "email", Field: "sender", Pattern: "boss@", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 0, SourceType: "slack", ChannelPattern: "^general$", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 1, SourceType: "email", ContentPattern: "boss@", Action: "notified", Enabled: true},
 		},
 	}
 	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
@@ -1146,8 +1146,8 @@ func (s *SettingsAcceptanceSuite) TestRulesTabFirstRuleUpDisabled() {
 func (s *SettingsAcceptanceSuite) TestRulesTabLastRuleDownDisabled() {
 	ruleRepo := &mockRoutingRuleRepo{
 		rules: []*repository.RoutingRule{
-			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
-			{ID: uuid.New(), Priority: 1, Source: "email", Field: "sender", Pattern: "boss@", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 0, SourceType: "slack", ChannelPattern: "^general$", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 1, SourceType: "email", ContentPattern: "boss@", Action: "notified", Enabled: true},
 		},
 	}
 	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
@@ -1195,7 +1195,10 @@ func (s *SettingsAcceptanceSuite) TestRulesTabFormHasSourceDropdown() {
 }
 
 // AC: Selecting Email source shows fields: sender, subject.
+// SKIP: Form redesigned for multi-pattern model (Feature 103). No per-source field dropdown.
 func (s *SettingsAcceptanceSuite) TestRulesTabFormEmailFields() {
+	s.T().Skip("Form redesigned for multi-pattern model (Feature 103)")
+	//nolint:govet // unreachable code after Skip
 	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{}, 50)
 	root := sv.Container()
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
@@ -1216,7 +1219,10 @@ func (s *SettingsAcceptanceSuite) TestRulesTabFormEmailFields() {
 }
 
 // AC: Selecting Slack source shows fields: sender, channel, content, message_type.
+// SKIP: Form redesigned for multi-pattern model (Feature 103). No per-source field dropdown.
 func (s *SettingsAcceptanceSuite) TestRulesTabFormSlackFields() {
+	s.T().Skip("Form redesigned for multi-pattern model (Feature 103)")
+	//nolint:govet // unreachable code after Skip
 	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{}, 50)
 	root := sv.Container()
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
@@ -1254,7 +1260,10 @@ func (s *SettingsAcceptanceSuite) TestRulesTabFormHasPatternEntry() {
 }
 
 // AC: Form has Negate checkbox.
+// SKIP: Negate removed in multi-pattern model (Feature 103).
 func (s *SettingsAcceptanceSuite) TestRulesTabFormHasNegateCheckbox() {
+	s.T().Skip("Negate removed in multi-pattern model (Feature 103)")
+	//nolint:govet // unreachable code after Skip
 	sv := newSettingsViewWithRules(&mockRoutingRuleRepo{}, &mockQueueRepo{}, 50)
 	root := sv.Container()
 	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
@@ -1282,8 +1291,8 @@ func (s *SettingsAcceptanceSuite) TestRulesTabFormHasActionDropdown() {
 	rulesContent = tabs.Items[3].Content
 
 	selects := uitest.FindAll[*widget.Select](rulesContent, func(_ *widget.Select) bool { return true })
-	s.Require().GreaterOrEqual(len(selects), 3, "should have Source, Field, and Action selects")
-	actionSelect := selects[2]
+	s.Require().GreaterOrEqual(len(selects), 2, "should have Source and Action selects")
+	actionSelect := selects[len(selects)-1]
 	s.Contains(actionSelect.Options, "Notified")
 	s.Contains(actionSelect.Options, "Ignored")
 }
@@ -1340,13 +1349,14 @@ func (s *SettingsAcceptanceSuite) TestRulesTabFormInvalidRegexpShowsError() {
 
 	// Fill in form with invalid regex
 	selects := uitest.FindAll[*widget.Select](rulesContent, func(_ *widget.Select) bool { return true })
-	s.Require().GreaterOrEqual(len(selects), 3)
+	s.Require().GreaterOrEqual(len(selects), 2)
 	selects[0].SetSelected("Slack")
-	selects[1].SetSelected("channel")
-	selects[2].SetSelected("Notified")
+	selects[len(selects)-1].SetSelected("Notified")
 
-	entry := uitest.RequireWidget[*widget.Entry](s.T(), rulesContent, func(_ *widget.Entry) bool { return true })
-	entry.SetText("[invalid(regex")
+	// Find the channel pattern entry and set invalid regex
+	entries := uitest.FindAll[*widget.Entry](rulesContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 1)
+	entries[1].SetText("[invalid(regex") // channel pattern entry
 
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Save" })
 	saveBtn.OnTapped()
@@ -1371,13 +1381,14 @@ func (s *SettingsAcceptanceSuite) TestRulesTabFormSaveValidRuleReturnsToList() {
 	rulesContent = tabs.Items[3].Content
 
 	selects := uitest.FindAll[*widget.Select](rulesContent, func(_ *widget.Select) bool { return true })
-	s.Require().GreaterOrEqual(len(selects), 3)
+	s.Require().GreaterOrEqual(len(selects), 2)
 	selects[0].SetSelected("Slack")
-	selects[1].SetSelected("channel")
-	selects[2].SetSelected("Notified")
+	selects[len(selects)-1].SetSelected("Notified")
 
-	entry := uitest.RequireWidget[*widget.Entry](s.T(), rulesContent, func(_ *widget.Entry) bool { return true })
-	entry.SetText("^general$")
+	// Set channel pattern via entry field
+	entries := uitest.FindAll[*widget.Entry](rulesContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 1)
+	entries[1].SetText("^general$") // channel pattern entry
 
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Save" })
 	saveBtn.OnTapped()
@@ -1400,13 +1411,14 @@ func (s *SettingsAcceptanceSuite) TestRulesTabNewlySavedRuleAppearsInList() {
 	rulesContent = tabs.Items[3].Content
 
 	selects := uitest.FindAll[*widget.Select](rulesContent, func(_ *widget.Select) bool { return true })
-	s.Require().GreaterOrEqual(len(selects), 3)
+	s.Require().GreaterOrEqual(len(selects), 2)
 	selects[0].SetSelected("Slack")
-	selects[1].SetSelected("channel")
-	selects[2].SetSelected("Notified")
+	selects[len(selects)-1].SetSelected("Notified")
 
-	entry := uitest.RequireWidget[*widget.Entry](s.T(), rulesContent, func(_ *widget.Entry) bool { return true })
-	entry.SetText("^general$")
+	// Set channel pattern via entry field
+	entries := uitest.FindAll[*widget.Entry](rulesContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 1)
+	entries[1].SetText("^general$") // channel pattern entry
 
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), rulesContent, func(b *widget.Button) bool { return b.Text == "Save" })
 	saveBtn.OnTapped()
@@ -1449,8 +1461,8 @@ func (s *SettingsAcceptanceSuite) TestRulesTabDownReordersRule() {
 	id1, id2 := uuid.New(), uuid.New()
 	ruleRepo := &mockRoutingRuleRepo{
 		rules: []*repository.RoutingRule{
-			{ID: id1, Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
-			{ID: id2, Priority: 1, Source: "email", Field: "sender", Pattern: "boss@", Action: "ignored", Enabled: true},
+			{ID: id1, Priority: 0, SourceType: "slack", ChannelPattern: "^general$", Action: "notified", Enabled: true},
+			{ID: id2, Priority: 1, SourceType: "email", ContentPattern: "boss@", Action: "ignored", Enabled: true},
 		},
 	}
 	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
@@ -1475,8 +1487,8 @@ func (s *SettingsAcceptanceSuite) TestRulesTabUpReordersRule() {
 	id1, id2 := uuid.New(), uuid.New()
 	ruleRepo := &mockRoutingRuleRepo{
 		rules: []*repository.RoutingRule{
-			{ID: id1, Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
-			{ID: id2, Priority: 1, Source: "email", Field: "sender", Pattern: "boss@", Action: "ignored", Enabled: true},
+			{ID: id1, Priority: 0, SourceType: "slack", ChannelPattern: "^general$", Action: "notified", Enabled: true},
+			{ID: id2, Priority: 1, SourceType: "email", ContentPattern: "boss@", Action: "ignored", Enabled: true},
 		},
 	}
 	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)
@@ -1500,7 +1512,7 @@ func (s *SettingsAcceptanceSuite) TestRulesTabUpReordersRule() {
 func (s *SettingsAcceptanceSuite) TestRulesTabDeleteRemovesRule() {
 	ruleRepo := &mockRoutingRuleRepo{
 		rules: []*repository.RoutingRule{
-			{ID: uuid.New(), Priority: 0, Source: "slack", Field: "channel", Pattern: "^general$", Action: "notified", Enabled: true},
+			{ID: uuid.New(), Priority: 0, SourceType: "slack", ChannelPattern: "^general$", Action: "notified", Enabled: true},
 		},
 	}
 	sv := newSettingsViewWithRules(ruleRepo, &mockQueueRepo{}, 50)

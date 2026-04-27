@@ -215,10 +215,20 @@ func (m *mockRoutingRuleRepo) ListRules(_ context.Context) ([]*repository.Routin
 	return m.rules, nil
 }
 
-func (m *mockRoutingRuleRepo) ListRulesBySource(_ context.Context, source string) ([]*repository.RoutingRule, error) {
+func (m *mockRoutingRuleRepo) ListRulesBySourceType(_ context.Context, sourceType string) ([]*repository.RoutingRule, error) {
 	var result []*repository.RoutingRule
 	for _, r := range m.rules {
-		if r.Source == source {
+		if r.SourceType == sourceType {
+			result = append(result, r)
+		}
+	}
+	return result, nil
+}
+
+func (m *mockRoutingRuleRepo) ListRulesBySourceAccount(_ context.Context, accountID uuid.UUID) ([]*repository.RoutingRule, error) {
+	var result []*repository.RoutingRule
+	for _, r := range m.rules {
+		if r.SourceAccount != nil && *r.SourceAccount == accountID {
 			result = append(result, r)
 		}
 	}

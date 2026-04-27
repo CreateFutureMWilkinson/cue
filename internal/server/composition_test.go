@@ -212,3 +212,34 @@ func (s *CompositionSuite) TestNewCompositionPublishesOrchestratorEventsToHub() 
 	s.Equal("test event", ad.Message)
 	s.Equal(false, ad.IsError)
 }
+
+// TestCompositionShutdownClosesEventChannel verifies that Shutdown performs an
+// ordered teardown and closes EventCh, and that calling Shutdown a second time
+// is idempotent (does not panic on double-close).
+func (s *CompositionSuite) TestCompositionShutdownClosesEventChannel() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	cfg := minimalConfig(dbPath)
+
+	comp, err := server.NewComposition(context.Background(), cfg)
+	s.Require().NoError(err, "NewComposition should not return an error")
+	s.Require().NotNil(comp, "NewComposition should return a non-nil Composition")
+
+	// First shutdown — must succeed.
+	err = comp.Shutdown(context.Background())
+	s.Require().NoError(err, "first Shutdown call should not return an error")
+
+	// EventCh must be closed after shutdown.
+	select {
+	case _, ok := <-comp.EventCh:
+		s.False(ok, "EventCh should be closed after Shutdown")
+	case <-time.After(500 * time.Millisecond):
+		s.Fail("timed out waiting for EventCh close")
+	}
+
+	// Second shutdown — must be idempotent (no panic, no error).
+	s.Require().NotPanics(func() {
+		err = comp.Shutdown(context.Background())
+	}, "second Shutdown call should not panic")
+	s.NoError(err, "second Shutdown call should not return an error")
+}

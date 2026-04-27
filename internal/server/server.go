@@ -158,6 +158,8 @@ func (s *Server) registerRoutes() {
 	s.mux.Handle("GET /api/v1/websocket/events", s.wsManager.Handler())
 	s.mux.Handle("GET /api/v1/events", handler.EventsHandler(newHubPublisher(s.hub)))
 
+	s.registerDocsRoutes()
+
 	if s.deps.Messages != nil {
 		s.mux.Handle("GET /api/v1/notifications", handler.ListNotificationsHandler(s.deps.Messages))
 		s.mux.Handle("GET /api/v1/notifications/{id}", handler.GetNotificationHandler(s.deps.Messages))

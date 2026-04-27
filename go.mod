@@ -14,6 +14,7 @@ require (
 	github.com/gopxl/beep/v2 v2.1.1
 	github.com/rengensheng/chromem-go v1.0.2
 	github.com/stretchr/testify v1.11.1
+	github.com/swaggest/swgui v1.8.7
 	github.com/tetratelabs/wazero v1.11.0
 	github.com/urfave/cli/v3 v3.8.0
 	modernc.org/sqlite v1.47.0
@@ -79,6 +80,7 @@ require (
 	github.com/swaggo/swag/v2 v2.0.0-rc5 // indirect
 	github.com/tadvi/systray v0.0.0-20190226123456-11a2b8fa57af // indirect
 	github.com/urfave/cli/v2 v2.27.5 // indirect
+	github.com/vearutop/statigz v1.4.0 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	github.com/yuin/goldmark v1.7.8 // indirect

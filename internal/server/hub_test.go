@@ -287,6 +287,75 @@ func (s *HubSuite) TestHistoryReturnsReplayableEvents() {
 	s.Equal(uint64(1), resp.OldestSeq, "OldestSeq must still be 1")
 }
 
+// ---------------------------------------------------------------------------
+// Behavior 5 (slow-client policy): drop oldest queued, track drops, attach count
+// ---------------------------------------------------------------------------
+
+func (s *HubSuite) TestPublishSlowSubscriberTracksDrops() {
+	hub := server.NewHub()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go hub.Run(ctx)
+
+	sub, err := hub.Subscribe("slow-client")
+	s.Require().NoError(err)
+
+	// Publish 70 events without draining the subscriber channel (capacity 64).
+	// Under the target semantics (drop oldest queued), the channel always
+	// holds the 64 MOST RECENT envelopes. The first 6 envelopes are dropped.
+	for i := 0; i < 70; i++ {
+		hub.Publish(server.ActivityData{
+			Source:  "test",
+			Message: "evt",
+		})
+	}
+
+	// Drain ALL envelopes from the subscriber channel and keep the last one.
+	var last struct {
+		Seq              uint64              `json:"seq"`
+		Type             string              `json:"type"`
+		DroppedSinceLast int                 `json:"dropped_since_last"`
+		Data             server.ActivityData `json:"data"`
+	}
+	count := 0
+	for {
+		select {
+		case raw := <-sub.Events:
+			err := json.Unmarshal(raw, &last)
+			s.Require().NoError(err, "each queued envelope must be valid JSON")
+			count++
+		default:
+			goto drained
+		}
+	}
+drained:
+
+	s.Equal(64, count, "subscriber channel must hold exactly 64 envelopes")
+
+	// The last envelope delivered must carry a non-zero DroppedSinceLast
+	// because the subscriber experienced drops before this delivery.
+	s.Greater(last.DroppedSinceLast, 0,
+		"last envelope must report drops (DroppedSinceLast > 0)")
+
+	// After the drops have been reported, the counter resets. A fresh
+	// publish should deliver with DroppedSinceLast == 0.
+	hub.Publish(server.ActivityData{Source: "test", Message: "after-reset"})
+
+	select {
+	case raw := <-sub.Events:
+		var fresh struct {
+			DroppedSinceLast int `json:"dropped_since_last"`
+		}
+		err := json.Unmarshal(raw, &fresh)
+		s.Require().NoError(err)
+		s.Equal(0, fresh.DroppedSinceLast,
+			"first envelope after drain must have DroppedSinceLast == 0")
+	case <-time.After(time.Second):
+		s.Fail("subscriber did not receive the post-reset envelope within timeout")
+	}
+}
+
 func (s *HubSuite) TestHistoryTruncationAfterEviction() {
 	hub := server.NewHub()
 

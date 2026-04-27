@@ -63,14 +63,15 @@ func codeForStatus(statusCode int) string {
 	case http.StatusConflict:
 		return ErrCodeConflict
 	}
-	if statusCode >= 500 && statusCode <= 599 {
+	switch {
+	case statusCode >= 500 && statusCode <= 599:
+		return ErrCodeServerError
+	case statusCode >= 400 && statusCode <= 499:
+		return ErrCodeClientError
+	default:
+		// Conservative default for unexpected status codes.
 		return ErrCodeServerError
 	}
-	if statusCode >= 400 && statusCode <= 499 {
-		return ErrCodeClientError
-	}
-	// Conservative default for unexpected status codes.
-	return ErrCodeServerError
 }
 
 // messageFromBody attempts to extract the server's flat `{"error": "..."}`

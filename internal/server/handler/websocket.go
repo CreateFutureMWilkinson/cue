@@ -15,6 +15,11 @@ const (
 	writeTimeout = 5 * time.Second
 )
 
+// acceptOptions controls the WebSocket upgrade policy. Setting InsecureSkipVerify
+// to true disables origin checking, which is useful during development but must
+// be removed before production use.
+var acceptOptions = &websocket.AcceptOptions{InsecureSkipVerify: true}
+
 // Subscription represents a connected subscriber that receives broadcast
 // events on a byte-slice channel. It mirrors the shape of *server.Subscriber
 // without importing the server package, breaking the import cycle.
@@ -43,7 +48,7 @@ type Publisher interface {
 // slow clients from blocking the event stream.
 func WebSocketHandler(hub Publisher) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
+		conn, err := websocket.Accept(w, r, acceptOptions)
 		if err != nil {
 			return // Accept already wrote the HTTP error response.
 		}

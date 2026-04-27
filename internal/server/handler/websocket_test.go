@@ -3,6 +3,7 @@ package handler_test
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -100,4 +101,60 @@ func (s *WebSocketHandlerSuite) TestWebSocketHandler_HappyPath() {
 	s.Eventually(func() bool {
 		return hub.SubscriberCount() == 0
 	}, 500*time.Millisecond, 10*time.Millisecond, "hub should have 0 subscribers after client disconnect")
+}
+
+func (s *WebSocketHandlerSuite) TestWebSocketHandler_OriginPolicy() {
+	hub := server.NewHub()
+	pub := &hubAdapter{hub: hub}
+
+	srv := httptest.NewServer(handler.WebSocketHandler(pub))
+	defer srv.Close()
+
+	cases := []struct {
+		name       string
+		origin     string // empty string means no Origin header
+		wantStatus int
+	}{
+		{
+			name:       "missing origin is accepted",
+			origin:     "",
+			wantStatus: http.StatusSwitchingProtocols,
+		},
+		{
+			name:       "same origin is accepted",
+			origin:     srv.URL, // http://<host>:<port> matches the server
+			wantStatus: http.StatusSwitchingProtocols,
+		},
+		{
+			name:       "cross origin is rejected",
+			origin:     "http://evil.example.com",
+			wantStatus: http.StatusForbidden,
+		},
+	}
+
+	for _, tc := range cases {
+		s.Run(tc.name, func() {
+			resp, err := upgradeRequest(srv.URL, tc.origin)
+			s.Require().NoError(err, "HTTP request should not fail")
+			resp.Body.Close()
+			s.Equal(tc.wantStatus, resp.StatusCode)
+		})
+	}
+}
+
+// upgradeRequest sends a raw HTTP request with WebSocket upgrade headers.
+// If origin is non-empty it is included as the Origin header.
+func upgradeRequest(url, origin string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Upgrade", "websocket")
+	req.Header.Set("Connection", "Upgrade")
+	req.Header.Set("Sec-WebSocket-Version", "13")
+	req.Header.Set("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+	if origin != "" {
+		req.Header.Set("Origin", origin)
+	}
+	return http.DefaultClient.Do(req)
 }

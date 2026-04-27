@@ -2,9 +2,11 @@ package server
 
 import "github.com/CreateFutureMWilkinson/cue/internal/server/handler"
 
-// hubPublisher adapts *Hub to the handler.Publisher interface, allowing
-// the WebSocket handler to subscribe/unsubscribe without importing the
-// server package (which would create a cycle).
+// hubPublisher is an adapter that implements handler.Publisher by wrapping
+// *Hub, allowing WebSocket handlers to subscribe/unsubscribe without
+// importing the server package (which would create an import cycle).
+// It translates between the server package's Subscriber type and the
+// handler package's Subscription type.
 type hubPublisher struct{ hub *Hub }
 
 func newHubPublisher(h *Hub) *hubPublisher { return &hubPublisher{hub: h} }

@@ -45,16 +45,20 @@ type Publisher interface {
 }
 
 // Manager owns a WebSocket handler and a registry of active connections.
-// It allows the server to close all live WebSocket connections on shutdown,
-// which is necessary because net/http.Shutdown does not close hijacked
-// (upgraded) connections.
+// It tracks hijacked WebSocket connections in a map protected by mu, allowing
+// the server to close all live connections on shutdown (since net/http.Shutdown
+// does not close hijacked/upgraded connections). The active counter enforces
+// connection limits using atomic operations for lock-free fast path.
+//
+// Lock ordering: Manager.mu must never be held while calling methods on
+// individual websocket.Conn instances to prevent deadlocks.
 type Manager struct {
-	mu       sync.Mutex
-	conns    map[*websocket.Conn]struct{}
-	active   atomic.Int32
-	hub      Publisher
-	interval time.Duration
-	timeout  time.Duration
+	mu       sync.Mutex                   // protects conns map
+	conns    map[*websocket.Conn]struct{} // registry of live connections
+	active   atomic.Int32                 // connection count for limit enforcement
+	hub      Publisher                    // event publisher for subscriptions
+	interval time.Duration                // heartbeat ping interval
+	timeout  time.Duration                // heartbeat pong timeout
 }
 
 // NewManager creates a Manager with production-default heartbeat timings.
@@ -210,8 +214,8 @@ func runHeartbeat(ctx context.Context, conn *websocket.Conn, interval, timeout t
 // for testing or specialized deployments requiring different timings.
 //
 // Note: connections created via this standalone function are NOT tracked
-// for server shutdown. Use NewManagerWithHeartbeat when shutdown-aware
-// connection management is needed.
+// for server shutdown. For shutdown-aware connection management, use
+// NewManagerWithHeartbeat().Handler() instead.
 func WebSocketHandlerWithHeartbeat(hub Publisher, interval, timeout time.Duration) http.Handler {
 	return NewManagerWithHeartbeat(hub, interval, timeout).Handler()
 }
@@ -230,8 +234,8 @@ func WebSocketHandlerWithHeartbeat(hub Publisher, interval, timeout time.Duratio
 // WebSocketHandlerWithHeartbeat directly.
 //
 // Note: connections created via this standalone function are NOT tracked
-// for server shutdown. Use NewManager when shutdown-aware connection
-// management is needed.
+// for server shutdown. For shutdown-aware connection management, use
+// NewManager().Handler() instead.
 func WebSocketHandler(hub Publisher) http.Handler {
 	return WebSocketHandlerWithHeartbeat(hub, defaultHeartbeatInterval, defaultHeartbeatTimeout)
 }

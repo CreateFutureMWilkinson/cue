@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -91,11 +92,12 @@ func taskToItem(t *repository.Task, effectiveFn EffectiveEstimateFunc) taskItem 
 		CreatedAt:                t.CreatedAt.Format(time.RFC3339),
 	}
 
-	// TODO Loop 7 GREEN: populate item.Category from t.CategoryKey via
-	// repository.PresentCategoryName. RED stub leaves the embed nil so
-	// TestListIncludesCategoryEmbed fails meaningfully.
-	_ = repository.PresentCategoryName // keep import live during RED.
-	item.Category = nil
+	if t.CategoryKey != nil {
+		item.Category = &taskCategoryEmbed{
+			Key:  *t.CategoryKey,
+			Name: repository.PresentCategoryName(*t.CategoryKey),
+		}
+	}
 
 	if t.DueDate != nil {
 		s := t.DueDate.Format(time.RFC3339)
@@ -129,15 +131,23 @@ func ListTasksHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc, cats 
 	return func(w http.ResponseWriter, r *http.Request) {
 		limit, offset := parsePagination(r)
 
-		// TODO Loop 7 GREEN: when ?category= is non-empty, normalize via
-		// cats.GetCategory and use the canonical NameKey for the filter;
-		// surface ErrNotFound as 400. RED stub passes the raw param
-		// straight through so TestFilterByCategoryAcceptsAnyForm and
-		// TestFilterUnknownCategoryReturns400 fail meaningfully.
-		_ = cats
+		categoryKey := ""
+		if rawCat := r.URL.Query().Get("category"); rawCat != "" {
+			cat, err := cats.GetCategory(r.Context(), rawCat)
+			if err != nil {
+				if errors.Is(err, repository.ErrNotFound) {
+					writeJSONError(w, http.StatusBadRequest, "category not found")
+					return
+				}
+				writeJSONError(w, http.StatusInternalServerError, "failed to resolve category")
+				return
+			}
+			categoryKey = cat.NameKey
+		}
+
 		filter := repository.TaskFilter{
 			Status:      r.URL.Query().Get("status"),
-			CategoryKey: r.URL.Query().Get("category"),
+			CategoryKey: categoryKey,
 			Search:      r.URL.Query().Get("search"),
 			Limit:       limit,
 			Offset:      offset,
@@ -215,13 +225,13 @@ func CreateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc, cats
 			task.DueDate = &t
 		}
 
-		// TODO Loop 7 GREEN: resolve raw["category"] via cats.GetCategory
-		// (absent vs explicit-null distinction; ErrNotFound → 400). RED
-		// stub leaves CategoryKey nil so TestCreateAcceptsRawCategory and
-		// TestCreateUnknownCategoryReturns400 fail meaningfully.
-		_ = cats
-		_ = raw
-		task.CategoryKey = nil
+		present, key, handled := resolveCategoryRaw(r.Context(), w, cats, raw)
+		if handled {
+			return
+		}
+		if present {
+			task.CategoryKey = key
+		}
 
 		created, err := svc.Create(r.Context(), task)
 		if err != nil {
@@ -343,12 +353,13 @@ func UpdateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc, cats
 			existing.CompletedAt = &t
 		}
 
-		// TODO Loop 7 GREEN: handle raw["category"] with absent/null/string
-		// semantics (resolve string via cats.GetCategory; ErrNotFound → 400).
-		// RED stub leaves CategoryKey untouched so TestUpdateChangesCategory
-		// and TestUpdateClearsCategory fail meaningfully.
-		_ = cats
-		_ = raw
+		present, key, handled := resolveCategoryRaw(r.Context(), w, cats, raw)
+		if handled {
+			return
+		}
+		if present {
+			existing.CategoryKey = key
+		}
 
 		updated, err := svc.Update(r.Context(), existing)
 		if err != nil {
@@ -397,6 +408,49 @@ func parseDueDate(s string) (time.Time, error) {
 		return t, nil
 	}
 	return time.Parse(time.RFC3339, s)
+}
+
+// resolveCategoryRaw interprets a raw JSON value from the request body for
+// the `category` field. The three states it returns are:
+//
+//   - present=false: the field was absent (caller should leave existing
+//     value untouched).
+//   - present=true, key=nil: the field was explicit JSON null (caller
+//     should clear the category).
+//   - present=true, key=&"...": the field was a non-null string and the
+//     category service resolved it to a canonical key.
+//
+// On JSON decode error or service error the function writes the response
+// directly and returns handled=true so callers can stop processing.
+func resolveCategoryRaw(
+	ctx context.Context,
+	w http.ResponseWriter,
+	cats CategoryServicer,
+	raw map[string]json.RawMessage,
+) (present bool, key *string, handled bool) {
+	rawCat, ok := raw["category"]
+	if !ok {
+		return false, nil, false
+	}
+	if string(rawCat) == "null" {
+		return true, nil, false
+	}
+	var s string
+	if err := json.Unmarshal(rawCat, &s); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid category")
+		return true, nil, true
+	}
+	cat, err := cats.GetCategory(ctx, s)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			writeJSONError(w, http.StatusBadRequest, "category not found")
+			return true, nil, true
+		}
+		writeJSONError(w, http.StatusInternalServerError, "failed to resolve category")
+		return true, nil, true
+	}
+	k := cat.NameKey
+	return true, &k, false
 }
 
 // decodeRawInto re-encodes a raw JSON map into a typed struct. Used by the

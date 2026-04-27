@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
 );
 `
 
+const (
+	authTokenColumns = "id, label, token_hash, created_at, last_seen, revoked"
+)
+
 // Compile-time check that SQLiteAuthTokenRepository satisfies AuthTokenRepository.
 var _ repository.AuthTokenRepository = (*SQLiteAuthTokenRepository)(nil)
 
@@ -59,7 +63,7 @@ func (r *SQLiteAuthTokenRepository) Create(ctx context.Context, token *repositor
 
 func (r *SQLiteAuthTokenRepository) LookupByHash(ctx context.Context, hash string) (*repository.AuthToken, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, label, token_hash, created_at, last_seen, revoked
+		`SELECT `+authTokenColumns+`
 		 FROM auth_tokens WHERE token_hash = ?`, hash)
 
 	token, err := scanAuthToken(row)
@@ -74,7 +78,7 @@ func (r *SQLiteAuthTokenRepository) LookupByHash(ctx context.Context, hash strin
 
 func (r *SQLiteAuthTokenRepository) List(ctx context.Context) ([]repository.AuthToken, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, label, token_hash, created_at, last_seen, revoked
+		`SELECT `+authTokenColumns+`
 		 FROM auth_tokens ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("listing auth tokens: %w", err)
@@ -142,7 +146,9 @@ func (r *SQLiteAuthTokenRepository) DeleteAll(ctx context.Context) error {
 	return nil
 }
 
-func scanAuthToken(scanner interface{ Scan(dest ...any) error }) (*repository.AuthToken, error) {
+func scanAuthToken(scanner interface {
+	Scan(dest ...any) error
+}) (*repository.AuthToken, error) {
 	var (
 		token        repository.AuthToken
 		idStr        string

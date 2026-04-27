@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -198,6 +199,53 @@ func (s *HubSuite) TestPublishAssignsSeqAndStamps() {
 // ---------------------------------------------------------------------------
 // Behavior 3: History returns replayable events from ring buffer
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Behavior 4: Publish broadcasts serialized envelope to all subscribers
+// ---------------------------------------------------------------------------
+
+func (s *HubSuite) TestPublishBroadcastsToSubscribers() {
+	hub := server.NewHub()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go hub.Run(ctx)
+
+	sub1, err := hub.Subscribe("client-1")
+	s.Require().NoError(err)
+
+	sub2, err := hub.Subscribe("client-2")
+	s.Require().NoError(err)
+
+	data := server.ActivityData{
+		Source:  "slack",
+		Message: "test",
+		IsError: false,
+	}
+	env := hub.Publish(data)
+
+	// Both subscribers must receive a JSON-serialized envelope.
+	for _, sub := range []*server.Subscriber{sub1, sub2} {
+		select {
+		case raw := <-sub.Events:
+			// Unmarshal into an envelope with typed Data.
+			var got struct {
+				Seq       uint64              `json:"seq"`
+				Type      string              `json:"type"`
+				Timestamp time.Time           `json:"timestamp"`
+				Data      server.ActivityData `json:"data"`
+			}
+			err := json.Unmarshal(raw, &got)
+			s.Require().NoError(err, "received bytes must be valid JSON envelope")
+
+			s.Equal(env.Seq, got.Seq, "envelope Seq must match published Seq")
+			s.Equal("activity", got.Type, "envelope Type must be 'activity'")
+			s.Equal("slack", got.Data.Source, "envelope Data.Source must match")
+		case <-time.After(time.Second):
+			s.Fail("subscriber %s did not receive publish broadcast within timeout", sub.ID)
+		}
+	}
+}
 
 func (s *HubSuite) TestHistoryReturnsReplayableEvents() {
 	hub := server.NewHub()

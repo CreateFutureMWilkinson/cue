@@ -1,174 +1,101 @@
 # Feature 102: Service Configuration API
 
 **Phase:** Phase-9-Feature-102
-**Status:** Planning
-**Package:** `internal/server/handler/`
+**Status:** Done
+**Package:** `internal/service/servicemanager/`, `internal/server/handler/`
 **Depends on:** Feature 097, Feature 099A (Server Orchestrator Wiring)
 
 ---
 
-## Prerequisite
-
-This feature needs a live orchestrator reference inside `cue-server` so the account CRUD handlers can register/deregister watchers at runtime. Today the orchestrator lives in `cmd/cue/main.go`; **Feature 099A** owns relocating it into `cue-server`. 102 cannot ship until 099A lands.
-
 ## Overview
 
-Expose CRUD operations for Slack, Email, and Calendar account configurations. This enables alternative UIs to manage which data sources Cue monitors. Adding/removing an account must also register/deregister the corresponding watcher with the orchestrator at runtime.
+Exposes CRUD operations for Slack, Email, and Calendar account configurations via REST API. Adding/removing/toggling an account registers/deregisters the corresponding watcher with the orchestrator at runtime. A status summary endpoint reports all accounts and their watcher registration state.
+
+## Design Decisions
+
+1. **ServiceManager service layer** — A new `ServiceManager` in `internal/service/servicemanager/` wraps `ServiceConfigRepository` + orchestrator `WatcherLifecycle` + `WatcherFactory` + `MessageDeleter`. Both HTTP handlers and (hypothetically) other consumers share this single service. The defunct UI presenter was not updated.
+
+2. **Credentials never exposed** — GET responses mask tokens/passwords with `"***"` (`CredentialMask`). Update requests with empty or masked credential fields preserve the existing stored values (partial update semantics).
+
+3. **Validate on save** — No separate `/validate` endpoint. Credential validation runs synchronously during create/update with a 30s timeout. Validators are injected via functional options (`WithSlackValidator`, `WithEmailValidator`, `WithCalendarValidator`).
+
+4. **Cascade message deletion** — Deleting an account also deletes all associated messages from the messages table via `DeleteBySourceAccount(ctx, source, sourceAccount)`. New method added to `MessageRepository` interface.
+
+5. **Graceful watcher teardown** — Disabling an account calls `RemoveWatcher` which removes it from the orchestrator's watcher map. In-flight polls complete naturally since the orchestrator snapshots watchers at poll start.
+
+6. **Status endpoint** — `GET /api/v1/services/status` returns account ID, type, name, enabled status, and watcher registration state. Poll stats (last/next poll, message count) deferred to a future feature.
+
+7. **Calendar accounts have no watchers** — Calendar account CRUD persists config but does not interact with the orchestrator's watcher lifecycle (no watcher factory call, no watcher removal).
 
 ## Endpoints
 
 ### Slack Accounts
 
-```
-GET    /api/v1/services/slack              → list all Slack accounts
-GET    /api/v1/services/slack/{id}         → get account details
-POST   /api/v1/services/slack              → create new account
-PUT    /api/v1/services/slack/{id}         → update account
-DELETE /api/v1/services/slack/{id}         → delete account
-POST   /api/v1/services/slack/{id}/toggle  → enable/disable
-POST   /api/v1/services/slack/{id}/validate → test credentials
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/services/slack` | List all Slack accounts |
+| GET | `/api/v1/services/slack/{id}` | Get account (masked token) |
+| POST | `/api/v1/services/slack` | Create account (validates) |
+| PUT | `/api/v1/services/slack/{id}` | Update account (partial) |
+| DELETE | `/api/v1/services/slack/{id}` | Delete + cascade messages |
+| POST | `/api/v1/services/slack/{id}/toggle` | Enable/disable |
 
 ### Email Accounts
 
-```
-GET    /api/v1/services/email              → list all Email accounts
-GET    /api/v1/services/email/{id}         → get account details
-POST   /api/v1/services/email              → create new account
-PUT    /api/v1/services/email/{id}         → update account
-DELETE /api/v1/services/email/{id}         → delete account
-POST   /api/v1/services/email/{id}/toggle  → enable/disable
-POST   /api/v1/services/email/{id}/validate → test IMAP credentials
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/services/email` | List all Email accounts |
+| GET | `/api/v1/services/email/{id}` | Get account (masked password) |
+| POST | `/api/v1/services/email` | Create account (validates) |
+| PUT | `/api/v1/services/email/{id}` | Update account (partial) |
+| DELETE | `/api/v1/services/email/{id}` | Delete + cascade messages |
+| POST | `/api/v1/services/email/{id}/toggle` | Enable/disable |
 
 ### Calendar Accounts
 
-```
-GET    /api/v1/services/calendar              → list all Calendar accounts
-GET    /api/v1/services/calendar/{id}         → get account details
-POST   /api/v1/services/calendar              → create new account
-PUT    /api/v1/services/calendar/{id}         → update account
-DELETE /api/v1/services/calendar/{id}         → delete account
-POST   /api/v1/services/calendar/{id}/toggle  → enable/disable
-POST   /api/v1/services/calendar/{id}/validate → test ICS URL
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/services/calendar` | List all Calendar accounts |
+| GET | `/api/v1/services/calendar/{id}` | Get account |
+| POST | `/api/v1/services/calendar` | Create account (validates) |
+| PUT | `/api/v1/services/calendar/{id}` | Update account (partial) |
+| DELETE | `/api/v1/services/calendar/{id}` | Delete |
+| POST | `/api/v1/services/calendar/{id}/toggle` | Enable/disable |
 
-### Example: Create Slack Account
+### Status
 
-**Request:**
-```json
-{
-  "name": "Work Slack",
-  "bot_token": "xoxp-...",
-  "workspace_id": "T...",
-  "enabled": true
-}
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/services/status` | All accounts with watcher state |
 
-**Response (201):**
-```json
-{
-  "id": "uuid",
-  "name": "Work Slack",
-  "workspace_id": "T...",
-  "enabled": true,
-  "created_at": "2026-04-10T14:30:00Z"
-}
-```
-
-**Note:** Sensitive fields (tokens, passwords) are NEVER returned in GET responses. They are write-only.
-
-### Validate Endpoint
+## Architecture
 
 ```
-POST /api/v1/services/slack/{id}/validate
+handler/service.go          HTTP ↔ JSON translation (19 handlers)
+        ↓
+servicemanager/manager.go   Business logic (CRUD + watcher lifecycle)
+        ↓                   ↓                    ↓
+ServiceConfigRepository   WatcherLifecycle    MessageDeleter
+(SQLite, encrypted)       (Orchestrator)      (SQLite)
 ```
 
-**Response (200):**
-```json
-{
-  "valid": true,
-  "message": "Successfully connected to workspace"
-}
-```
+## Error Handling
 
-**Response (200, invalid):**
-```json
-{
-  "valid": false,
-  "message": "Authentication failed: invalid token"
-}
-```
+| Status | Condition |
+|--------|-----------|
+| 200 | Success (list, get, update, status) |
+| 201 | Created |
+| 204 | Deleted, toggled |
+| 400 | Invalid UUID, malformed JSON |
+| 404 | Account not found |
+| 500 | Internal error |
 
-Validation is always 200 (the request succeeded) — the `valid` field indicates whether credentials work.
+## Test Coverage
 
-**Question: Should validation be synchronous or fire-and-forget?** IMAP validation can be slow (5-10s for connection + auth). Recommend synchronous with a 15s timeout — the client needs the result before proceeding.
+- **ServiceManager:** 55+ tests covering constructor validation, list/get/create/update/delete/toggle for all 3 account types, credential masking, credential preservation on update, cascade deletion, watcher lifecycle, status summary with watcher registration checks.
+- **HTTP Handlers:** 16 tests covering success paths, error paths (400, 404), and all account types.
+- **Repository:** 2 tests for `DeleteBySourceAccount`.
 
-## Design Decisions to Make
+## TDD Agent Stats
 
-### Credential Storage
-
-Credentials are currently stored encrypted in SQLite via `ServiceConfigRepository` using a `secret.key` file.
-
-**Question: How should the API handle credential input?**
-
-- Tokens/passwords are provided in POST/PUT request bodies
-- They're stored encrypted server-side
-- They're NEVER returned in GET responses (replaced with `"***"` or omitted)
-- Update requests with empty/null credential fields preserve existing credentials (partial update)
-
-**Question: Should the API support reading credentials?** A "show token" button in a UI is convenient but exposes secrets over HTTP. Options:
-- Never expose credentials via API (must check DB directly)
-- Expose via a separate privileged endpoint (`POST /services/slack/{id}/reveal-token`)
-- Always mask in responses
-
-**Recommendation:** Never expose. This is a local-only app, but good security hygiene costs nothing. If a user needs to see their token, they can check their config or the DB.
-
-### Watcher Lifecycle
-
-When an account is created/enabled, a watcher must be registered with the orchestrator. When deleted/disabled, it must be deregistered. This is currently handled by `ServiceSettingsPresenter` calling `WatcherFactory` and `WatcherRemover`.
-
-**Question: Should the API handler directly manage watcher lifecycle, or go through an intermediary service?**
-
-- **Direct**: Handler calls `watcherFactory(account)` and `orchestrator.AddWatcher()` / `orchestrator.RemoveWatcher()`. Simple but couples HTTP handler to orchestrator internals.
-- **Service layer**: New `ServiceManager` that wraps repo + watcher lifecycle. Handler calls `serviceManager.CreateSlackAccount()` which handles both persistence and watcher registration.
-
-**Recommendation:** Service layer. The GUI presenter already does this dance (save to repo, create watcher, add to orchestrator). Extracting it into a reusable service benefits both GUI and server. This is a case where the refactor pays for itself.
-
-### Validation Before Save
-
-**Question: Should account creation automatically validate credentials, or should validation be a separate explicit step?**
-
-- **Auto-validate on create**: Safer — prevents saving broken configs. But blocks the create call.
-- **Separate validation**: Client creates the account, then calls validate. Account exists in DB even if invalid. Simpler for UIs that want to save-then-test.
-
-**Recommendation:** Separate validation. The GUI currently does save-then-test. Keep the same pattern for the API.
-
-## Behaviors to Implement
-
-1. **List accounts handlers** (Slack, Email, Calendar) — Query from `ServiceConfigRepository`.
-2. **Get account handler** — By ID, mask credentials in response.
-3. **Create account handler** — Validate input, save to repo, optionally create and register watcher.
-4. **Update account handler** — Partial update support (preserve credentials if not provided).
-5. **Delete account handler** — Remove from repo, deregister watcher.
-6. **Toggle handler** — Enable/disable account, register/deregister watcher accordingly.
-7. **Validate handler** — Run appropriate validator (Slack/IMAP/ICS), return result.
-8. **ServiceManager extraction** — Refactor watcher lifecycle out of presenter into shared service.
-
-## Testing Considerations
-
-- Create account → verify watcher registered with orchestrator.
-- Delete account → verify watcher deregistered.
-- Toggle off → verify watcher removed. Toggle on → verify watcher re-created.
-- Update credentials → verify new watcher created with new credentials.
-- Validate with bad credentials → verify clean error, account not modified.
-- Credential masking: GET response must never include raw tokens.
-
-## Questions Summary
-
-1. Should the API ever expose stored credentials?
-2. Auto-validate on create or separate explicit validation?
-3. Extract `ServiceManager` service layer or keep logic in handler?
-4. Should account deletion cascade-delete associated messages?
-5. What happens to in-flight polls when a watcher is removed mid-cycle?
-6. Should there be a `GET /api/v1/services/status` summary endpoint showing all account health?
+See `docs/agent-log.md` for per-phase details.

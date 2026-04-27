@@ -13,6 +13,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Service configuration REST API** — Nineteen endpoints under `/api/v1/services/` for CRUD, toggle, and status of Slack, Email, and Calendar accounts. New `ServiceManager` service layer (`internal/service/servicemanager/`) wraps repository + orchestrator watcher lifecycle + credential validation. Credentials are never exposed in API responses (masked with `***`); update requests with empty/masked credentials preserve existing stored values. Account creation validates credentials synchronously (30s timeout) via injected validators. Account deletion cascade-deletes associated messages from the messages table (`DeleteBySourceAccount` added to `MessageRepository`). Enable/disable gracefully tears down watchers. `GET /api/v1/services/status` returns all accounts with watcher registration state. `WatcherFactory` closure reuses the same watcher creation logic as startup-time DB registration. Wired into `server.Composition` and `Deps`. (Phase-9-Feature-102)
+
 - **Embedding model benchmarking** — New `--embed-model` flag for `cue-bench` replaces tag-based few-shot example selection with vector-similarity selection using a real Ollama embedding model. Benchmarks inference model + embedding model combinations to find optimal pairings for production routing accuracy. Calls `/api/embed` directly (no chromem-go dependency). Reports embedding latency (p50/p95) in both table and JSON output. (Phase-8-Feature-095)
 
 ### Breaking

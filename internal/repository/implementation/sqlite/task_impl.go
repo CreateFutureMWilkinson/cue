@@ -84,9 +84,6 @@ func NewSQLiteTaskRepository(dbPath string) (*SQLiteTaskRepository, error) {
 
 // nullableCategoryKey converts a *string to a value suitable for ?-binding
 // where nil is persisted as SQL NULL.
-//
-// TODO(feat-109 Loop 4 GREEN): wire this through Insert/Update so
-// category_key actually round-trips. Currently a placeholder.
 func nullableCategoryKey(k *string) any {
 	if k == nil {
 		return nil
@@ -95,13 +92,7 @@ func nullableCategoryKey(k *string) any {
 }
 
 // Insert adds a new task to the database.
-//
-// TODO(feat-109 Loop 4 GREEN): persist task.CategoryKey via the new
-// category_key column. The current implementation always writes NULL
-// regardless of the value of CategoryKey so new tests fail meaningfully.
 func (r *SQLiteTaskRepository) Insert(ctx context.Context, task *repository.Task) error {
-	_ = nullableCategoryKey // referenced once GREEN wires it.
-
 	_, err := r.db.ExecContext(ctx, queryInsertTask,
 		task.ID.String(),
 		task.Title,
@@ -112,7 +103,7 @@ func (r *SQLiteTaskRepository) Insert(ctx context.Context, task *repository.Task
 		nullableTime(task.CompletedAt),
 		task.EstimateMinutes,
 		task.LLMEstimateMinutes,
-		nil, // STUB: should be nullableCategoryKey(task.CategoryKey)
+		nullableCategoryKey(task.CategoryKey),
 	)
 	if err != nil {
 		return fmt.Errorf("insert task: %w", err)
@@ -121,9 +112,6 @@ func (r *SQLiteTaskRepository) Insert(ctx context.Context, task *repository.Task
 }
 
 // Update modifies an existing task's fields.
-//
-// TODO(feat-109 Loop 4 GREEN): persist task.CategoryKey via the new
-// category_key column. Current STUB always writes NULL.
 func (r *SQLiteTaskRepository) Update(ctx context.Context, task *repository.Task) error {
 	_, err := r.db.ExecContext(ctx, queryUpdateTask,
 		task.Title,
@@ -133,7 +121,7 @@ func (r *SQLiteTaskRepository) Update(ctx context.Context, task *repository.Task
 		nullableTime(task.CompletedAt),
 		task.EstimateMinutes,
 		task.LLMEstimateMinutes,
-		nil, // STUB: should be nullableCategoryKey(task.CategoryKey)
+		nullableCategoryKey(task.CategoryKey),
 		task.ID.String(),
 	)
 	if err != nil {
@@ -153,9 +141,6 @@ func (r *SQLiteTaskRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
 // QueryByID returns a task by ID, or nil and an error wrapping
 // repository.ErrNotFound if no task with that ID exists.
-//
-// TODO(feat-109 Loop 4 GREEN): scan the new category_key column into
-// task.CategoryKey. Current STUB scans the column but discards it.
 func (r *SQLiteTaskRepository) QueryByID(ctx context.Context, id uuid.UUID) (*repository.Task, error) {
 	rows, err := r.db.QueryContext(ctx, querySelectTaskByID, id.String())
 	if err != nil {
@@ -180,9 +165,6 @@ func (r *SQLiteTaskRepository) QueryByID(ctx context.Context, id uuid.UUID) (*re
 
 // QueryFiltered returns tasks matching the filter criteria plus a total count for pagination.
 // Sort order: priority DESC (higher first), then created_at ASC.
-//
-// TODO(feat-109 Loop 4 GREEN): apply filter.CategoryKey via
-// `WHERE category_key = ?`. Current STUB ignores CategoryKey.
 func (r *SQLiteTaskRepository) QueryFiltered(ctx context.Context, filter repository.TaskFilter) ([]*repository.Task, int, error) {
 	// Build WHERE clause dynamically.
 	var whereClauses []string
@@ -202,8 +184,11 @@ func (r *SQLiteTaskRepository) QueryFiltered(ctx context.Context, filter reposit
 		// No status filter.
 	}
 
-	// STUB: filter.CategoryKey ignored — Loop 4 GREEN wires this.
-	_ = filter.CategoryKey
+	// Category filter: empty string means no filter.
+	if filter.CategoryKey != "" {
+		whereClauses = append(whereClauses, "category_key = ?")
+		args = append(args, filter.CategoryKey)
+	}
 
 	// Search filter: case-insensitive LIKE on title OR description.
 	if filter.Search != "" {
@@ -265,10 +250,6 @@ func (r *SQLiteTaskRepository) Complete(ctx context.Context, id uuid.UUID, compl
 }
 
 // scanTask reads a task from a sql.Rows scanner.
-//
-// TODO(feat-109 Loop 4 GREEN): populate task.CategoryKey from the
-// scanned category_key column. Current STUB scans into a local
-// variable that is discarded.
 func scanTask(rows *sql.Rows) (*repository.Task, error) {
 	var (
 		task               repository.Task
@@ -278,7 +259,7 @@ func scanTask(rows *sql.Rows) (*repository.Task, error) {
 		completedAt        sql.NullString
 		estimateMinutes    sql.NullInt64
 		llmEstimateMinutes sql.NullInt64
-		categoryKey        sql.NullString // STUB: not wired to task.CategoryKey
+		categoryKey        sql.NullString
 	)
 
 	err := rows.Scan(
@@ -333,7 +314,10 @@ func scanTask(rows *sql.Rows) (*repository.Task, error) {
 		task.LLMEstimateMinutes = &v
 	}
 
-	// STUB: categoryKey scanned but not assigned to task.CategoryKey.
+	if categoryKey.Valid {
+		v := categoryKey.String
+		task.CategoryKey = &v
+	}
 
 	return &task, nil
 }

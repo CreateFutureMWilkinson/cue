@@ -45,20 +45,27 @@ type Deps struct {
 	// Inject a shared hub when you need external components (orchestrator, queue processor)
 	// to publish events to the same WebSocket clients that connect to this server.
 	Hub *Hub
+	// AuthTokens is the auth token repository for TOFU authentication.
+	// If nil and auth is enabled, the middleware cannot function.
+	AuthTokens AuthTokenLookup
+	// AuthTokenManager provides CRUD operations for token management endpoints.
+	// If nil, token management endpoints are not registered.
+	AuthTokenManager handler.AuthTokenManager
 }
 
 // Server is the headless HTTP/WebSocket entry point for Cue.
 // It wires repositories, services, and watchers and exposes them
 // over HTTP handlers and a WebSocket event broadcaster.
 type Server struct {
-	cfg       config.ServerConfig
-	deps      Deps
-	hub       *Hub
-	ticker    *Ticker
-	wsManager *handler.Manager
-	mux       *http.ServeMux
-	handler   http.Handler
-	server    *http.Server
+	cfg          config.ServerConfig
+	deps         Deps
+	hub          *Hub
+	ticker       *Ticker
+	pairingStore *pairingStoreAdapter
+	wsManager    *handler.Manager
+	mux          *http.ServeMux
+	handler      http.Handler
+	server       *http.Server
 
 	mu       sync.Mutex
 	listener net.Listener
@@ -79,23 +86,47 @@ func New(cfg config.ServerConfig, deps ...Deps) (*Server, error) {
 		hub = NewHub()
 	}
 
+	pub := newHubPublisher(hub)
+	wsManager := handler.NewManager(pub)
+
+	// Set up WebSocket token validation when auth is enabled.
+	if cfg.AuthEnabled && d.AuthTokens != nil {
+		wsManager.SetTokenValidator(func(token string) bool {
+			h := hashToken(token)
+			t, err := d.AuthTokens.LookupByHash(context.Background(), h)
+			return err == nil && !t.Revoked
+		})
+	}
+
+	var ps *pairingStoreAdapter
+	if cfg.AuthEnabled {
+		ps = newPairingStoreAdapter(NewPairingStore())
+	}
+
 	s := &Server{
-		cfg:       cfg,
-		deps:      d,
-		hub:       hub,
-		wsManager: handler.NewManager(newHubPublisher(hub)),
-		mux:       mux,
+		cfg:          cfg,
+		deps:         d,
+		hub:          hub,
+		pairingStore: ps,
+		wsManager:    wsManager,
+		mux:          mux,
 	}
 
 	s.registerRoutes()
 
-	s.handler = chain(mux,
+	middlewares := []func(http.Handler) http.Handler{
 		ContentTypeMiddleware,
 		CORSMiddleware,
 		RequestIDMiddleware,
 		LoggingMiddleware,
 		RecoveryMiddleware,
-	)
+	}
+	if d.AuthTokens != nil {
+		middlewares = append([]func(http.Handler) http.Handler{
+			AuthMiddleware(d.AuthTokens, cfg.AuthEnabled),
+		}, middlewares...)
+	}
+	s.handler = chain(mux, middlewares...)
 
 	s.server = &http.Server{
 		Handler:      s.handler,
@@ -175,6 +206,20 @@ func (s *Server) registerRoutes() {
 		s.mux.Handle("POST /api/v1/services/calendar/{id}/toggle", handler.ToggleCalendarAccountHandler(s.deps.Services))
 		// Status
 		s.mux.Handle("GET /api/v1/services/status", handler.ServiceStatusHandler(s.deps.Services))
+	}
+
+	if s.pairingStore != nil {
+		pub := newHubPublisher(s.hub)
+		s.mux.Handle("POST /api/v1/auth/pair", handler.InitiatePairingHandler(s.pairingStore, pub))
+		s.mux.Handle("GET /api/v1/auth/pair/{id}", handler.PollPairingHandler(s.pairingStore))
+		s.mux.Handle("POST /api/v1/auth/pair/{id}/approve", handler.ApprovePairingHandler(s.pairingStore, s.deps.AuthTokenManager, pub))
+		s.mux.Handle("POST /api/v1/auth/pair/{id}/deny", handler.DenyPairingHandler(s.pairingStore, pub))
+	}
+
+	if s.deps.AuthTokenManager != nil {
+		s.mux.Handle("GET /api/v1/auth/tokens", handler.ListTokensHandler(s.deps.AuthTokenManager))
+		s.mux.Handle("PUT /api/v1/auth/tokens/{id}", handler.UpdateTokenLabelHandler(s.deps.AuthTokenManager))
+		s.mux.Handle("DELETE /api/v1/auth/tokens/{id}", handler.RevokeTokenHandler(s.deps.AuthTokenManager))
 	}
 
 	if s.deps.Schedules != nil {

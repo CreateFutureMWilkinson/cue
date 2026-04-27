@@ -23,6 +23,14 @@ type AuthTokenCreator interface {
 	Create(ctx context.Context, token *repository.AuthToken) error
 }
 
+// AuthTokenManager is the interface for token CRUD operations.
+type AuthTokenManager interface {
+	AuthTokenCreator
+	List(ctx context.Context) ([]repository.AuthToken, error)
+	UpdateLabel(ctx context.Context, id uuid.UUID, label string) error
+	Revoke(ctx context.Context, id uuid.UUID) error
+}
+
 // PairingStorer is the interface for the in-memory pairing store used by auth handlers.
 type PairingStorer interface {
 	Create(label string) *PairingRequest
@@ -192,5 +200,77 @@ func DenyPairingHandler(store PairingStorer, hub EventBroadcaster) http.Handler 
 
 		broadcastPairingEvent(hub, "pairing_resolved", id, "denied")
 		writeJSON(w, http.StatusOK, map[string]string{"status": "denied"})
+	})
+}
+
+// ListTokensHandler returns a handler for GET /api/v1/auth/tokens.
+func ListTokensHandler(repo AuthTokenManager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokens, err := repo.List(r.Context())
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to list tokens")
+			return
+		}
+
+		type tokenResp struct {
+			ID        string `json:"id"`
+			Label     string `json:"label"`
+			CreatedAt string `json:"created_at"`
+			LastSeen  string `json:"last_seen"`
+			Revoked   bool   `json:"revoked"`
+		}
+		resp := make([]tokenResp, len(tokens))
+		for i, t := range tokens {
+			resp[i] = tokenResp{
+				ID:        t.ID.String(),
+				Label:     t.Label,
+				CreatedAt: t.CreatedAt.Format(time.RFC3339),
+				LastSeen:  t.LastSeen.Format(time.RFC3339),
+				Revoked:   t.Revoked,
+			}
+		}
+		writeJSON(w, http.StatusOK, resp)
+	})
+}
+
+// UpdateTokenLabelHandler returns a handler for PUT /api/v1/auth/tokens/{id}.
+func UpdateTokenLabelHandler(repo AuthTokenManager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id, err := parseIDFromPath(r)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid id")
+			return
+		}
+
+		var body struct {
+			Label string `json:"label"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+
+		if err := repo.UpdateLabel(r.Context(), id, body.Label); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to update label")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+	})
+}
+
+// RevokeTokenHandler returns a handler for DELETE /api/v1/auth/tokens/{id}.
+func RevokeTokenHandler(repo AuthTokenManager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id, err := parseIDFromPath(r)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid id")
+			return
+		}
+
+		if err := repo.Revoke(r.Context(), id); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to revoke token")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
 	})
 }

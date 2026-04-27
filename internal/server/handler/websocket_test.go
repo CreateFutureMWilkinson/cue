@@ -234,6 +234,83 @@ func (s *WebSocketHandlerSuite) TestWebSocketHandler_HeartbeatClosesOnTimeout() 
 	s.Error(readErr, "reading from a server-closed connection should fail")
 }
 
+// ---------- token validation tests ----------
+
+func (s *WebSocketHandlerSuite) TestWebSocketRejectsInvalidToken() {
+	hub := server.NewHub()
+	pub := &hubAdapter{hub: hub}
+
+	mgr := handler.NewManagerWithHeartbeat(pub, 50*time.Millisecond, 100*time.Millisecond)
+	mgr.SetTokenValidator(func(token string) bool {
+		return false // reject everything
+	})
+
+	srv := httptest.NewServer(mgr.Handler())
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "?token=bad"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// Attempt dial — should fail because server returns 401 before upgrade.
+	_, resp, err := websocket.Dial(ctx, wsURL, nil)
+	s.Error(err, "dial should fail when token is invalid")
+	if resp != nil {
+		s.Equal(http.StatusUnauthorized, resp.StatusCode,
+			"server should respond with 401 Unauthorized for invalid token")
+	}
+}
+
+func (s *WebSocketHandlerSuite) TestWebSocketAcceptsValidToken() {
+	hub := server.NewHub()
+	pub := &hubAdapter{hub: hub}
+
+	mgr := handler.NewManagerWithHeartbeat(pub, 50*time.Millisecond, 100*time.Millisecond)
+	mgr.SetTokenValidator(func(token string) bool {
+		return token == "good-token"
+	})
+
+	srv := httptest.NewServer(mgr.Handler())
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "?token=good-token"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	s.Require().NoError(err, "dial should succeed when token is valid")
+	defer conn.CloseNow() //nolint:errcheck
+
+	err = conn.Close(websocket.StatusNormalClosure, "done")
+	s.NoError(err, "clean close should succeed")
+}
+
+func (s *WebSocketHandlerSuite) TestWebSocketNoValidatorAllowsAll() {
+	hub := server.NewHub()
+	pub := &hubAdapter{hub: hub}
+
+	// No SetTokenValidator call — validator is nil (auth disabled).
+	mgr := handler.NewManagerWithHeartbeat(pub, 50*time.Millisecond, 100*time.Millisecond)
+
+	srv := httptest.NewServer(mgr.Handler())
+	defer srv.Close()
+
+	// Connect without any token query parameter.
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	s.Require().NoError(err, "dial should succeed when no validator is set")
+	defer conn.CloseNow() //nolint:errcheck
+
+	err = conn.Close(websocket.StatusNormalClosure, "done")
+	s.NoError(err, "clean close should succeed")
+}
+
 // upgradeRequest sends a raw HTTP request with WebSocket upgrade headers.
 // If origin is non-empty it is included as the Origin header.
 func upgradeRequest(url, origin string) (*http.Response, error) {

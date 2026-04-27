@@ -91,6 +91,15 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, err
 	}
 
+	// Open auth token repository on the shared database connection.
+	var authTokenRepo *sqlite.SQLiteAuthTokenRepository
+	if accessor, ok := msgRepo.(dbAccessor); ok {
+		authTokenRepo, err = sqlite.NewSQLiteAuthTokenRepository(accessor.DB())
+		if err != nil {
+			return nil, fmt.Errorf("opening auth token repository: %w", err)
+		}
+	}
+
 	ollamaClient, vectorStore, rulesEngine, err := constructServices(ctx, cfg, ruleRepo)
 	if err != nil {
 		return nil, err
@@ -138,7 +147,7 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, fmt.Errorf("creating service manager: %w", err)
 	}
 
-	httpSrv, err := constructHTTPServer(cfg, msgRepo, vectorStore, hub, todoSvc, scheduleRepo, plannerEngine, calProvider, svcMgr, ruleRepo, queueRepo, orch)
+	httpSrv, err := constructHTTPServer(cfg, msgRepo, vectorStore, hub, todoSvc, scheduleRepo, plannerEngine, calProvider, svcMgr, ruleRepo, queueRepo, orch, authTokenRepo)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +253,7 @@ func constructServices(ctx context.Context, cfg config.Config, ruleRepo reposito
 }
 
 // constructHTTPServer builds the HTTP/WebSocket server surface with shared hub.
-func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository, vectorStore *vector.ChromemVectorStore, hub *Hub, todoSvc *todosvc.Service, scheduleRepo repository.ScheduleRepository, plannerEngine *planner.Planner, calProvider calendar.CalendarProvider, svcMgr *servicemanager.ServiceManager, ruleRepo repository.RoutingRuleRepository, queueRepo repository.QueueRepository, orch *orchestrator.Orchestrator) (*Server, error) {
+func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository, vectorStore *vector.ChromemVectorStore, hub *Hub, todoSvc *todosvc.Service, scheduleRepo repository.ScheduleRepository, plannerEngine *planner.Planner, calProvider calendar.CalendarProvider, svcMgr *servicemanager.ServiceManager, ruleRepo repository.RoutingRuleRepository, queueRepo repository.QueueRepository, orch *orchestrator.Orchestrator, authTokenRepo *sqlite.SQLiteAuthTokenRepository) (*Server, error) {
 	bufSvc, err := buffer.NewBufferService(msgRepo, vectorStore)
 	if err != nil {
 		return nil, fmt.Errorf("creating buffer service: %w", err)
@@ -260,7 +269,7 @@ func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository
 		orch.ReloadRules(rules)
 	}))
 
-	return New(cfg.Server, Deps{
+	deps := Deps{
 		Messages:          msgRepo,
 		Buffer:            bufSvc,
 		Hub:               hub,
@@ -271,7 +280,12 @@ func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository
 		Calendar:          calProvider,
 		Rules:             rulesPresenter,
 		Services:          svcMgr,
-	})
+	}
+	if authTokenRepo != nil {
+		deps.AuthTokens = authTokenRepo
+		deps.AuthTokenManager = authTokenRepo
+	}
+	return New(cfg.Server, deps)
 }
 
 // startOrchestration creates the hub, alerter, orchestrator, and queue processor,

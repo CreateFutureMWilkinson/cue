@@ -28,6 +28,7 @@ type ServerConfig struct {
 	Port                int    `toml:"port"`
 	ReadTimeoutSeconds  int    `toml:"read_timeout_seconds"`
 	WriteTimeoutSeconds int    `toml:"write_timeout_seconds"`
+	AuthEnabled         bool   `toml:"auth_enabled"`
 }
 
 // isConfigured returns true if any server field has been explicitly set.

@@ -77,11 +77,11 @@ Flow:
 
 ### 4. Pairing Flow (Subsequent Clients)
 
-**Decision: WebSocket-based pairing prompt with 60-second timeout.**
+**Decision: WebSocket-based pairing prompt with 60-second timeout. Pairing requests are stored in-memory only (not persisted to SQLite) — they have a 60s lifetime and are lost on server restart, which is acceptable.**
 
 Flow:
 1. Unauthenticated client sends `POST /api/v1/auth/pair` with an optional `label` (device name)
-2. Server generates a 6-character pairing code (uppercase alphanumeric, displayed to user on both ends)
+2. Server generates a 6-digit numeric pairing code (0-9 only, displayed to user on both ends)
 3. Server pushes a `pairing_request` event to all authenticated WebSocket clients:
    ```json
    {
@@ -89,7 +89,7 @@ Flow:
      "data": {
        "request_id": "<uuid>",
        "label": "phone",
-       "code": "A7X3K9",
+       "code": "472859",
        "expires_at": "2026-04-23T12:01:00Z"
      }
    }
@@ -109,11 +109,17 @@ Flow:
 
 ### 5. Token Revocation
 
-**Decision: Soft-delete via `revoked` flag.**
+**Decision: Soft-delete via `revoked` flag. No self-revocation guard.**
 
 `DELETE /api/v1/auth/tokens/{id}` sets `revoked = 1`. The token remains in the table for audit purposes. Auth middleware rejects revoked tokens with `401`.
 
-A client cannot revoke its own token via this endpoint (prevents accidental self-lockout). To revoke the current session, use `POST /api/v1/auth/logout`.
+Any client can revoke any token (including its own). The UI is responsible for warning users about self-revocation if desired. No separate `/auth/logout` endpoint — `DELETE /auth/tokens/{id}` covers all cases.
+
+### 5A. Auth Reset (Recovery)
+
+**Decision: `--reset-auth` CLI flag on `cue-server`.**
+
+`cue-server --reset-auth` deletes all rows from `auth_tokens` and exits. This is a direct database operation — the server does not start. This provides a recovery path when a user has lost access to all devices with valid tokens (e.g., single token on a device they no longer have).
 
 ### 6. WebSocket Authentication
 
@@ -129,7 +135,7 @@ The token is validated during the HTTP upgrade handshake. If invalid, the server
 
 ### 7. Dev Mode
 
-**Decision: `auth.enabled` config flag, defaults to `true`.**
+**Decision: Single `auth_enabled` bool on `ServerConfig`, defaults to `true`.**
 
 ```toml
 [server]
@@ -137,7 +143,7 @@ port = 9400
 auth_enabled = true  # set to false for development/testing
 ```
 
-When `auth_enabled = false`, the auth middleware passes all requests through without checking tokens. This is the current behavior and preserves backward compatibility for development.
+When `auth_enabled = false`, the auth middleware passes all requests through without checking tokens. WebSocket connections also skip token validation. This is the current behavior and preserves backward compatibility for development.
 
 **All existing tests continue to pass unchanged** — they run with auth disabled.
 
@@ -152,7 +158,12 @@ When `auth_enabled = false`, the auth middleware passes all requests through wit
 | `GET` | `/api/v1/auth/tokens` | Yes | List all tokens (id, label, created, last_seen, revoked) |
 | `PUT` | `/api/v1/auth/tokens/{id}` | Yes | Update token label |
 | `DELETE` | `/api/v1/auth/tokens/{id}` | Yes | Revoke a token |
-| `POST` | `/api/v1/auth/logout` | Yes | Revoke the current session's token |
+
+**CLI flag:**
+
+| Flag | Description |
+|------|-------------|
+| `--reset-auth` | Delete all auth tokens from the database and exit. Recovery for lockout scenarios. |
 
 ## WebSocket Event Types
 
@@ -165,20 +176,20 @@ When `auth_enabled = false`, the auth middleware passes all requests through wit
 
 | # | Behavior | Test Strategy |
 |---|----------|---------------|
-| 1 | Auth token repository CRUD (create, lookup by hash, list, revoke) | SQLite test with `s.T().TempDir()` |
-| 2 | Auth middleware — valid token passes through | `httptest.NewServer` with middleware |
-| 3 | Auth middleware — missing/invalid/revoked token returns 401 | Same |
-| 4 | Auth middleware — exempt routes bypass auth | Same |
-| 5 | First-client auto-issue — zero tokens, request issues new token | Mock repo returning empty list |
-| 6 | Pairing initiation — generates code, stores pending request | Mock repo + hub |
-| 7 | Pairing approval — issues token, returns to poller | Mock repo + timer |
-| 8 | Pairing denial — returns denied status | Same |
-| 9 | Pairing timeout — 60s expiry returns expired | Same with clock mock |
-| 10 | Token revocation — revoked tokens rejected by middleware | Repo + middleware integration |
-| 11 | Self-revocation blocked — cannot DELETE own token | Middleware injects current token ID |
-| 12 | WebSocket auth — query param token validated on upgrade | WS test server |
-| 13 | last_seen throttling — updated at most once per minute | Clock mock |
-| 14 | Dev mode — auth disabled passes all requests | Config toggle |
+| 1 | Auth token repository CRUD (create, lookup by hash, list, revoke, update label, delete all) | SQLite test with `s.T().TempDir()` |
+| 2 | Auth token repository CountActive (returns count of non-revoked tokens) | SQLite test |
+| 3 | Auth token repository UpdateLastSeen | SQLite test |
+| 4 | Auth middleware — valid token passes through | `httptest.NewServer` with middleware, mock repo |
+| 5 | Auth middleware — missing/invalid/revoked token returns 401 | Same |
+| 6 | Auth middleware — exempt routes bypass auth | Same (health + pair endpoints) |
+| 7 | First-client auto-issue — zero active tokens, auto-issues new token | Mock repo returning count=0 |
+| 8 | Auth middleware — last_seen throttle (per-token, once per minute) | Clock mock |
+| 9 | Dev mode — auth disabled passes all requests | Config toggle |
+| 10 | Pairing initiation — POST /auth/pair generates 6-digit code, stores in-memory, broadcasts to hub | Mock hub + in-memory store |
+| 11 | Pairing poll — GET /auth/pair/{id} returns pending/approved/denied/expired | In-memory store |
+| 12 | Pairing approval — POST /auth/pair/{id}/approve issues token, returns to poller | Mock repo + in-memory store |
+| 13 | WebSocket auth — query param token validated on upgrade, rejected if invalid | WS test server |
+| 14 | `--reset-auth` flag — deletes all tokens from DB and exits | Opens repo directly, calls DeleteAll |
 
 ## Dependencies
 
@@ -193,3 +204,6 @@ When `auth_enabled = false`, the auth middleware passes all requests through wit
 - Existing tests pass unchanged with `auth_enabled = false`
 - WebSocket connections require valid token in query parameter
 - Token plaintext is never stored; only SHA-256 hashes persist
+- `cue-server --reset-auth` deletes all tokens and exits (lockout recovery)
+- Pairing codes are 6-digit numeric
+- `last_seen` updated at most once per minute per token

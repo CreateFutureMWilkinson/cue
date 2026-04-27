@@ -158,7 +158,7 @@ func (a *activityAdapter) manageConnection(ctx context.Context, wsURL string, in
 
 	for {
 		// Block until the current connection ends (error, close, etc).
-		a.readLoop(currentConn)
+		a.readLoop(ctx, currentConn)
 
 		// Either context cancellation or Close will stop the loop.
 		if ctx.Err() != nil || a.closed.Load() {
@@ -247,9 +247,9 @@ func (a *activityAdapter) Close() error {
 // readLoop consumes frames from conn, unmarshals EventEnvelopes, updates
 // lastSeq atomically, and forwards envelopes to the events channel. If the
 // channel is full, envelopes are dropped (no reconnection logic yet — that
-// arrives in Loop 12). Exits silently when the connection returns an error.
-func (a *activityAdapter) readLoop(conn *websocket.Conn) {
-	ctx := context.Background()
+// arrives in Loop 12). Exits silently when the connection returns an error
+// or when the provided context is cancelled.
+func (a *activityAdapter) readLoop(ctx context.Context, conn *websocket.Conn) {
 	for {
 		_, data, err := conn.Read(ctx)
 		if err != nil {

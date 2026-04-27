@@ -968,6 +968,57 @@ func (s *MessageRepoSuite) TestQueryFilteredByStatus() {
 	}
 }
 
+// --- DeleteBySourceAccount ---
+
+func (s *MessageRepoSuite) TestDeleteBySourceAccount_DeletesMatching() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	// Insert 2 slack/T123 messages and 1 email/user@test.com message.
+	slack1 := makeTestMessage("slack", "Notified", now)
+	slack1.SourceAccount = "T123"
+	s.Require().NoError(repo.Insert(ctx, slack1))
+
+	slack2 := makeTestMessage("slack", "Buffered", now.Add(time.Second))
+	slack2.SourceAccount = "T123"
+	s.Require().NoError(repo.Insert(ctx, slack2))
+
+	email1 := makeTestMessage("email", "Notified", now.Add(2*time.Second))
+	email1.SourceAccount = "user@test.com"
+	s.Require().NoError(repo.Insert(ctx, email1))
+
+	// Delete slack/T123 messages.
+	count, err := repo.DeleteBySourceAccount(ctx, "slack", "T123")
+	s.Require().NoError(err)
+	s.Equal(int64(2), count, "should report 2 rows deleted")
+
+	// Only the email message should remain.
+	remaining, err := repo.QueryAll(ctx)
+	s.Require().NoError(err)
+	s.Require().Len(remaining, 1)
+	s.Equal(email1.ID, remaining[0].ID)
+	s.Equal("email", remaining[0].Source)
+	s.Equal("user@test.com", remaining[0].SourceAccount)
+}
+
+func (s *MessageRepoSuite) TestDeleteBySourceAccount_NoMatches() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+
+	count, err := repo.DeleteBySourceAccount(ctx, "slack", "nonexistent")
+	s.Require().NoError(err)
+	s.Equal(int64(0), count, "should return 0 when no messages match")
+}
+
 func (s *MessageRepoSuite) TestScoringModelAndExamplesUsedRoundTrip() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")

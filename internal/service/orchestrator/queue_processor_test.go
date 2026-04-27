@@ -159,6 +159,10 @@ func (m *mockMsgRepo) QueryFiltered(_ context.Context, _ repository.MessageFilte
 	return nil, 0, nil
 }
 
+func (m *mockMsgRepo) DeleteBySourceAccount(_ context.Context, _, _ string) (int64, error) {
+	return 0, nil
+}
+
 // mockScorer implements decisionengine.Scorer for testing.
 type mockScorer struct {
 	result *decisionengine.ScorerResult

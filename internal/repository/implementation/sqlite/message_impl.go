@@ -419,6 +419,23 @@ func (r *SQLiteMessageRepository) QueryFiltered(ctx context.Context, filter repo
 	return msgs, total, nil
 }
 
+// DeleteBySourceAccount deletes all messages matching the given source and source_account.
+// It returns the number of rows deleted.
+func (r *SQLiteMessageRepository) DeleteBySourceAccount(ctx context.Context, source, sourceAccount string) (int64, error) {
+	result, err := r.db.ExecContext(ctx,
+		"DELETE FROM messages WHERE source = ? AND source_account = ?",
+		source, sourceAccount,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("delete by source account: %w", err)
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("rows affected: %w", err)
+	}
+	return count, nil
+}
+
 // evictOldestIfNeeded performs FIFO eviction for the given source if at capacity.
 func (r *SQLiteMessageRepository) evictOldestIfNeeded(ctx context.Context, tx *sql.Tx, source string) error {
 	var count int

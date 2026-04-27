@@ -125,6 +125,10 @@ func (r *mockRepo) QueryFiltered(_ context.Context, _ repository.MessageFilter) 
 	return nil, 0, nil
 }
 
+func (r *mockRepo) DeleteBySourceAccount(_ context.Context, _, _ string) (int64, error) {
+	return 0, nil
+}
+
 func (r *mockRepo) insertedCount() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()

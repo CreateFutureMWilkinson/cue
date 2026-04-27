@@ -465,6 +465,71 @@ func (s *PlannerHandlerSuite) TestGenerateSchedulesDefaultDate() {
 	s.Len(options, 2)
 }
 
+// --- GET /api/v1/planner/active ---
+
+func (s *PlannerHandlerSuite) TestGetActiveSchedule() {
+	today := time.Now().UTC().Format("2006-01-02")
+	todayDate, err := time.Parse("2006-01-02", today)
+	s.Require().NoError(err)
+
+	schedule := &repository.Schedule{
+		ID:       uuid.New(),
+		Date:     todayDate,
+		Strategy: "focus-maximized",
+		Blocks: []repository.ScheduleBlock{
+			{
+				Start:    time.Date(todayDate.Year(), todayDate.Month(), todayDate.Day(), 9, 0, 0, 0, time.UTC),
+				End:      time.Date(todayDate.Year(), todayDate.Month(), todayDate.Day(), 9, 25, 0, 0, time.UTC),
+				Type:     repository.ScheduleBlockFocus,
+				TaskName: "Active task",
+			},
+		},
+		CreatedAt: time.Now(),
+	}
+
+	mock := &mockScheduleStore{loadResult: schedule}
+	h := handler.ActiveDateHandler(handler.GetScheduleHandler(mock))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/planner/active", nil)
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code)
+
+	var resp map[string]any
+	err = json.NewDecoder(rec.Body).Decode(&resp)
+	s.Require().NoError(err)
+
+	s.Equal(today, resp["date"])
+	s.Equal("focus-maximized", resp["strategy"])
+}
+
+// --- DELETE /api/v1/planner/active ---
+
+func (s *PlannerHandlerSuite) TestDeleteActiveSchedule() {
+	today := time.Now().UTC().Format("2006-01-02")
+	todayDate, err := time.Parse("2006-01-02", today)
+	s.Require().NoError(err)
+
+	mock := &mockScheduleStore{
+		loadResult: &repository.Schedule{
+			ID:        uuid.New(),
+			Date:      todayDate,
+			Strategy:  "focus-maximized",
+			CreatedAt: time.Now(),
+		},
+	}
+	h := handler.ActiveDateHandler(handler.DeleteScheduleHandler(mock))
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/planner/active", nil)
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	s.Equal(http.StatusNoContent, rec.Code)
+}
+
 func (s *PlannerHandlerSuite) TestGenerateSchedulesCalendarError() {
 	calMock := &mockCalendarFetcher{
 		fetchErr: errors.New("calendar unavailable"),

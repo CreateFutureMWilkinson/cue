@@ -302,6 +302,14 @@ func GenerateSchedulesHandler(gen ScheduleGenerator, cal CalendarFetcher) http.H
 	}
 }
 
+// ActiveDateHandler wraps a date-parameterized handler, injecting today's date as the {date} path value.
+func ActiveDateHandler(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		r.SetPathValue("date", time.Now().UTC().Format("2006-01-02"))
+		next.ServeHTTP(w, r)
+	}
+}
+
 // DeleteScheduleHandler returns an http.HandlerFunc for DELETE /api/v1/planner/{date}.
 func DeleteScheduleHandler(store ScheduleStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

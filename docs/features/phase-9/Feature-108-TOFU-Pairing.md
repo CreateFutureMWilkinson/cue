@@ -1,10 +1,10 @@
 # Feature 108: TOFU Pairing Authentication
 
 **Phase:** Phase-9-Feature-108
-**Status:** Planning
+**Status:** Done
 **Depends on:** Feature 097 (server infrastructure), Feature 099 (WebSocket event stream)
 **Blocks:** Feature 106 (API Client SDK), Feature 106A (AsyncAPI Documentation), Feature 107 (Fyne Client Re-wire)
-**Package:** `internal/server/auth/`
+**Packages:** `internal/repository/`, `internal/repository/implementation/sqlite/`, `internal/server/`, `internal/server/handler/`, `internal/config/`, `cmd/cue-server/`
 
 ---
 

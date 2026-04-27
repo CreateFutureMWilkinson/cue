@@ -327,35 +327,35 @@ func (s *ServerSuite) TestTaskRoutesRegistered() {
 		wantStatus int
 	}{
 		{
-			name:       "GET /api/v1/tasks returns 200",
+			name:       "GET /api/v1/todo/tasks returns 200",
 			method:     http.MethodGet,
-			path:       "/api/v1/tasks",
+			path:       "/api/v1/todo/tasks",
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "POST /api/v1/tasks returns 201",
+			name:       "POST /api/v1/todo/tasks returns 201",
 			method:     http.MethodPost,
-			path:       "/api/v1/tasks",
+			path:       "/api/v1/todo/tasks",
 			body:       `{"title":"test task","priority":3}`,
 			wantStatus: http.StatusCreated,
 		},
 		{
-			name:       "GET /api/v1/tasks/{id} returns 200",
+			name:       "GET /api/v1/todo/tasks/{id} returns 200",
 			method:     http.MethodGet,
-			path:       "/api/v1/tasks/" + taskID,
+			path:       "/api/v1/todo/tasks/" + taskID,
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "PUT /api/v1/tasks/{id} returns 200",
+			name:       "PUT /api/v1/todo/tasks/{id} returns 200",
 			method:     http.MethodPut,
-			path:       "/api/v1/tasks/" + taskID,
+			path:       "/api/v1/todo/tasks/" + taskID,
 			body:       `{"title":"updated"}`,
 			wantStatus: http.StatusOK,
 		},
 		{
-			name:       "DELETE /api/v1/tasks/{id} returns 204",
+			name:       "DELETE /api/v1/todo/tasks/{id} returns 204",
 			method:     http.MethodDelete,
-			path:       "/api/v1/tasks/" + taskID,
+			path:       "/api/v1/todo/tasks/" + taskID,
 			wantStatus: http.StatusNoContent,
 		},
 	}
@@ -407,11 +407,11 @@ func (s *ServerSuite) TestTaskRoutesNotRegisteredWhenNil() {
 		method string
 		path   string
 	}{
-		{http.MethodGet, "/api/v1/tasks"},
-		{http.MethodPost, "/api/v1/tasks"},
-		{http.MethodGet, "/api/v1/tasks/" + taskID},
-		{http.MethodPut, "/api/v1/tasks/" + taskID},
-		{http.MethodDelete, "/api/v1/tasks/" + taskID},
+		{http.MethodGet, "/api/v1/todo/tasks"},
+		{http.MethodPost, "/api/v1/todo/tasks"},
+		{http.MethodGet, "/api/v1/todo/tasks/" + taskID},
+		{http.MethodPut, "/api/v1/todo/tasks/" + taskID},
+		{http.MethodDelete, "/api/v1/todo/tasks/" + taskID},
 	}
 
 	for _, tc := range paths {

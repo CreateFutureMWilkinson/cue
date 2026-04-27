@@ -320,8 +320,8 @@ func (s *WizardViewSuite) TestStep1ShowsCategoryBadges() {
 	s.Require().Equal(3, len(checkboxes))
 	s.Require().Equal(1, len(checkboxes[0].Categories),
 		"First task should have one category badge")
-	s.Equal("work", checkboxes[0].Categories[0],
-		"Category badge should display the category name")
+	s.Equal("Work", checkboxes[0].Categories[0],
+		"Category badge should display the category in presentation form")
 }
 
 func (s *WizardViewSuite) TestStep1NextDisabledWhenNoTasksSelected() {

@@ -1,7 +1,7 @@
 # Feature 095: Embedding Model Benchmarking
 
 **Phase:** Phase-8-Feature-095
-**Status:** Planned
+**Status:** Done
 **Packages:** `cmd/cue-bench/`
 **Depends on:** Feature 093 (cue-bench tool), Feature 094 (few-shot calibration loop, `BuildPromptWithExamples`)
 

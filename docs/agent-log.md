@@ -756,3 +756,17 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-9-Feature-101 | REFACTOR | orchestrator | — | — | a529f58 |
 | Phase-9-Feature-101 | RED+GREEN | Implementer | ~39s | ~33,947 | 498873a |
 | Phase-9-Feature-101 | GREEN | Implementer | ~242s | ~68,439 | 1bd6c96 |
+| Phase-8-Feature-095 | RED | Test Designer | ~42s | ~23,689 | eb17a37 |
+| Phase-8-Feature-095 | RED | Test Designer | ~361s | ~26,377 | 8d8f6a2 |
+| Phase-8-Feature-095 | RED | orchestrator | — | — | dbffa45 |
+| Phase-8-Feature-095 | GREEN | Implementer | ~97s | ~34,967 | 8da7699 |
+| Phase-8-Feature-095 | REFACTOR | Refactorer | ~61s | ~25,985 | 0f439e6 |
+| Phase-8-Feature-095 | RED | Test Designer | ~151s | ~34,719 | 84825a5 |
+| Phase-8-Feature-095 | RED | Test Designer | ~114s | ~39,774 | 84825a5 |
+| Phase-8-Feature-095 | GREEN | Implementer | ~37s | ~24,309 | c0937cb |
+| Phase-8-Feature-095 | GREEN | Implementer | ~54s | ~26,656 | d434ec0 |
+| Phase-8-Feature-095 | REFACTOR | Refactorer | ~99s | ~32,548 | d8c758e |
+| Phase-8-Feature-095 | RED+GREEN | Test Designer | ~90s | ~44,638 | 5243455 |
+| Phase-8-Feature-095 | GREEN | orchestrator | — | — | 573519f |
+| Phase-8-Feature-095 | RED+GREEN | Test Designer | ~73s | ~30,712 | 65b5c94 |
+| Phase-8-Feature-095 | GREEN | orchestrator | — | — | 7154f1e |

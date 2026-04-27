@@ -35,6 +35,9 @@ type Deps struct {
 	// Calendar fetches calendar events for schedule generation.
 	// Required when Schedules is non-nil.
 	Calendar handler.CalendarFetcher
+	// Services is the service configuration manager for CRUD operations.
+	// If nil, service configuration API endpoints are not registered.
+	Services handler.ServiceManager
 	// Hub is the WebSocket event broadcaster. If nil, New creates its own hub.
 	// Inject a shared hub when you need external components (orchestrator, queue processor)
 	// to publish events to the same WebSocket clients that connect to this server.
@@ -133,6 +136,32 @@ func (s *Server) registerRoutes() {
 		s.mux.Handle("GET /api/v1/tasks/{id}", handler.GetTaskHandler(s.deps.Todos, s.deps.EffectiveEstimate))
 		s.mux.Handle("PUT /api/v1/tasks/{id}", handler.UpdateTaskHandler(s.deps.Todos, s.deps.EffectiveEstimate))
 		s.mux.Handle("DELETE /api/v1/tasks/{id}", handler.DeleteTaskHandler(s.deps.Todos))
+	}
+
+	if s.deps.Services != nil {
+		// Slack
+		s.mux.Handle("GET /api/v1/services/slack", handler.ListSlackAccountsHandler(s.deps.Services))
+		s.mux.Handle("GET /api/v1/services/slack/{id}", handler.GetSlackAccountHandler(s.deps.Services))
+		s.mux.Handle("POST /api/v1/services/slack", handler.CreateSlackAccountHandler(s.deps.Services))
+		s.mux.Handle("PUT /api/v1/services/slack/{id}", handler.UpdateSlackAccountHandler(s.deps.Services))
+		s.mux.Handle("DELETE /api/v1/services/slack/{id}", handler.DeleteSlackAccountHandler(s.deps.Services))
+		s.mux.Handle("POST /api/v1/services/slack/{id}/toggle", handler.ToggleSlackAccountHandler(s.deps.Services))
+		// Email
+		s.mux.Handle("GET /api/v1/services/email", handler.ListEmailAccountsHandler(s.deps.Services))
+		s.mux.Handle("GET /api/v1/services/email/{id}", handler.GetEmailAccountHandler(s.deps.Services))
+		s.mux.Handle("POST /api/v1/services/email", handler.CreateEmailAccountHandler(s.deps.Services))
+		s.mux.Handle("PUT /api/v1/services/email/{id}", handler.UpdateEmailAccountHandler(s.deps.Services))
+		s.mux.Handle("DELETE /api/v1/services/email/{id}", handler.DeleteEmailAccountHandler(s.deps.Services))
+		s.mux.Handle("POST /api/v1/services/email/{id}/toggle", handler.ToggleEmailAccountHandler(s.deps.Services))
+		// Calendar
+		s.mux.Handle("GET /api/v1/services/calendar", handler.ListCalendarAccountsHandler(s.deps.Services))
+		s.mux.Handle("GET /api/v1/services/calendar/{id}", handler.GetCalendarAccountHandler(s.deps.Services))
+		s.mux.Handle("POST /api/v1/services/calendar", handler.CreateCalendarAccountHandler(s.deps.Services))
+		s.mux.Handle("PUT /api/v1/services/calendar/{id}", handler.UpdateCalendarAccountHandler(s.deps.Services))
+		s.mux.Handle("DELETE /api/v1/services/calendar/{id}", handler.DeleteCalendarAccountHandler(s.deps.Services))
+		s.mux.Handle("POST /api/v1/services/calendar/{id}/toggle", handler.ToggleCalendarAccountHandler(s.deps.Services))
+		// Status
+		s.mux.Handle("GET /api/v1/services/status", handler.ServiceStatusHandler(s.deps.Services))
 	}
 
 	if s.deps.Schedules != nil {

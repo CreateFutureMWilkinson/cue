@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	chromem "github.com/rengensheng/chromem-go"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
@@ -21,7 +22,9 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/planner"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/servicemanager"
 	todosvc "github.com/CreateFutureMWilkinson/cue/internal/service/todo"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/validation"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/vector"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
 )
@@ -118,7 +121,21 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, fmt.Errorf("creating planner engine: %w", err)
 	}
 
-	httpSrv, err := constructHTTPServer(cfg, msgRepo, vectorStore, hub, todoSvc, scheduleRepo, plannerEngine, calProvider)
+	watcherFactory := createWatcherFactory(orch, serviceConfigRepo)
+	svcMgr, err := servicemanager.NewServiceManager(
+		serviceConfigRepo,
+		orch,
+		watcherFactory,
+		msgRepo,
+		servicemanager.WithSlackValidator(validation.NewSlackAPIValidator()),
+		servicemanager.WithEmailValidator(validation.NewIMAPValidator()),
+		servicemanager.WithCalendarValidator(validation.NewICSValidator()),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating service manager: %w", err)
+	}
+
+	httpSrv, err := constructHTTPServer(cfg, msgRepo, vectorStore, hub, todoSvc, scheduleRepo, plannerEngine, calProvider, svcMgr)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +234,7 @@ func constructServices(ctx context.Context, cfg config.Config, ruleRepo reposito
 }
 
 // constructHTTPServer builds the HTTP/WebSocket server surface with shared hub.
-func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository, vectorStore *vector.ChromemVectorStore, hub *Hub, todoSvc *todosvc.Service, scheduleRepo repository.ScheduleRepository, plannerEngine *planner.Planner, calProvider calendar.CalendarProvider) (*Server, error) {
+func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository, vectorStore *vector.ChromemVectorStore, hub *Hub, todoSvc *todosvc.Service, scheduleRepo repository.ScheduleRepository, plannerEngine *planner.Planner, calProvider calendar.CalendarProvider, svcMgr *servicemanager.ServiceManager) (*Server, error) {
 	bufSvc, err := buffer.NewBufferService(msgRepo, vectorStore)
 	if err != nil {
 		return nil, fmt.Errorf("creating buffer service: %w", err)
@@ -231,6 +248,7 @@ func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository
 		Schedules:         scheduleRepo,
 		ScheduleGenerator: plannerEngine,
 		Calendar:          calProvider,
+		Services:          svcMgr,
 	})
 }
 
@@ -355,6 +373,47 @@ func registerWatchersFromDB(ctx context.Context, orch *orchestrator.Orchestrator
 			}
 			orch.AddWatcher("email:"+acct.Username, ew)
 		}
+	}
+}
+
+// createWatcherFactory returns a WatcherFactory closure that creates and registers
+// watchers with the orchestrator for the given account type and ID.
+func createWatcherFactory(orch *orchestrator.Orchestrator, repo repository.ServiceConfigRepository) servicemanager.WatcherFactory {
+	return func(accountType string, accountID uuid.UUID) error {
+		ctx := context.Background()
+		switch accountType {
+		case "slack":
+			acct, err := repo.GetSlackAccount(ctx, accountID)
+			if err != nil {
+				return fmt.Errorf("getting slack account: %w", err)
+			}
+			slackAPI, err := watcher.NewSlackWebClient(acct.Token)
+			if err != nil {
+				return fmt.Errorf("creating slack API client: %w", err)
+			}
+			sw, err := watcher.NewSlackWatcher(slackAPI, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID})
+			if err != nil {
+				return fmt.Errorf("creating slack watcher: %w", err)
+			}
+			orch.AddWatcher("slack:"+acct.WorkspaceID, sw)
+		case "email":
+			acct, err := repo.GetEmailAccount(ctx, accountID)
+			if err != nil {
+				return fmt.Errorf("getting email account: %w", err)
+			}
+			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.Password, acct.Encryption)
+			if err != nil {
+				return fmt.Errorf("creating IMAP client: %w", err)
+			}
+			ew, err := watcher.NewEmailWatcher(emailAPI, watcher.EmailWatcherConfig{Username: acct.Username})
+			if err != nil {
+				return fmt.Errorf("creating email watcher: %w", err)
+			}
+			orch.AddWatcher("email:"+acct.Username, ew)
+		default:
+			return fmt.Errorf("unknown account type: %s", accountType)
+		}
+		return nil
 	}
 }
 

@@ -21,7 +21,9 @@ CREATE TABLE IF NOT EXISTS todos (
     priority INTEGER NOT NULL DEFAULT 0,
     due_date TIMESTAMP,
     created_at TIMESTAMP NOT NULL,
-    completed_at TIMESTAMP
+    completed_at TIMESTAMP,
+    estimate_minutes INTEGER,
+    llm_estimate_minutes INTEGER
 );
 CREATE TABLE IF NOT EXISTS todo_categories (
     todo_id TEXT NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
@@ -34,9 +36,9 @@ CREATE INDEX IF NOT EXISTS idx_todos_due_date ON todos(due_date);
 `
 
 const (
-	todoColumnsStr             = "id, title, description, priority, due_date, created_at, completed_at"
-	queryInsertTodo            = "INSERT INTO todos (id, title, description, priority, due_date, created_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
-	queryUpdateTodo            = "UPDATE todos SET title = ?, description = ?, priority = ?, due_date = ?, completed_at = ? WHERE id = ?"
+	todoColumnsStr             = "id, title, description, priority, due_date, created_at, completed_at, estimate_minutes, llm_estimate_minutes"
+	queryInsertTodo            = "INSERT INTO todos (id, title, description, priority, due_date, created_at, completed_at, estimate_minutes, llm_estimate_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	queryUpdateTodo            = "UPDATE todos SET title = ?, description = ?, priority = ?, due_date = ?, completed_at = ?, estimate_minutes = ?, llm_estimate_minutes = ? WHERE id = ?"
 	queryDeleteTodo            = "DELETE FROM todos WHERE id = ?"
 	querySelectTodoByID        = "SELECT " + todoColumnsStr + " FROM todos WHERE id = ?"
 	querySelectIncompleteTodos = "SELECT " + todoColumnsStr + " FROM todos WHERE completed_at IS NULL ORDER BY priority ASC"
@@ -94,6 +96,8 @@ func (r *SQLiteTodoRepository) Insert(ctx context.Context, todo *repository.Todo
 		nullableTime(todo.DueDate),
 		todo.CreatedAt.Format(time.RFC3339),
 		nullableTime(todo.CompletedAt),
+		todo.EstimateMinutes,
+		todo.LLMEstimateMinutes,
 	)
 	if err != nil {
 		return fmt.Errorf("insert todo: %w", err)
@@ -123,6 +127,8 @@ func (r *SQLiteTodoRepository) Update(ctx context.Context, todo *repository.Todo
 		todo.Priority,
 		nullableTime(todo.DueDate),
 		nullableTime(todo.CompletedAt),
+		todo.EstimateMinutes,
+		todo.LLMEstimateMinutes,
 		todo.ID.String(),
 	)
 	if err != nil {
@@ -273,11 +279,13 @@ func (r *SQLiteTodoRepository) fetchCategories(ctx context.Context, todoID uuid.
 // scanTodo reads a todo from a sql.Rows scanner.
 func scanTodo(rows *sql.Rows) (*repository.Todo, error) {
 	var (
-		todo         repository.Todo
-		idStr        string
-		createdAtStr string
-		dueDate      sql.NullString
-		completedAt  sql.NullString
+		todo               repository.Todo
+		idStr              string
+		createdAtStr       string
+		dueDate            sql.NullString
+		completedAt        sql.NullString
+		estimateMinutes    sql.NullInt64
+		llmEstimateMinutes sql.NullInt64
 	)
 
 	err := rows.Scan(
@@ -288,6 +296,8 @@ func scanTodo(rows *sql.Rows) (*repository.Todo, error) {
 		&dueDate,
 		&createdAtStr,
 		&completedAt,
+		&estimateMinutes,
+		&llmEstimateMinutes,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("scan todo row: %w", err)
@@ -317,6 +327,16 @@ func scanTodo(rows *sql.Rows) (*repository.Todo, error) {
 			return nil, fmt.Errorf("parse completed_at: %w", err)
 		}
 		todo.CompletedAt = &t
+	}
+
+	if estimateMinutes.Valid {
+		v := int(estimateMinutes.Int64)
+		todo.EstimateMinutes = &v
+	}
+
+	if llmEstimateMinutes.Valid {
+		v := int(llmEstimateMinutes.Int64)
+		todo.LLMEstimateMinutes = &v
 	}
 
 	return &todo, nil

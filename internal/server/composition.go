@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"time"
+
+	chromem "github.com/rengensheng/chromem-go"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
@@ -43,7 +46,7 @@ type Composition struct {
 // All repositories share a single SQLite database connection opened by the
 // message repository. Service configuration is encrypted using a keyfile
 // stored alongside the database.
-func NewComposition(_ context.Context, cfg config.Config) (*Composition, error) {
+func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error) {
 	// Open the primary message repository, which owns the SQLite connection
 	msgRepo, err := sqlite.NewSQLiteMessageRepository(cfg.Database.Path, cfg.Orchestrator.Router.BufferSizePerSource)
 	if err != nil {
@@ -73,13 +76,40 @@ func NewComposition(_ context.Context, cfg config.Config) (*Composition, error) 
 		return nil, fmt.Errorf("opening service config repository: %w", err)
 	}
 
-	// TODO(B4): construct OllamaClient, VectorStore, RulesEngine
+	// Construct Ollama client for LLM scoring
+	ollamaURL := fmt.Sprintf("http://%s:%d", cfg.Ollama.Host, cfg.Ollama.Port)
+	ollamaClient, err := decisionengine.NewOllamaClient(
+		ollamaURL,
+		cfg.Ollama.InferenceModel,
+		time.Duration(cfg.Ollama.TimeoutSeconds)*time.Second,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating ollama client: %w", err)
+	}
+
+	// Construct chromem-go vector store for persistent embeddings
+	vectorPath := filepath.Join(filepath.Dir(cfg.Database.Path), "vectors")
+	ollamaEmbFn := chromem.NewEmbeddingFuncOllama(cfg.Ollama.EmbeddingModel, ollamaURL+"/api")
+	vectorStore, err := vector.NewChromemVectorStore(vectorPath, vector.EmbeddingFunc(ollamaEmbFn), cfg.Ollama.EmbeddingModel)
+	if err != nil {
+		return nil, fmt.Errorf("creating vector store: %w", err)
+	}
+
+	// Load routing rules and construct rules engine
+	ruleList, err := ruleRepo.ListRules(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("loading routing rules: %w", err)
+	}
+	rulesEngine := decisionengine.NewRulesEngine(ruleList)
 
 	return &Composition{
 		MessageRepo:       msgRepo,
 		QueueRepo:         queueRepo,
 		RuleRepo:          ruleRepo,
 		ServiceConfigRepo: serviceConfigRepo,
+		OllamaClient:      ollamaClient,
+		VectorStore:       vectorStore,
+		RulesEngine:       rulesEngine,
 	}, nil
 }
 

@@ -132,7 +132,51 @@ type HistoryResponse struct {
 // have been evicted from the ring buffer (sinceSeq < oldest retained seq),
 // the response starts at the oldest retained event and Truncated is true.
 func (h *Hub) History(sinceSeq uint64) HistoryResponse {
-	return HistoryResponse{}
+	h.mu.RLock()
+
+	if h.ringUsed == 0 {
+		h.mu.RUnlock()
+		return HistoryResponse{}
+	}
+
+	latestSeq := h.seq
+	oldestSeq := h.seq - uint64(h.ringUsed) + 1
+
+	if sinceSeq >= latestSeq {
+		h.mu.RUnlock()
+		return HistoryResponse{
+			OldestSeq: oldestSeq,
+			LatestSeq: latestSeq,
+		}
+	}
+
+	truncated := (sinceSeq > 0 && sinceSeq < oldestSeq) ||
+		(sinceSeq == 0 && h.ringUsed == ringCapacity)
+	startSeq := sinceSeq + 1
+	if startSeq < oldestSeq {
+		startSeq = oldestSeq
+	}
+
+	count := int(latestSeq - startSeq + 1)
+	events := make([]ActivityEnvelope, count)
+
+	// The oldest envelope lives at ring index: (ringPos - ringUsed + ringCapacity) % ringCapacity
+	// We want the envelope with seq == startSeq, which is offset (startSeq - oldestSeq) from the oldest.
+	oldestIdx := (h.ringPos - h.ringUsed + ringCapacity) % ringCapacity
+	startIdx := (oldestIdx + int(startSeq-oldestSeq)) % ringCapacity
+
+	for i := 0; i < count; i++ {
+		events[i] = h.ring[(startIdx+i)%ringCapacity]
+	}
+
+	h.mu.RUnlock()
+
+	return HistoryResponse{
+		Events:    events,
+		Truncated: truncated,
+		OldestSeq: oldestSeq,
+		LatestSeq: latestSeq,
+	}
 }
 
 // SubscriberCount returns the number of active subscribers.

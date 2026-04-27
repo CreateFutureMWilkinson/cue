@@ -14,7 +14,7 @@ import (
 
 // TodoQuerier abstracts todo query operations needed by the planner presenter.
 type TodoQuerier interface {
-	QueryIncomplete(ctx context.Context) ([]*repository.Todo, error)
+	QueryFiltered(ctx context.Context, filter repository.TodoFilter) ([]*repository.Todo, int, error)
 	Insert(ctx context.Context, todo *repository.Todo) error
 	Update(ctx context.Context, todo *repository.Todo) error
 	Complete(ctx context.Context, id uuid.UUID, completedAt time.Time) error
@@ -184,7 +184,7 @@ func (p *PlannerPresenter) CurrentStep() WizardStep {
 
 // StartPlanning loads incomplete todos and transitions to StepTaskSelect.
 func (p *PlannerPresenter) StartPlanning(ctx context.Context) error {
-	todos, err := p.todos.QueryIncomplete(ctx)
+	todos, _, err := p.todos.QueryFiltered(ctx, repository.TodoFilter{Status: "incomplete"})
 	if err != nil {
 		return fmt.Errorf("loading incomplete todos: %w", err)
 	}

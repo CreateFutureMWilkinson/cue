@@ -189,7 +189,7 @@ func (s *TodoRepositorySuite) TestQueryByIDNotFound() {
 		"error should wrap repository.ErrNotFound, got: %v", err)
 }
 
-func (s *TodoRepositorySuite) TestQueryIncomplete() {
+func (s *TodoRepositorySuite) TestQueryFilteredDefaultReturnsIncompleteByPriorityDesc() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
@@ -198,47 +198,55 @@ func (s *TodoRepositorySuite) TestQueryIncomplete() {
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
 
-	// Insert 2 incomplete todos with different priorities.
-	todo1 := &repository.Todo{
-		ID:          uuid.New(),
-		Title:       "High priority incomplete",
-		Description: "Priority 1",
-		Priority:    1,
-		CreatedAt:   now,
+	// Insert 2 incomplete todos with different priorities and created_at for secondary sort.
+	lowPri := &repository.Todo{
+		ID:        uuid.New(),
+		Title:     "Low priority",
+		Priority:  1,
+		CreatedAt: now,
 	}
-	todo2 := &repository.Todo{
-		ID:          uuid.New(),
-		Title:       "Low priority incomplete",
-		Description: "Priority 5",
-		Priority:    5,
-		CreatedAt:   now.Add(time.Second),
+	highPri := &repository.Todo{
+		ID:        uuid.New(),
+		Title:     "High priority",
+		Priority:  5,
+		CreatedAt: now.Add(time.Second),
+	}
+	// Same priority as highPri but created earlier — should appear first among ties.
+	highPriEarlier := &repository.Todo{
+		ID:        uuid.New(),
+		Title:     "High priority earlier",
+		Priority:  5,
+		CreatedAt: now.Add(-time.Second),
 	}
 
-	// Insert 1 completed todo.
+	// Insert 1 completed todo — should NOT appear in default (incomplete) filter.
 	completedAt := now.Add(time.Hour)
-	todo3 := &repository.Todo{
+	completed := &repository.Todo{
 		ID:          uuid.New(),
 		Title:       "Completed todo",
-		Description: "Already done",
-		Priority:    2,
-		CreatedAt:   now.Add(2 * time.Second),
+		Priority:    10,
+		CreatedAt:   now,
 		CompletedAt: &completedAt,
 	}
 
-	s.Require().NoError(todoRepo.Insert(ctx, todo1))
-	s.Require().NoError(todoRepo.Insert(ctx, todo2))
-	s.Require().NoError(todoRepo.Insert(ctx, todo3))
+	s.Require().NoError(todoRepo.Insert(ctx, lowPri))
+	s.Require().NoError(todoRepo.Insert(ctx, highPri))
+	s.Require().NoError(todoRepo.Insert(ctx, highPriEarlier))
+	s.Require().NoError(todoRepo.Insert(ctx, completed))
 
-	results, err := todoRepo.QueryIncomplete(ctx)
+	// Default filter: status="" defaults to "incomplete".
+	results, total, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{})
 	s.Require().NoError(err)
-	s.Require().Len(results, 2, "should only return incomplete todos")
+	s.Equal(3, total, "total should count all matching (incomplete) todos")
+	s.Require().Len(results, 3)
 
-	// Ordered by priority ASC (lower number = higher priority first).
-	s.Equal(todo1.ID, results[0].ID, "highest priority (1) should be first")
-	s.Equal(todo2.ID, results[1].ID, "lowest priority (5) should be second")
+	// Priority DESC: 5, 5, 1. Among priority=5, created_at ASC: earlier first.
+	s.Equal(highPriEarlier.ID, results[0].ID, "highest priority + earliest created should be first")
+	s.Equal(highPri.ID, results[1].ID, "highest priority + later created should be second")
+	s.Equal(lowPri.ID, results[2].ID, "lowest priority should be last")
 }
 
-func (s *TodoRepositorySuite) TestQueryAll() {
+func (s *TodoRepositorySuite) TestQueryFilteredStatusComplete() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
@@ -247,43 +255,285 @@ func (s *TodoRepositorySuite) TestQueryAll() {
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
 
-	// Insert 3 todos: 2 incomplete, 1 completed. Use distinct created_at for ordering.
-	todo1 := &repository.Todo{
+	incomplete := &repository.Todo{
+		ID:        uuid.New(),
+		Title:     "Incomplete task",
+		Priority:  3,
+		CreatedAt: now,
+	}
+
+	completedAt := now.Add(time.Hour)
+	completed := &repository.Todo{
 		ID:          uuid.New(),
-		Title:       "First created",
-		Description: "Oldest",
+		Title:       "Completed task",
+		Priority:    2,
+		CreatedAt:   now.Add(time.Second),
+		CompletedAt: &completedAt,
+	}
+
+	s.Require().NoError(todoRepo.Insert(ctx, incomplete))
+	s.Require().NoError(todoRepo.Insert(ctx, completed))
+
+	results, total, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Status: "complete"})
+	s.Require().NoError(err)
+	s.Equal(1, total)
+	s.Require().Len(results, 1)
+	s.Equal(completed.ID, results[0].ID, "should only return completed todos")
+}
+
+func (s *TodoRepositorySuite) TestQueryFilteredStatusAll() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	todoRepo, _ := s.makeTodoRepo(dbPath)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	incomplete := &repository.Todo{
+		ID:        uuid.New(),
+		Title:     "Incomplete",
+		Priority:  1,
+		CreatedAt: now,
+	}
+
+	completedAt := now.Add(time.Hour)
+	completed := &repository.Todo{
+		ID:          uuid.New(),
+		Title:       "Completed",
+		Priority:    5,
+		CreatedAt:   now.Add(time.Second),
+		CompletedAt: &completedAt,
+	}
+
+	s.Require().NoError(todoRepo.Insert(ctx, incomplete))
+	s.Require().NoError(todoRepo.Insert(ctx, completed))
+
+	results, total, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Status: "all"})
+	s.Require().NoError(err)
+	s.Equal(2, total, "total should include both incomplete and completed")
+	s.Require().Len(results, 2)
+
+	// Priority DESC: completed (5) before incomplete (1).
+	s.Equal(completed.ID, results[0].ID, "higher priority should be first")
+	s.Equal(incomplete.ID, results[1].ID, "lower priority should be second")
+}
+
+func (s *TodoRepositorySuite) TestQueryFilteredCategoryFilter() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	todoRepo, catRepo := s.makeTodoRepo(dbPath)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	// Create categories.
+	workCat := &repository.Category{ID: uuid.New(), Name: "Work", Color: "#FF0000"}
+	personalCat := &repository.Category{ID: uuid.New(), Name: "Personal", Color: "#00FF00"}
+	s.Require().NoError(catRepo.Insert(ctx, workCat))
+	s.Require().NoError(catRepo.Insert(ctx, personalCat))
+
+	// Create todos with different categories.
+	workTodo := &repository.Todo{
+		ID:         uuid.New(),
+		Title:      "Work task",
+		Priority:   3,
+		Categories: []repository.Category{*workCat},
+		CreatedAt:  now,
+	}
+	personalTodo := &repository.Todo{
+		ID:         uuid.New(),
+		Title:      "Personal task",
+		Priority:   2,
+		Categories: []repository.Category{*personalCat},
+		CreatedAt:  now.Add(time.Second),
+	}
+	uncategorized := &repository.Todo{
+		ID:        uuid.New(),
+		Title:     "No category",
+		Priority:  1,
+		CreatedAt: now.Add(2 * time.Second),
+	}
+
+	s.Require().NoError(todoRepo.Insert(ctx, workTodo))
+	s.Require().NoError(todoRepo.Insert(ctx, personalTodo))
+	s.Require().NoError(todoRepo.Insert(ctx, uncategorized))
+
+	results, total, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Category: "Work"})
+	s.Require().NoError(err)
+	s.Equal(1, total)
+	s.Require().Len(results, 1)
+	s.Equal(workTodo.ID, results[0].ID, "should only return todos in Work category")
+}
+
+func (s *TodoRepositorySuite) TestQueryFilteredSearchMatchesTitleOrDescription() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	todoRepo, _ := s.makeTodoRepo(dbPath)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	// Title matches search term.
+	titleMatch := &repository.Todo{
+		ID:          uuid.New(),
+		Title:       "Fix the deployment pipeline",
+		Description: "No relevant info here",
 		Priority:    3,
 		CreatedAt:   now,
 	}
-	todo2 := &repository.Todo{
+	// Description matches search term.
+	descMatch := &repository.Todo{
 		ID:          uuid.New(),
-		Title:       "Second created",
-		Description: "Middle",
-		Priority:    1,
+		Title:       "Server maintenance",
+		Description: "Update the deployment scripts",
+		Priority:    2,
 		CreatedAt:   now.Add(time.Second),
 	}
-	completedAt := now.Add(time.Hour)
-	todo3 := &repository.Todo{
+	// Neither matches.
+	noMatch := &repository.Todo{
 		ID:          uuid.New(),
-		Title:       "Third created (completed)",
-		Description: "Newest",
-		Priority:    2,
+		Title:       "Buy groceries",
+		Description: "Milk, eggs, bread",
+		Priority:    1,
 		CreatedAt:   now.Add(2 * time.Second),
-		CompletedAt: &completedAt,
 	}
 
-	s.Require().NoError(todoRepo.Insert(ctx, todo1))
-	s.Require().NoError(todoRepo.Insert(ctx, todo2))
-	s.Require().NoError(todoRepo.Insert(ctx, todo3))
+	s.Require().NoError(todoRepo.Insert(ctx, titleMatch))
+	s.Require().NoError(todoRepo.Insert(ctx, descMatch))
+	s.Require().NoError(todoRepo.Insert(ctx, noMatch))
 
-	results, err := todoRepo.QueryAll(ctx)
+	// Case-insensitive search for "DEPLOYMENT".
+	results, total, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Search: "DEPLOYMENT"})
 	s.Require().NoError(err)
-	s.Require().Len(results, 3, "should return all todos including completed")
+	s.Equal(2, total, "should match title and description case-insensitively")
+	s.Require().Len(results, 2)
 
-	// Ordered by created_at DESC (newest first).
-	s.Equal(todo3.ID, results[0].ID, "newest should be first")
-	s.Equal(todo2.ID, results[1].ID, "middle should be second")
-	s.Equal(todo1.ID, results[2].ID, "oldest should be third")
+	// Priority DESC: titleMatch (3) before descMatch (2).
+	s.Equal(titleMatch.ID, results[0].ID)
+	s.Equal(descMatch.ID, results[1].ID)
+}
+
+func (s *TodoRepositorySuite) TestQueryFilteredPagination() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	todoRepo, _ := s.makeTodoRepo(dbPath)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	// Insert 5 todos with distinct priorities for deterministic ordering.
+	ids := make([]uuid.UUID, 5)
+	for i := 0; i < 5; i++ {
+		ids[i] = uuid.New()
+		todo := &repository.Todo{
+			ID:        ids[i],
+			Title:     "Task",
+			Priority:  5 - i, // priorities: 5, 4, 3, 2, 1
+			CreatedAt: now.Add(time.Duration(i) * time.Second),
+		}
+		s.Require().NoError(todoRepo.Insert(ctx, todo))
+	}
+
+	// Page 1: limit=2, offset=0.
+	results, total, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Limit: 2, Offset: 0})
+	s.Require().NoError(err)
+	s.Equal(5, total, "total count should reflect all matching todos, not page size")
+	s.Require().Len(results, 2, "should return exactly limit items")
+	// Priority DESC: 5, 4.
+	s.Equal(ids[0], results[0].ID, "first page first item should be priority 5")
+	s.Equal(ids[1], results[1].ID, "first page second item should be priority 4")
+
+	// Page 2: limit=2, offset=2.
+	results2, total2, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Limit: 2, Offset: 2})
+	s.Require().NoError(err)
+	s.Equal(5, total2, "total count should be same regardless of offset")
+	s.Require().Len(results2, 2)
+	// Priority DESC: 3, 2.
+	s.Equal(ids[2], results2[0].ID)
+	s.Equal(ids[3], results2[1].ID)
+
+	// Page 3: limit=2, offset=4 — only 1 remaining.
+	results3, total3, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Limit: 2, Offset: 4})
+	s.Require().NoError(err)
+	s.Equal(5, total3)
+	s.Require().Len(results3, 1, "last page should have remaining items only")
+	s.Equal(ids[4], results3[0].ID)
+}
+
+func (s *TodoRepositorySuite) TestQueryFilteredTotalCountUnaffectedByLimitOffset() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	todoRepo, _ := s.makeTodoRepo(dbPath)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	for i := 0; i < 10; i++ {
+		todo := &repository.Todo{
+			ID:        uuid.New(),
+			Title:     "Task",
+			Priority:  i,
+			CreatedAt: now.Add(time.Duration(i) * time.Second),
+		}
+		s.Require().NoError(todoRepo.Insert(ctx, todo))
+	}
+
+	// Request with small limit and large offset.
+	_, total, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Limit: 3, Offset: 0})
+	s.Require().NoError(err)
+	s.Equal(10, total, "total should be 10 regardless of limit")
+
+	_, total2, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Limit: 3, Offset: 6})
+	s.Require().NoError(err)
+	s.Equal(10, total2, "total should be 10 regardless of offset")
+}
+
+func (s *TodoRepositorySuite) TestQueryFilteredPrioritySortHigherFirst() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	todoRepo, _ := s.makeTodoRepo(dbPath)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	// Create todos with priorities 1, 5, 3 — should sort as 5, 3, 1.
+	pri1 := &repository.Todo{
+		ID:        uuid.New(),
+		Title:     "Priority 1",
+		Priority:  1,
+		CreatedAt: now,
+	}
+	pri5 := &repository.Todo{
+		ID:        uuid.New(),
+		Title:     "Priority 5",
+		Priority:  5,
+		CreatedAt: now.Add(time.Second),
+	}
+	pri3 := &repository.Todo{
+		ID:        uuid.New(),
+		Title:     "Priority 3",
+		Priority:  3,
+		CreatedAt: now.Add(2 * time.Second),
+	}
+
+	s.Require().NoError(todoRepo.Insert(ctx, pri1))
+	s.Require().NoError(todoRepo.Insert(ctx, pri5))
+	s.Require().NoError(todoRepo.Insert(ctx, pri3))
+
+	results, _, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{})
+	s.Require().NoError(err)
+	s.Require().Len(results, 3)
+
+	// Higher priority value = higher priority, so DESC order.
+	s.Equal(pri5.ID, results[0].ID, "priority 5 should be first (highest)")
+	s.Equal(pri3.ID, results[1].ID, "priority 3 should be second")
+	s.Equal(pri1.ID, results[2].ID, "priority 1 should be last (lowest)")
 }
 
 func (s *TodoRepositorySuite) TestComplete() {

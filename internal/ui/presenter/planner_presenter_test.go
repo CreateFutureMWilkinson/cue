@@ -27,12 +27,12 @@ type mockTodoQuerier struct {
 	mock.Mock
 }
 
-func (m *mockTodoQuerier) QueryIncomplete(ctx context.Context) ([]*repository.Todo, error) {
-	args := m.Called(ctx)
+func (m *mockTodoQuerier) QueryFiltered(ctx context.Context, filter repository.TodoFilter) ([]*repository.Todo, int, error) {
+	args := m.Called(ctx, filter)
 	if args.Get(0) == nil {
-		return nil, args.Error(1)
+		return nil, args.Int(1), args.Error(2)
 	}
-	return args.Get(0).([]*repository.Todo), args.Error(1)
+	return args.Get(0).([]*repository.Todo), args.Int(1), args.Error(2)
 }
 
 func (m *mockTodoQuerier) Insert(ctx context.Context, todo *repository.Todo) error {
@@ -220,18 +220,18 @@ func (s *PlannerPresenterSuite) TestStartPlanningTransitionsToTaskSelect() {
 		{ID: uuid.New(), Title: "Task A", Priority: 1},
 		{ID: uuid.New(), Title: "Task B", Priority: 2},
 	}
-	s.todos.On("QueryIncomplete", mock.Anything).Return(todos, nil)
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return(todos, len(todos), nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
 	s.Equal(presenter.StepTaskSelect, s.presenter.CurrentStep())
-	s.todos.AssertCalled(s.T(), "QueryIncomplete", mock.Anything)
+	s.todos.AssertCalled(s.T(), "QueryFiltered", mock.Anything, mock.Anything)
 }
 
 func (s *PlannerPresenterSuite) TestStartPlanningLoadsTodos() {
 	todo1 := &repository.Todo{ID: uuid.New(), Title: "Write report", Priority: 1}
 	todo2 := &repository.Todo{ID: uuid.New(), Title: "Code review", Priority: 2}
-	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{todo1, todo2}, nil)
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{todo1, todo2}, 2, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -252,7 +252,7 @@ func (s *PlannerPresenterSuite) TestCurrentStepReturnsIdleInitially() {
 
 func (s *PlannerPresenterSuite) TestNextStepFromTaskSelectGeneratesEstimates() {
 	todo := &repository.Todo{ID: uuid.New(), Title: "Design API", Priority: 1, Description: "REST endpoints"}
-	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{todo}, nil)
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{todo}, 1, nil)
 	s.estimator.On("EstimatePomodoros", mock.Anything, "Design API", "REST endpoints").Return(3, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
@@ -328,9 +328,9 @@ func (s *PlannerPresenterSuite) TestNextStepFromScheduleReturnsError() {
 // --- 8. NextStep with no tasks selected ---
 
 func (s *PlannerPresenterSuite) TestNextStepWithNoTasksSelectedReturnsError() {
-	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{
 		{ID: uuid.New(), Title: "Task A", Priority: 1},
-	}, nil)
+	}, 1, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -366,7 +366,7 @@ func (s *PlannerPresenterSuite) TestPreviousStepFromScheduleToPriority() {
 // --- 10. PreviousStep from TaskSelect ---
 
 func (s *PlannerPresenterSuite) TestPreviousStepFromTaskSelectReturnsToIdle() {
-	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{}, nil)
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{}, 0, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -388,7 +388,7 @@ func (s *PlannerPresenterSuite) TestAvailableTasksReturnsLoadedTodosWithSelectio
 		DueDate:    &dueDate,
 		Categories: []repository.Category{cat},
 	}
-	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{todo}, nil)
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{todo}, 1, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -407,9 +407,9 @@ func (s *PlannerPresenterSuite) TestAvailableTasksReturnsLoadedTodosWithSelectio
 
 func (s *PlannerPresenterSuite) TestSelectTaskTogglesSelection() {
 	todoID := uuid.New()
-	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{
 		{ID: todoID, Title: "Task A", Priority: 1},
-	}, nil)
+	}, 1, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -426,7 +426,7 @@ func (s *PlannerPresenterSuite) TestSelectTaskTogglesSelection() {
 // --- 13. AddTask ---
 
 func (s *PlannerPresenterSuite) TestAddTaskCreatesAndAppears() {
-	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{}, nil)
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{}, 0, nil)
 	s.todos.On("Insert", mock.Anything, mock.AnythingOfType("*repository.Todo")).Return(nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
@@ -483,7 +483,7 @@ func (s *PlannerPresenterSuite) TestEstimateSummaryCalculatesTotals() {
 func (s *PlannerPresenterSuite) TestEstimateSummaryDetectsOverloaded() {
 	todoID := uuid.New()
 	todo := &repository.Todo{ID: todoID, Title: "Huge Task", Priority: 1}
-	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{todo}, nil)
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{todo}, 1, nil)
 	// Estimate a very high number of pomodoros
 	s.estimator.On("EstimatePomodoros", mock.Anything, "Huge Task", "").Return(100, nil)
 
@@ -503,7 +503,7 @@ func (s *PlannerPresenterSuite) TestEstimateSummaryDetectsOverloaded() {
 func (s *PlannerPresenterSuite) TestReorderTaskMovesTaskPosition() {
 	todoA := &repository.Todo{ID: uuid.New(), Title: "Task A", Priority: 1}
 	todoB := &repository.Todo{ID: uuid.New(), Title: "Task B", Priority: 2}
-	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{todoA, todoB}, nil)
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{todoA, todoB}, 2, nil)
 	s.estimator.On("EstimatePomodoros", mock.Anything, mock.Anything, mock.Anything).Return(1, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
@@ -647,7 +647,7 @@ func (s *PlannerPresenterSuite) TestCalendarFailureProceedsWithoutEvents() {
 func (s *PlannerPresenterSuite) TestEstimationFailureFallsBackToOnePomo() {
 	todoID := uuid.New()
 	todo := &repository.Todo{ID: todoID, Title: "Failing Task", Priority: 1}
-	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{todo}, nil)
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{todo}, 1, nil)
 	s.estimator.On("EstimatePomodoros", mock.Anything, "Failing Task", "").Return(0, errors.New("ollama down"))
 
 	err := s.presenter.StartPlanning(s.ctx)
@@ -668,7 +668,7 @@ func (s *PlannerPresenterSuite) TestEstimationFailureFallsBackToOnePomo() {
 func (s *PlannerPresenterSuite) advanceToEstimates() {
 	todoID := uuid.New()
 	todo := &repository.Todo{ID: todoID, Title: "Task A", Priority: 1}
-	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{todo}, nil)
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{todo}, 1, nil)
 	s.estimator.On("EstimatePomodoros", mock.Anything, "Task A", "").Return(2, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
@@ -733,7 +733,7 @@ func (s *PlannerPresenterSuite) TestSetOnStepChangeFiresOnStartPlanning() {
 	todos := []*repository.Todo{
 		{ID: uuid.New(), Title: "Task A", Priority: 1},
 	}
-	s.todos.On("QueryIncomplete", mock.Anything).Return(todos, nil)
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return(todos, len(todos), nil)
 
 	var received presenter.WizardStep
 	s.presenter.SetOnStepChange(func(step presenter.WizardStep) {
@@ -836,7 +836,7 @@ func (s *PlannerPresenterSuite) TestSetOnStepChangeFiresOnLoadExistingPlan() {
 // advanceToTaskSelect sets up a presenter at StepTaskSelect with one task.
 func (s *PlannerPresenterSuite) advanceToTaskSelect() {
 	todo := &repository.Todo{ID: uuid.New(), Title: "Task A", Priority: 1}
-	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{todo}, nil)
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{todo}, 1, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -876,11 +876,11 @@ func (s *PlannerPresenterSuite) TestSelectedCountReturnsCountOfSelectedTasks() {
 	id1 := uuid.New()
 	id2 := uuid.New()
 	id3 := uuid.New()
-	s.todos.On("QueryIncomplete", mock.Anything).Return([]*repository.Todo{
+	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{
 		{ID: id1, Title: "Task A", Priority: 1},
 		{ID: id2, Title: "Task B", Priority: 2},
 		{ID: id3, Title: "Task C", Priority: 3},
-	}, nil)
+	}, 3, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)

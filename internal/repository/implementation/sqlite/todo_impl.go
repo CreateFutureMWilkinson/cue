@@ -36,17 +36,15 @@ CREATE INDEX IF NOT EXISTS idx_todos_due_date ON todos(due_date);
 `
 
 const (
-	todoColumnsStr             = "id, title, description, priority, due_date, created_at, completed_at, estimate_minutes, llm_estimate_minutes"
-	queryInsertTodo            = "INSERT INTO todos (id, title, description, priority, due_date, created_at, completed_at, estimate_minutes, llm_estimate_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-	queryUpdateTodo            = "UPDATE todos SET title = ?, description = ?, priority = ?, due_date = ?, completed_at = ?, estimate_minutes = ?, llm_estimate_minutes = ? WHERE id = ?"
-	queryDeleteTodo            = "DELETE FROM todos WHERE id = ?"
-	querySelectTodoByID        = "SELECT " + todoColumnsStr + " FROM todos WHERE id = ?"
-	querySelectIncompleteTodos = "SELECT " + todoColumnsStr + " FROM todos WHERE completed_at IS NULL ORDER BY priority ASC"
-	querySelectAllTodos        = "SELECT " + todoColumnsStr + " FROM todos ORDER BY created_at DESC"
-	queryCompleteTodo          = "UPDATE todos SET completed_at = ? WHERE id = ?"
-	queryInsertTodoCategory    = "INSERT INTO todo_categories (todo_id, category_id) VALUES (?, ?)"
-	queryDeleteTodoCategories  = "DELETE FROM todo_categories WHERE todo_id = ?"
-	querySelectTodoCategories  = "SELECT c.id, c.name, c.color FROM categories c INNER JOIN todo_categories tc ON c.id = tc.category_id WHERE tc.todo_id = ?"
+	todoColumnsStr            = "id, title, description, priority, due_date, created_at, completed_at, estimate_minutes, llm_estimate_minutes"
+	queryInsertTodo           = "INSERT INTO todos (id, title, description, priority, due_date, created_at, completed_at, estimate_minutes, llm_estimate_minutes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	queryUpdateTodo           = "UPDATE todos SET title = ?, description = ?, priority = ?, due_date = ?, completed_at = ?, estimate_minutes = ?, llm_estimate_minutes = ? WHERE id = ?"
+	queryDeleteTodo           = "DELETE FROM todos WHERE id = ?"
+	querySelectTodoByID       = "SELECT " + todoColumnsStr + " FROM todos WHERE id = ?"
+	queryCompleteTodo         = "UPDATE todos SET completed_at = ? WHERE id = ?"
+	queryInsertTodoCategory   = "INSERT INTO todo_categories (todo_id, category_id) VALUES (?, ?)"
+	queryDeleteTodoCategories = "DELETE FROM todo_categories WHERE todo_id = ?"
+	querySelectTodoCategories = "SELECT c.id, c.name, c.color FROM categories c INNER JOIN todo_categories tc ON c.id = tc.category_id WHERE tc.todo_id = ?"
 )
 
 // SQLiteTodoRepository implements repository.TodoRepository using SQLite.
@@ -189,52 +187,10 @@ func (r *SQLiteTodoRepository) QueryByID(ctx context.Context, id uuid.UUID) (*re
 	return todo, nil
 }
 
-// QueryIncomplete returns all incomplete todos ordered by priority ASC.
-func (r *SQLiteTodoRepository) QueryIncomplete(ctx context.Context) ([]*repository.Todo, error) {
-	rows, err := r.db.QueryContext(ctx, querySelectIncompleteTodos)
-	if err != nil {
-		return nil, fmt.Errorf("query incomplete todos: %w", err)
-	}
-	defer rows.Close()
-
-	todos, err := scanTodos(rows)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, todo := range todos {
-		cats, err := r.fetchCategories(ctx, todo.ID)
-		if err != nil {
-			return nil, err
-		}
-		todo.Categories = cats
-	}
-
-	return todos, nil
-}
-
-// QueryAll returns all todos ordered by created_at DESC.
-func (r *SQLiteTodoRepository) QueryAll(ctx context.Context) ([]*repository.Todo, error) {
-	rows, err := r.db.QueryContext(ctx, querySelectAllTodos)
-	if err != nil {
-		return nil, fmt.Errorf("query all todos: %w", err)
-	}
-	defer rows.Close()
-
-	todos, err := scanTodos(rows)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, todo := range todos {
-		cats, err := r.fetchCategories(ctx, todo.ID)
-		if err != nil {
-			return nil, err
-		}
-		todo.Categories = cats
-	}
-
-	return todos, nil
+// QueryFiltered returns todos matching the filter criteria plus a total count for pagination.
+// Sort order: priority DESC (higher first), then created_at ASC.
+func (r *SQLiteTodoRepository) QueryFiltered(_ context.Context, _ repository.TodoFilter) ([]*repository.Todo, int, error) {
+	return nil, 0, repository.ErrNotImplemented
 }
 
 // Complete sets the completed_at timestamp on a todo.

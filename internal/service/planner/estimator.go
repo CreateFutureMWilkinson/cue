@@ -2,7 +2,6 @@ package planner
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 )
 
@@ -22,31 +21,12 @@ func NewOllamaTaskEstimator(client OllamaGenerator) *OllamaTaskEstimator {
 }
 
 type estimateResponse struct {
-	Pomodoros int `json:"pomodoros"`
+	Minutes int `json:"minutes"`
 }
 
-// EstimatePomodoros asks Ollama to estimate the number of pomodoros for a task.
-// On any failure (network, invalid JSON, zero/negative), falls back to 1 pomodoro.
-func (e *OllamaTaskEstimator) EstimatePomodoros(ctx context.Context, title string, description string) (int, error) {
-	prompt := fmt.Sprintf(
-		`Estimate how many 25-minute Pomodoro sessions this task will take. Reply with JSON only: {"pomodoros": N}
-
-Task: %s
-Description: %s`, title, description)
-
-	resp, err := e.client.Generate(ctx, prompt)
-	if err != nil {
-		return 1, nil
-	}
-
-	var result estimateResponse
-	if err := json.Unmarshal([]byte(resp), &result); err != nil {
-		return 1, nil
-	}
-
-	if result.Pomodoros <= 0 {
-		return 1, nil
-	}
-
-	return result.Pomodoros, nil
+// EstimateMinutes asks Ollama to estimate the number of minutes for a task.
+// On any failure (network, invalid JSON, zero/negative), falls back to 30 minutes.
+func (e *OllamaTaskEstimator) EstimateMinutes(ctx context.Context, title string, description string) (int, error) {
+	_ = fmt.Sprintf("placeholder %s %s", title, description)
+	return 0, fmt.Errorf("not implemented")
 }

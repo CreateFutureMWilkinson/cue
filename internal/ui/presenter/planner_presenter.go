@@ -494,7 +494,7 @@ func (p *PlannerPresenter) nextFromTaskSelect(ctx context.Context) error {
 	estimates := make([]TaskEstimateRow, 0, len(selected))
 	for _, t := range selected {
 		desc := p.descriptions[t.ID]
-		pomos, err := p.estimator.EstimatePomodoros(ctx, t.Title, desc)
+		pomos, err := p.estimator.EstimateMinutes(ctx, t.Title, desc)
 		if err != nil {
 			pomos = 1 // fallback
 		}

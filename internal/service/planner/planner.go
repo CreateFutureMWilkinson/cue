@@ -59,9 +59,9 @@ type Clock interface {
 	Now() time.Time
 }
 
-// TaskEstimator estimates the number of pomodoros for a task.
+// TaskEstimator estimates the time needed for a task.
 type TaskEstimator interface {
-	EstimatePomodoros(ctx context.Context, title string, description string) (int, error)
+	EstimateMinutes(ctx context.Context, title string, description string) (int, error)
 }
 
 // Planner manages day schedule generation and task estimation.

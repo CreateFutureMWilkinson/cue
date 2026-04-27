@@ -28,55 +28,64 @@ func TestTaskEstimation(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Ollama estimate success — returns parsed pomodoro count
+// 1. EstimateMinutes success — returns parsed minute count
 // ---------------------------------------------------------------------------
 
-func (s *TaskEstimationSuite) TestEstimateSuccess() {
-	client := &mockOllamaClient{response: `{"pomodoros": 3}`, err: nil}
+func (s *TaskEstimationSuite) TestEstimateMinutesSuccess() {
+	client := &mockOllamaClient{response: `{"minutes": 45}`, err: nil}
 	estimator := planner.NewOllamaTaskEstimator(client)
 
-	pomos, err := estimator.EstimatePomodoros(context.Background(), "Write unit tests", "Cover all edge cases")
+	minutes, err := estimator.EstimateMinutes(context.Background(), "Write unit tests", "Cover all edge cases")
 	s.Require().NoError(err)
-	s.Equal(3, pomos)
+	s.Equal(45, minutes)
 }
 
 // ---------------------------------------------------------------------------
-// 2. Ollama failure fallback — returns 1 pomodoro on error
+// 2. Ollama failure fallback — returns 30 minutes on error
 // ---------------------------------------------------------------------------
 
-func (s *TaskEstimationSuite) TestEstimateFallbackOnError() {
+func (s *TaskEstimationSuite) TestEstimateMinutesFallbackOnError() {
 	client := &mockOllamaClient{response: "", err: fmt.Errorf("connection refused")}
 	estimator := planner.NewOllamaTaskEstimator(client)
 
-	pomos, err := estimator.EstimatePomodoros(context.Background(), "Deploy service", "Push to production")
+	minutes, err := estimator.EstimateMinutes(context.Background(), "Deploy service", "Push to production")
 	s.NoError(err, "should not propagate Ollama errors — fallback instead")
-	s.Equal(1, pomos, "fallback should be 1 pomodoro")
+	s.Equal(30, minutes, "fallback should be 30 minutes")
 }
 
 // ---------------------------------------------------------------------------
-// 3. Ollama returns invalid JSON — falls back to 1
+// 3. Ollama returns invalid JSON — falls back to 30 minutes
 // ---------------------------------------------------------------------------
 
-func (s *TaskEstimationSuite) TestEstimateFallbackOnInvalidJSON() {
+func (s *TaskEstimationSuite) TestEstimateMinutesFallbackOnInvalidJSON() {
 	client := &mockOllamaClient{response: "not json at all", err: nil}
 	estimator := planner.NewOllamaTaskEstimator(client)
 
-	pomos, err := estimator.EstimatePomodoros(context.Background(), "Review PR", "Check for bugs")
+	minutes, err := estimator.EstimateMinutes(context.Background(), "Review PR", "Check for bugs")
 	s.NoError(err)
-	s.Equal(1, pomos, "invalid JSON should fallback to 1 pomodoro")
+	s.Equal(30, minutes, "invalid JSON should fallback to 30 minutes")
 }
 
 // ---------------------------------------------------------------------------
-// 4. Ollama returns zero or negative — falls back to 1
+// 4. Ollama returns zero or negative — falls back to 30 minutes
 // ---------------------------------------------------------------------------
 
-func (s *TaskEstimationSuite) TestEstimateFallbackOnZero() {
-	client := &mockOllamaClient{response: `{"pomodoros": 0}`, err: nil}
+func (s *TaskEstimationSuite) TestEstimateMinutesFallbackOnZero() {
+	client := &mockOllamaClient{response: `{"minutes": 0}`, err: nil}
 	estimator := planner.NewOllamaTaskEstimator(client)
 
-	pomos, err := estimator.EstimatePomodoros(context.Background(), "Quick fix", "One-liner")
+	minutes, err := estimator.EstimateMinutes(context.Background(), "Quick fix", "One-liner")
 	s.NoError(err)
-	s.Equal(1, pomos, "zero estimate should fallback to 1 pomodoro")
+	s.Equal(30, minutes, "zero estimate should fallback to 30 minutes")
+}
+
+func (s *TaskEstimationSuite) TestEstimateMinutesFallbackOnNegative() {
+	client := &mockOllamaClient{response: `{"minutes": -5}`, err: nil}
+	estimator := planner.NewOllamaTaskEstimator(client)
+
+	minutes, err := estimator.EstimateMinutes(context.Background(), "Quick fix", "One-liner")
+	s.NoError(err)
+	s.Equal(30, minutes, "negative estimate should fallback to 30 minutes")
 }
 
 // ---------------------------------------------------------------------------

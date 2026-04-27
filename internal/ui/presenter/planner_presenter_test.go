@@ -99,7 +99,7 @@ type mockTaskEstimator struct {
 	mock.Mock
 }
 
-func (m *mockTaskEstimator) EstimatePomodoros(ctx context.Context, title string, description string) (int, error) {
+func (m *mockTaskEstimator) EstimateMinutes(ctx context.Context, title string, description string) (int, error) {
 	args := m.Called(ctx, title, description)
 	return args.Int(0), args.Error(1)
 }
@@ -253,7 +253,7 @@ func (s *PlannerPresenterSuite) TestCurrentStepReturnsIdleInitially() {
 func (s *PlannerPresenterSuite) TestNextStepFromTaskSelectGeneratesEstimates() {
 	todo := &repository.Todo{ID: uuid.New(), Title: "Design API", Priority: 1, Description: "REST endpoints"}
 	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{todo}, 1, nil)
-	s.estimator.On("EstimatePomodoros", mock.Anything, "Design API", "REST endpoints").Return(3, nil)
+	s.estimator.On("EstimateMinutes", mock.Anything, "Design API", "REST endpoints").Return(3, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -485,7 +485,7 @@ func (s *PlannerPresenterSuite) TestEstimateSummaryDetectsOverloaded() {
 	todo := &repository.Todo{ID: todoID, Title: "Huge Task", Priority: 1}
 	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{todo}, 1, nil)
 	// Estimate a very high number of pomodoros
-	s.estimator.On("EstimatePomodoros", mock.Anything, "Huge Task", "").Return(100, nil)
+	s.estimator.On("EstimateMinutes", mock.Anything, "Huge Task", "").Return(100, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -504,7 +504,7 @@ func (s *PlannerPresenterSuite) TestReorderTaskMovesTaskPosition() {
 	todoA := &repository.Todo{ID: uuid.New(), Title: "Task A", Priority: 1}
 	todoB := &repository.Todo{ID: uuid.New(), Title: "Task B", Priority: 2}
 	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{todoA, todoB}, 2, nil)
-	s.estimator.On("EstimatePomodoros", mock.Anything, mock.Anything, mock.Anything).Return(1, nil)
+	s.estimator.On("EstimateMinutes", mock.Anything, mock.Anything, mock.Anything).Return(1, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -648,7 +648,7 @@ func (s *PlannerPresenterSuite) TestEstimationFailureFallsBackToOnePomo() {
 	todoID := uuid.New()
 	todo := &repository.Todo{ID: todoID, Title: "Failing Task", Priority: 1}
 	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{todo}, 1, nil)
-	s.estimator.On("EstimatePomodoros", mock.Anything, "Failing Task", "").Return(0, errors.New("ollama down"))
+	s.estimator.On("EstimateMinutes", mock.Anything, "Failing Task", "").Return(0, errors.New("ollama down"))
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -669,7 +669,7 @@ func (s *PlannerPresenterSuite) advanceToEstimates() {
 	todoID := uuid.New()
 	todo := &repository.Todo{ID: todoID, Title: "Task A", Priority: 1}
 	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Todo{todo}, 1, nil)
-	s.estimator.On("EstimatePomodoros", mock.Anything, "Task A", "").Return(2, nil)
+	s.estimator.On("EstimateMinutes", mock.Anything, "Task A", "").Return(2, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -755,7 +755,7 @@ func (s *PlannerPresenterSuite) TestSetOnStepChangeFiresOnNextStep() {
 
 	todoID := s.presenter.AvailableTasks()[0].ID
 	s.presenter.SelectTask(todoID, true)
-	s.estimator.On("EstimatePomodoros", mock.Anything, mock.Anything, mock.Anything).Return(2, nil)
+	s.estimator.On("EstimateMinutes", mock.Anything, mock.Anything, mock.Anything).Return(2, nil)
 
 	err := s.presenter.NextStep(s.ctx)
 	s.Require().NoError(err)

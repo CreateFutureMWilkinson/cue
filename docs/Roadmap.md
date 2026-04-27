@@ -182,7 +182,7 @@ Server binary exposing REST + WebSocket APIs, then re-wire the Fyne GUI as a thi
 | 101  | Day planner API                          | REST + State   | Done     | 097, 101A  | [Feature-101](features/phase-9/Feature-101-Day-Planner-API.md)              |
 | 102  | Service configuration API                | REST           | Done     | 097        | [Feature-102](features/phase-9/Feature-102-Service-Configuration-API.md)    |
 | 103  | Routing rules API                        | REST           | Done     | 097        | [Feature-103](features/phase-9/Feature-103-Routing-Rules-API.md)            |
-| 104  | Timer API                                | REST + WS      | Planning | 097, 099   | [Feature-104](features/phase-9/Feature-104-Timer-API.md)                    |
+| 104  | Timer API                                | REST + WS      | Done     | 097, 099   | [Feature-104](features/phase-9/Feature-104-Timer-API.md)                    |
 | 105  | Settings API                             | REST           | Planning | 097        | [Feature-105](features/phase-9/Feature-105-Settings-API.md)                 |
 | 106  | API client SDK                           | Client         | Planning | 096-105    | [Feature-106](features/phase-9/Feature-106-API-Client-SDK.md)               |
 | 106A | AsyncAPI doumentation                    | Client Docs    | Planning | 096-105    | [Feature-106A](features/phase-9/Feature-106A-AsyncAPI-Documentation.md)     |

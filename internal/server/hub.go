@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"time"
@@ -13,7 +14,7 @@ var ErrUnknownSubscriber = errors.New("hub: unknown subscriber")
 
 // subscriberBufferSize bounds each subscriber's in-flight broadcast
 // queue. Slow consumers drop messages rather than block the hub.
-const subscriberBufferSize = 16
+const subscriberBufferSize = 64
 
 // ringCapacity is the fixed size of the internal ring buffer that
 // retains recent ActivityEnvelopes for history replay.
@@ -96,11 +97,11 @@ func (h *Hub) Broadcast(data []byte) error {
 }
 
 // Publish creates an ActivityEnvelope for the given data, assigns a
-// monotonically increasing sequence number, and stores it in the ring
-// buffer for history replay. Does not broadcast to current subscribers.
+// monotonically increasing sequence number, stores it in the ring
+// buffer for history replay, and broadcasts the JSON-serialized
+// envelope to all current subscribers.
 func (h *Hub) Publish(data ActivityData) ActivityEnvelope {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 
 	h.seq++
 	env := ActivityEnvelope{
@@ -114,6 +115,31 @@ func (h *Hub) Publish(data ActivityData) ActivityEnvelope {
 	h.ringPos = (h.ringPos + 1) % ringCapacity
 	if h.ringUsed < ringCapacity {
 		h.ringUsed++
+	}
+
+	// Serialize envelope for broadcast. On marshal failure (defensive),
+	// keep the ring entry but skip the fan-out.
+	raw, err := json.Marshal(env)
+	if err != nil {
+		h.mu.Unlock()
+		return env
+	}
+
+	// Snapshot subscriber list under the write lock, then release before
+	// the channel sends so we don't hold the lock during fan-out.
+	subs := make([]*Subscriber, 0, len(h.subscribers))
+	for _, sub := range h.subscribers {
+		subs = append(subs, sub)
+	}
+	h.mu.Unlock()
+
+	// Fan out to every subscriber. Slow consumers drop the message
+	// rather than block the hub.
+	for _, sub := range subs {
+		select {
+		case sub.Events <- raw:
+		default:
+		}
 	}
 
 	return env

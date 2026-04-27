@@ -5,14 +5,14 @@ import (
 	"log/slog"
 	"regexp"
 	"slices"
-	"strings"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 )
 
 type compiledRule struct {
-	rule    *repository.RoutingRule
-	pattern *regexp.Regexp
+	rule           *repository.RoutingRule
+	channelPattern *regexp.Regexp
+	contentPattern *regexp.Regexp
 }
 
 // RulesEngine evaluates messages against a set of compiled routing rules.
@@ -29,12 +29,33 @@ func NewRulesEngine(rules []*repository.RoutingRule) *RulesEngine {
 		if !r.Enabled {
 			continue
 		}
-		re, err := regexp.Compile(r.Pattern)
-		if err != nil {
-			slog.Warn("skipping routing rule with invalid pattern", "rule_id", r.ID, "pattern", r.Pattern, "error", err)
-			continue
+
+		cr := compiledRule{rule: r}
+		valid := true
+
+		if r.ChannelPattern != "" {
+			re, err := regexp.Compile(r.ChannelPattern)
+			if err != nil {
+				slog.Warn("skipping routing rule with invalid channel pattern", "rule_id", r.ID, "pattern", r.ChannelPattern, "error", err)
+				valid = false
+			} else {
+				cr.channelPattern = re
+			}
 		}
-		compiled = append(compiled, compiledRule{rule: r, pattern: re})
+
+		if r.ContentPattern != "" {
+			re, err := regexp.Compile(r.ContentPattern)
+			if err != nil {
+				slog.Warn("skipping routing rule with invalid content pattern", "rule_id", r.ID, "pattern", r.ContentPattern, "error", err)
+				valid = false
+			} else {
+				cr.contentPattern = re
+			}
+		}
+
+		if valid {
+			compiled = append(compiled, cr)
+		}
 	}
 	slices.SortFunc(compiled, func(a, b compiledRule) int {
 		return cmp.Compare(a.rule.Priority, b.rule.Priority)
@@ -42,44 +63,32 @@ func NewRulesEngine(rules []*repository.RoutingRule) *RulesEngine {
 	return &RulesEngine{rules: compiled}
 }
 
-// extractField extracts the specified field value from a message.
-func extractField(msg *repository.Message, field string) string {
-	switch field {
-	case "sender":
-		return msg.Sender
-	case "subject":
-		if idx := strings.Index(msg.RawContent, "\n"); idx >= 0 {
-			return msg.RawContent[:idx]
-		}
-		return msg.RawContent
-	case "channel":
-		return msg.Channel
-	case "content":
-		return msg.RawContent
-	case "message_type":
-		return msg.MessageType
-	default:
-		return ""
-	}
-}
-
 // Evaluate checks the message against compiled rules in priority order.
 // Returns the action string ("notified", "ignored", or "queue") and the matched rule (nil if "queue").
+// All set fields in a rule must match (AND logic). Empty pattern fields match any value.
 func (e *RulesEngine) Evaluate(msg *repository.Message) (string, *repository.RoutingRule) {
 	for _, cr := range e.rules {
-		if cr.rule.Source != msg.Source {
+		if cr.rule.SourceType != msg.Source {
 			continue
 		}
 
-		fieldValue := extractField(msg, cr.rule.Field)
-		matched := cr.pattern.MatchString(fieldValue)
-		if cr.rule.Negate {
-			matched = !matched
+		if cr.rule.SourceAccount != nil && cr.rule.SourceAccount.String() != msg.SourceAccount {
+			continue
 		}
 
-		if matched {
-			return cr.rule.Action, cr.rule
+		if cr.rule.MessageType != "" && cr.rule.MessageType != msg.MessageType {
+			continue
 		}
+
+		if cr.channelPattern != nil && !cr.channelPattern.MatchString(msg.Channel) {
+			continue
+		}
+
+		if cr.contentPattern != nil && !cr.contentPattern.MatchString(msg.RawContent) {
+			continue
+		}
+
+		return cr.rule.Action, cr.rule
 	}
 	return "queue", nil
 }

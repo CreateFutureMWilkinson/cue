@@ -29,7 +29,11 @@ func (m *mockRuleRepo) ListRules(_ context.Context) ([]*repository.RoutingRule, 
 	return m.rules, m.listErr
 }
 
-func (m *mockRuleRepo) ListRulesBySource(_ context.Context, _ string) ([]*repository.RoutingRule, error) {
+func (m *mockRuleRepo) ListRulesBySourceType(_ context.Context, _ string) ([]*repository.RoutingRule, error) {
+	return m.rules, m.listErr
+}
+
+func (m *mockRuleRepo) ListRulesBySourceAccount(_ context.Context, _ uuid.UUID) ([]*repository.RoutingRule, error) {
 	return m.rules, m.listErr
 }
 
@@ -88,22 +92,20 @@ func TestRulesPresenter(t *testing.T) {
 
 func (s *RulesPresenterSuite) TestListRulesDelegatesToRepo() {
 	rule1 := &repository.RoutingRule{
-		ID:       uuid.New(),
-		Priority: 0,
-		Source:   "slack",
-		Field:    "channel",
-		Pattern:  "general",
-		Action:   "notified",
-		Enabled:  true,
+		ID:             uuid.New(),
+		Priority:       0,
+		SourceType:     "slack",
+		ChannelPattern: "general",
+		Action:         "notified",
+		Enabled:        true,
 	}
 	rule2 := &repository.RoutingRule{
-		ID:       uuid.New(),
-		Priority: 1,
-		Source:   "email",
-		Field:    "sender",
-		Pattern:  "boss@example.com",
-		Action:   "notified",
-		Enabled:  true,
+		ID:             uuid.New(),
+		Priority:       1,
+		SourceType:     "email",
+		ContentPattern: "boss@example.com",
+		Action:         "notified",
+		Enabled:        true,
 	}
 
 	ruleRepo := &mockRuleRepo{rules: []*repository.RoutingRule{rule1, rule2}}
@@ -123,13 +125,12 @@ func (s *RulesPresenterSuite) TestSaveRuleValidatesAndUpserts() {
 	p := presenter.NewRulesPresenter(ruleRepo, queueRepo, 50)
 
 	validRule := &repository.RoutingRule{
-		ID:       uuid.New(),
-		Priority: 0,
-		Source:   "slack",
-		Field:    "channel",
-		Pattern:  "general",
-		Action:   "notified",
-		Enabled:  true,
+		ID:             uuid.New(),
+		Priority:       0,
+		SourceType:     "slack",
+		ChannelPattern: "general",
+		Action:         "notified",
+		Enabled:        true,
 	}
 
 	// Valid rule should be saved via UpsertRule.
@@ -138,15 +139,13 @@ func (s *RulesPresenterSuite) TestSaveRuleValidatesAndUpserts() {
 	s.Require().Len(ruleRepo.upserted, 1)
 	s.Equal(validRule.ID, ruleRepo.upserted[0].ID)
 
-	// Invalid rule (bad source) should return validation error, not reach repo.
+	// Invalid rule (bad source type) should return validation error, not reach repo.
 	invalidRule := &repository.RoutingRule{
-		ID:       uuid.New(),
-		Priority: 0,
-		Source:   "fax",
-		Field:    "sender",
-		Pattern:  ".*",
-		Action:   "notified",
-		Enabled:  true,
+		ID:         uuid.New(),
+		Priority:   0,
+		SourceType: "fax",
+		Action:     "notified",
+		Enabled:    true,
 	}
 
 	err = p.SaveRule(context.Background(), invalidRule)
@@ -175,9 +174,9 @@ func (s *RulesPresenterSuite) TestReorderRuleShiftsPriorities() {
 	id2 := uuid.New()
 
 	rules := []*repository.RoutingRule{
-		{ID: id0, Priority: 0, Source: "slack", Field: "channel", Pattern: "a", Action: "notified", Enabled: true},
-		{ID: id1, Priority: 1, Source: "slack", Field: "channel", Pattern: "b", Action: "notified", Enabled: true},
-		{ID: id2, Priority: 2, Source: "slack", Field: "channel", Pattern: "c", Action: "notified", Enabled: true},
+		{ID: id0, Priority: 0, SourceType: "slack", ChannelPattern: "a", Action: "notified", Enabled: true},
+		{ID: id1, Priority: 1, SourceType: "slack", ChannelPattern: "b", Action: "notified", Enabled: true},
+		{ID: id2, Priority: 2, SourceType: "slack", ChannelPattern: "c", Action: "notified", Enabled: true},
 	}
 
 	ruleRepo := &mockRuleRepo{rules: rules}
@@ -204,13 +203,12 @@ func (s *RulesPresenterSuite) TestReorderRuleShiftsPriorities() {
 func (s *RulesPresenterSuite) TestToggleRuleUpdatesEnabled() {
 	id := uuid.New()
 	rule := &repository.RoutingRule{
-		ID:       id,
-		Priority: 0,
-		Source:   "slack",
-		Field:    "channel",
-		Pattern:  "general",
-		Action:   "notified",
-		Enabled:  true,
+		ID:             id,
+		Priority:       0,
+		SourceType:     "slack",
+		ChannelPattern: "general",
+		Action:         "notified",
+		Enabled:        true,
 	}
 
 	ruleRepo := &mockRuleRepo{getRule: rule}

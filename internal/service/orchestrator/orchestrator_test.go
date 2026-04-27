@@ -409,13 +409,12 @@ func (s *OrchestratorSuite) TestPollOnceRulesNotifiedSetsScores() {
 
 	rules := decisionengine.NewRulesEngine([]*repository.RoutingRule{
 		{
-			ID:       uuid.New(),
-			Priority: 1,
-			Source:   "slack",
-			Field:    "channel",
-			Pattern:  "important-.*",
-			Action:   "notified",
-			Enabled:  true,
+			ID:             uuid.New(),
+			Priority:       1,
+			SourceType:     "slack",
+			ChannelPattern: "important-.*",
+			Action:         "notified",
+			Enabled:        true,
 		},
 	})
 
@@ -457,13 +456,12 @@ func (s *OrchestratorSuite) TestPollOnceRulesIgnoredSetsScores() {
 
 	rules := decisionengine.NewRulesEngine([]*repository.RoutingRule{
 		{
-			ID:       uuid.New(),
-			Priority: 1,
-			Source:   "slack",
-			Field:    "channel",
-			Pattern:  "noise-.*",
-			Action:   "ignored",
-			Enabled:  true,
+			ID:             uuid.New(),
+			Priority:       1,
+			SourceType:     "slack",
+			ChannelPattern: "noise-.*",
+			Action:         "ignored",
+			Enabled:        true,
 		},
 	})
 
@@ -533,13 +531,12 @@ func (s *OrchestratorSuite) TestPollOnceAlertOnNotified() {
 
 	rules := decisionengine.NewRulesEngine([]*repository.RoutingRule{
 		{
-			ID:       uuid.New(),
-			Priority: 1,
-			Source:   "slack",
-			Field:    "channel",
-			Pattern:  "critical-.*",
-			Action:   "notified",
-			Enabled:  true,
+			ID:             uuid.New(),
+			Priority:       1,
+			SourceType:     "slack",
+			ChannelPattern: "critical-.*",
+			Action:         "notified",
+			Enabled:        true,
 		},
 	})
 
@@ -572,13 +569,12 @@ func (s *OrchestratorSuite) TestPollOnceNoAlertOnIgnoredOnly() {
 
 	rules := decisionengine.NewRulesEngine([]*repository.RoutingRule{
 		{
-			ID:       uuid.New(),
-			Priority: 1,
-			Source:   "slack",
-			Field:    "channel",
-			Pattern:  "spam-.*",
-			Action:   "ignored",
-			Enabled:  true,
+			ID:             uuid.New(),
+			Priority:       1,
+			SourceType:     "slack",
+			ChannelPattern: "spam-.*",
+			Action:         "ignored",
+			Enabled:        true,
 		},
 	})
 
@@ -662,22 +658,20 @@ func (s *OrchestratorSuite) TestPollOnceEmitsRulesSummaryEvent() {
 
 	rules := decisionengine.NewRulesEngine([]*repository.RoutingRule{
 		{
-			ID:       uuid.New(),
-			Priority: 1,
-			Source:   "slack",
-			Field:    "channel",
-			Pattern:  "critical-.*",
-			Action:   "notified",
-			Enabled:  true,
+			ID:             uuid.New(),
+			Priority:       1,
+			SourceType:     "slack",
+			ChannelPattern: "critical-.*",
+			Action:         "notified",
+			Enabled:        true,
 		},
 		{
-			ID:       uuid.New(),
-			Priority: 2,
-			Source:   "slack",
-			Field:    "channel",
-			Pattern:  "noise-.*",
-			Action:   "ignored",
-			Enabled:  true,
+			ID:             uuid.New(),
+			Priority:       2,
+			SourceType:     "slack",
+			ChannelPattern: "noise-.*",
+			Action:         "ignored",
+			Enabled:        true,
 		},
 	})
 
@@ -1043,13 +1037,12 @@ func (s *OrchestratorSuite) TestReloadRulesChangesRouting() {
 	// Reload rules: now channel "alerts" → notified
 	orch.ReloadRules([]*repository.RoutingRule{
 		{
-			ID:       uuid.New(),
-			Priority: 1,
-			Source:   "slack",
-			Field:    "channel",
-			Pattern:  "alerts",
-			Action:   "notified",
-			Enabled:  true,
+			ID:             uuid.New(),
+			Priority:       1,
+			SourceType:     "slack",
+			ChannelPattern: "alerts",
+			Action:         "notified",
+			Enabled:        true,
 		},
 	})
 

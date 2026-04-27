@@ -54,16 +54,14 @@ func (s *RoutingRuleSQLiteSuite) TearDownTest() {
 func (s *RoutingRuleSQLiteSuite) validRule() *repository.RoutingRule {
 	now := time.Now().Truncate(time.Second)
 	return &repository.RoutingRule{
-		ID:        uuid.New(),
-		Priority:  10,
-		Source:    "slack",
-		Field:     "channel",
-		Negate:    false,
-		Pattern:   "^general$",
-		Action:    "notified",
-		Enabled:   true,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:             uuid.New(),
+		Priority:       10,
+		SourceType:     "slack",
+		ChannelPattern: "^general$",
+		Action:         "notified",
+		Enabled:        true,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 }
 
@@ -86,29 +84,33 @@ func (s *RoutingRuleSQLiteSuite) TestUpsertRuleInsert() {
 
 	// Read back with raw SQL to verify all fields persisted correctly.
 	var (
-		idStr        string
-		priority     int
-		source       string
-		field        string
-		negate       int
-		pattern      string
-		action       string
-		enabled      int
-		createdAtStr string
-		updatedAtStr string
+		idStr            string
+		name             string
+		priority         int
+		sourceType       string
+		sourceAccountStr sql.NullString
+		channelPattern   string
+		contentPattern   string
+		messageType      string
+		action           string
+		enabled          int
+		createdAtStr     string
+		updatedAtStr     string
 	)
 	err = s.db.QueryRowContext(ctx,
-		"SELECT id, priority, source, field, negate, pattern, action, enabled, created_at, updated_at FROM routing_rules WHERE id = ?",
+		"SELECT id, name, priority, source_type, source_account, channel_pattern, content_pattern, message_type, action, enabled, created_at, updated_at FROM routing_rules WHERE id = ?",
 		rule.ID.String(),
-	).Scan(&idStr, &priority, &source, &field, &negate, &pattern, &action, &enabled, &createdAtStr, &updatedAtStr)
+	).Scan(&idStr, &name, &priority, &sourceType, &sourceAccountStr, &channelPattern, &contentPattern, &messageType, &action, &enabled, &createdAtStr, &updatedAtStr)
 	s.Require().NoError(err)
 
 	s.Equal(rule.ID.String(), idStr)
+	s.Equal(rule.Name, name)
 	s.Equal(rule.Priority, priority)
-	s.Equal(rule.Source, source)
-	s.Equal(rule.Field, field)
-	s.Equal(0, negate)
-	s.Equal(rule.Pattern, pattern)
+	s.Equal(rule.SourceType, sourceType)
+	s.False(sourceAccountStr.Valid, "source_account should be NULL")
+	s.Equal(rule.ChannelPattern, channelPattern)
+	s.Equal(rule.ContentPattern, contentPattern)
+	s.Equal(rule.MessageType, messageType)
 	s.Equal(rule.Action, action)
 	s.Equal(1, enabled)
 
@@ -130,9 +132,8 @@ func (s *RoutingRuleSQLiteSuite) TestUpsertRuleUpdate() {
 
 	// Modify fields and upsert again with the same ID.
 	rule.Priority = 99
-	rule.Pattern = "^random$"
+	rule.ChannelPattern = "^random$"
 	rule.Action = "ignored"
-	rule.Negate = true
 	rule.Enabled = false
 	rule.UpdatedAt = rule.UpdatedAt.Add(time.Minute)
 
@@ -141,29 +142,27 @@ func (s *RoutingRuleSQLiteSuite) TestUpsertRuleUpdate() {
 
 	// Read back with raw SQL to verify update took effect.
 	var (
-		priority int
-		pattern  string
-		action   string
-		negate   int
-		enabled  int
+		priority       int
+		channelPattern string
+		action         string
+		enabled        int
 	)
 	err = s.db.QueryRowContext(ctx,
-		"SELECT priority, pattern, action, negate, enabled FROM routing_rules WHERE id = ?",
+		"SELECT priority, channel_pattern, action, enabled FROM routing_rules WHERE id = ?",
 		rule.ID.String(),
-	).Scan(&priority, &pattern, &action, &negate, &enabled)
+	).Scan(&priority, &channelPattern, &action, &enabled)
 	s.Require().NoError(err)
 
 	s.Equal(99, priority)
-	s.Equal("^random$", pattern)
+	s.Equal("^random$", channelPattern)
 	s.Equal("ignored", action)
-	s.Equal(1, negate)
 	s.Equal(0, enabled)
 }
 
 func (s *RoutingRuleSQLiteSuite) TestUpsertRuleValidationError() {
 	ctx := context.Background()
 	rule := s.validRule()
-	rule.Source = "ftp" // invalid source
+	rule.SourceType = "ftp" // invalid source type
 
 	err := s.repo.UpsertRule(ctx, rule)
 	s.ErrorIs(err, repository.ErrInvalidRoutingRule)
@@ -182,10 +181,10 @@ func (s *RoutingRuleSQLiteSuite) TestGetRuleFound() {
 
 	s.Equal(rule.ID, got.ID)
 	s.Equal(rule.Priority, got.Priority)
-	s.Equal(rule.Source, got.Source)
-	s.Equal(rule.Field, got.Field)
-	s.Equal(rule.Negate, got.Negate)
-	s.Equal(rule.Pattern, got.Pattern)
+	s.Equal(rule.SourceType, got.SourceType)
+	s.Equal(rule.ChannelPattern, got.ChannelPattern)
+	s.Equal(rule.ContentPattern, got.ContentPattern)
+	s.Equal(rule.MessageType, got.MessageType)
 	s.Equal(rule.Action, got.Action)
 	s.Equal(rule.Enabled, got.Enabled)
 	s.False(got.CreatedAt.IsZero(), "CreatedAt should not be zero")
@@ -242,9 +241,9 @@ func (s *RoutingRuleSQLiteSuite) TestListRulesSortedByPriority() {
 	s.Equal(10, rules[2].Priority)
 }
 
-// --- Behavior 6: ListRulesBySource ---
+// --- Behavior 6: ListRulesBySourceType ---
 
-func (s *RoutingRuleSQLiteSuite) TestListRulesBySourceFiltered() {
+func (s *RoutingRuleSQLiteSuite) TestListRulesBySourceTypeFiltered() {
 	ctx := context.Background()
 
 	// Clear seeded defaults so we test only the rules we insert.
@@ -252,39 +251,73 @@ func (s *RoutingRuleSQLiteSuite) TestListRulesBySourceFiltered() {
 	s.Require().NoError(err)
 
 	slack1 := s.validRule()
-	slack1.Source = "slack"
+	slack1.SourceType = "slack"
 	slack1.Priority = 5
 
 	slack2 := s.validRule()
-	slack2.Source = "slack"
+	slack2.SourceType = "slack"
 	slack2.Priority = 1
 
 	email1 := s.validRule()
-	email1.Source = "email"
-	email1.Field = "sender"
+	email1.SourceType = "email"
 	email1.Priority = 3
 
 	s.Require().NoError(s.repo.UpsertRule(ctx, slack1))
 	s.Require().NoError(s.repo.UpsertRule(ctx, slack2))
 	s.Require().NoError(s.repo.UpsertRule(ctx, email1))
 
-	rules, err := s.repo.ListRulesBySource(ctx, "slack")
+	rules, err := s.repo.ListRulesBySourceType(ctx, "slack")
 	s.Require().NoError(err)
 	s.Require().Len(rules, 2)
 
-	s.Equal("slack", rules[0].Source)
-	s.Equal("slack", rules[1].Source)
+	s.Equal("slack", rules[0].SourceType)
+	s.Equal("slack", rules[1].SourceType)
 	s.Equal(1, rules[0].Priority, "results should be sorted by priority ascending")
 	s.Equal(5, rules[1].Priority)
 }
 
-func (s *RoutingRuleSQLiteSuite) TestListRulesBySourceEmpty() {
+func (s *RoutingRuleSQLiteSuite) TestListRulesBySourceTypeEmpty() {
 	ctx := context.Background()
 
-	rules, err := s.repo.ListRulesBySource(ctx, "email")
+	rules, err := s.repo.ListRulesBySourceType(ctx, "email")
 	s.Require().NoError(err)
-	s.NotNil(rules, "ListRulesBySource should return non-nil slice when empty")
+	s.NotNil(rules, "ListRulesBySourceType should return non-nil slice when empty")
 	s.Empty(rules)
+}
+
+// --- Behavior: ListRulesBySourceAccount ---
+
+func (s *RoutingRuleSQLiteSuite) TestListRulesBySourceAccountFiltered() {
+	ctx := context.Background()
+
+	// Clear seeded defaults
+	_, err := s.db.Exec("DELETE FROM routing_rules")
+	s.Require().NoError(err)
+
+	accountID := uuid.New()
+	otherAccountID := uuid.New()
+
+	r1 := s.validRule()
+	r1.SourceAccount = &accountID
+	r1.Priority = 1
+
+	r2 := s.validRule()
+	r2.SourceAccount = &otherAccountID
+	r2.Priority = 2
+
+	r3 := s.validRule()
+	r3.SourceAccount = &accountID
+	r3.Priority = 3
+
+	s.Require().NoError(s.repo.UpsertRule(ctx, r1))
+	s.Require().NoError(s.repo.UpsertRule(ctx, r2))
+	s.Require().NoError(s.repo.UpsertRule(ctx, r3))
+
+	rules, err := s.repo.ListRulesBySourceAccount(ctx, accountID)
+	s.Require().NoError(err)
+	s.Require().Len(rules, 2)
+	s.Equal(1, rules[0].Priority)
+	s.Equal(3, rules[1].Priority)
 }
 
 // --- Behavior 7: DeleteRule ---
@@ -337,11 +370,10 @@ func (s *RoutingRuleSQLiteSuite) TestNewSeedsDefaultRulesWhenEmpty() {
 	// Rule 0: channel_join
 	r0 := rules[0]
 	s.Equal(0, r0.Priority)
-	s.Equal("slack", r0.Source)
-	s.Equal("message_type", r0.Field)
-	s.Equal("^channel_join$", r0.Pattern)
-	s.False(r0.Negate)
+	s.Equal("slack", r0.SourceType)
+	s.Equal("channel_join", r0.MessageType)
 	s.Equal("notified", r0.Action)
+	s.Equal("Channel Join", r0.Name)
 	s.True(r0.Enabled)
 	s.NotEqual(uuid.Nil, r0.ID, "seeded rule should have a non-zero UUID")
 	s.False(r0.CreatedAt.IsZero(), "seeded rule should have a non-zero CreatedAt")
@@ -350,11 +382,10 @@ func (s *RoutingRuleSQLiteSuite) TestNewSeedsDefaultRulesWhenEmpty() {
 	// Rule 1: @username mention
 	r1 := rules[1]
 	s.Equal(1, r1.Priority)
-	s.Equal("slack", r1.Source)
-	s.Equal("content", r1.Field)
-	s.Equal("@username", r1.Pattern)
-	s.False(r1.Negate)
+	s.Equal("slack", r1.SourceType)
+	s.Equal("@username", r1.ContentPattern)
 	s.Equal("notified", r1.Action)
+	s.Equal("@mention", r1.Name)
 	s.True(r1.Enabled)
 	s.NotEqual(uuid.Nil, r1.ID, "seeded rule should have a non-zero UUID")
 	s.False(r1.CreatedAt.IsZero(), "seeded rule should have a non-zero CreatedAt")
@@ -377,11 +408,13 @@ func (s *RoutingRuleSQLiteSuite) TestNewDoesNotSeedWhenRulesExist() {
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS routing_rules (
 			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL DEFAULT '',
 			priority INTEGER NOT NULL,
-			source TEXT NOT NULL,
-			field TEXT NOT NULL,
-			negate INTEGER NOT NULL DEFAULT 0,
-			pattern TEXT NOT NULL,
+			source_type TEXT NOT NULL,
+			source_account TEXT,
+			channel_pattern TEXT NOT NULL DEFAULT '',
+			content_pattern TEXT NOT NULL DEFAULT '',
+			message_type TEXT NOT NULL DEFAULT '',
 			action TEXT NOT NULL,
 			enabled INTEGER NOT NULL DEFAULT 1,
 			created_at TEXT NOT NULL,
@@ -393,8 +426,8 @@ func (s *RoutingRuleSQLiteSuite) TestNewDoesNotSeedWhenRulesExist() {
 	now := time.Now().Truncate(time.Second).Format(time.RFC3339)
 	preExistingID := uuid.New().String()
 	_, err = db.Exec(
-		"INSERT INTO routing_rules (id, priority, source, field, negate, pattern, action, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		preExistingID, 5, "slack", "channel", 0, "^general$", "notified", 1, now, now,
+		"INSERT INTO routing_rules (id, name, priority, source_type, channel_pattern, content_pattern, message_type, action, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		preExistingID, "test", 5, "slack", "^general$", "", "", "notified", 1, now, now,
 	)
 	s.Require().NoError(err)
 

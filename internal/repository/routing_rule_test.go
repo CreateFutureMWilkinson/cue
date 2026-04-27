@@ -20,15 +20,14 @@ func TestRoutingRule(t *testing.T) {
 // validRule returns a valid routing rule for testing purposes.
 func (s *RoutingRuleSuite) validRule() *repository.RoutingRule {
 	return &repository.RoutingRule{
-		ID:        uuid.New(),
-		Priority:  0,
-		Source:    "slack",
-		Field:     "channel",
-		Pattern:   "^general$",
-		Action:    "notified",
-		Enabled:   true,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:             uuid.New(),
+		Priority:       0,
+		SourceType:     "slack",
+		ChannelPattern: "^general$",
+		Action:         "notified",
+		Enabled:        true,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 }
 
@@ -38,25 +37,9 @@ func (s *RoutingRuleSuite) TestValidateValidRule() {
 	s.NoError(err)
 }
 
-func (s *RoutingRuleSuite) TestValidateInvalidSource() {
+func (s *RoutingRuleSuite) TestValidateInvalidSourceType() {
 	r := s.validRule()
-	r.Source = "ftp"
-	err := r.Validate()
-	s.ErrorIs(err, repository.ErrInvalidRoutingRule)
-}
-
-func (s *RoutingRuleSuite) TestValidateInvalidFieldForEmail() {
-	r := s.validRule()
-	r.Source = "email"
-	r.Field = "channel"
-	err := r.Validate()
-	s.ErrorIs(err, repository.ErrInvalidRoutingRule)
-}
-
-func (s *RoutingRuleSuite) TestValidateInvalidFieldForSlack() {
-	r := s.validRule()
-	r.Source = "slack"
-	r.Field = "subject"
+	r.SourceType = "ftp"
 	err := r.Validate()
 	s.ErrorIs(err, repository.ErrInvalidRoutingRule)
 }
@@ -75,29 +58,33 @@ func (s *RoutingRuleSuite) TestValidateNegativePriority() {
 	s.ErrorIs(err, repository.ErrInvalidRoutingRule)
 }
 
-func (s *RoutingRuleSuite) TestValidateInvalidRegex() {
+func (s *RoutingRuleSuite) TestValidateInvalidChannelPatternRegex() {
 	r := s.validRule()
-	r.Pattern = "[invalid"
+	r.ChannelPattern = "[invalid"
 	err := r.Validate()
 	s.ErrorIs(err, repository.ErrInvalidRoutingRule)
 }
 
-func (s *RoutingRuleSuite) TestValidateValidEmailFields() {
-	for _, field := range []string{"sender", "subject"} {
+func (s *RoutingRuleSuite) TestValidateInvalidContentPatternRegex() {
+	r := s.validRule()
+	r.ContentPattern = "[invalid"
+	err := r.Validate()
+	s.ErrorIs(err, repository.ErrInvalidRoutingRule)
+}
+
+func (s *RoutingRuleSuite) TestValidateValidSourceTypes() {
+	for _, st := range []string{"slack", "email"} {
 		r := s.validRule()
-		r.Source = "email"
-		r.Field = field
+		r.SourceType = st
 		err := r.Validate()
-		s.NoError(err, "field %q should be valid for email", field)
+		s.NoError(err, "source type %q should be valid", st)
 	}
 }
 
-func (s *RoutingRuleSuite) TestValidateValidSlackFields() {
-	for _, field := range []string{"sender", "channel", "content", "message_type"} {
-		r := s.validRule()
-		r.Source = "slack"
-		r.Field = field
-		err := r.Validate()
-		s.NoError(err, "field %q should be valid for slack", field)
-	}
+func (s *RoutingRuleSuite) TestValidateEmptyPatternsAreValid() {
+	r := s.validRule()
+	r.ChannelPattern = ""
+	r.ContentPattern = ""
+	err := r.Validate()
+	s.NoError(err, "empty patterns should be valid")
 }

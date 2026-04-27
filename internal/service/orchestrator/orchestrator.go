@@ -183,13 +183,13 @@ func (o *Orchestrator) PollOnce(ctx context.Context) {
 				msg.ImportanceScore = 8.0
 				msg.ConfidenceScore = 1.0
 				msg.Status = decisionengine.StatusNotified
-				msg.Reasoning = fmt.Sprintf("Rule: %s", matchedRule.Pattern)
+				msg.Reasoning = formatRuleReasoning(matchedRule)
 				notifiedCount++
 			case "ignored":
 				msg.ImportanceScore = 0.0
 				msg.ConfidenceScore = 1.0
 				msg.Status = decisionengine.StatusIgnored
-				msg.Reasoning = fmt.Sprintf("Rule: %s", matchedRule.Pattern)
+				msg.Reasoning = formatRuleReasoning(matchedRule)
 				ignoredCount++
 			default: // "queue"
 				msg.Status = "Pending"
@@ -365,4 +365,29 @@ func (o *Orchestrator) Stop() error {
 	}
 	o.wg.Wait()
 	return nil
+}
+
+// formatRuleReasoning produces a human-readable summary of a matched routing rule.
+func formatRuleReasoning(rule *repository.RoutingRule) string {
+	if rule.Name != "" {
+		return fmt.Sprintf("Rule: %s", rule.Name)
+	}
+	parts := []string{}
+	if rule.ChannelPattern != "" {
+		parts = append(parts, "ch:"+rule.ChannelPattern)
+	}
+	if rule.ContentPattern != "" {
+		parts = append(parts, "ct:"+rule.ContentPattern)
+	}
+	if rule.MessageType != "" {
+		parts = append(parts, "mt:"+rule.MessageType)
+	}
+	if len(parts) == 0 {
+		return fmt.Sprintf("Rule: %s (all)", rule.SourceType)
+	}
+	result := "Rule:"
+	for _, p := range parts {
+		result += " " + p
+	}
+	return result
 }

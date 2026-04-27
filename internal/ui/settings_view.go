@@ -340,27 +340,22 @@ func listAccountWidgets(ssp *presenter.ServiceSettingsPresenter, accountType str
 
 // buildAddRuleForm creates the form UI for adding a new routing rule.
 func buildAddRuleForm(rp *presenter.RulesPresenter, rulesTab *container.TabItem, buildList func() fyne.CanvasObject) fyne.CanvasObject {
-	sourceMap := map[string]string{"Email": "email", "Slack": "slack"}
+	sourceTypeMap := map[string]string{"Email": "email", "Slack": "slack"}
 	actionMap := map[string]string{"Notified": "notified", "Ignored": "ignored"}
-	emailFields := []string{"sender", "subject"}
-	slackFields := []string{"sender", "channel", "content", "message_type"}
 
-	fieldSelect := widget.NewSelect([]string{}, nil)
-	sourceSelect := widget.NewSelect([]string{"Email", "Slack"}, func(selected string) {
-		switch selected {
-		case "Email":
-			fieldSelect.Options = emailFields
-		case "Slack":
-			fieldSelect.Options = slackFields
-		}
-		fieldSelect.ClearSelected()
-		fieldSelect.Refresh()
-	})
+	nameEntry := widget.NewEntry()
+	nameEntry.SetPlaceHolder("Rule Name (optional)")
 
-	patternEntry := widget.NewEntry()
-	patternEntry.SetPlaceHolder("Regex Pattern")
+	sourceTypeSelect := widget.NewSelect([]string{"Email", "Slack"}, nil)
 
-	negateCheck := widget.NewCheck("Negate (not matches)", nil)
+	channelPatternEntry := widget.NewEntry()
+	channelPatternEntry.SetPlaceHolder("Channel Pattern (regex, optional)")
+
+	contentPatternEntry := widget.NewEntry()
+	contentPatternEntry.SetPlaceHolder("Content Pattern (regex, optional)")
+
+	messageTypeEntry := widget.NewEntry()
+	messageTypeEntry.SetPlaceHolder("Message Type (e.g. channel_join, optional)")
 
 	actionSelect := widget.NewSelect([]string{"Notified", "Ignored"}, nil)
 
@@ -373,21 +368,21 @@ func buildAddRuleForm(rp *presenter.RulesPresenter, rulesTab *container.TabItem,
 	})
 
 	saveBtn.OnTapped = func() {
-		source := sourceMap[sourceSelect.Selected]
-		field := fieldSelect.Selected
+		sourceType := sourceTypeMap[sourceTypeSelect.Selected]
 		action := actionMap[actionSelect.Selected]
 
 		rules, _ := rp.ListRules(context.Background())
 
 		rule := &repository.RoutingRule{
-			ID:       uuid.New(),
-			Priority: len(rules),
-			Source:   source,
-			Field:    field,
-			Negate:   negateCheck.Checked,
-			Pattern:  patternEntry.Text,
-			Action:   action,
-			Enabled:  true,
+			ID:             uuid.New(),
+			Name:           nameEntry.Text,
+			Priority:       len(rules),
+			SourceType:     sourceType,
+			ChannelPattern: channelPatternEntry.Text,
+			ContentPattern: contentPatternEntry.Text,
+			MessageType:    messageTypeEntry.Text,
+			Action:         action,
+			Enabled:        true,
 		}
 
 		if err := rp.SaveRule(context.Background(), rule); err != nil {
@@ -401,10 +396,11 @@ func buildAddRuleForm(rp *presenter.RulesPresenter, rulesTab *container.TabItem,
 
 	return container.NewVBox(
 		widget.NewLabel("Add Rule"),
-		sourceSelect,
-		fieldSelect,
-		patternEntry,
-		negateCheck,
+		nameEntry,
+		sourceTypeSelect,
+		channelPatternEntry,
+		contentPatternEntry,
+		messageTypeEntry,
 		actionSelect,
 		errorLabel,
 		container.NewHBox(saveBtn, cancelBtn),
@@ -526,7 +522,26 @@ func NewSettingsView(
 				r := rule
 				// Summary label
 				actionStr := r.Action
-				summary := fmt.Sprintf("%s matches %s \u2192 %s", r.Field, r.Pattern, actionStr)
+				parts := []string{r.SourceType}
+				if r.ChannelPattern != "" {
+					parts = append(parts, "ch:"+r.ChannelPattern)
+				}
+				if r.ContentPattern != "" {
+					parts = append(parts, "ct:"+r.ContentPattern)
+				}
+				if r.MessageType != "" {
+					parts = append(parts, "mt:"+r.MessageType)
+				}
+				label := r.Name
+				if label == "" {
+					label = fmt.Sprintf("[%s]", parts[0])
+					if len(parts) > 1 {
+						for _, p := range parts[1:] {
+							label += " " + p
+						}
+					}
+				}
+				summary := fmt.Sprintf("%s \u2192 %s", label, actionStr)
 				summaryLabel := widget.NewLabel(summary)
 
 				// Enabled checkbox

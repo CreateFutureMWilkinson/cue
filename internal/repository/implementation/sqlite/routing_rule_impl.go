@@ -15,33 +15,37 @@ import (
 const createRoutingRulesTableSQL = `
 CREATE TABLE IF NOT EXISTS routing_rules (
     id TEXT PRIMARY KEY,
+    name TEXT NOT NULL DEFAULT '',
     priority INTEGER NOT NULL,
-    source TEXT NOT NULL,
-    field TEXT NOT NULL,
-    negate INTEGER NOT NULL DEFAULT 0,
-    pattern TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    source_account TEXT,
+    channel_pattern TEXT NOT NULL DEFAULT '',
+    content_pattern TEXT NOT NULL DEFAULT '',
+    message_type TEXT NOT NULL DEFAULT '',
     action TEXT NOT NULL,
     enabled INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_routing_rules_priority ON routing_rules(priority);
-CREATE INDEX IF NOT EXISTS idx_routing_rules_source ON routing_rules(source);
+CREATE INDEX IF NOT EXISTS idx_routing_rules_source_type ON routing_rules(source_type);
 `
 
 const (
-	routingRuleColumns = "id, priority, source, field, negate, pattern, action, enabled, created_at, updated_at"
+	routingRuleColumns = "id, name, priority, source_type, source_account, channel_pattern, content_pattern, message_type, action, enabled, created_at, updated_at"
 )
 
 const upsertRoutingRuleSQL = `
-INSERT INTO routing_rules (id, priority, source, field, negate, pattern, action, enabled, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO routing_rules (id, name, priority, source_type, source_account, channel_pattern, content_pattern, message_type, action, enabled, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
+    name = excluded.name,
     priority = excluded.priority,
-    source = excluded.source,
-    field = excluded.field,
-    negate = excluded.negate,
-    pattern = excluded.pattern,
+    source_type = excluded.source_type,
+    source_account = excluded.source_account,
+    channel_pattern = excluded.channel_pattern,
+    content_pattern = excluded.content_pattern,
+    message_type = excluded.message_type,
     action = excluded.action,
     enabled = excluded.enabled,
     updated_at = excluded.updated_at
@@ -70,27 +74,29 @@ func NewSQLiteRoutingRuleRepository(db *sql.DB) (*SQLiteRoutingRuleRepository, e
 	if count == 0 {
 		now := time.Now().UTC().Format(time.RFC3339)
 		defaultRules := []struct {
-			priority int
-			source   string
-			field    string
-			negate   bool
-			pattern  string
-			action   string
-			enabled  bool
+			name           string
+			priority       int
+			sourceType     string
+			channelPattern string
+			contentPattern string
+			messageType    string
+			action         string
 		}{
-			{priority: 0, source: "slack", field: "message_type", negate: false, pattern: "^channel_join$", action: "notified", enabled: true},
-			{priority: 1, source: "slack", field: "content", negate: false, pattern: "@username", action: "notified", enabled: true},
+			{name: "Channel Join", priority: 0, sourceType: "slack", messageType: "channel_join", action: "notified"},
+			{name: "@mention", priority: 1, sourceType: "slack", contentPattern: "@username", action: "notified"},
 		}
 		for _, r := range defaultRules {
 			_, err := db.Exec(upsertRoutingRuleSQL,
 				uuid.New().String(),
+				r.name,
 				r.priority,
-				r.source,
-				r.field,
-				boolToInt(r.negate),
-				r.pattern,
+				r.sourceType,
+				nil, // source_account
+				r.channelPattern,
+				r.contentPattern,
+				r.messageType,
 				r.action,
-				boolToInt(r.enabled),
+				boolToInt(true), // enabled
 				now,
 				now,
 			)
@@ -126,12 +132,35 @@ func (r *SQLiteRoutingRuleRepository) ListRules(ctx context.Context) ([]*reposit
 	return rules, nil
 }
 
-func (r *SQLiteRoutingRuleRepository) ListRulesBySource(ctx context.Context, source string) ([]*repository.RoutingRule, error) {
+func (r *SQLiteRoutingRuleRepository) ListRulesBySourceType(ctx context.Context, sourceType string) ([]*repository.RoutingRule, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT `+routingRuleColumns+`
-		 FROM routing_rules WHERE source = ? ORDER BY priority ASC`, source)
+		 FROM routing_rules WHERE source_type = ? ORDER BY priority ASC`, sourceType)
 	if err != nil {
-		return nil, fmt.Errorf("listing routing rules by source: %w", err)
+		return nil, fmt.Errorf("listing routing rules by source type: %w", err)
+	}
+	defer rows.Close()
+
+	rules := make([]*repository.RoutingRule, 0)
+	for rows.Next() {
+		rule, err := r.scanRoutingRule(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scanning routing rule: %w", err)
+		}
+		rules = append(rules, rule)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating routing rules: %w", err)
+	}
+	return rules, nil
+}
+
+func (r *SQLiteRoutingRuleRepository) ListRulesBySourceAccount(ctx context.Context, accountID uuid.UUID) ([]*repository.RoutingRule, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT `+routingRuleColumns+`
+		 FROM routing_rules WHERE source_account = ? ORDER BY priority ASC`, accountID.String())
+	if err != nil {
+		return nil, fmt.Errorf("listing routing rules by source account: %w", err)
 	}
 	defer rows.Close()
 
@@ -169,15 +198,28 @@ func (r *SQLiteRoutingRuleRepository) scanRoutingRule(scanner interface {
 	Scan(dest ...any) error
 }) (*repository.RoutingRule, error) {
 	var (
-		rule         repository.RoutingRule
-		idStr        string
-		negate       int
-		enabled      int
-		createdAtStr string
-		updatedAtStr string
+		rule             repository.RoutingRule
+		idStr            string
+		sourceAccountStr sql.NullString
+		enabled          int
+		createdAtStr     string
+		updatedAtStr     string
 	)
 
-	err := scanner.Scan(&idStr, &rule.Priority, &rule.Source, &rule.Field, &negate, &rule.Pattern, &rule.Action, &enabled, &createdAtStr, &updatedAtStr)
+	err := scanner.Scan(
+		&idStr,
+		&rule.Name,
+		&rule.Priority,
+		&rule.SourceType,
+		&sourceAccountStr,
+		&rule.ChannelPattern,
+		&rule.ContentPattern,
+		&rule.MessageType,
+		&rule.Action,
+		&enabled,
+		&createdAtStr,
+		&updatedAtStr,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +229,14 @@ func (r *SQLiteRoutingRuleRepository) scanRoutingRule(scanner interface {
 		return nil, fmt.Errorf("parsing routing rule ID: %w", err)
 	}
 
-	rule.Negate = negate != 0
+	if sourceAccountStr.Valid {
+		parsed, err := uuid.Parse(sourceAccountStr.String)
+		if err != nil {
+			return nil, fmt.Errorf("parsing source_account UUID: %w", err)
+		}
+		rule.SourceAccount = &parsed
+	}
+
 	rule.Enabled = enabled != 0
 
 	rule.CreatedAt, err = time.Parse(time.RFC3339, createdAtStr)
@@ -209,13 +258,20 @@ func (r *SQLiteRoutingRuleRepository) UpsertRule(ctx context.Context, rule *repo
 		return err
 	}
 
+	var sourceAccount any
+	if rule.SourceAccount != nil {
+		sourceAccount = rule.SourceAccount.String()
+	}
+
 	_, err := r.db.ExecContext(ctx, upsertRoutingRuleSQL,
 		rule.ID.String(),
+		rule.Name,
 		rule.Priority,
-		rule.Source,
-		rule.Field,
-		boolToInt(rule.Negate),
-		rule.Pattern,
+		rule.SourceType,
+		sourceAccount,
+		rule.ChannelPattern,
+		rule.ContentPattern,
+		rule.MessageType,
 		rule.Action,
 		boolToInt(rule.Enabled),
 		rule.CreatedAt.Format(time.RFC3339),

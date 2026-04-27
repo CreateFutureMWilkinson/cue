@@ -78,3 +78,21 @@ func (s *CompositionSuite) TestNewCompositionConstructsServices() {
 	s.NotNil(comp.VectorStore, "VectorStore should be populated")
 	s.NotNil(comp.RulesEngine, "RulesEngine should be populated")
 }
+
+// TestNewCompositionStartsOrchestrator verifies that NewComposition populates
+// Hub, Alerter, Orchestrator, QueueProcessor, and EventCh (B5 orchestration wiring).
+func (s *CompositionSuite) TestNewCompositionStartsOrchestrator() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	cfg := minimalConfig(dbPath)
+
+	comp, err := server.NewComposition(context.Background(), cfg)
+	s.Require().NoError(err, "NewComposition should not return an error")
+	s.Require().NotNil(comp, "NewComposition should return a non-nil Composition")
+
+	s.NotNil(comp.Hub, "Hub should be populated")
+	s.NotNil(comp.Alerter, "Alerter should be populated")
+	s.NotNil(comp.Orchestrator, "Orchestrator should be populated")
+	s.NotNil(comp.QueueProcessor, "QueueProcessor should be populated")
+	s.NotNil(comp.EventCh, "EventCh should be populated")
+}

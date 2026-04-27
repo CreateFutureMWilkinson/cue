@@ -14,6 +14,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository/implementation/sqlite"
 	"github.com/CreateFutureMWilkinson/cue/internal/secret"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/vector"
 )
 
@@ -38,6 +39,17 @@ type Composition struct {
 	VectorStore *vector.ChromemVectorStore
 	// RulesEngine holds compiled deterministic routing rules
 	RulesEngine *decisionengine.RulesEngine
+
+	// Hub is the central event broadcaster for WebSocket clients
+	Hub *Hub
+	// Alerter broadcasts alert envelopes to connected WebSocket clients
+	Alerter *HubAlerter
+	// Orchestrator manages batch polling and routing of messages
+	Orchestrator *orchestrator.Orchestrator
+	// QueueProcessor processes Ollama scoring queue entries
+	QueueProcessor *orchestrator.QueueProcessor
+	// EventCh carries activity events from orchestrator to the hub publisher
+	EventCh chan orchestrator.ActivityEvent
 }
 
 // NewComposition opens all repositories, constructs services (Ollama client,

@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -436,5 +435,11 @@ func parseTimeOfDay(s string) (time.Time, error) {
 // ValidateForServer is like Validate but requires the [server] section to be configured.
 // Use this in cue-server which cannot start without an HTTP listener.
 func (c *Config) ValidateForServer() error {
-	return errors.New("not implemented")
+	if err := c.Validate(); err != nil {
+		return err
+	}
+	if !c.Server.isConfigured() {
+		return fmt.Errorf("server section must be configured (host, port, timeouts)")
+	}
+	return nil
 }

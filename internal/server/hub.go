@@ -173,12 +173,19 @@ func (h *Hub) subPayload(sub *Subscriber, env ActivityEnvelope, shared []byte) [
 // buffer for history replay, and broadcasts the JSON-serialized
 // envelope to all current subscribers.
 func (h *Hub) Publish(data ActivityData) ActivityEnvelope {
+	return h.publishEnvelope("activity", data)
+}
+
+// publishEnvelope is the shared implementation for Publish and PublishAlert.
+// It assigns a monotonically increasing sequence number, stores the envelope
+// in the ring buffer, and broadcasts to all subscribers.
+func (h *Hub) publishEnvelope(envelopeType string, data any) ActivityEnvelope {
 	h.mu.Lock()
 
 	h.seq++
 	env := ActivityEnvelope{
 		Seq:       h.seq,
-		Type:      "activity",
+		Type:      envelopeType,
 		Timestamp: time.Now().UTC(),
 		Data:      data,
 	}
@@ -282,9 +289,9 @@ func (h *Hub) History(sinceSeq uint64) HistoryResponse {
 // PublishAlert creates an ActivityEnvelope for the given AlertData, assigns a
 // monotonically increasing sequence number, stores it in the ring buffer for
 // history replay, and broadcasts the JSON-serialized envelope to all current
-// subscribers. Stub: returns zero-valued envelope.
+// subscribers.
 func (h *Hub) PublishAlert(data AlertData) ActivityEnvelope {
-	return ActivityEnvelope{}
+	return h.publishEnvelope("alert", data)
 }
 
 // SubscriberCount returns the number of active subscribers.

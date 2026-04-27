@@ -85,7 +85,16 @@ func ListBufferedHandler(repo MessageQuerier) http.HandlerFunc {
 // GetBufferedHandler returns an http.HandlerFunc for GET /api/v1/buffer/{id}.
 func GetBufferedHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeJSONError(w, http.StatusNotImplemented, "not implemented")
+		msg, err := getMessageByPathID(repo, r)
+		if err != nil {
+			writeNotFoundOrError(w, err)
+			return
+		}
+		if msg.Status != "Buffered" {
+			writeJSONError(w, http.StatusNotFound, "not found")
+			return
+		}
+		writeJSON(w, http.StatusOK, messageToDetail(msg))
 	}
 }
 

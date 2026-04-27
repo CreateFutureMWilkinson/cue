@@ -1,7 +1,7 @@
 # Feature 101: Day Planner API
 
 **Phase:** Phase-9-Feature-101
-**Status:** Planning
+**Status:** Done
 **Package:** `internal/server/handler/`
 **Depends on:** 097, 101A
 
@@ -201,3 +201,27 @@ The GUI presenter's state machine is not modified by this feature. It will be re
 - DELETE: existing schedule, missing schedule (404), active alias
 - Active alias: verify `/active` and `/planner/{today}` return identical results
 - Generator: empty task list produces valid focus/break blocks without task references
+
+## Test Coverage Summary
+
+- 15 handler tests (GET: 3, PUT: 4, DELETE: 3, Generate: 3, Active alias: 2)
+- 1 generator verification test (empty task list)
+- Server route registration tests (planner routes registered/not registered)
+- All existing tests continue to pass
+
+## TDD Agent Stats
+
+| TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|
+| REFACTOR (prerequisite) | orchestrator | ~131s | ~49,650 | 0c308ae |
+| RED (generator adapt) | Test Designer | ~25s | ~29,887 | c7047cc |
+| RED (GET handler) | Test Designer | ~55s | ~32,218 | 2c71477 |
+| GREEN (GET handler) | Implementer | ~49s | ~29,040 | 81c81d5 |
+| RED (PUT+DELETE) | Test Designer | ~112s | ~34,891 | 8ea6784 |
+| GREEN (PUT+DELETE) | Implementer | ~49s | ~29,824 | d16a81d |
+| REFACTOR (helpers) | orchestrator | — | — | 9d17cee |
+| RED (generate) | Test Designer | ~107s | ~43,200 | 31ee98d |
+| GREEN (generate) | orchestrator | — | — | 796342a |
+| REFACTOR (cleanup) | orchestrator | — | — | a529f58 |
+| RED+GREEN (active) | Implementer | ~39s | ~33,947 | 498873a |
+| GREEN (wiring) | Implementer | ~242s | ~68,439 | 1bd6c96 |

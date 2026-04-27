@@ -744,3 +744,15 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-9-Feature-101A (handlers) | GREEN | Implementer | ~79s | ~41,000 | — |
 | Phase-9-Feature-101A (server wiring) | RED | Test Designer | ~94s | ~39,000 | — |
 | Phase-9-Feature-101A (server wiring) | GREEN | Implementer | ~32s | ~28,000 | — |
+| Phase-9-Feature-101 | REFACTOR | orchestrator | ~131s | ~49,650 | 0c308ae |
+| Phase-9-Feature-101 | RED | Test Designer | ~25s | ~29,887 | c7047cc |
+| Phase-9-Feature-101 | RED | Test Designer | ~55s | ~32,218 | 2c71477 |
+| Phase-9-Feature-101 | GREEN | Implementer | ~49s | ~29,040 | 81c81d5 |
+| Phase-9-Feature-101 | RED | Test Designer | ~112s | ~34,891 | 8ea6784 |
+| Phase-9-Feature-101 | GREEN | Implementer | ~49s | ~29,824 | d16a81d |
+| Phase-9-Feature-101 | REFACTOR | orchestrator | — | — | 9d17cee |
+| Phase-9-Feature-101 | RED | Test Designer | ~107s | ~43,200 | 31ee98d |
+| Phase-9-Feature-101 | GREEN | orchestrator | — | — | 796342a |
+| Phase-9-Feature-101 | REFACTOR | orchestrator | — | — | a529f58 |
+| Phase-9-Feature-101 | RED+GREEN | Implementer | ~39s | ~33,947 | 498873a |
+| Phase-9-Feature-101 | GREEN | Implementer | ~242s | ~68,439 | 1bd6c96 |

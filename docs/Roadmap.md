@@ -179,7 +179,7 @@ Server binary exposing REST + WebSocket APIs, then re-wire the Fyne GUI as a thi
 | 099A | Server orchestrator wiring | Refactor | Done | 097, 099 | [Feature-099A](features/phase-9/Feature-099A-Server-Orchestrator-Wiring.md) |
 | 100 | Feedback buffer API | REST | Done | 097 | [Feature-100](features/phase-9/Feature-100-Feedback-Buffer-API.md) |
 | 101A | Todo CRUD API | REST | Done | 097 | [Feature-101A](features/phase-9/Feature-101A-Todo-CRUD-API.md) |
-| 101 | Day planner API | REST + State | Planning | 097, 101A | [Feature-101](features/phase-9/Feature-101-Day-Planner-API.md) |
+| 101 | Day planner API | REST + State | Done | 097, 101A | [Feature-101](features/phase-9/Feature-101-Day-Planner-API.md) |
 | 102 | Service configuration API | REST | Planning | 097 | [Feature-102](features/phase-9/Feature-102-Service-Configuration-API.md) |
 | 103 | Routing rules API | REST | Planning | 097 | [Feature-103](features/phase-9/Feature-103-Routing-Rules-API.md) |
 | 104 | Timer API | REST + WS | Planning | 097, 099 | [Feature-104](features/phase-9/Feature-104-Timer-API.md) |

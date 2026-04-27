@@ -25,6 +25,9 @@ const ringCapacity = 500
 type Subscriber struct {
 	ID     string
 	Events chan []byte
+
+	sendMu           sync.Mutex
+	droppedSinceLast int
 }
 
 // Hub is a central event broadcaster. It manages subscriber connections
@@ -96,16 +99,64 @@ func (h *Hub) Broadcast(data []byte) error {
 	return nil
 }
 
-// fanout sends data to all subscribers in the provided slice. Slow
-// consumers drop the message rather than block the hub. This helper
-// is used by both Broadcast and Publish to avoid code duplication.
+// fanout sends data to all subscribers in the provided slice. On
+// overflow the oldest queued envelope is dropped to make room. This
+// helper is used by Broadcast which has no envelope metadata, so no
+// drop counter is maintained here.
 func (h *Hub) fanout(subs []*Subscriber, data []byte) {
 	for _, sub := range subs {
+		sub.sendMu.Lock()
 		select {
 		case sub.Events <- data:
 		default:
+			// Drop oldest to make room for the newest.
+			<-sub.Events
+			sub.Events <- data
 		}
+		sub.sendMu.Unlock()
 	}
+}
+
+// publishFanout delivers a pre-serialized envelope to all subscribers.
+// On overflow it drops the oldest queued envelope and increments a
+// per-subscriber drop counter. When a subscriber has outstanding drops,
+// the envelope is re-serialized with DroppedSinceLast set before
+// delivery, and the counter is reset to zero.
+func (h *Hub) publishFanout(subs []*Subscriber, env ActivityEnvelope, raw []byte) {
+	for _, sub := range subs {
+		sub.sendMu.Lock()
+
+		// If the channel is full, drain the oldest entry and count the drop.
+		select {
+		case sub.Events <- h.subPayload(sub, env, raw):
+			sub.sendMu.Unlock()
+			continue
+		default:
+			<-sub.Events
+			sub.droppedSinceLast++
+		}
+
+		// Now there's room — send with potential drop annotation.
+		sub.Events <- h.subPayload(sub, env, raw)
+		sub.sendMu.Unlock()
+	}
+}
+
+// subPayload returns the bytes to deliver to sub. If the subscriber has
+// outstanding drops, it re-serializes the envelope with DroppedSinceLast
+// set and resets the counter. Otherwise it returns the shared pre-serialized
+// bytes (zero-allocation common path).
+func (h *Hub) subPayload(sub *Subscriber, env ActivityEnvelope, shared []byte) []byte {
+	if sub.droppedSinceLast == 0 {
+		return shared
+	}
+	env.DroppedSinceLast = sub.droppedSinceLast
+	sub.droppedSinceLast = 0
+	custom, err := json.Marshal(env)
+	if err != nil {
+		return shared
+	}
+	return custom
 }
 
 // Publish creates an ActivityEnvelope for the given data, assigns a
@@ -145,7 +196,7 @@ func (h *Hub) Publish(data ActivityData) ActivityEnvelope {
 	}
 	h.mu.Unlock()
 
-	h.fanout(subs, raw)
+	h.publishFanout(subs, env, raw)
 
 	return env
 }

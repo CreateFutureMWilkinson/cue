@@ -263,6 +263,47 @@ func (s *PlannerHandlerSuite) TestPutScheduleInvalidBlockType() {
 	s.Equal(http.StatusBadRequest, rec.Code)
 }
 
+// --- PUT /api/v1/planner/{date} with onChange callback ---
+
+func (s *PlannerHandlerSuite) TestPutScheduleCallbackInvokedOnSuccess() {
+	mock := &mockScheduleStore{}
+	callCount := 0
+	cb := func() { callCount++ }
+	h := handler.PutScheduleHandler(mock, cb)
+
+	body := `{
+		"strategy": "focus-maximized",
+		"blocks": [
+			{"start": "09:00", "end": "09:25", "type": "focus", "task_name": "Write tests"}
+		]
+	}`
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/planner/2026-04-20", strings.NewReader(body))
+	req.SetPathValue("date", "2026-04-20")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code)
+	s.Equal(1, callCount, "onChange callback should be invoked once on successful save")
+}
+
+func (s *PlannerHandlerSuite) TestPutScheduleCallbackNotInvokedOnInvalidBody() {
+	mock := &mockScheduleStore{}
+	callCount := 0
+	cb := func() { callCount++ }
+	h := handler.PutScheduleHandler(mock, cb)
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/planner/2026-04-20", strings.NewReader("{invalid"))
+	req.SetPathValue("date", "2026-04-20")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	s.Equal(http.StatusBadRequest, rec.Code)
+	s.Equal(0, callCount, "onChange callback should NOT be invoked on invalid body")
+}
+
 // --- DELETE /api/v1/planner/{date} ---
 
 func (s *PlannerHandlerSuite) TestDeleteScheduleSuccess() {
@@ -309,6 +350,47 @@ func (s *PlannerHandlerSuite) TestDeleteScheduleInvalidDate() {
 	h.ServeHTTP(rec, req)
 
 	s.Equal(http.StatusBadRequest, rec.Code)
+}
+
+// --- DELETE /api/v1/planner/{date} with onChange callback ---
+
+func (s *PlannerHandlerSuite) TestDeleteScheduleCallbackInvokedOnSuccess() {
+	mock := &mockScheduleStore{
+		loadResult: &repository.Schedule{
+			ID:        uuid.New(),
+			Date:      time.Date(2026, 4, 20, 0, 0, 0, 0, time.UTC),
+			Strategy:  "focus-maximized",
+			CreatedAt: time.Now(),
+		},
+	}
+	callCount := 0
+	cb := func() { callCount++ }
+	h := handler.DeleteScheduleHandler(mock, cb)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/planner/2026-04-20", nil)
+	req.SetPathValue("date", "2026-04-20")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	s.Equal(http.StatusNoContent, rec.Code)
+	s.Equal(1, callCount, "onChange callback should be invoked once on successful delete")
+}
+
+func (s *PlannerHandlerSuite) TestDeleteScheduleCallbackNotInvokedOnNotFound() {
+	mock := &mockScheduleStore{loadErr: repository.ErrNotFound}
+	callCount := 0
+	cb := func() { callCount++ }
+	h := handler.DeleteScheduleHandler(mock, cb)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/planner/2026-04-20", nil)
+	req.SetPathValue("date", "2026-04-20")
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, req)
+
+	s.Equal(http.StatusNotFound, rec.Code)
+	s.Equal(0, callCount, "onChange callback should NOT be invoked when schedule not found")
 }
 
 // --- POST /api/v1/planner/generate ---

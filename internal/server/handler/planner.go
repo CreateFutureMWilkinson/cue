@@ -125,7 +125,8 @@ func GetScheduleHandler(repo ScheduleStore) http.HandlerFunc {
 }
 
 // PutScheduleHandler returns an http.HandlerFunc for PUT /api/v1/planner/{date}.
-func PutScheduleHandler(store ScheduleStore) http.HandlerFunc {
+// Optional onChange callbacks are invoked after a successful save.
+func PutScheduleHandler(store ScheduleStore, onChange ...func()) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		date, err := parseDateParam(r)
 		if err != nil {
@@ -175,6 +176,10 @@ func PutScheduleHandler(store ScheduleStore) http.HandlerFunc {
 		if err := store.Save(r.Context(), schedule); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, "failed to save schedule")
 			return
+		}
+
+		for _, fn := range onChange {
+			fn()
 		}
 
 		writeJSON(w, http.StatusOK, scheduleToResponse(schedule))
@@ -376,7 +381,8 @@ func GetTimerHandler(store ScheduleStore, clock TimerClock) http.HandlerFunc {
 }
 
 // DeleteScheduleHandler returns an http.HandlerFunc for DELETE /api/v1/planner/{date}.
-func DeleteScheduleHandler(store ScheduleStore) http.HandlerFunc {
+// Optional onChange callbacks are invoked after a successful delete.
+func DeleteScheduleHandler(store ScheduleStore, onChange ...func()) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		date, err := parseDateParam(r)
 		if err != nil {
@@ -392,6 +398,10 @@ func DeleteScheduleHandler(store ScheduleStore) http.HandlerFunc {
 		if err := store.Delete(r.Context(), date); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, "failed to delete schedule")
 			return
+		}
+
+		for _, fn := range onChange {
+			fn()
 		}
 
 		w.WriteHeader(http.StatusNoContent)

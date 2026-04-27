@@ -34,7 +34,8 @@ Create a `cue-server` binary that runs Cue headless — no GUI, no Fyne dependen
 | 108 | [TOFU Pairing](Feature-108-TOFU-Pairing.md) | Auth | Medium | 097, 099 |
 | 106 | [API Client SDK](Feature-106-API-Client-SDK.md) | Client | High | 096-104, 108 |
 | 106A | [AsyncAPI Documentation](Feature-106A-AsyncAPI-Documentation.md) | Documentation | Low | 097-104, 108 |
-| 107 | [Fyne Client Re-wire](Feature-107-Fyne-Client-Rewire.md) | Client | High | 106 |
+| 109 | [Todo Domain Restructure](Feature-109-Todo-Domain-Restructure.md) | Refactor | Medium | 101A, 102, 106 |
+| 107 | [Fyne Client Re-wire](Feature-107-Fyne-Client-Rewire.md) | Client | High | 106, 108, 109 |
 
 ## Suggested Implementation Order
 
@@ -57,7 +58,10 @@ Create a `cue-server` binary that runs Cue headless — no GUI, no Fyne dependen
     ↓                                     │
 106 (client SDK) ─────── depends on all + 108
 106A (AsyncAPI docs) ──── can parallel 106 │
-107 (Fyne re-wire) ───── depends on 106   │
+    ↓                                     │
+109 (todo restructure) ─ depends on 101A, 102, 106
+    ↓                                     │
+107 (Fyne re-wire) ───── depends on 106, 108, 109
 ```
 
 **Critical path:** 097 → 098/099/100 → 101. The planner API depends on the most infrastructure and is the most complex — save it for last when patterns are established.

@@ -9,14 +9,16 @@ import (
 
 // Todo represents a task in the todo list.
 type Todo struct {
-	ID          uuid.UUID
-	Title       string
-	Description string     // markdown
-	Priority    int        // lower = higher priority
-	DueDate     *time.Time // optional
-	Categories  []Category
-	CreatedAt   time.Time
-	CompletedAt *time.Time // nil = incomplete
+	ID                 uuid.UUID
+	Title              string
+	Description        string     // markdown
+	Priority           int        // lower = higher priority
+	DueDate            *time.Time // optional
+	Categories         []Category
+	EstimateMinutes    *int // user-provided time estimate
+	LLMEstimateMinutes *int // LLM-generated time estimate
+	CreatedAt          time.Time
+	CompletedAt        *time.Time // nil = incomplete
 }
 
 // TodoRepository defines the contract for todo persistence.

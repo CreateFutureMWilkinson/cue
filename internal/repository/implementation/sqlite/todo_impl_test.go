@@ -323,6 +323,61 @@ func (s *TodoRepositorySuite) TestComplete() {
 	s.WithinDuration(completedAt, *got.CompletedAt, time.Second)
 }
 
+func (s *TodoRepositorySuite) TestEstimateFieldsRoundTrip() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	todoRepo, _ := s.makeTodoRepo(dbPath)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	userEstimate := 30
+	llmEstimate := 45
+
+	// Insert a todo with both estimate fields set.
+	todoWithEstimates := &repository.Todo{
+		ID:                 uuid.New(),
+		Title:              "Task with estimates",
+		Description:        "Has both user and LLM estimates",
+		Priority:           2,
+		EstimateMinutes:    &userEstimate,
+		LLMEstimateMinutes: &llmEstimate,
+		CreatedAt:          now,
+	}
+
+	err := todoRepo.Insert(ctx, todoWithEstimates)
+	s.Require().NoError(err)
+
+	got, err := todoRepo.QueryByID(ctx, todoWithEstimates.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+
+	s.Require().NotNil(got.EstimateMinutes, "EstimateMinutes should round-trip as non-nil")
+	s.Equal(30, *got.EstimateMinutes)
+	s.Require().NotNil(got.LLMEstimateMinutes, "LLMEstimateMinutes should round-trip as non-nil")
+	s.Equal(45, *got.LLMEstimateMinutes)
+
+	// Insert a todo with nil estimate fields.
+	todoNilEstimates := &repository.Todo{
+		ID:          uuid.New(),
+		Title:       "Task without estimates",
+		Description: "Estimates are nil",
+		Priority:    3,
+		CreatedAt:   now,
+	}
+
+	err = todoRepo.Insert(ctx, todoNilEstimates)
+	s.Require().NoError(err)
+
+	got2, err := todoRepo.QueryByID(ctx, todoNilEstimates.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got2)
+
+	s.Nil(got2.EstimateMinutes, "EstimateMinutes should round-trip as nil")
+	s.Nil(got2.LLMEstimateMinutes, "LLMEstimateMinutes should round-trip as nil")
+}
+
 func (s *TodoRepositorySuite) TestCategoriesAssociation() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")

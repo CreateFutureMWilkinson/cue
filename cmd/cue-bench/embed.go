@@ -91,6 +91,12 @@ type EmbedIndex struct {
 	Scored map[string][]float32 // keyed by entry ID
 }
 
+// rankedEntry pairs a corpus entry with its similarity score for sorting.
+type rankedEntry struct {
+	entry      CorpusEntry
+	similarity float64
+}
+
 // SelectExamplesByEmbedding selects up to n pool entries most similar
 // to the scored entry's embedding.
 func SelectExamplesByEmbedding(entryID string, index EmbedIndex, n int) []CorpusEntry {
@@ -102,30 +108,25 @@ func SelectExamplesByEmbedding(entryID string, index EmbedIndex, n int) []Corpus
 		return nil
 	}
 
-	type ranked struct {
-		entry      CorpusEntry
-		similarity float64
-	}
-
-	items := make([]ranked, len(index.Pool))
-	for i, er := range index.Pool {
-		items[i] = ranked{
-			entry:      er.Entry,
-			similarity: CosineSimilarity(scoredVec, er.Embedding),
+	candidates := make([]rankedEntry, len(index.Pool))
+	for i, embedResult := range index.Pool {
+		candidates[i] = rankedEntry{
+			entry:      embedResult.Entry,
+			similarity: CosineSimilarity(scoredVec, embedResult.Embedding),
 		}
 	}
 
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].similarity > items[j].similarity
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].similarity > candidates[j].similarity
 	})
 
-	if n > len(items) {
-		n = len(items)
+	if n > len(candidates) {
+		n = len(candidates)
 	}
 
 	result := make([]CorpusEntry, n)
 	for i := 0; i < n; i++ {
-		result[i] = items[i].entry
+		result[i] = candidates[i].entry
 	}
 	return result
 }
@@ -145,7 +146,7 @@ func BuildEmbedIndex(ctx context.Context, model, host string, pool, scored []Cor
 	for _, entry := range pool {
 		vec, latency, err := embedText(ctx, model, entry.Content, host, httpClient)
 		if err != nil {
-			return EmbedIndex{}, nil, err
+			return EmbedIndex{}, nil, fmt.Errorf("embed pool entry %s: %w", entry.ID, err)
 		}
 		index.Pool = append(index.Pool, EmbedResult{Entry: entry, Embedding: vec})
 		latencies = append(latencies, latency)
@@ -156,7 +157,7 @@ func BuildEmbedIndex(ctx context.Context, model, host string, pool, scored []Cor
 	for _, entry := range scored {
 		vec, latency, err := embedText(ctx, model, entry.Content, host, httpClient)
 		if err != nil {
-			return EmbedIndex{}, nil, err
+			return EmbedIndex{}, nil, fmt.Errorf("embed scored entry %s: %w", entry.ID, err)
 		}
 		index.Scored[entry.ID] = vec
 		latencies = append(latencies, latency)

@@ -183,6 +183,23 @@ func writeNotFoundOrError(w http.ResponseWriter, err error) {
 // ResolveNotificationHandler returns an http.HandlerFunc for POST /api/v1/notifications/{id}/resolve.
 func ResolveNotificationHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "not implemented", http.StatusNotImplemented)
+		msg, err := getMessageByPathID(repo, r)
+		if err != nil {
+			writeNotFoundOrError(w, err)
+			return
+		}
+		if msg.Status == "Resolved" {
+			writeJSONError(w, http.StatusConflict, "already resolved")
+			return
+		}
+		now := time.Now().UTC()
+		msg.Status = "Resolved"
+		msg.ResolvedAt = &now
+		msg.UpdatedAt = now
+		if err := repo.Update(r.Context(), msg); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to update")
+			return
+		}
+		writeJSON(w, http.StatusOK, messageToDetail(msg))
 	}
 }

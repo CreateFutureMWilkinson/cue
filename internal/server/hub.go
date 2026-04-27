@@ -26,6 +26,9 @@ type Subscriber struct {
 	ID     string
 	Events chan []byte
 
+	// sendMu protects per-subscriber state (droppedSinceLast) and channel
+	// operations to ensure atomic drop-counting and send. Lock ordering:
+	// always acquire sendMu after Hub.mu (never hold both simultaneously).
 	sendMu           sync.Mutex
 	droppedSinceLast int
 }
@@ -99,6 +102,21 @@ func (h *Hub) Broadcast(data []byte) error {
 	return nil
 }
 
+// sendOrDrop attempts to send data to sub.Events. If the channel is full,
+// it drains the oldest message and sends the new data. Returns true if a
+// message was dropped. The caller must hold sub.sendMu.
+func (h *Hub) sendOrDrop(sub *Subscriber, data []byte) bool {
+	select {
+	case sub.Events <- data:
+		return false
+	default:
+		// Drop oldest to make room for the newest.
+		<-sub.Events
+		sub.Events <- data
+		return true
+	}
+}
+
 // fanout sends data to all subscribers in the provided slice. On
 // overflow the oldest queued envelope is dropped to make room. This
 // helper is used by Broadcast which has no envelope metadata, so no
@@ -106,13 +124,7 @@ func (h *Hub) Broadcast(data []byte) error {
 func (h *Hub) fanout(subs []*Subscriber, data []byte) {
 	for _, sub := range subs {
 		sub.sendMu.Lock()
-		select {
-		case sub.Events <- data:
-		default:
-			// Drop oldest to make room for the newest.
-			<-sub.Events
-			sub.Events <- data
-		}
+		h.sendOrDrop(sub, data)
 		sub.sendMu.Unlock()
 	}
 }
@@ -126,26 +138,23 @@ func (h *Hub) publishFanout(subs []*Subscriber, env ActivityEnvelope, raw []byte
 	for _, sub := range subs {
 		sub.sendMu.Lock()
 
-		// If the channel is full, drain the oldest entry and count the drop.
-		select {
-		case sub.Events <- h.subPayload(sub, env, raw):
-			sub.sendMu.Unlock()
-			continue
-		default:
-			<-sub.Events
+		payload := h.subPayload(sub, env, raw)
+		if h.sendOrDrop(sub, payload) {
+			// A drop occurred, increment counter and resend with drop annotation
 			sub.droppedSinceLast++
+			payload = h.subPayload(sub, env, raw)
+			h.sendOrDrop(sub, payload) // This send cannot fail - we just made room
 		}
 
-		// Now there's room — send with potential drop annotation.
-		sub.Events <- h.subPayload(sub, env, raw)
 		sub.sendMu.Unlock()
 	}
 }
 
-// subPayload returns the bytes to deliver to sub. If the subscriber has
-// outstanding drops, it re-serializes the envelope with DroppedSinceLast
-// set and resets the counter. Otherwise it returns the shared pre-serialized
-// bytes (zero-allocation common path).
+// subPayload returns the bytes to deliver to sub. When sub.droppedSinceLast > 0,
+// it performs per-subscriber re-serialization: the envelope is cloned with
+// DroppedSinceLast set to the drop count, marshaled to JSON, and the counter
+// is reset. Otherwise it returns the shared pre-serialized bytes (zero-allocation
+// common path for subscribers with no drops).
 func (h *Hub) subPayload(sub *Subscriber, env ActivityEnvelope, shared []byte) []byte {
 	if sub.droppedSinceLast == 0 {
 		return shared

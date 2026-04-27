@@ -29,6 +29,21 @@ type messagesListResponse struct {
 
 // ListMessagesHandler returns an http.HandlerFunc for GET /api/v1/messages.
 // It supports filtering by status, source, channel, and since (RFC 3339).
+//
+// @Summary      List messages
+// @Description  Paginated list of all ingested messages, filterable by status,
+// @Description  source (slack/email), channel, and since (RFC3339).
+// @Tags         messages
+// @Produce      json
+// @Param        status   query     string  false  "Notified | Buffered | Ignored | Resolved | Pending"
+// @Param        source   query     string  false  "slack | email"
+// @Param        channel  query     string  false  "Source-native channel / folder"
+// @Param        since    query     string  false  "RFC3339 lower bound on created_at"
+// @Param        limit    query     int     false  "Page size (default 50)"
+// @Param        offset   query     int     false  "Page offset (default 0)"
+// @Success      200      {object}  handler.messagesListResponse
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/messages [get]
 func ListMessagesHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		limit, offset := parsePagination(r)
@@ -79,6 +94,15 @@ func ListMessagesHandler(repo MessageQuerier) http.HandlerFunc {
 }
 
 // GetMessageHandler returns an http.HandlerFunc for GET /api/v1/messages/{id}.
+//
+// @Summary      Get message by ID
+// @Tags         messages
+// @Produce      json
+// @Param        id   path      string  true  "Message UUID"
+// @Success      200  {object}  handler.messageDetail
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/messages/{id} [get]
 func GetMessageHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		msg, err := getMessageByPathID(repo, r)

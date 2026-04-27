@@ -1,5 +1,100 @@
 components:
   schemas:
+    handler.listResponse:
+      properties:
+        notifications:
+          items:
+            $ref: '#/components/schemas/handler.notificationItem'
+          type: array
+          uniqueItems: false
+        total:
+          type: integer
+      type: object
+    handler.messageDetail:
+      properties:
+        channel:
+          type: string
+        confidence_score:
+          type: number
+        content:
+          type: string
+        created_at:
+          type: string
+        id:
+          type: string
+        importance_score:
+          type: number
+        message_id:
+          type: string
+        reasoning:
+          type: string
+        resolved_at:
+          type: string
+        sender:
+          type: string
+        source:
+          type: string
+        source_account:
+          type: string
+        status:
+          type: string
+        updated_at:
+          type: string
+      type: object
+    handler.messageListItem:
+      properties:
+        channel:
+          type: string
+        confidence_score:
+          type: number
+        content:
+          type: string
+        created_at:
+          type: string
+        id:
+          type: string
+        importance_score:
+          type: number
+        sender:
+          type: string
+        source:
+          type: string
+        source_account:
+          type: string
+        status:
+          type: string
+      type: object
+    handler.messagesListResponse:
+      properties:
+        messages:
+          items:
+            $ref: '#/components/schemas/handler.messageListItem'
+          type: array
+          uniqueItems: false
+        total:
+          type: integer
+      type: object
+    handler.notificationItem:
+      properties:
+        channel:
+          type: string
+        confidence_score:
+          type: number
+        content:
+          type: string
+        created_at:
+          type: string
+        id:
+          type: string
+        importance_score:
+          type: number
+        sender:
+          type: string
+        source:
+          type: string
+        source_account:
+          type: string
+      type: object
     handler.timerResponse:
       properties:
         block_type:
@@ -119,6 +214,247 @@ paths:
       summary: Readiness check
       tags:
       - health
+  /api/v1/messages:
+    get:
+      description: |-
+        Paginated list of all ingested messages, filterable by status,
+        source (slack/email), channel, and since (RFC3339).
+      parameters:
+      - description: Notified | Buffered | Ignored | Resolved | Pending
+        in: query
+        name: status
+        schema:
+          type: string
+      - description: slack | email
+        in: query
+        name: source
+        schema:
+          type: string
+      - description: Source-native channel / folder
+        in: query
+        name: channel
+        schema:
+          type: string
+      - description: RFC3339 lower bound on created_at
+        in: query
+        name: since
+        schema:
+          type: string
+      - description: Page size (default 50)
+        in: query
+        name: limit
+        schema:
+          type: integer
+      - description: Page offset (default 0)
+        in: query
+        name: offset
+        schema:
+          type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.messagesListResponse'
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: List messages
+      tags:
+      - messages
+  /api/v1/messages/{id}:
+    get:
+      parameters:
+      - description: Message UUID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.messageDetail'
+          description: OK
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Get message by ID
+      tags:
+      - messages
+  /api/v1/notifications:
+    get:
+      description: |-
+        Paginated list of messages currently in the Notified state,
+        sorted by created_at descending.
+      parameters:
+      - description: Page size (default 50)
+        in: query
+        name: limit
+        schema:
+          type: integer
+      - description: Page offset (default 0)
+        in: query
+        name: offset
+        schema:
+          type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.listResponse'
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: List active notifications
+      tags:
+      - notifications
+  /api/v1/notifications/{id}:
+    get:
+      parameters:
+      - description: Notification / message UUID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.messageDetail'
+          description: OK
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Get notification by ID
+      tags:
+      - notifications
+  /api/v1/notifications/{id}/dismiss:
+    post:
+      description: Marks the notification as Ignored. Unlike resolve, no resolved_at
+        timestamp is set.
+      parameters:
+      - description: Notification UUID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.messageDetail'
+          description: OK
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Dismiss a notification
+      tags:
+      - notifications
+  /api/v1/notifications/{id}/resolve:
+    post:
+      description: |-
+        Marks the notification as resolved and sets resolved_at to now.
+        Returns 409 if the notification is already resolved.
+      parameters:
+      - description: Notification UUID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.messageDetail'
+          description: OK
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "409":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: already resolved
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Resolve a notification
+      tags:
+      - notifications
   /api/v1/timer:
     get:
       description: |-

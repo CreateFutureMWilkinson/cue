@@ -40,6 +40,17 @@ type listResponse struct {
 
 // ListNotificationsHandler returns an http.HandlerFunc for GET /api/v1/notifications.
 // It queries messages with status "Notified" ordered by created_at descending.
+//
+// @Summary      List active notifications
+// @Description  Paginated list of messages currently in the Notified state,
+// @Description  sorted by created_at descending.
+// @Tags         notifications
+// @Produce      json
+// @Param        limit   query     int  false  "Page size (default 50)"
+// @Param        offset  query     int  false  "Page offset (default 0)"
+// @Success      200     {object}  handler.listResponse
+// @Failure      500     {object}  map[string]string
+// @Router       /api/v1/notifications [get]
 func ListNotificationsHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		limit, offset := parsePagination(r)
@@ -150,6 +161,15 @@ func messageToDetail(m *repository.Message) messageDetail {
 }
 
 // GetNotificationHandler returns an http.HandlerFunc for GET /api/v1/notifications/{id}.
+//
+// @Summary      Get notification by ID
+// @Tags         notifications
+// @Produce      json
+// @Param        id   path      string  true  "Notification / message UUID"
+// @Success      200  {object}  handler.messageDetail
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/notifications/{id} [get]
 func GetNotificationHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		msg, err := getMessageByPathID(repo, r)
@@ -181,6 +201,18 @@ func writeNotFoundOrError(w http.ResponseWriter, err error) {
 }
 
 // ResolveNotificationHandler returns an http.HandlerFunc for POST /api/v1/notifications/{id}/resolve.
+//
+// @Summary      Resolve a notification
+// @Description  Marks the notification as resolved and sets resolved_at to now.
+// @Description  Returns 409 if the notification is already resolved.
+// @Tags         notifications
+// @Produce      json
+// @Param        id   path      string  true  "Notification UUID"
+// @Success      200  {object}  handler.messageDetail
+// @Failure      404  {object}  map[string]string
+// @Failure      409  {object}  map[string]string  "already resolved"
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/notifications/{id}/resolve [post]
 func ResolveNotificationHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		msg, err := getMessageByPathID(repo, r)
@@ -205,6 +237,16 @@ func ResolveNotificationHandler(repo MessageQuerier) http.HandlerFunc {
 }
 
 // DismissNotificationHandler returns an http.HandlerFunc for POST /api/v1/notifications/{id}/dismiss.
+//
+// @Summary      Dismiss a notification
+// @Description  Marks the notification as Ignored. Unlike resolve, no resolved_at timestamp is set.
+// @Tags         notifications
+// @Produce      json
+// @Param        id   path      string  true  "Notification UUID"
+// @Success      200  {object}  handler.messageDetail
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/notifications/{id}/dismiss [post]
 func DismissNotificationHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		msg, err := getMessageByPathID(repo, r)

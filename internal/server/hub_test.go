@@ -194,3 +194,76 @@ func (s *HubSuite) TestPublishAssignsSeqAndStamps() {
 	s.Require().True(ok2, "envelope Data must be ActivityData")
 	s.Equal(data2, got2, "envelope Data must match published payload")
 }
+
+// ---------------------------------------------------------------------------
+// Behavior 3: History returns replayable events from ring buffer
+// ---------------------------------------------------------------------------
+
+func (s *HubSuite) TestHistoryReturnsReplayableEvents() {
+	hub := server.NewHub()
+
+	// --- Empty buffer: zero-valued response ---
+	resp := hub.History(0)
+	s.Empty(resp.Events, "empty buffer must return no events")
+	s.Equal(uint64(0), resp.OldestSeq, "empty buffer OldestSeq must be 0")
+	s.Equal(uint64(0), resp.LatestSeq, "empty buffer LatestSeq must be 0")
+	s.False(resp.Truncated, "empty buffer must not be truncated")
+
+	// Publish 3 events.
+	hub.Publish(server.ActivityData{Source: "slack", Message: "msg-1"})
+	hub.Publish(server.ActivityData{Source: "email", Message: "msg-2"})
+	hub.Publish(server.ActivityData{Source: "slack", Message: "msg-3"})
+
+	// --- History(0): returns all 3 events ---
+	resp = hub.History(0)
+	s.Require().Len(resp.Events, 3, "History(0) must return all 3 events")
+	s.Equal(uint64(1), resp.Events[0].Seq)
+	s.Equal(uint64(2), resp.Events[1].Seq)
+	s.Equal(uint64(3), resp.Events[2].Seq)
+	s.Equal(uint64(1), resp.OldestSeq, "OldestSeq must be 1")
+	s.Equal(uint64(3), resp.LatestSeq, "LatestSeq must be 3")
+	s.False(resp.Truncated, "no eviction so Truncated must be false")
+
+	// --- History(1): returns events with seq 2 and 3 ---
+	resp = hub.History(1)
+	s.Require().Len(resp.Events, 2, "History(1) must return 2 events")
+	s.Equal(uint64(2), resp.Events[0].Seq)
+	s.Equal(uint64(3), resp.Events[1].Seq)
+	s.False(resp.Truncated)
+
+	// --- History(3): future since, returns empty ---
+	resp = hub.History(3)
+	s.Empty(resp.Events, "History(latestSeq) must return no events")
+	s.False(resp.Truncated, "future since must not be truncated")
+	s.Equal(uint64(3), resp.LatestSeq, "LatestSeq must still be 3")
+	s.Equal(uint64(1), resp.OldestSeq, "OldestSeq must still be 1")
+}
+
+func (s *HubSuite) TestHistoryTruncationAfterEviction() {
+	hub := server.NewHub()
+
+	// Publish 502 events — ring capacity is 500, so events 1 and 2 are evicted.
+	for i := 0; i < 502; i++ {
+		hub.Publish(server.ActivityData{Source: "test", Message: "evt"})
+	}
+
+	// History(0): since < oldest retained (3), so truncated.
+	resp := hub.History(0)
+	s.True(resp.Truncated, "must be truncated when since < oldest retained seq")
+	s.Equal(uint64(3), resp.OldestSeq, "OldestSeq must be 3 after evicting 1 and 2")
+	s.Equal(uint64(502), resp.LatestSeq, "LatestSeq must be 502")
+	s.Require().Len(resp.Events, 500, "must return all 500 retained events")
+	s.Equal(uint64(3), resp.Events[0].Seq, "first returned event must be seq 3")
+	s.Equal(uint64(502), resp.Events[len(resp.Events)-1].Seq, "last returned event must be seq 502")
+
+	// History(2): since=2 < oldest=3, still truncated.
+	resp = hub.History(2)
+	s.True(resp.Truncated, "since=2 < oldest=3 must be truncated")
+	s.Len(resp.Events, 500, "must return all 500 retained events")
+
+	// History(3): since=3 == oldest, not truncated — returns seq 4..502.
+	resp = hub.History(3)
+	s.False(resp.Truncated, "since==oldest must not be truncated")
+	s.Len(resp.Events, 499, "must return events 4..502")
+	s.Equal(uint64(4), resp.Events[0].Seq)
+}

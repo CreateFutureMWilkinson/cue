@@ -119,6 +119,22 @@ func (h *Hub) Publish(data ActivityData) ActivityEnvelope {
 	return env
 }
 
+// HistoryResponse is the return value of Hub.History, containing a slice
+// of retained activity envelopes plus metadata for client-side replay.
+type HistoryResponse struct {
+	Events    []ActivityEnvelope `json:"events"`
+	Truncated bool               `json:"truncated"`
+	OldestSeq uint64             `json:"oldest_seq"`
+	LatestSeq uint64             `json:"latest_seq"`
+}
+
+// History returns all retained envelopes with seq > sinceSeq. When events
+// have been evicted from the ring buffer (sinceSeq < oldest retained seq),
+// the response starts at the oldest retained event and Truncated is true.
+func (h *Hub) History(sinceSeq uint64) HistoryResponse {
+	return HistoryResponse{}
+}
+
 // SubscriberCount returns the number of active subscribers.
 func (h *Hub) SubscriberCount() int {
 	h.mu.RLock()

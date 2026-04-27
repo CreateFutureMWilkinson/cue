@@ -57,6 +57,17 @@ func isExemptPath(path string) bool {
 	return false
 }
 
+// generateToken creates a new random token and returns plaintext and hash.
+func generateToken() (plaintext, hash string, err error) {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", "", err
+	}
+	plaintext = hex.EncodeToString(raw)
+	hash = hashToken(plaintext)
+	return plaintext, hash, nil
+}
+
 // tryAutoIssueFirstClient checks whether zero active tokens exist and, if so,
 // generates and persists a new token, writing the TOKEN_ISSUED response.
 // Returns true if the auto-issue flow was triggered (response already written).
@@ -66,16 +77,11 @@ func tryAutoIssueFirstClient(w http.ResponseWriter, ctx context.Context, repo Au
 		return false
 	}
 
-	// Generate 32 random bytes → 64 hex chars.
-	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
+	plaintext, hexHash, err := generateToken()
+	if err != nil {
 		writeAuthError(w, "internal error generating token")
 		return true
 	}
-	plaintext := hex.EncodeToString(raw)
-
-	hash := sha256.Sum256([]byte(plaintext))
-	hexHash := hex.EncodeToString(hash[:])
 
 	now := time.Now()
 	token := &repository.AuthToken{
@@ -102,6 +108,30 @@ func tryAutoIssueFirstClient(w http.ResponseWriter, ctx context.Context, repo Au
 	return true
 }
 
+// hashToken computes the SHA-256 hash of a token string.
+func hashToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
+}
+
+// extractBearerToken parses the Authorization header and returns the Bearer token.
+// Returns empty string if the header is malformed or not a Bearer token.
+func extractBearerToken(authHeader string) string {
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" {
+		return ""
+	}
+	return parts[1]
+}
+
+// handleAuthenticationFailure attempts auto-issue for first client, otherwise writes error.
+func handleAuthenticationFailure(w http.ResponseWriter, ctx context.Context, repo AuthTokenLookup, message string) {
+	if tryAutoIssueFirstClient(w, ctx, repo) {
+		return
+	}
+	writeAuthError(w, message)
+}
+
 // AuthMiddleware returns HTTP middleware that validates Bearer tokens against
 // the given AuthTokenLookup repository. When authEnabled is false the middleware
 // passes all requests through without checking credentials.
@@ -117,7 +147,6 @@ func AuthMiddleware(repo AuthTokenLookup, authEnabled bool) func(http.Handler) h
 				return
 			}
 
-			// Exempt routes bypass authentication entirely.
 			if isExemptPath(r.URL.Path) {
 				next.ServeHTTP(w, r)
 				return
@@ -125,29 +154,20 @@ func AuthMiddleware(repo AuthTokenLookup, authEnabled bool) func(http.Handler) h
 
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				if tryAutoIssueFirstClient(w, r.Context(), repo) {
-					return
-				}
-				writeAuthError(w, "missing Authorization header")
+				handleAuthenticationFailure(w, r.Context(), repo, "missing Authorization header")
 				return
 			}
 
-			parts := strings.SplitN(authHeader, " ", 2)
-			if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" {
+			rawToken := extractBearerToken(authHeader)
+			if rawToken == "" {
 				writeAuthError(w, "malformed Authorization header")
 				return
 			}
 
-			rawToken := parts[1]
-			hash := sha256.Sum256([]byte(rawToken))
-			hexHash := hex.EncodeToString(hash[:])
-
+			hexHash := hashToken(rawToken)
 			token, err := repo.LookupByHash(r.Context(), hexHash)
 			if err != nil {
-				if tryAutoIssueFirstClient(w, r.Context(), repo) {
-					return
-				}
-				writeAuthError(w, "invalid token")
+				handleAuthenticationFailure(w, r.Context(), repo, "invalid token")
 				return
 			}
 

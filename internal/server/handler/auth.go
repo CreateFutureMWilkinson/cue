@@ -96,6 +96,18 @@ func persistAuthToken(ctx context.Context, tokenRepo AuthTokenCreator, tokenHash
 
 // InitiatePairingHandler returns a handler for POST /api/v1/auth/pair.
 // It creates a new pairing request and broadcasts a pairing_request event.
+//
+// @Summary      Begin a pairing handshake
+// @Description  Creates a pairing request, returning a request_id and a short
+// @Description  numeric code the user types into the desktop UI to approve.
+// @Description  Also broadcasts a "pairing_request" event over the WebSocket
+// @Description  channel for already-paired clients to display.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      object  false  "Optional {label: string} for the new device"
+// @Success      202      {object}  map[string]any
+// @Router       /api/v1/auth/pair [post]
 func InitiatePairingHandler(store PairingStorer, hub EventBroadcaster) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -126,6 +138,18 @@ func InitiatePairingHandler(store PairingStorer, hub EventBroadcaster) http.Hand
 
 // PollPairingHandler returns a handler for GET /api/v1/auth/pair/{id}.
 // It returns the current status of a pairing request.
+//
+// @Summary      Poll pairing request status
+// @Description  Returns the current status of a pairing request. Once the
+// @Description  request is approved, the response includes the bearer token
+// @Description  the client must use for subsequent authenticated requests.
+// @Tags         auth
+// @Produce      json
+// @Param        id   path      string  true  "Pairing request UUID"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Router       /api/v1/auth/pair/{id} [get]
 func PollPairingHandler(store PairingStorer) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseIDFromPath(r)
@@ -154,6 +178,19 @@ func PollPairingHandler(store PairingStorer) http.Handler {
 
 // ApprovePairingHandler returns a handler for POST /api/v1/auth/pair/{id}/approve.
 // It generates a token, persists it, approves the pairing request, and broadcasts.
+//
+// @Summary      Approve a pending pairing request
+// @Description  Generates a fresh bearer token, persists its hash, attaches
+// @Description  the plaintext to the pairing request (so the polling client
+// @Description  can pick it up), and broadcasts a "pairing_resolved" event.
+// @Tags         auth
+// @Produce      json
+// @Param        id   path      string  true  "Pairing request UUID"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  map[string]string
+// @Failure      409  {object}  map[string]string  "request already resolved"
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/auth/pair/{id}/approve [post]
 func ApprovePairingHandler(store PairingStorer, tokenRepo AuthTokenCreator, hub EventBroadcaster) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseIDFromPath(r)
@@ -185,6 +222,15 @@ func ApprovePairingHandler(store PairingStorer, tokenRepo AuthTokenCreator, hub 
 
 // DenyPairingHandler returns a handler for POST /api/v1/auth/pair/{id}/deny.
 // It denies the pairing request and broadcasts a pairing_resolved event.
+//
+// @Summary      Deny a pending pairing request
+// @Tags         auth
+// @Produce      json
+// @Param        id   path      string  true  "Pairing request UUID"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  map[string]string
+// @Failure      409  {object}  map[string]string  "request already resolved"
+// @Router       /api/v1/auth/pair/{id}/deny [post]
 func DenyPairingHandler(store PairingStorer, hub EventBroadcaster) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseIDFromPath(r)
@@ -204,6 +250,15 @@ func DenyPairingHandler(store PairingStorer, hub EventBroadcaster) http.Handler 
 }
 
 // ListTokensHandler returns a handler for GET /api/v1/auth/tokens.
+//
+// @Summary      List bearer tokens
+// @Description  Returns metadata for all paired tokens (id, label, timestamps,
+// @Description  revoked flag). Plaintext tokens are never returned by this API.
+// @Tags         auth
+// @Produce      json
+// @Success      200  {array}   object
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/auth/tokens [get]
 func ListTokensHandler(repo AuthTokenManager) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokens, err := repo.List(r.Context())
@@ -234,6 +289,17 @@ func ListTokensHandler(repo AuthTokenManager) http.Handler {
 }
 
 // UpdateTokenLabelHandler returns a handler for PUT /api/v1/auth/tokens/{id}.
+//
+// @Summary      Update bearer token label
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string  true  "Token UUID"
+// @Param        request  body      object  true  "{label: string}"
+// @Success      200      {object}  map[string]string
+// @Failure      400      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/auth/tokens/{id} [put]
 func UpdateTokenLabelHandler(repo AuthTokenManager) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseIDFromPath(r)
@@ -259,6 +325,17 @@ func UpdateTokenLabelHandler(repo AuthTokenManager) http.Handler {
 }
 
 // RevokeTokenHandler returns a handler for DELETE /api/v1/auth/tokens/{id}.
+//
+// @Summary      Revoke a bearer token
+// @Description  Marks the token as revoked. Future requests using the token
+// @Description  will fail authentication.
+// @Tags         auth
+// @Produce      json
+// @Param        id   path      string  true  "Token UUID"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/auth/tokens/{id} [delete]
 func RevokeTokenHandler(repo AuthTokenManager) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseIDFromPath(r)

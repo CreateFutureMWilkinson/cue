@@ -444,6 +444,117 @@ func (s *BufferHandlerSuite) TestDeleteBufferedAlreadyResolved() {
 	s.Equal(http.StatusConflict, rec.Code, "expected 409 for already-resolved message")
 }
 
+func (s *BufferHandlerSuite) TestBufferStatsSuccess() {
+	now := time.Now().UTC().Truncate(time.Second)
+
+	msg1 := &repository.Message{
+		ID:              uuid.New(),
+		Source:          "slack",
+		SourceAccount:   "T12345",
+		Sender:          "bob",
+		Channel:         "#deployments",
+		RawContent:      "Deploy scheduled for tonight",
+		ImportanceScore: 7.5,
+		ConfidenceScore: 0.6,
+		Reasoning:       "Deployment notice",
+		Status:          "Buffered",
+		CreatedAt:       now.Add(-10 * time.Minute),
+	}
+	msg2 := &repository.Message{
+		ID:              uuid.New(),
+		Source:          "slack",
+		SourceAccount:   "T12345",
+		Sender:          "alice",
+		Channel:         "#incidents",
+		RawContent:      "Disk usage high",
+		ImportanceScore: 7.0,
+		ConfidenceScore: 0.5,
+		Reasoning:       "Resource warning",
+		Status:          "Buffered",
+		CreatedAt:       now.Add(-5 * time.Minute),
+	}
+	msg3 := &repository.Message{
+		ID:              uuid.New(),
+		Source:          "email",
+		SourceAccount:   "work@example.com",
+		Sender:          "carol@example.com",
+		Channel:         "INBOX",
+		RawContent:      "Q2 planning meeting moved",
+		ImportanceScore: 7.0,
+		ConfidenceScore: 0.5,
+		Reasoning:       "Schedule change",
+		Status:          "Buffered",
+		CreatedAt:       now.Add(-3 * time.Minute),
+	}
+
+	mock := &mockMessageQuerier{
+		messages: []*repository.Message{msg1, msg2, msg3},
+		total:    3,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/buffer/stats", nil)
+	rec := httptest.NewRecorder()
+
+	handler.BufferStatsHandler(mock)(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code, "expected 200 OK")
+
+	var body map[string]any
+	err := json.NewDecoder(rec.Body).Decode(&body)
+	s.Require().NoError(err, "response body should be valid JSON")
+
+	totalBuffered, ok := body["total_buffered"].(float64)
+	s.Require().True(ok, "response should have a 'total_buffered' field")
+	s.Equal(float64(3), totalBuffered, "total_buffered should be 3")
+
+	bySource, ok := body["by_source"].(map[string]any)
+	s.Require().True(ok, "response should have a 'by_source' object")
+	s.Equal(float64(2), bySource["slack"], "slack count should be 2")
+	s.Equal(float64(1), bySource["email"], "email count should be 1")
+
+	// Verify the mock was called with Status "Buffered".
+	s.Equal("Buffered", mock.capturedFilter.Status)
+}
+
+func (s *BufferHandlerSuite) TestBufferStatsEmpty() {
+	mock := &mockMessageQuerier{
+		messages: []*repository.Message{},
+		total:    0,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/buffer/stats", nil)
+	rec := httptest.NewRecorder()
+
+	handler.BufferStatsHandler(mock)(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code, "expected 200 OK")
+
+	var body map[string]any
+	err := json.NewDecoder(rec.Body).Decode(&body)
+	s.Require().NoError(err, "response body should be valid JSON")
+
+	totalBuffered, ok := body["total_buffered"].(float64)
+	s.Require().True(ok, "response should have a 'total_buffered' field")
+	s.Equal(float64(0), totalBuffered, "total_buffered should be 0")
+
+	bySource, ok := body["by_source"].(map[string]any)
+	s.Require().True(ok, "response should have a 'by_source' object")
+	s.Empty(bySource, "by_source should be empty")
+}
+
+func (s *BufferHandlerSuite) TestBufferStatsError() {
+	mock := &mockMessageQuerier{
+		err: repository.ErrNotFound, // any error will do
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/buffer/stats", nil)
+	rec := httptest.NewRecorder()
+
+	handler.BufferStatsHandler(mock)(rec, req)
+
+	s.Equal(http.StatusInternalServerError, rec.Code, "expected 500 on repo error")
+}
+
 func (s *BufferHandlerSuite) TestRateBufferedAlreadyResolved() {
 	now := time.Now().UTC().Truncate(time.Second)
 	resolvedAt := now.Add(-1 * time.Minute)

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -98,10 +99,49 @@ func GetBufferedHandler(repo MessageQuerier) http.HandlerFunc {
 	}
 }
 
+// rateRequest is the JSON body for the rate endpoint.
+type rateRequest struct {
+	Rating   int     `json:"rating"`
+	Feedback *string `json:"feedback"`
+}
+
 // RateBufferedHandler returns an http.HandlerFunc for POST /api/v1/buffer/{id}/rate.
 func RateBufferedHandler(repo MessageQuerier, buf BufferRater) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeJSONError(w, http.StatusNotImplemented, "not implemented")
+		var req rateRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+
+		if req.Rating < 0 || req.Rating > 10 {
+			writeJSONError(w, http.StatusBadRequest, "rating must be between 0 and 10")
+			return
+		}
+
+		msg, err := getMessageByPathID(repo, r)
+		if err != nil {
+			writeNotFoundOrError(w, err)
+			return
+		}
+
+		if msg.Status != "Buffered" {
+			writeJSONError(w, http.StatusConflict, "already resolved")
+			return
+		}
+
+		if err := buf.SaveRating(r.Context(), msg.ID, req.Rating, req.Feedback); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to save rating")
+			return
+		}
+
+		updated, err := repo.QueryByID(r.Context(), msg.ID)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to fetch updated message")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, messageToDetail(updated))
 	}
 }
 

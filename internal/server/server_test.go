@@ -2,7 +2,10 @@ package server_test
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -201,4 +204,48 @@ func (s *ServerSuite) TestServerShutdownClosesWebSockets() {
 	defer readCancel()
 	_, _, readErr := conn.Read(readCtx)
 	s.Error(readErr, "reading after server shutdown should return an error")
+}
+
+// ---------------------------------------------------------------------------
+// Behavior 12: REST events route — GET /api/v1/events
+// ---------------------------------------------------------------------------
+
+func (s *ServerSuite) TestEventsRouteMounted() {
+	cfg := config.ServerConfig{
+		Host:                "127.0.0.1",
+		Port:                0,
+		ReadTimeoutSeconds:  5,
+		WriteTimeoutSeconds: 5,
+	}
+
+	srv, err := server.New(cfg)
+	s.Require().NoError(err)
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	// --- Sub-case 1: valid request with since=0 should return 200 + JSON shape ---
+	resp, err := http.Get(ts.URL + "/api/v1/events?since=0")
+	s.Require().NoError(err)
+	defer resp.Body.Close()
+
+	s.Equal(http.StatusOK, resp.StatusCode, "GET /api/v1/events?since=0 should return 200")
+
+	body, err := io.ReadAll(resp.Body)
+	s.Require().NoError(err)
+
+	var payload map[string]json.RawMessage
+	s.Require().NoError(json.Unmarshal(body, &payload), "response body should be valid JSON")
+
+	for _, key := range []string{"events", "truncated", "oldest_seq", "latest_seq"} {
+		_, ok := payload[key]
+		s.True(ok, "response JSON should contain key %q", key)
+	}
+
+	// --- Sub-case 2: missing since parameter should return 400 ---
+	resp2, err := http.Get(ts.URL + "/api/v1/events")
+	s.Require().NoError(err)
+	defer resp2.Body.Close()
+
+	s.Equal(http.StatusBadRequest, resp2.StatusCode, "GET /api/v1/events without since should return 400")
 }

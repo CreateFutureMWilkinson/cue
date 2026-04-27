@@ -3,6 +3,7 @@ package todo_test
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -64,6 +65,93 @@ type mockEstimator struct{}
 
 func (m *mockEstimator) EstimateMinutes(ctx context.Context, title, description string) (int, error) {
 	return 0, nil
+}
+
+// trackingEstimator records calls and signals when estimation completes.
+type trackingEstimator struct {
+	mu         sync.Mutex
+	callCount  int
+	lastTitle  string
+	lastDesc   string
+	result     int
+	err        error
+	calledCh   chan struct{} // closed on first call
+	closedOnce sync.Once
+}
+
+func newTrackingEstimator(result int, err error) *trackingEstimator {
+	return &trackingEstimator{
+		result:   result,
+		err:      err,
+		calledCh: make(chan struct{}),
+	}
+}
+
+func (e *trackingEstimator) EstimateMinutes(ctx context.Context, title, description string) (int, error) {
+	e.mu.Lock()
+	e.callCount++
+	e.lastTitle = title
+	e.lastDesc = description
+	e.mu.Unlock()
+	e.closedOnce.Do(func() { close(e.calledCh) })
+	return e.result, e.err
+}
+
+func (e *trackingEstimator) called() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.callCount > 0
+}
+
+// inMemoryTodoRepo stores todos in memory so async updates are visible.
+type inMemoryTodoRepo struct {
+	mu    sync.Mutex
+	store map[uuid.UUID]*repository.Todo
+}
+
+func newInMemoryTodoRepo() *inMemoryTodoRepo {
+	return &inMemoryTodoRepo{store: make(map[uuid.UUID]*repository.Todo)}
+}
+
+func (r *inMemoryTodoRepo) Insert(_ context.Context, t *repository.Todo) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	cp := *t
+	r.store[t.ID] = &cp
+	return nil
+}
+
+func (r *inMemoryTodoRepo) Update(_ context.Context, t *repository.Todo) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.store[t.ID]; !ok {
+		return repository.ErrNotFound
+	}
+	cp := *t
+	r.store[t.ID] = &cp
+	return nil
+}
+
+func (r *inMemoryTodoRepo) Delete(_ context.Context, id uuid.UUID) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.store, id)
+	return nil
+}
+
+func (r *inMemoryTodoRepo) QueryByID(_ context.Context, id uuid.UUID) (*repository.Todo, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	t, ok := r.store[id]
+	if !ok {
+		return nil, repository.ErrNotFound
+	}
+	cp := *t
+	return &cp, nil
+}
+
+func (r *inMemoryTodoRepo) QueryFiltered(_ context.Context, _ repository.TodoFilter) ([]*repository.Todo, int, error) {
+	return nil, 0, nil
 }
 
 // --- Suite ---
@@ -305,4 +393,152 @@ func (s *TodoServiceSuite) TestEffectiveEstimateBothNil() {
 	t := &repository.Todo{EstimateMinutes: nil, LLMEstimateMinutes: nil}
 	result := todo.EffectiveEstimate(t)
 	s.Nil(result)
+}
+
+// --- Async estimation tests ---
+
+func (s *TodoServiceSuite) TestCreateTriggersAsyncEstimation() {
+	ctx := context.Background()
+	repo := newInMemoryTodoRepo()
+	estimator := newTrackingEstimator(25, nil)
+
+	svc, err := todo.NewService(repo, estimator)
+	s.Require().NoError(err)
+
+	// Create a todo with no user estimate — should trigger async LLM estimation.
+	input := &repository.Todo{
+		Title:       "write quarterly report",
+		Description: "compile metrics and narrative for Q2",
+	}
+	created, err := svc.Create(ctx, input)
+	s.Require().NoError(err)
+	s.NotEqual(uuid.Nil, created.ID)
+
+	// Wait for the async estimator to be called (short timeout).
+	select {
+	case <-estimator.calledCh:
+		// good — estimator was invoked
+	case <-time.After(500 * time.Millisecond):
+		s.Fail("estimator was not called within timeout — Create should trigger async estimation when EstimateMinutes is nil")
+	}
+
+	// After estimation, the repo should have LLMEstimateMinutes set.
+	// Give a small window for the async goroutine to persist the update.
+	time.Sleep(50 * time.Millisecond)
+
+	updated, err := repo.QueryByID(ctx, created.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(updated.LLMEstimateMinutes, "LLMEstimateMinutes should be set after async estimation")
+	s.Equal(25, *updated.LLMEstimateMinutes)
+}
+
+func (s *TodoServiceSuite) TestCreateSkipsEstimationWhenUserEstimateProvided() {
+	ctx := context.Background()
+	repo := newInMemoryTodoRepo()
+	estimator := newTrackingEstimator(25, nil)
+
+	svc, err := todo.NewService(repo, estimator)
+	s.Require().NoError(err)
+
+	// Create a todo WITH a user estimate — should NOT trigger LLM estimation.
+	userEst := 45
+	input := &repository.Todo{
+		Title:           "plan team offsite",
+		EstimateMinutes: &userEst,
+	}
+	_, err = svc.Create(ctx, input)
+	s.Require().NoError(err)
+
+	// Wait a bit to ensure estimator is NOT called.
+	time.Sleep(200 * time.Millisecond)
+
+	s.False(estimator.called(), "estimator should NOT be called when user provides EstimateMinutes > 0")
+}
+
+func (s *TodoServiceSuite) TestUpdateTriggersReEstimationWhenEstimateCleared() {
+	ctx := context.Background()
+	repo := newInMemoryTodoRepo()
+	estimator := newTrackingEstimator(30, nil)
+
+	svc, err := todo.NewService(repo, estimator)
+	s.Require().NoError(err)
+
+	// Pre-seed a todo with a user estimate and an existing LLM estimate.
+	userEst := 60
+	llmEst := 55
+	id := uuid.New()
+	existing := &repository.Todo{
+		ID:                 id,
+		Title:              "refactor auth module",
+		Description:        "extract middleware, add tests",
+		EstimateMinutes:    &userEst,
+		LLMEstimateMinutes: &llmEst,
+		CreatedAt:          time.Now(),
+	}
+	err = repo.Insert(ctx, existing)
+	s.Require().NoError(err)
+
+	// Update: clear the user estimate (set to nil).
+	updateInput := &repository.Todo{
+		ID:              id,
+		Title:           "refactor auth module",
+		Description:     "extract middleware, add tests",
+		EstimateMinutes: nil, // cleared
+		CreatedAt:       existing.CreatedAt,
+	}
+	_, err = svc.Update(ctx, updateInput)
+	s.Require().NoError(err)
+
+	// Wait for the async re-estimator to be called.
+	select {
+	case <-estimator.calledCh:
+		// good
+	case <-time.After(500 * time.Millisecond):
+		s.Fail("estimator was not called within timeout — Update should trigger re-estimation when EstimateMinutes is cleared")
+	}
+
+	// After re-estimation, LLMEstimateMinutes should be updated to the new value.
+	time.Sleep(50 * time.Millisecond)
+
+	refreshed, err := repo.QueryByID(ctx, id)
+	s.Require().NoError(err)
+	s.Require().NotNil(refreshed.LLMEstimateMinutes, "LLMEstimateMinutes should be set after re-estimation")
+	s.Equal(30, *refreshed.LLMEstimateMinutes)
+}
+
+func (s *TodoServiceSuite) TestUpdateSkipsEstimationWhenEstimateStaysNonZero() {
+	ctx := context.Background()
+	repo := newInMemoryTodoRepo()
+	estimator := newTrackingEstimator(30, nil)
+
+	svc, err := todo.NewService(repo, estimator)
+	s.Require().NoError(err)
+
+	// Pre-seed a todo with a user estimate.
+	userEst := 45
+	id := uuid.New()
+	existing := &repository.Todo{
+		ID:              id,
+		Title:           "deploy staging env",
+		EstimateMinutes: &userEst,
+		CreatedAt:       time.Now(),
+	}
+	err = repo.Insert(ctx, existing)
+	s.Require().NoError(err)
+
+	// Update with estimate staying non-zero — no estimation should trigger.
+	newEst := 45
+	updateInput := &repository.Todo{
+		ID:              id,
+		Title:           "deploy staging env",
+		EstimateMinutes: &newEst,
+		CreatedAt:       existing.CreatedAt,
+	}
+	_, err = svc.Update(ctx, updateInput)
+	s.Require().NoError(err)
+
+	// Wait a bit to ensure estimator is NOT called.
+	time.Sleep(200 * time.Millisecond)
+
+	s.False(estimator.called(), "estimator should NOT be called when EstimateMinutes stays non-zero")
 }

@@ -2,13 +2,18 @@ package todo
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 )
+
+// colourRegex matches a 6-digit hex colour code with leading '#'.
+var colourRegex = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
 
 // TaskRepository defines the persistence operations the service needs.
 type TaskRepository interface {
@@ -61,51 +66,89 @@ func NewService(tasks TaskRepository, categories CategoryRepository, estimator T
 // CreateCategory normalizes rawName, validates colour, and inserts a new
 // category. The service is the only boundary that calls
 // repository.NormalizeCategoryKey before reaching the repo.
-//
-// Stub: returns ErrNotImplemented; replaced in Loop 5 GREEN.
-func (s *Service) CreateCategory(_ context.Context, _ string, _ *string) (*repository.Category, error) {
-	return nil, repository.ErrNotImplemented
+func (s *Service) CreateCategory(ctx context.Context, rawName string, colour *string) (*repository.Category, error) {
+	key, err := repository.NormalizeCategoryKey(rawName)
+	if err != nil {
+		return nil, fmt.Errorf("todo service: create category: %w", err)
+	}
+	if colour != nil && !colourRegex.MatchString(*colour) {
+		return nil, fmt.Errorf("todo service: create category: invalid colour %q (must match #RRGGBB)", *colour)
+	}
+	cat := &repository.Category{
+		NameKey:   key,
+		Colour:    colour,
+		CreatedAt: time.Now(),
+	}
+	if err := s.categories.Insert(ctx, cat); err != nil {
+		return nil, fmt.Errorf("todo service: create category: %w", err)
+	}
+	return cat, nil
 }
 
 // RenameCategory normalizes newRawName to a key. If the new key equals
 // oldKey, returns the existing category unchanged. Otherwise calls
 // categories.Rename and returns the renamed category via GetByKey.
-//
-// Stub: returns ErrNotImplemented; replaced in Loop 5 GREEN.
-func (s *Service) RenameCategory(_ context.Context, _ string, _ string) (*repository.Category, error) {
-	return nil, repository.ErrNotImplemented
+func (s *Service) RenameCategory(ctx context.Context, oldKey, newRawName string) (*repository.Category, error) {
+	newKey, err := repository.NormalizeCategoryKey(newRawName)
+	if err != nil {
+		return nil, fmt.Errorf("todo service: rename category: %w", err)
+	}
+	if newKey == oldKey {
+		cat, err := s.categories.GetByKey(ctx, oldKey)
+		if err != nil {
+			return nil, fmt.Errorf("todo service: rename category: %w", err)
+		}
+		return cat, nil
+	}
+	if err := s.categories.Rename(ctx, oldKey, newKey); err != nil {
+		return nil, fmt.Errorf("todo service: rename category: %w", err)
+	}
+	cat, err := s.categories.GetByKey(ctx, newKey)
+	if err != nil {
+		return nil, fmt.Errorf("todo service: rename category: %w", err)
+	}
+	return cat, nil
 }
 
 // SetCategoryColour validates colour (if non-nil) then updates it via
 // categories.UpdateColour.
-//
-// Stub: returns ErrNotImplemented; replaced in Loop 5 GREEN.
-func (s *Service) SetCategoryColour(_ context.Context, _ string, _ *string) error {
-	return repository.ErrNotImplemented
+func (s *Service) SetCategoryColour(ctx context.Context, key string, colour *string) error {
+	if colour != nil && !colourRegex.MatchString(*colour) {
+		return fmt.Errorf("todo service: set category colour: invalid colour %q (must match #RRGGBB)", *colour)
+	}
+	return s.categories.UpdateColour(ctx, key, colour)
 }
 
 // DeleteCategory removes a category by key. Tasks with this category get
 // their FK SET NULL via the schema-level cascade.
-//
-// Stub: returns ErrNotImplemented; replaced in Loop 5 GREEN.
-func (s *Service) DeleteCategory(_ context.Context, _ string) error {
-	return repository.ErrNotImplemented
+func (s *Service) DeleteCategory(ctx context.Context, key string) error {
+	return s.categories.Delete(ctx, key)
 }
 
 // GetCategory looks up a category by either its canonical key or any raw
 // presentation form. It first tries GetByKey on the input as-is; on
 // ErrNotFound it normalizes the input and retries.
-//
-// Stub: returns ErrNotImplemented; replaced in Loop 5 GREEN.
-func (s *Service) GetCategory(_ context.Context, _ string) (*repository.Category, error) {
-	return nil, repository.ErrNotImplemented
+func (s *Service) GetCategory(ctx context.Context, rawNameOrKey string) (*repository.Category, error) {
+	cat, err := s.categories.GetByKey(ctx, rawNameOrKey)
+	if err == nil {
+		return cat, nil
+	}
+	if !errors.Is(err, repository.ErrNotFound) {
+		return nil, err
+	}
+	key, normErr := repository.NormalizeCategoryKey(rawNameOrKey)
+	if normErr != nil {
+		return nil, err
+	}
+	if key == rawNameOrKey {
+		return nil, err
+	}
+	return s.categories.GetByKey(ctx, key)
 }
 
 // ListCategories returns all categories, optionally enriched with task counts.
-//
-// Stub: returns ErrNotImplemented; replaced in Loop 5 GREEN.
-func (s *Service) ListCategories(_ context.Context, _ bool) ([]*repository.CategoryWithCount, error) {
-	return nil, repository.ErrNotImplemented
+func (s *Service) ListCategories(ctx context.Context, withCounts bool) ([]*repository.CategoryWithCount, error) {
+	return s.categories.QueryAll(ctx, withCounts)
 }
 
 // Create inserts a new task. Sets ID and CreatedAt if zero. Returns the created task (re-fetched from DB).

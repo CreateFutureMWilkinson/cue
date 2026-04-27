@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"net/http"
+	"net/url"
 
 	"github.com/google/uuid"
 )
@@ -95,32 +97,68 @@ func NewRulesClient(c *APIClient) RulesClient {
 	return &rulesAdapter{client: c}
 }
 
-// ListRules is a noop stub. Replaced in the GREEN phase.
+// ListRules issues GET /api/v1/rules with optional source_type and
+// source_account query parameters encoded from filter. Empty fields
+// are omitted from the outgoing query string.
 func (a *rulesAdapter) ListRules(ctx context.Context, filter RuleFilter) ([]RoutingRule, error) {
-	return nil, ErrNotImplemented
+	q := url.Values{}
+	if filter.SourceType != "" {
+		q.Set("source_type", filter.SourceType)
+	}
+	if filter.SourceAccount != "" {
+		q.Set("source_account", filter.SourceAccount)
+	}
+
+	path := buildPath(rulesPath, q)
+
+	var out struct {
+		Rules []RoutingRule `json:"rules"`
+		Count int           `json:"count"`
+	}
+	if err := a.client.doJSON(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Rules, nil
 }
 
-// GetRule is a noop stub. Replaced in the GREEN phase.
+// GetRule issues GET /api/v1/rules/{id} and decodes the ruleItem payload.
 func (a *rulesAdapter) GetRule(ctx context.Context, id uuid.UUID) (*RoutingRule, error) {
-	return nil, ErrNotImplemented
+	var rule RoutingRule
+	if err := a.client.doJSON(ctx, http.MethodGet, rulesPath+"/"+id.String(), nil, &rule); err != nil {
+		return nil, err
+	}
+	return &rule, nil
 }
 
-// CreateRule is a noop stub. Replaced in the GREEN phase.
+// CreateRule issues POST /api/v1/rules with req as the JSON body and
+// decodes the server-populated ruleItem response.
 func (a *rulesAdapter) CreateRule(ctx context.Context, req CreateRuleRequest) (*RoutingRule, error) {
-	return nil, ErrNotImplemented
+	var rule RoutingRule
+	if err := a.client.doJSON(ctx, http.MethodPost, rulesPath, req, &rule); err != nil {
+		return nil, err
+	}
+	return &rule, nil
 }
 
-// UpdateRule is a noop stub. Replaced in the GREEN phase.
+// UpdateRule issues PUT /api/v1/rules/{id} with req as the full
+// replacement JSON body and decodes the updated ruleItem response.
 func (a *rulesAdapter) UpdateRule(ctx context.Context, id uuid.UUID, req UpdateRuleRequest) (*RoutingRule, error) {
-	return nil, ErrNotImplemented
+	var rule RoutingRule
+	if err := a.client.doJSON(ctx, http.MethodPut, rulesPath+"/"+id.String(), req, &rule); err != nil {
+		return nil, err
+	}
+	return &rule, nil
 }
 
-// PatchRule is a noop stub. Replaced in the GREEN phase.
+// PatchRule issues PATCH /api/v1/rules/{id} with patch as the partial
+// JSON body. The server returns 204 No Content on success. Nil fields
+// on PatchRuleRequest are omitted from the body via omitempty.
 func (a *rulesAdapter) PatchRule(ctx context.Context, id uuid.UUID, patch PatchRuleRequest) error {
-	return ErrNotImplemented
+	return a.client.doJSON(ctx, http.MethodPatch, rulesPath+"/"+id.String(), patch, nil)
 }
 
-// DeleteRule is a noop stub. Replaced in the GREEN phase.
+// DeleteRule issues DELETE /api/v1/rules/{id}. The server returns 204
+// No Content on success.
 func (a *rulesAdapter) DeleteRule(ctx context.Context, id uuid.UUID) error {
-	return ErrNotImplemented
+	return a.client.doJSON(ctx, http.MethodDelete, rulesPath+"/"+id.String(), nil, nil)
 }

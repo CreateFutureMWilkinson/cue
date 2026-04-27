@@ -106,33 +106,95 @@ var ErrAlreadyConnected = errors.New("activity client already connected")
 var ErrClosed = errors.New("activity client is closed")
 
 // Connect opens a WebSocket to /api/v1/websocket/events, forwarding the bearer
-// token via query string. A background goroutine reads envelopes and forwards
-// them to the Events() channel. Returns ErrAlreadyConnected if a connection is
-// already active, or ErrClosed if Close has been called.
+// token via query string. A background manager goroutine reads envelopes,
+// forwards them to the Events() channel, and transparently reconnects with
+// exponential backoff when the connection drops. Returns ErrAlreadyConnected
+// if a connection is already active, or ErrClosed if Close has been called.
+// Only the first dial error is returned; subsequent reconnect failures happen
+// in the background.
 func (a *activityAdapter) Connect(ctx context.Context) error {
 	a.mu.Lock()
-	defer a.mu.Unlock()
 
 	if a.conn != nil {
+		a.mu.Unlock()
 		return ErrAlreadyConnected
 	}
 	if a.closed.Load() {
+		a.mu.Unlock()
 		return ErrClosed
 	}
 
 	wsURL, err := buildWebSocketURL(a.client.baseURL, a.client.token)
 	if err != nil {
+		a.mu.Unlock()
 		return fmt.Errorf("build websocket url: %w", err)
 	}
 
 	conn, _, err := websocket.Dial(ctx, wsURL, nil)
 	if err != nil {
+		a.mu.Unlock()
 		return fmt.Errorf("websocket dial: %w", err)
 	}
 
+	managerCtx, managerCancel := context.WithCancel(ctx)
 	a.conn = conn
-	go a.readLoop(conn)
+	a.connectCtx = managerCtx
+	a.connectCancel = managerCancel
+	a.mu.Unlock()
+
+	go a.manageConnection(managerCtx, wsURL, conn)
 	return nil
+}
+
+// manageConnection runs the read loop for each successive WebSocket
+// connection, reconnecting with exponential backoff when the read loop
+// returns (meaning the connection dropped). Backoff doubles on each failed
+// dial (capped at backoffMax) and resets to backoffInitial after a
+// successful reconnect. Exits when the context is cancelled or the adapter
+// has been Closed.
+func (a *activityAdapter) manageConnection(ctx context.Context, wsURL string, initial *websocket.Conn) {
+	currentConn := initial
+	backoff := a.backoffInitial
+
+	for {
+		// Block until the current connection ends (error, close, etc).
+		a.readLoop(currentConn)
+
+		// Either context cancellation or Close will stop the loop.
+		if ctx.Err() != nil || a.closed.Load() {
+			return
+		}
+
+		// Wait for backoff, but bail out early if the context is cancelled.
+		timer := time.NewTimer(backoff)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+
+		if a.closed.Load() {
+			return
+		}
+
+		newConn, _, err := websocket.Dial(ctx, wsURL, nil)
+		if err != nil {
+			// Double the backoff, capped at backoffMax.
+			backoff *= 2
+			if backoff > a.backoffMax {
+				backoff = a.backoffMax
+			}
+			continue
+		}
+
+		// Successful reconnect: reset backoff and swap the active conn.
+		backoff = a.backoffInitial
+		a.mu.Lock()
+		a.conn = newConn
+		a.mu.Unlock()
+		currentConn = newConn
+	}
 }
 
 // Events returns the buffered channel of received event envelopes.
@@ -156,15 +218,26 @@ func (a *activityAdapter) Replay(ctx context.Context, sinceSeq uint64) (*ReplayR
 	return &resp, nil
 }
 
-// Close shuts down the WebSocket connection cleanly. Safe to call multiple
-// times; subsequent calls are a no-op.
+// Close shuts down the WebSocket connection and stops the reconnection
+// manager. Safe to call multiple times; subsequent calls are a no-op.
+// Uses CloseNow rather than the close handshake to avoid blocking when
+// the server is not actively reading (the handshake's readMu acquisition
+// would otherwise deadlock against an in-flight readLoop).
 func (a *activityAdapter) Close() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	if a.closed.Load() {
+		return nil
+	}
 	a.closed.Store(true)
+
+	if a.connectCancel != nil {
+		a.connectCancel()
+	}
+
 	if a.conn != nil {
-		err := a.conn.Close(websocket.StatusNormalClosure, "")
+		err := a.conn.CloseNow()
 		a.conn = nil
 		return err
 	}

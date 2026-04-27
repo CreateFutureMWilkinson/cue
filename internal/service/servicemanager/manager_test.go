@@ -91,11 +91,15 @@ func (m *mockRepo) DeleteCalendarAccount(_ context.Context, _ uuid.UUID) error {
 	return nil
 }
 
-type mockWatchers struct{}
+type mockWatchers struct {
+	removedNames []string
+}
 
 func (m *mockWatchers) AddWatcher(_ string, _ orchestrator.Watcher) {}
 
-func (m *mockWatchers) RemoveWatcher(_ string) {}
+func (m *mockWatchers) RemoveWatcher(name string) {
+	m.removedNames = append(m.removedNames, name)
+}
 
 func (m *mockWatchers) ListWatcherNames() []string {
 	return nil
@@ -874,4 +878,331 @@ func (s *ServiceManagerSuite) TestCreateCalendarAccount_GeneratesUUID() {
 	s.NotEqual(uuid.Nil, got.ID)
 	s.Require().NotNil(repo.upsertCalendarAccount)
 	s.NotEqual(uuid.Nil, repo.upsertCalendarAccount.ID)
+}
+
+// --- UpdateSlackAccount ---
+
+func (s *ServiceManagerSuite) TestUpdateSlackAccount_Success() {
+	existingID := uuid.New()
+	existing := &repository.SlackAccount{
+		ID:                  existingID,
+		Enabled:             true,
+		Token:               "xoxp-old-token",
+		WorkspaceID:         "T001",
+		Username:            "olduser",
+		FriendlyName:        "old-workspace",
+		WebURL:              "https://old.slack.com",
+		PollIntervalSeconds: 60,
+	}
+	repo := &mockRepo{getSlackAccount: existing}
+	watchers := &mockWatchers{}
+	factory := &trackingFactory{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, factory.create, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	update := &repository.SlackAccount{
+		Token:               "xoxp-new-token",
+		WorkspaceID:         "T002",
+		Username:            "newuser",
+		FriendlyName:        "new-workspace",
+		WebURL:              "https://new.slack.com",
+		PollIntervalSeconds: 120,
+		Enabled:             true,
+	}
+
+	got, err := mgr.UpdateSlackAccount(context.Background(), existingID, update)
+	s.NoError(err)
+	s.Require().NotNil(got)
+
+	// Upserted with new token
+	s.Require().NotNil(repo.upsertSlackAccount)
+	s.Equal("xoxp-new-token", repo.upsertSlackAccount.Token)
+	s.Equal("T002", repo.upsertSlackAccount.WorkspaceID)
+	s.Equal("newuser", repo.upsertSlackAccount.Username)
+	s.Equal("new-workspace", repo.upsertSlackAccount.FriendlyName)
+	s.Equal(120, repo.upsertSlackAccount.PollIntervalSeconds)
+	s.Equal(existingID, repo.upsertSlackAccount.ID)
+
+	// Old watcher removed
+	s.Contains(watchers.removedNames, "slack:T001")
+
+	// Factory called for new watcher
+	s.Equal("slack", factory.calledType)
+	s.Equal(existingID, factory.calledID)
+
+	// Returned with masked token
+	s.Equal(servicemanager.CredentialMask, got.Token)
+	s.Equal(existingID, got.ID)
+	s.Equal("T002", got.WorkspaceID)
+}
+
+func (s *ServiceManagerSuite) TestUpdateSlackAccount_PreservesCredentialWhenEmpty() {
+	existingID := uuid.New()
+	existing := &repository.SlackAccount{
+		ID:                  existingID,
+		Enabled:             true,
+		Token:               "xoxp-existing-token",
+		WorkspaceID:         "T001",
+		Username:            "user",
+		PollIntervalSeconds: 60,
+	}
+	repo := &mockRepo{getSlackAccount: existing}
+	factory := &trackingFactory{}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, factory.create, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	update := &repository.SlackAccount{
+		Token:       "", // empty — should preserve existing
+		WorkspaceID: "T001",
+		Username:    "user",
+	}
+
+	got, err := mgr.UpdateSlackAccount(context.Background(), existingID, update)
+	s.NoError(err)
+	s.Require().NotNil(got)
+
+	// Existing token preserved in upsert
+	s.Require().NotNil(repo.upsertSlackAccount)
+	s.Equal("xoxp-existing-token", repo.upsertSlackAccount.Token)
+}
+
+func (s *ServiceManagerSuite) TestUpdateSlackAccount_PreservesCredentialWhenMasked() {
+	existingID := uuid.New()
+	existing := &repository.SlackAccount{
+		ID:                  existingID,
+		Enabled:             true,
+		Token:               "xoxp-existing-token",
+		WorkspaceID:         "T001",
+		Username:            "user",
+		PollIntervalSeconds: 60,
+	}
+	repo := &mockRepo{getSlackAccount: existing}
+	factory := &trackingFactory{}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, factory.create, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	update := &repository.SlackAccount{
+		Token:       servicemanager.CredentialMask, // "***" — should preserve existing
+		WorkspaceID: "T001",
+		Username:    "user",
+	}
+
+	got, err := mgr.UpdateSlackAccount(context.Background(), existingID, update)
+	s.NoError(err)
+	s.Require().NotNil(got)
+
+	// Existing token preserved in upsert
+	s.Require().NotNil(repo.upsertSlackAccount)
+	s.Equal("xoxp-existing-token", repo.upsertSlackAccount.Token)
+}
+
+func (s *ServiceManagerSuite) TestUpdateSlackAccount_NotFound() {
+	repoErr := errors.New("not found")
+	repo := &mockRepo{getSlackErr: repoErr}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.UpdateSlackAccount(context.Background(), uuid.New(), &repository.SlackAccount{
+		Token:       "xoxp-token",
+		WorkspaceID: "T001",
+	})
+	s.ErrorIs(err, repoErr)
+	s.Nil(got)
+}
+
+func (s *ServiceManagerSuite) TestUpdateSlackAccount_RepoError() {
+	existingID := uuid.New()
+	existing := &repository.SlackAccount{
+		ID:                  existingID,
+		Token:               "xoxp-existing",
+		WorkspaceID:         "T001",
+		PollIntervalSeconds: 60,
+	}
+	upsertErr := errors.New("db write failed")
+	repo := &mockRepo{getSlackAccount: existing, upsertSlackErr: upsertErr}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.UpdateSlackAccount(context.Background(), existingID, &repository.SlackAccount{
+		Token:       "xoxp-new",
+		WorkspaceID: "T001",
+	})
+	s.ErrorIs(err, upsertErr)
+	s.Nil(got)
+}
+
+// --- UpdateEmailAccount ---
+
+func (s *ServiceManagerSuite) TestUpdateEmailAccount_Success() {
+	existingID := uuid.New()
+	existing := &repository.EmailAccount{
+		ID:                  existingID,
+		Enabled:             true,
+		IMAPHost:            "imap.old.com",
+		IMAPPort:            993,
+		Username:            "old@example.com",
+		Password:            "old-secret",
+		Encryption:          "tls",
+		FriendlyName:        "old-email",
+		WebURL:              "https://old.mail.com",
+		PollIntervalSeconds: 600,
+	}
+	repo := &mockRepo{getEmailAccount: existing}
+	watchers := &mockWatchers{}
+	factory := &trackingFactory{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, factory.create, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	update := &repository.EmailAccount{
+		IMAPHost:            "imap.new.com",
+		IMAPPort:            143,
+		Username:            "new@example.com",
+		Password:            "new-secret",
+		Encryption:          "starttls",
+		FriendlyName:        "new-email",
+		WebURL:              "https://new.mail.com",
+		PollIntervalSeconds: 120,
+		Enabled:             true,
+	}
+
+	got, err := mgr.UpdateEmailAccount(context.Background(), existingID, update)
+	s.NoError(err)
+	s.Require().NotNil(got)
+
+	// Upserted with new values
+	s.Require().NotNil(repo.upsertEmailAccount)
+	s.Equal("new-secret", repo.upsertEmailAccount.Password)
+	s.Equal("imap.new.com", repo.upsertEmailAccount.IMAPHost)
+	s.Equal(143, repo.upsertEmailAccount.IMAPPort)
+	s.Equal("new@example.com", repo.upsertEmailAccount.Username)
+	s.Equal("starttls", repo.upsertEmailAccount.Encryption)
+	s.Equal(existingID, repo.upsertEmailAccount.ID)
+
+	// Old watcher removed
+	s.Contains(watchers.removedNames, "email:old@example.com")
+
+	// Factory called for new watcher
+	s.Equal("email", factory.calledType)
+	s.Equal(existingID, factory.calledID)
+
+	// Returned with masked password
+	s.Equal(servicemanager.CredentialMask, got.Password)
+	s.Equal(existingID, got.ID)
+}
+
+func (s *ServiceManagerSuite) TestUpdateEmailAccount_PreservesPasswordWhenEmpty() {
+	existingID := uuid.New()
+	existing := &repository.EmailAccount{
+		ID:                  existingID,
+		IMAPHost:            "imap.example.com",
+		IMAPPort:            993,
+		Username:            "user@example.com",
+		Password:            "existing-secret",
+		PollIntervalSeconds: 600,
+	}
+	repo := &mockRepo{getEmailAccount: existing}
+	factory := &trackingFactory{}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, factory.create, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	update := &repository.EmailAccount{
+		Password: "", // empty — should preserve existing
+		IMAPHost: "imap.example.com",
+		IMAPPort: 993,
+		Username: "user@example.com",
+	}
+
+	got, err := mgr.UpdateEmailAccount(context.Background(), existingID, update)
+	s.NoError(err)
+	s.Require().NotNil(got)
+
+	s.Require().NotNil(repo.upsertEmailAccount)
+	s.Equal("existing-secret", repo.upsertEmailAccount.Password)
+}
+
+func (s *ServiceManagerSuite) TestUpdateEmailAccount_PreservesPasswordWhenMasked() {
+	existingID := uuid.New()
+	existing := &repository.EmailAccount{
+		ID:                  existingID,
+		IMAPHost:            "imap.example.com",
+		IMAPPort:            993,
+		Username:            "user@example.com",
+		Password:            "existing-secret",
+		PollIntervalSeconds: 600,
+	}
+	repo := &mockRepo{getEmailAccount: existing}
+	factory := &trackingFactory{}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, factory.create, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	update := &repository.EmailAccount{
+		Password: servicemanager.CredentialMask, // "***" — should preserve existing
+		IMAPHost: "imap.example.com",
+		IMAPPort: 993,
+		Username: "user@example.com",
+	}
+
+	got, err := mgr.UpdateEmailAccount(context.Background(), existingID, update)
+	s.NoError(err)
+	s.Require().NotNil(got)
+
+	s.Require().NotNil(repo.upsertEmailAccount)
+	s.Equal("existing-secret", repo.upsertEmailAccount.Password)
+}
+
+// --- UpdateCalendarAccount ---
+
+func (s *ServiceManagerSuite) TestUpdateCalendarAccount_Success() {
+	existingID := uuid.New()
+	existing := &repository.CalendarAccount{
+		ID:                  existingID,
+		Enabled:             true,
+		Name:                "old-cal",
+		ICSURL:              "https://old.cal.com/a.ics",
+		PollIntervalSeconds: 600,
+	}
+	repo := &mockRepo{getCalendarAccount: existing}
+	factory := &trackingFactory{}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, factory.create, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	update := &repository.CalendarAccount{
+		Name:                "new-cal",
+		ICSURL:              "https://new.cal.com/b.ics",
+		PollIntervalSeconds: 120,
+		Enabled:             true,
+	}
+
+	got, err := mgr.UpdateCalendarAccount(context.Background(), existingID, update)
+	s.NoError(err)
+	s.Require().NotNil(got)
+
+	// Upserted with new values
+	s.Require().NotNil(repo.upsertCalendarAccount)
+	s.Equal("new-cal", repo.upsertCalendarAccount.Name)
+	s.Equal("https://new.cal.com/b.ics", repo.upsertCalendarAccount.ICSURL)
+	s.Equal(120, repo.upsertCalendarAccount.PollIntervalSeconds)
+	s.Equal(existingID, repo.upsertCalendarAccount.ID)
+
+	// Factory should NOT have been called (no watcher for calendar)
+	s.Equal("", factory.calledType)
+	s.Equal(uuid.Nil, factory.calledID)
+
+	// Returned account matches
+	s.Equal(existingID, got.ID)
+	s.Equal("new-cal", got.Name)
+}
+
+func (s *ServiceManagerSuite) TestUpdateCalendarAccount_NotFound() {
+	repoErr := errors.New("not found")
+	repo := &mockRepo{getCalendarErr: repoErr}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.UpdateCalendarAccount(context.Background(), uuid.New(), &repository.CalendarAccount{
+		Name:   "cal",
+		ICSURL: "https://cal.example.com/a.ics",
+	})
+	s.ErrorIs(err, repoErr)
+	s.Nil(got)
 }

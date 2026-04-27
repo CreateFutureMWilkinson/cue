@@ -286,3 +286,189 @@ func (m *ServiceManager) CreateCalendarAccount(ctx context.Context, acct *reposi
 	result := *acct
 	return &result, nil
 }
+
+// UpdateSlackAccount fetches the existing account, merges non-zero fields from the input,
+// preserves credentials when empty or masked, validates, upserts, and re-registers the watcher.
+// Returns the updated account with credentials masked.
+func (m *ServiceManager) UpdateSlackAccount(ctx context.Context, id uuid.UUID, acct *repository.SlackAccount) (*repository.SlackAccount, error) {
+	existing, err := m.repo.GetSlackAccount(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Credential preservation: keep existing token if input is empty or masked.
+	if acct.Token == "" || acct.Token == CredentialMask {
+		acct.Token = existing.Token
+	}
+
+	// Merge non-zero fields onto existing.
+	merged := *existing
+	if acct.Token != "" {
+		merged.Token = acct.Token
+	}
+	if acct.WorkspaceID != "" {
+		merged.WorkspaceID = acct.WorkspaceID
+	}
+	if acct.FriendlyName != "" {
+		merged.FriendlyName = acct.FriendlyName
+	}
+	if acct.Username != "" {
+		merged.Username = acct.Username
+	}
+	if acct.WebURL != "" {
+		merged.WebURL = acct.WebURL
+	}
+	if acct.PollIntervalSeconds != 0 {
+		merged.PollIntervalSeconds = acct.PollIntervalSeconds
+	}
+	merged.Enabled = acct.Enabled
+
+	// Validate merged result (same rules as Create).
+	if merged.Token == "" {
+		return nil, fmt.Errorf("update slack account: token must not be empty")
+	}
+	if merged.WorkspaceID == "" {
+		return nil, fmt.Errorf("update slack account: workspace ID must not be empty")
+	}
+
+	if m.slackValidator != nil {
+		if err := m.slackValidator.ValidateSlack(ctx, merged.Token); err != nil {
+			return nil, fmt.Errorf("update slack account: validation failed: %w", err)
+		}
+	}
+
+	if err := m.repo.UpsertSlackAccount(ctx, &merged); err != nil {
+		return nil, err
+	}
+
+	// Remove old watcher, register new one.
+	m.watchers.RemoveWatcher("slack:" + existing.WorkspaceID)
+	if err := m.watcherFactory("slack", merged.ID); err != nil {
+		return nil, fmt.Errorf("update slack account: watcher factory: %w", err)
+	}
+
+	result := merged
+	result.Token = CredentialMask
+	return &result, nil
+}
+
+// UpdateEmailAccount fetches the existing account, merges non-zero fields from the input,
+// preserves credentials when empty or masked, validates, upserts, and re-registers the watcher.
+// Returns the updated account with credentials masked.
+func (m *ServiceManager) UpdateEmailAccount(ctx context.Context, id uuid.UUID, acct *repository.EmailAccount) (*repository.EmailAccount, error) {
+	existing, err := m.repo.GetEmailAccount(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Credential preservation: keep existing password if input is empty or masked.
+	if acct.Password == "" || acct.Password == CredentialMask {
+		acct.Password = existing.Password
+	}
+
+	// Merge non-zero fields onto existing.
+	merged := *existing
+	if acct.IMAPHost != "" {
+		merged.IMAPHost = acct.IMAPHost
+	}
+	if acct.IMAPPort != 0 {
+		merged.IMAPPort = acct.IMAPPort
+	}
+	if acct.Username != "" {
+		merged.Username = acct.Username
+	}
+	if acct.Password != "" {
+		merged.Password = acct.Password
+	}
+	if acct.Encryption != "" {
+		merged.Encryption = acct.Encryption
+	}
+	if acct.FriendlyName != "" {
+		merged.FriendlyName = acct.FriendlyName
+	}
+	if acct.WebURL != "" {
+		merged.WebURL = acct.WebURL
+	}
+	if acct.PollIntervalSeconds != 0 {
+		merged.PollIntervalSeconds = acct.PollIntervalSeconds
+	}
+	merged.Enabled = acct.Enabled
+
+	// Validate merged result (same rules as Create).
+	if merged.IMAPHost == "" {
+		return nil, fmt.Errorf("update email account: host must not be empty")
+	}
+	if merged.IMAPPort <= 0 {
+		return nil, fmt.Errorf("update email account: port must be greater than zero")
+	}
+	if merged.Username == "" {
+		return nil, fmt.Errorf("update email account: username must not be empty")
+	}
+	if merged.Password == "" {
+		return nil, fmt.Errorf("update email account: password must not be empty")
+	}
+
+	if m.emailValidator != nil {
+		if err := m.emailValidator.ValidateEmail(ctx, merged.IMAPHost, merged.IMAPPort, merged.Username, merged.Password, merged.Encryption); err != nil {
+			return nil, fmt.Errorf("update email account: validation failed: %w", err)
+		}
+	}
+
+	if err := m.repo.UpsertEmailAccount(ctx, &merged); err != nil {
+		return nil, err
+	}
+
+	// Remove old watcher, register new one.
+	m.watchers.RemoveWatcher("email:" + existing.Username)
+	if err := m.watcherFactory("email", merged.ID); err != nil {
+		return nil, fmt.Errorf("update email account: watcher factory: %w", err)
+	}
+
+	result := merged
+	result.Password = CredentialMask
+	return &result, nil
+}
+
+// UpdateCalendarAccount fetches the existing account, merges non-zero fields from the input,
+// validates, and upserts. Calendar accounts have no watcher lifecycle.
+// Returns the updated account.
+func (m *ServiceManager) UpdateCalendarAccount(ctx context.Context, id uuid.UUID, acct *repository.CalendarAccount) (*repository.CalendarAccount, error) {
+	existing, err := m.repo.GetCalendarAccount(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Merge non-zero fields onto existing.
+	merged := *existing
+	if acct.Name != "" {
+		merged.Name = acct.Name
+	}
+	if acct.ICSURL != "" {
+		merged.ICSURL = acct.ICSURL
+	}
+	if acct.PollIntervalSeconds != 0 {
+		merged.PollIntervalSeconds = acct.PollIntervalSeconds
+	}
+	merged.Enabled = acct.Enabled
+
+	// Validate merged result (same rules as Create).
+	if merged.Name == "" {
+		return nil, fmt.Errorf("update calendar account: name must not be empty")
+	}
+	if merged.ICSURL == "" {
+		return nil, fmt.Errorf("update calendar account: ICS URL must not be empty")
+	}
+
+	if m.calendarValidator != nil {
+		if err := m.calendarValidator.ValidateCalendar(ctx, merged.ICSURL); err != nil {
+			return nil, fmt.Errorf("update calendar account: validation failed: %w", err)
+		}
+	}
+
+	if err := m.repo.UpsertCalendarAccount(ctx, &merged); err != nil {
+		return nil, err
+	}
+
+	result := merged
+	return &result, nil
+}

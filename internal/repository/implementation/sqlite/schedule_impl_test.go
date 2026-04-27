@@ -119,7 +119,7 @@ func (s *ScheduleRepositorySuite) TestDelete() {
 	err := s.repo.Save(ctx, sched)
 	s.Require().NoError(err)
 
-	err = s.repo.Delete(ctx, sched.ID)
+	err = s.repo.Delete(ctx, sched.Date)
 	s.Require().NoError(err)
 
 	loaded, err := s.repo.LoadByDate(ctx, sched.Date)

@@ -121,8 +121,8 @@ func (m *mockScheduleRepo) LoadByDate(ctx context.Context, date time.Time) (*rep
 	return args.Get(0).(*repository.Schedule), args.Error(1)
 }
 
-func (m *mockScheduleRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	args := m.Called(ctx, id)
+func (m *mockScheduleRepo) Delete(ctx context.Context, date time.Time) error {
+	args := m.Called(ctx, date)
 	return args.Error(0)
 }
 
@@ -580,7 +580,7 @@ func (s *PlannerPresenterSuite) TestCompleteCurrentTaskMarksTaskDone() {
 func (s *PlannerPresenterSuite) TestAbandonPlanDeletesScheduleReturnsToIdle() {
 	s.advanceToActive()
 
-	s.schedRepo.On("Delete", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(nil)
+	s.schedRepo.On("Delete", mock.Anything, mock.AnythingOfType("time.Time")).Return(nil)
 
 	err := s.presenter.AbandonPlan(s.ctx)
 	s.Require().NoError(err)
@@ -797,7 +797,7 @@ func (s *PlannerPresenterSuite) TestSetOnStepChangeFiresOnAbandonPlan() {
 		received = step
 	})
 
-	s.schedRepo.On("Delete", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(nil)
+	s.schedRepo.On("Delete", mock.Anything, mock.AnythingOfType("time.Time")).Return(nil)
 
 	err := s.presenter.AbandonPlan(s.ctx)
 	s.Require().NoError(err)

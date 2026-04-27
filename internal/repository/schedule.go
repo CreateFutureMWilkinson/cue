@@ -39,5 +39,5 @@ type Schedule struct {
 type ScheduleRepository interface {
 	Save(ctx context.Context, schedule *Schedule) error
 	LoadByDate(ctx context.Context, date time.Time) (*Schedule, error)
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, date time.Time) error
 }

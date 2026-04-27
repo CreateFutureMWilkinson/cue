@@ -196,9 +196,10 @@ func (r *SQLiteScheduleRepository) LoadByDate(ctx context.Context, date time.Tim
 	return &sched, nil
 }
 
-// Delete removes a schedule by ID.
-func (r *SQLiteScheduleRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, queryDeleteSchedule, id.String())
+// Delete removes a schedule by date.
+func (r *SQLiteScheduleRepository) Delete(ctx context.Context, date time.Time) error {
+	dateStr := date.UTC().Format(dateFormat)
+	_, err := r.db.ExecContext(ctx, queryDeleteByDate, dateStr)
 	if err != nil {
 		return fmt.Errorf("delete schedule: %w", err)
 	}

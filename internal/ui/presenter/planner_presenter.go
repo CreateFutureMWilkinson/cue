@@ -405,7 +405,7 @@ func (p *PlannerPresenter) CompleteCurrentTask(ctx context.Context) error {
 
 // AbandonPlan deletes the active schedule and returns to StepIdle.
 func (p *PlannerPresenter) AbandonPlan(ctx context.Context) error {
-	if err := p.schedRepo.Delete(ctx, p.activeScheduleID); err != nil {
+	if err := p.schedRepo.Delete(ctx, p.todayDate()); err != nil {
 		return fmt.Errorf("deleting schedule: %w", err)
 	}
 	p.step = StepIdle

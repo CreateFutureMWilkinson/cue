@@ -25,3 +25,21 @@ type ActivityData struct {
 type AlertData struct {
 	Kind string `json:"kind"`
 }
+
+// TimerTickData is the payload for timer_tick WebSocket events.
+type TimerTickData struct {
+	Running          bool    `json:"running"`
+	BlockType        string  `json:"block_type"`
+	TaskName         string  `json:"task_name"`
+	ElapsedSeconds   int     `json:"elapsed_seconds"`
+	RemainingSeconds int     `json:"remaining_seconds"`
+	DisplayTime      string  `json:"display_time"`
+	ElapsedFraction  float64 `json:"elapsed_fraction"`
+}
+
+// TimerBlockCompleteData is the payload for timer_block_complete WebSocket events.
+type TimerBlockCompleteData struct {
+	CompletedBlock string `json:"completed_block"`
+	TaskName       string `json:"task_name"`
+	NextBlock      string `json:"next_block"`
+}

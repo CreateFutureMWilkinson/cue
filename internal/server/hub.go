@@ -296,3 +296,13 @@ func (h *Hub) SubscriberCount() int {
 	defer h.mu.RUnlock()
 	return len(h.subscribers)
 }
+
+// PublishTimerTick broadcasts a timer_tick event.
+func (h *Hub) PublishTimerTick(data TimerTickData) ActivityEnvelope {
+	return h.publishEnvelope("timer_tick", data)
+}
+
+// PublishTimerBlockComplete broadcasts a timer_block_complete event.
+func (h *Hub) PublishTimerBlockComplete(data TimerBlockCompleteData) ActivityEnvelope {
+	return h.publishEnvelope("timer_block_complete", data)
+}

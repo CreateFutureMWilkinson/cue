@@ -423,6 +423,118 @@ func (s *HubSuite) TestPublishAlertEmitsAlertEnvelopeWithMonotonicSeq() {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Behavior 6: PublishTimerTick broadcasts envelope with type "timer_tick"
+// ---------------------------------------------------------------------------
+
+func (s *HubSuite) TestPublishTimerTick() {
+	hub := server.NewHub()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go hub.Run(ctx)
+
+	sub, err := hub.Subscribe("timer-client")
+	s.Require().NoError(err)
+
+	tickData := server.TimerTickData{
+		Running:          true,
+		BlockType:        "focus",
+		TaskName:         "Write code",
+		ElapsedSeconds:   300,
+		RemainingSeconds: 2400,
+		DisplayTime:      "15:00",
+		ElapsedFraction:  0.111,
+	}
+	env := hub.PublishTimerTick(tickData)
+
+	// --- Returned envelope assertions ---
+	s.Equal("timer_tick", env.Type, "PublishTimerTick envelope Type must be 'timer_tick'")
+	s.Equal(uint64(1), env.Seq, "PublishTimerTick must get seq 1")
+	s.False(env.Timestamp.IsZero(), "PublishTimerTick envelope Timestamp must be non-zero")
+	s.Equal(time.UTC, env.Timestamp.Location(), "Timestamp must be UTC")
+
+	gotData, ok := env.Data.(server.TimerTickData)
+	s.Require().True(ok, "envelope Data must be TimerTickData")
+	s.Equal(tickData, gotData, "envelope Data must match published TimerTickData")
+
+	// --- Subscriber broadcast assertions ---
+	select {
+	case raw := <-sub.Events:
+		var got struct {
+			Seq       uint64               `json:"seq"`
+			Type      string               `json:"type"`
+			Timestamp time.Time            `json:"timestamp"`
+			Data      server.TimerTickData `json:"data"`
+		}
+		err := json.Unmarshal(raw, &got)
+		s.Require().NoError(err, "received bytes must be valid JSON envelope")
+		s.Equal(env.Seq, got.Seq, "broadcast Seq must match returned envelope Seq")
+		s.Equal("timer_tick", got.Type, "broadcast Type must be 'timer_tick'")
+		s.Equal(true, got.Data.Running, "broadcast Data.Running must be true")
+		s.Equal("focus", got.Data.BlockType, "broadcast Data.BlockType must be 'focus'")
+		s.Equal("Write code", got.Data.TaskName, "broadcast Data.TaskName must match")
+		s.Equal(300, got.Data.ElapsedSeconds, "broadcast Data.ElapsedSeconds must be 300")
+		s.Equal(2400, got.Data.RemainingSeconds, "broadcast Data.RemainingSeconds must be 2400")
+		s.Equal("15:00", got.Data.DisplayTime, "broadcast Data.DisplayTime must be '15:00'")
+		s.InDelta(0.111, got.Data.ElapsedFraction, 0.001, "broadcast Data.ElapsedFraction must match")
+	case <-time.After(time.Second):
+		s.Fail("subscriber did not receive timer_tick broadcast within timeout")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Behavior 7: PublishTimerBlockComplete broadcasts envelope with type "timer_block_complete"
+// ---------------------------------------------------------------------------
+
+func (s *HubSuite) TestPublishTimerBlockComplete() {
+	hub := server.NewHub()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go hub.Run(ctx)
+
+	sub, err := hub.Subscribe("timer-client")
+	s.Require().NoError(err)
+
+	blockData := server.TimerBlockCompleteData{
+		CompletedBlock: "focus",
+		TaskName:       "Write code",
+		NextBlock:      "short_break",
+	}
+	env := hub.PublishTimerBlockComplete(blockData)
+
+	// --- Returned envelope assertions ---
+	s.Equal("timer_block_complete", env.Type, "PublishTimerBlockComplete envelope Type must be 'timer_block_complete'")
+	s.Equal(uint64(1), env.Seq, "PublishTimerBlockComplete must get seq 1")
+	s.False(env.Timestamp.IsZero(), "PublishTimerBlockComplete envelope Timestamp must be non-zero")
+	s.Equal(time.UTC, env.Timestamp.Location(), "Timestamp must be UTC")
+
+	gotData, ok := env.Data.(server.TimerBlockCompleteData)
+	s.Require().True(ok, "envelope Data must be TimerBlockCompleteData")
+	s.Equal(blockData, gotData, "envelope Data must match published TimerBlockCompleteData")
+
+	// --- Subscriber broadcast assertions ---
+	select {
+	case raw := <-sub.Events:
+		var got struct {
+			Seq       uint64                        `json:"seq"`
+			Type      string                        `json:"type"`
+			Timestamp time.Time                     `json:"timestamp"`
+			Data      server.TimerBlockCompleteData `json:"data"`
+		}
+		err := json.Unmarshal(raw, &got)
+		s.Require().NoError(err, "received bytes must be valid JSON envelope")
+		s.Equal(env.Seq, got.Seq, "broadcast Seq must match returned envelope Seq")
+		s.Equal("timer_block_complete", got.Type, "broadcast Type must be 'timer_block_complete'")
+		s.Equal("focus", got.Data.CompletedBlock, "broadcast Data.CompletedBlock must be 'focus'")
+		s.Equal("Write code", got.Data.TaskName, "broadcast Data.TaskName must match")
+		s.Equal("short_break", got.Data.NextBlock, "broadcast Data.NextBlock must be 'short_break'")
+	case <-time.After(time.Second):
+		s.Fail("subscriber did not receive timer_block_complete broadcast within timeout")
+	}
+}
+
 func (s *HubSuite) TestHistoryTruncationAfterEviction() {
 	hub := server.NewHub()
 

@@ -100,7 +100,7 @@ func writeProgress(w io.Writer, modelName string, exampleCount, current, total i
 // pool, builds a prompt, POSTs to Ollama, parses the response, derives the
 // routing band, and appends a RunResult. The returned BenchReport contains
 // ModelOrder, RunResults, aggregated Results, BaselineName, and ExampleCounts.
-func RunBenchmark(ctx context.Context, cfg BenchConfig, scored []CorpusEntry, pool []CorpusEntry, httpClient *http.Client, progressWriter io.Writer) (BenchReport, error) {
+func RunBenchmark(ctx context.Context, cfg BenchConfig, scored []CorpusEntry, pool []CorpusEntry, embedIndex *EmbedIndex, httpClient *http.Client, progressWriter io.Writer) (BenchReport, error) {
 	// 1. Build model list: baseline first, then additional models.
 	models := append([]string{cfg.Baseline}, cfg.Models...)
 
@@ -116,7 +116,12 @@ func RunBenchmark(ctx context.Context, cfg BenchConfig, scored []CorpusEntry, po
 			current := 0
 			for _, scoredEntry := range scored {
 				// a. Select few-shot examples from pool.
-				selectedExamples := SelectExamples(scoredEntry, pool, exampleCount, cfg.Seed)
+				var selectedExamples []CorpusEntry
+				if embedIndex != nil {
+					selectedExamples = SelectExamplesByEmbedding(scoredEntry.ID, *embedIndex, exampleCount)
+				} else {
+					selectedExamples = SelectExamples(scoredEntry, pool, exampleCount, cfg.Seed)
+				}
 
 				// b. Convert to decisionengine.FewShotExample.
 				fewShotExamples := make([]decisionengine.FewShotExample, len(selectedExamples))

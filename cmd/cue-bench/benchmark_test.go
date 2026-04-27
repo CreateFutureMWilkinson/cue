@@ -62,7 +62,7 @@ func (s *BenchmarkSuite) TestRunBenchmark_ProducesRunResults() {
 	}
 
 	ctx := context.Background()
-	report, err := RunBenchmark(ctx, cfg, scored, pool, server.Client(), io.Discard)
+	report, err := RunBenchmark(ctx, cfg, scored, pool, nil, server.Client(), io.Discard)
 
 	s.Require().NoError(err, "RunBenchmark should not return an error")
 
@@ -130,7 +130,7 @@ func (s *BenchmarkSuite) TestRunBenchmark_ProgressOutput() {
 
 	var progressBuf bytes.Buffer
 	ctx := context.Background()
-	_, err := RunBenchmark(ctx, cfg, scored, pool, server.Client(), &progressBuf)
+	_, err := RunBenchmark(ctx, cfg, scored, pool, nil, server.Client(), &progressBuf)
 	s.Require().NoError(err, "RunBenchmark should not return an error")
 
 	output := progressBuf.String()

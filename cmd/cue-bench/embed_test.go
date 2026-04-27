@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -297,6 +298,113 @@ func (s *EmbedSuite) TestBuildEmbedIndex_PrintsProgress() {
 
 	s.Require().NoError(err)
 	s.NotEmpty(buf.String(), "progress writer should have received output")
+}
+
+func (s *EmbedSuite) TestRunBenchmark_UsesEmbedIndex() {
+	// Mock Ollama server for inference (scoring).
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"response":"{\"importance_score\":8.0,\"confidence_score\":0.9,\"reasoning\":\"test\"}","done":true}`)
+	}))
+	defer server.Close()
+
+	rating5 := 5
+	rating8 := 8
+
+	scored := []CorpusEntry{
+		{
+			ID:           "embed-scored-01",
+			Source:       "slack",
+			Sender:       "alice",
+			Channel:      "#ops",
+			Content:      "Production alert fired",
+			ExpectedBand: "notified",
+			Tags:         []string{"outage"},
+		},
+	}
+
+	pool := []CorpusEntry{
+		{
+			ID:         "embed-pool-01",
+			Source:     "slack",
+			Sender:     "bob",
+			Channel:    "#general",
+			Content:    "Similar production issue",
+			Tags:       []string{"outage"},
+			UserRating: &rating8,
+		},
+		{
+			ID:         "embed-pool-02",
+			Source:     "email",
+			Sender:     "carol@example.com",
+			Channel:    "inbox",
+			Content:    "Weekly status report",
+			Tags:       []string{"routine"},
+			UserRating: &rating5,
+		},
+	}
+
+	// Build an EmbedIndex with pre-computed embeddings.
+	embedIndex := &EmbedIndex{
+		Pool: []EmbedResult{
+			{Entry: pool[0], Embedding: []float32{0.9, 0.1, 0}},
+			{Entry: pool[1], Embedding: []float32{0.1, 0.9, 0}},
+		},
+		Scored: map[string][]float32{
+			"embed-scored-01": {1, 0, 0},
+		},
+	}
+
+	cfg := BenchConfig{
+		Baseline:   "test-model",
+		Models:     []string{},
+		OllamaHost: server.URL,
+		Timeout:    5 * time.Second,
+		NoFewShot:  false,
+		Seed:       42,
+	}
+
+	ctx := context.Background()
+	report, err := RunBenchmark(ctx, cfg, scored, pool, embedIndex, server.Client(), io.Discard)
+
+	s.Require().NoError(err, "RunBenchmark with embedIndex should not error")
+	s.NotEmpty(report.RunResults, "should produce RunResults when using embed index")
+}
+
+func (s *EmbedSuite) TestRunBenchmark_NilEmbedIndex_UsesTagSelection() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"response":"{\"importance_score\":6.0,\"confidence_score\":0.5,\"reasoning\":\"tag test\"}","done":true}`)
+	}))
+	defer server.Close()
+
+	scored := []CorpusEntry{
+		{
+			ID:           "tag-scored-01",
+			Source:       "slack",
+			Sender:       "alice",
+			Channel:      "#ops",
+			Content:      "Server restarted",
+			ExpectedBand: "ignored",
+			Tags:         []string{"ops"},
+		},
+	}
+	var pool []CorpusEntry
+
+	cfg := BenchConfig{
+		Baseline:   "test-model",
+		Models:     []string{},
+		OllamaHost: server.URL,
+		Timeout:    5 * time.Second,
+		NoFewShot:  true,
+		Seed:       42,
+	}
+
+	ctx := context.Background()
+	report, err := RunBenchmark(ctx, cfg, scored, pool, nil, server.Client(), io.Discard)
+
+	s.Require().NoError(err, "RunBenchmark with nil embedIndex should not error")
+	s.Len(report.RunResults, 1, "should produce 1 RunResult")
 }
 
 func (s *EmbedSuite) TestBuildEmbedIndex_ErrorOnEmbedFailure() {

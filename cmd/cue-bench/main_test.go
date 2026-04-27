@@ -67,4 +67,5 @@ var _ = BenchConfig{
 	Cooldown:   time.Duration(0),
 	NoFewShot:  false,
 	Seed:       0,
+	EmbedModel: "",
 }

@@ -24,6 +24,7 @@ type BenchConfig struct {
 	Cooldown   time.Duration
 	NoFewShot  bool
 	Seed       int64
+	EmbedModel string
 }
 
 // NewApp creates a configured *cli.Command for the cue-bench CLI. The onRun
@@ -45,6 +46,7 @@ func NewApp(onRun func(cfg BenchConfig)) *cli.Command {
 			&cli.DurationFlag{Name: "cooldown", Value: 2 * time.Second, Usage: "Cooldown between benchmark runs"},
 			&cli.BoolFlag{Name: "no-fewshot", Usage: "Disable few-shot prompt injection"},
 			&cli.IntFlag{Name: "seed", Value: 42, Usage: "Random seed for reproducibility"},
+			&cli.StringFlag{Name: "embed-model", Value: "", Usage: "Ollama embedding model for vector-based example selection"},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			cfg := BenchConfig{
@@ -59,6 +61,7 @@ func NewApp(onRun func(cfg BenchConfig)) *cli.Command {
 				Cooldown:   cmd.Duration("cooldown"),
 				NoFewShot:  cmd.Bool("no-fewshot"),
 				Seed:       int64(cmd.Int("seed")),
+				EmbedModel: cmd.String("embed-model"),
 			}
 
 			if onRun != nil {
@@ -77,7 +80,7 @@ func NewApp(onRun func(cfg BenchConfig)) *cli.Command {
 			scored := ScoredEntries(entries)
 			pool := RatedEntries(entries)
 
-			report, err := RunBenchmark(ctx, cfg, scored, pool, &http.Client{Timeout: cfg.Timeout}, os.Stderr)
+			report, err := RunBenchmark(ctx, cfg, scored, pool, nil, &http.Client{Timeout: cfg.Timeout}, os.Stderr)
 			if err != nil {
 				return fmt.Errorf("run benchmark: %w", err)
 			}

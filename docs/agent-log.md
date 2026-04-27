@@ -824,3 +824,41 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-9-Feature-108 | RED | Test Designer | ~52s | ~29,432 | 94f5805 |
 | Phase-9-Feature-108 | GREEN | Implementer | ~51s | ~26,320 | 5138d90 |
 | Phase-9-Feature-108 | WIRING | orchestrator | — | — | 614810c |
+| Phase-9-Feature-106 (Step 0 doc fix) | DOCS | main | inline | inline | 5a5e85f |
+| Phase-9-Feature-106 (L1 APIClient + Health) | RED | go-test-designer | ~65s | ~42,459 | 69f990a |
+| Phase-9-Feature-106 (L1 APIClient + Health) | GREEN | go-implementer | ~49s | ~35,095 | 92620b1 |
+| Phase-9-Feature-106 (L1 APIClient + Health) | REFACTOR | go-refactorer | ~25s | ~23,667 | — |
+| Phase-9-Feature-106 (L2 APIError) | RED | go-test-designer | ~98s | ~40,455 | e1f4f7e |
+| Phase-9-Feature-106 (L2 APIError) | GREEN | go-implementer | ~64s | ~36,934 | e88adf0 |
+| Phase-9-Feature-106 (L2 APIError) | REFACTOR | go-refactorer | ~63s | ~26,992 | 86e3899 |
+| Phase-9-Feature-106 (L3 AuthClient) | RED | go-test-designer | ~104s | ~52,839 | 0633359 |
+| Phase-9-Feature-106 (L3 AuthClient) | GREEN | go-implementer | ~85s | ~47,912 | 9421064 |
+| Phase-9-Feature-106 (L3 AuthClient) | REFACTOR | go-refactorer | ~74s | ~33,616 | 82f0920 |
+| Phase-9-Feature-106 (L4 TOKEN_ISSUED retry) | RED | go-test-designer | ~106s | ~55,093 | cd06b78 |
+| Phase-9-Feature-106 (L4 TOKEN_ISSUED retry) | GREEN | go-implementer | ~72s | ~45,950 | 5f20cae |
+| Phase-9-Feature-106 (L4 TOKEN_ISSUED retry) | REFACTOR | go-refactorer | ~29s | ~26,292 | — |
+| Phase-9-Feature-106 (L5 MessageClient) | RED | go-test-designer | ~151s | ~54,850 | 6585993 |
+| Phase-9-Feature-106 (L5 MessageClient) | GREEN | go-implementer | ~67s | ~51,273 | 0f3fed1 |
+| Phase-9-Feature-106 (L5 MessageClient) | REFACTOR | go-refactorer | ~69s | ~34,238 | 2429ff3 |
+| Phase-9-Feature-106 (L6 FeedbackClient) | RED | go-test-designer | ~142s | ~62,221 | 8b5e811 |
+| Phase-9-Feature-106 (L6 FeedbackClient) | GREEN | go-implementer | ~68s | ~52,068 | 3f22494 |
+| Phase-9-Feature-106 (L6 FeedbackClient) | REFACTOR | go-refactorer | ~32s | ~30,540 | — |
+| Phase-9-Feature-106 (L7 TaskClient) | RED | go-test-designer | ~138s | ~66,201 | 4b2d6db |
+| Phase-9-Feature-106 (L7 TaskClient) | GREEN | go-implementer | ~59s | ~51,084 | 775829c |
+| Phase-9-Feature-106 (L7 TaskClient) | REFACTOR | go-refactorer | ~26s | ~26,513 | — |
+| Phase-9-Feature-106 (L8 RulesClient) | RED | go-test-designer | ~178s | ~70,332 | 1451d15 |
+| Phase-9-Feature-106 (L8 RulesClient) | GREEN | go-implementer | ~61s | ~52,308 | 4fc2324 |
+| Phase-9-Feature-106 (L8 RulesClient) | REFACTOR | go-refactorer | ~27s | ~27,086 | — |
+| Phase-9-Feature-106 (L9 ServiceConfigClient) | RED | go-test-designer | ~226s | ~88,091 | ade7b90 |
+| Phase-9-Feature-106 (L9 ServiceConfigClient) | GREEN | go-implementer | ~106s | ~63,427 | 10588d2 |
+| Phase-9-Feature-106 (L9 ServiceConfigClient) | REFACTOR | go-refactorer | ~176s | ~40,754 | 7aa71cb |
+| Phase-9-Feature-106 (L10 Schedule + Timer) | RED | go-test-designer | ~171s | ~70,202 | aeaa41f |
+| Phase-9-Feature-106 (L10 Schedule + Timer) | GREEN | go-implementer | ~72s | ~57,141 | 85c03ce |
+| Phase-9-Feature-106 (L10 Schedule + Timer) | REFACTOR | go-refactorer | ~22s | ~28,516 | — |
+| Phase-9-Feature-106 (L11 ActivityClient + Replay) | RED | go-test-designer | ~164s | ~71,807 | 500ef8f |
+| Phase-9-Feature-106 (L11 ActivityClient + Replay) | GREEN | go-implementer | ~80s | ~57,871 | ab824c4 |
+| Phase-9-Feature-106 (L11 ActivityClient + Replay) | REFACTOR | go-refactorer | ~55s | ~34,046 | 492d7de |
+| Phase-9-Feature-106 (L12 WS Reconnection) | RED | go-test-designer | ~210s | ~58,937 | 3c7bfe1 |
+| Phase-9-Feature-106 (L12 WS Reconnection) | GREEN | go-implementer | ~1409s | ~69,654 | 75b8680 |
+| Phase-9-Feature-106 (L12 WS Reconnection) | REFACTOR | go-refactorer | ~47s | ~31,035 | a47b16c |
+| Phase-9-Feature-106 (wiring cleanup) | CHORE | main | inline | inline | 2916b2a |

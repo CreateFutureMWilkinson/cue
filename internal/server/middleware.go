@@ -147,3 +147,9 @@ func (s *statusWriter) Write(b []byte) (int, error) {
 	}
 	return s.ResponseWriter.Write(b)
 }
+
+// Unwrap returns the underlying ResponseWriter so that middleware wrappers
+// like statusWriter do not hide interfaces (e.g. http.Hijacker) required
+// by WebSocket upgrade handlers. The coder/websocket library uses
+// http.NewResponseController which calls Unwrap to discover the real writer.
+func (s *statusWriter) Unwrap() http.ResponseWriter { return s.ResponseWriter }

@@ -23,12 +23,13 @@ type Deps struct {
 // It wires repositories, services, and watchers and exposes them
 // over HTTP handlers and a WebSocket event broadcaster.
 type Server struct {
-	cfg     config.ServerConfig
-	deps    Deps
-	hub     *Hub
-	mux     *http.ServeMux
-	handler http.Handler
-	server  *http.Server
+	cfg       config.ServerConfig
+	deps      Deps
+	hub       *Hub
+	wsManager *handler.Manager
+	mux       *http.ServeMux
+	handler   http.Handler
+	server    *http.Server
 
 	mu       sync.Mutex
 	listener net.Listener
@@ -46,10 +47,11 @@ func New(cfg config.ServerConfig, deps ...Deps) (*Server, error) {
 	}
 
 	s := &Server{
-		cfg:  cfg,
-		deps: d,
-		hub:  hub,
-		mux:  mux,
+		cfg:       cfg,
+		deps:      d,
+		hub:       hub,
+		wsManager: handler.NewManager(newHubPublisher(hub)),
+		mux:       mux,
 	}
 
 	s.registerRoutes()
@@ -78,6 +80,7 @@ func (s *Server) registerRoutes() {
 	s.mux.Handle("GET /health/ready", ReadyHandler())
 	s.mux.Handle("GET /api/v1/health", HealthHandler())
 	s.mux.Handle("GET /api/v1/health/ready", ReadyHandler())
+	s.mux.Handle("GET /api/v1/websocket/events", s.wsManager.Handler())
 
 	if s.deps.Messages != nil {
 		s.mux.Handle("GET /api/v1/notifications", handler.ListNotificationsHandler(s.deps.Messages))
@@ -117,9 +120,11 @@ func (s *Server) Start() error {
 	return nil
 }
 
-// Shutdown performs an ordered shutdown: stops accepting connections,
-// drains in-flight requests, and closes resources.
+// Shutdown performs an ordered shutdown: closes live WebSocket connections
+// first (since net/http.Shutdown does not close hijacked connections),
+// then stops accepting connections and drains in-flight requests.
 func (s *Server) Shutdown(ctx context.Context) error {
+	s.wsManager.CloseAll()
 	return s.server.Shutdown(ctx)
 }
 

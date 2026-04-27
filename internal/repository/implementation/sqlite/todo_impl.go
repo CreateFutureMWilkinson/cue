@@ -189,8 +189,104 @@ func (r *SQLiteTodoRepository) QueryByID(ctx context.Context, id uuid.UUID) (*re
 
 // QueryFiltered returns todos matching the filter criteria plus a total count for pagination.
 // Sort order: priority DESC (higher first), then created_at ASC.
-func (r *SQLiteTodoRepository) QueryFiltered(_ context.Context, _ repository.TodoFilter) ([]*repository.Todo, int, error) {
-	return nil, 0, repository.ErrNotImplemented
+func (r *SQLiteTodoRepository) QueryFiltered(ctx context.Context, filter repository.TodoFilter) ([]*repository.Todo, int, error) {
+	// Build WHERE clause dynamically.
+	var whereClauses []string
+	var args []any
+	needsCategoryJoin := filter.Category != ""
+
+	// Status filter: default to "incomplete".
+	status := filter.Status
+	if status == "" {
+		status = "incomplete"
+	}
+	switch status {
+	case "incomplete":
+		whereClauses = append(whereClauses, "t.completed_at IS NULL")
+	case "complete":
+		whereClauses = append(whereClauses, "t.completed_at IS NOT NULL")
+	case "all":
+		// No status filter.
+	}
+
+	// Category filter via junction table.
+	if needsCategoryJoin {
+		whereClauses = append(whereClauses, "c.name = ?")
+		args = append(args, filter.Category)
+	}
+
+	// Search filter: case-insensitive LIKE on title OR description.
+	if filter.Search != "" {
+		whereClauses = append(whereClauses, "(t.title LIKE ? OR t.description LIKE ?)")
+		searchPattern := "%" + filter.Search + "%"
+		args = append(args, searchPattern, searchPattern)
+	}
+
+	// Assemble FROM clause.
+	fromClause := "FROM todos t"
+	if needsCategoryJoin {
+		fromClause += " INNER JOIN todo_categories tc ON t.id = tc.todo_id INNER JOIN categories c ON tc.category_id = c.id"
+	}
+
+	// Assemble WHERE clause.
+	whereClause := ""
+	if len(whereClauses) > 0 {
+		whereClause = " WHERE " + whereClauses[0]
+		for _, clause := range whereClauses[1:] {
+			whereClause += " AND " + clause
+		}
+	}
+
+	// Count query (no LIMIT/OFFSET).
+	countQuery := "SELECT COUNT(*) " + fromClause + whereClause
+	var total int
+	err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("count filtered todos: %w", err)
+	}
+
+	// Data query with ORDER BY, LIMIT, OFFSET.
+	limit := filter.Limit
+	if limit == 0 {
+		limit = 50
+	}
+
+	dataQuery := "SELECT t.id, t.title, t.description, t.priority, t.due_date, t.created_at, t.completed_at, t.estimate_minutes, t.llm_estimate_minutes " +
+		fromClause + whereClause +
+		" ORDER BY t.priority DESC, t.created_at ASC LIMIT ? OFFSET ?"
+
+	dataArgs := make([]any, len(args))
+	copy(dataArgs, args)
+	dataArgs = append(dataArgs, limit, filter.Offset)
+
+	rows, err := r.db.QueryContext(ctx, dataQuery, dataArgs...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("query filtered todos: %w", err)
+	}
+	defer rows.Close()
+
+	var todos []*repository.Todo
+	for rows.Next() {
+		todo, err := scanTodo(rows)
+		if err != nil {
+			return nil, 0, fmt.Errorf("scan filtered todo: %w", err)
+		}
+		todos = append(todos, todo)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("iterate filtered todos: %w", err)
+	}
+
+	// Fetch categories for each todo.
+	for _, todo := range todos {
+		cats, err := r.fetchCategories(ctx, todo.ID)
+		if err != nil {
+			return nil, 0, err
+		}
+		todo.Categories = cats
+	}
+
+	return todos, total, nil
 }
 
 // Complete sets the completed_at timestamp on a todo.
@@ -296,20 +392,4 @@ func scanTodo(rows *sql.Rows) (*repository.Todo, error) {
 	}
 
 	return &todo, nil
-}
-
-// scanTodos scans rows into a slice of Todo pointers.
-func scanTodos(rows *sql.Rows) ([]*repository.Todo, error) {
-	var todos []*repository.Todo
-	for rows.Next() {
-		todo, err := scanTodo(rows)
-		if err != nil {
-			return nil, fmt.Errorf("scan todo: %w", err)
-		}
-		todos = append(todos, todo)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate todos: %w", err)
-	}
-	return todos, nil
 }

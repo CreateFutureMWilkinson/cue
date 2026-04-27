@@ -16,6 +16,20 @@ type HistoryProvider interface {
 // EventsHandler returns an http.Handler for GET /api/v1/events?since=<seq>.
 // It validates the since query parameter and delegates to the HistoryProvider
 // for the actual event history lookup.
+//
+// @Summary      Replay buffered events
+// @Description  Returns all WebSocket events with sequence numbers greater than
+// @Description  `since`. Clients use this after reconnecting to catch up on
+// @Description  events missed while disconnected. Payload is a JSON array of
+// @Description  EventEnvelope objects matching those pushed over the WebSocket
+// @Description  channel; see docs/api/websocket.md for the envelope schema.
+// @Tags         events
+// @Produce      json
+// @Param        since  query     int  true  "Last seq received by the client"
+// @Success      200    {array}   object
+// @Failure      400    {object}  map[string]string  "invalid since parameter"
+// @Failure      500    {object}  map[string]string  "internal error"
+// @Router       /api/v1/events [get]
 func EventsHandler(p HistoryProvider) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw := r.URL.Query().Get("since")

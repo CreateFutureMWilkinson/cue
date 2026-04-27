@@ -34,6 +34,49 @@ info:
   version: "1.0"
 openapi: 3.1.0
 paths:
+  /api/v1/events:
+    get:
+      description: |-
+        Returns all WebSocket events with sequence numbers greater than
+        `since`. Clients use this after reconnecting to catch up on
+        events missed while disconnected. Payload is a JSON array of
+        EventEnvelope objects matching those pushed over the WebSocket
+        channel; see docs/api/websocket.md for the envelope schema.
+      parameters:
+      - description: Last seq received by the client
+        in: query
+        name: since
+        required: true
+        schema:
+          type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  type: object
+                type: array
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: invalid since parameter
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: internal error
+      summary: Replay buffered events
+      tags:
+      - events
   /api/v1/health:
     get:
       description: |-

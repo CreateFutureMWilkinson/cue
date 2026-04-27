@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -16,7 +17,11 @@ func RecoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				slog.Error("handler panic", "panic", rec, "path", r.URL.Path)
+				// #nosec G706 -- path is sanitized via sanitizeForLog (CR/LF stripped, length-bounded).
+				slog.Error("handler panic",
+					"panic", rec,
+					"path", sanitizeForLog(r.URL.Path),
+				)
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 		}()
@@ -36,6 +41,19 @@ func RequestIDMiddleware(next http.Handler) http.Handler {
 		w.Header().Set(requestIDHeader, id)
 		next.ServeHTTP(w, r)
 	})
+}
+
+// sanitizeForLog strips CR and LF so attacker-controlled request data
+// cannot forge log lines (CWE-117). Long values are also truncated to
+// keep log entries readable.
+func sanitizeForLog(s string) string {
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, "\n", "")
+	const maxLen = 256
+	if len(s) > maxLen {
+		s = s[:maxLen]
+	}
+	return s
 }
 
 func newRequestID() string {
@@ -98,9 +116,10 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(sw, r)
+		// #nosec G706 -- method and path are sanitized via sanitizeForLog (CR/LF stripped, length-bounded).
 		slog.Info("http request",
-			"method", r.Method,
-			"path", r.URL.Path,
+			"method", sanitizeForLog(r.Method),
+			"path", sanitizeForLog(r.URL.Path),
 			"status", sw.status,
 			"duration_ms", time.Since(start).Milliseconds(),
 		)

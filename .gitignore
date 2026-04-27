@@ -1,5 +1,6 @@
 _build/*
 /cue
+/cue-server
 *.test
 coverage.out
 .remember/*

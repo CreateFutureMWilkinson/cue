@@ -9,6 +9,11 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	messagesPath      = "/api/v1/messages"
+	notificationsPath = "/api/v1/notifications"
+)
+
 // Message is a full message list row from /api/v1/messages.
 //
 // It includes the explicit Status field (in contrast to NotificationSummary,
@@ -105,6 +110,14 @@ func NewMessageClient(c *APIClient) MessageClient {
 	return &messageAdapter{client: c}
 }
 
+// buildPath appends the encoded query string to the base path if non-empty.
+func buildPath(base string, query url.Values) string {
+	if encoded := query.Encode(); encoded != "" {
+		return base + "?" + encoded
+	}
+	return base
+}
+
 // ListMessages issues GET /api/v1/messages with the provided filter encoded
 // as query parameters. Returns the messages slice, total count, or an error.
 func (a *messageAdapter) ListMessages(ctx context.Context, filter MessageFilter) ([]Message, int, error) {
@@ -128,10 +141,7 @@ func (a *messageAdapter) ListMessages(ctx context.Context, filter MessageFilter)
 		q.Set("offset", strconv.Itoa(filter.Offset))
 	}
 
-	path := "/api/v1/messages"
-	if encoded := q.Encode(); encoded != "" {
-		path += "?" + encoded
-	}
+	path := buildPath(messagesPath, q)
 
 	var out struct {
 		Messages []Message `json:"messages"`
@@ -146,7 +156,7 @@ func (a *messageAdapter) ListMessages(ctx context.Context, filter MessageFilter)
 // GetMessage issues GET /api/v1/messages/{id} and returns the full detail.
 func (a *messageAdapter) GetMessage(ctx context.Context, id uuid.UUID) (*MessageDetail, error) {
 	var detail MessageDetail
-	if err := a.client.doJSON(ctx, http.MethodGet, "/api/v1/messages/"+id.String(), nil, &detail); err != nil {
+	if err := a.client.doJSON(ctx, http.MethodGet, messagesPath+"/"+id.String(), nil, &detail); err != nil {
 		return nil, err
 	}
 	return &detail, nil
@@ -163,10 +173,7 @@ func (a *messageAdapter) ListNotifications(ctx context.Context, opts ListOptions
 		q.Set("offset", strconv.Itoa(opts.Offset))
 	}
 
-	path := "/api/v1/notifications"
-	if encoded := q.Encode(); encoded != "" {
-		path += "?" + encoded
-	}
+	path := buildPath(notificationsPath, q)
 
 	var out struct {
 		Notifications []NotificationSummary `json:"notifications"`
@@ -182,7 +189,7 @@ func (a *messageAdapter) ListNotifications(ctx context.Context, opts ListOptions
 // MessageDetail shape as GetMessage.
 func (a *messageAdapter) GetNotification(ctx context.Context, id uuid.UUID) (*MessageDetail, error) {
 	var detail MessageDetail
-	if err := a.client.doJSON(ctx, http.MethodGet, "/api/v1/notifications/"+id.String(), nil, &detail); err != nil {
+	if err := a.client.doJSON(ctx, http.MethodGet, notificationsPath+"/"+id.String(), nil, &detail); err != nil {
 		return nil, err
 	}
 	return &detail, nil
@@ -192,10 +199,10 @@ func (a *messageAdapter) GetNotification(ctx context.Context, id uuid.UUID) (*Me
 // Returns a *APIError with ErrCodeConflict when the notification has
 // already been resolved.
 func (a *messageAdapter) ResolveNotification(ctx context.Context, id uuid.UUID) error {
-	return a.client.doJSON(ctx, http.MethodPost, "/api/v1/notifications/"+id.String()+"/resolve", nil, nil)
+	return a.client.doJSON(ctx, http.MethodPost, notificationsPath+"/"+id.String()+"/resolve", nil, nil)
 }
 
 // DismissNotification issues POST /api/v1/notifications/{id}/dismiss.
 func (a *messageAdapter) DismissNotification(ctx context.Context, id uuid.UUID) error {
-	return a.client.doJSON(ctx, http.MethodPost, "/api/v1/notifications/"+id.String()+"/dismiss", nil, nil)
+	return a.client.doJSON(ctx, http.MethodPost, notificationsPath+"/"+id.String()+"/dismiss", nil, nil)
 }

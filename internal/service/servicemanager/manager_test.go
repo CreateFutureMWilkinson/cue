@@ -22,6 +22,13 @@ type mockRepo struct {
 	emailErr         error
 	calendarAccounts []*repository.CalendarAccount
 	calendarErr      error
+
+	getSlackAccount    *repository.SlackAccount
+	getSlackErr        error
+	getEmailAccount    *repository.EmailAccount
+	getEmailErr        error
+	getCalendarAccount *repository.CalendarAccount
+	getCalendarErr     error
 }
 
 func (m *mockRepo) ListSlackAccounts(_ context.Context) ([]*repository.SlackAccount, error) {
@@ -29,7 +36,7 @@ func (m *mockRepo) ListSlackAccounts(_ context.Context) ([]*repository.SlackAcco
 }
 
 func (m *mockRepo) GetSlackAccount(_ context.Context, _ uuid.UUID) (*repository.SlackAccount, error) {
-	return nil, nil
+	return m.getSlackAccount, m.getSlackErr
 }
 
 func (m *mockRepo) UpsertSlackAccount(_ context.Context, _ *repository.SlackAccount) error {
@@ -45,7 +52,7 @@ func (m *mockRepo) ListEmailAccounts(_ context.Context) ([]*repository.EmailAcco
 }
 
 func (m *mockRepo) GetEmailAccount(_ context.Context, _ uuid.UUID) (*repository.EmailAccount, error) {
-	return nil, nil
+	return m.getEmailAccount, m.getEmailErr
 }
 
 func (m *mockRepo) UpsertEmailAccount(_ context.Context, _ *repository.EmailAccount) error {
@@ -61,7 +68,7 @@ func (m *mockRepo) ListCalendarAccounts(_ context.Context) ([]*repository.Calend
 }
 
 func (m *mockRepo) GetCalendarAccount(_ context.Context, _ uuid.UUID) (*repository.CalendarAccount, error) {
-	return nil, nil
+	return m.getCalendarAccount, m.getCalendarErr
 }
 
 func (m *mockRepo) UpsertCalendarAccount(_ context.Context, _ *repository.CalendarAccount) error {
@@ -213,6 +220,113 @@ func (s *ServiceManagerSuite) TestListCalendarAccounts_RepoError() {
 	s.Require().NoError(err)
 
 	got, err := mgr.ListCalendarAccounts(context.Background())
+	s.ErrorIs(err, repoErr)
+	s.Nil(got)
+}
+
+// --- GetSlackAccount ---
+
+func (s *ServiceManagerSuite) TestGetSlackAccount_ReturnsWithMaskedToken() {
+	id := uuid.New()
+	acct := &repository.SlackAccount{
+		ID:           id,
+		Enabled:      true,
+		Token:        "xoxp-real-token",
+		WorkspaceID:  "T001",
+		Username:     "testuser",
+		FriendlyName: "my-workspace",
+	}
+	repo := &mockRepo{getSlackAccount: acct}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.GetSlackAccount(context.Background(), id)
+	s.NoError(err)
+	s.Require().NotNil(got)
+	s.Equal(servicemanager.CredentialMask, got.Token)
+	s.Equal(id, got.ID)
+	s.Equal("T001", got.WorkspaceID)
+	s.Equal("my-workspace", got.FriendlyName)
+}
+
+func (s *ServiceManagerSuite) TestGetSlackAccount_NotFound() {
+	repoErr := errors.New("not found")
+	repo := &mockRepo{getSlackErr: repoErr}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.GetSlackAccount(context.Background(), uuid.New())
+	s.ErrorIs(err, repoErr)
+	s.Nil(got)
+}
+
+// --- GetEmailAccount ---
+
+func (s *ServiceManagerSuite) TestGetEmailAccount_ReturnsWithMaskedPassword() {
+	id := uuid.New()
+	acct := &repository.EmailAccount{
+		ID:           id,
+		Enabled:      true,
+		IMAPHost:     "imap.example.com",
+		IMAPPort:     993,
+		Username:     "user@example.com",
+		Password:     "secret123",
+		Encryption:   "tls",
+		FriendlyName: "personal",
+	}
+	repo := &mockRepo{getEmailAccount: acct}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.GetEmailAccount(context.Background(), id)
+	s.NoError(err)
+	s.Require().NotNil(got)
+	s.Equal(servicemanager.CredentialMask, got.Password)
+	s.Equal(id, got.ID)
+	s.Equal("imap.example.com", got.IMAPHost)
+	s.Equal("personal", got.FriendlyName)
+}
+
+func (s *ServiceManagerSuite) TestGetEmailAccount_NotFound() {
+	repoErr := errors.New("not found")
+	repo := &mockRepo{getEmailErr: repoErr}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.GetEmailAccount(context.Background(), uuid.New())
+	s.ErrorIs(err, repoErr)
+	s.Nil(got)
+}
+
+// --- GetCalendarAccount ---
+
+func (s *ServiceManagerSuite) TestGetCalendarAccount_Returns() {
+	id := uuid.New()
+	acct := &repository.CalendarAccount{
+		ID:      id,
+		Enabled: true,
+		Name:    "personal-cal",
+		ICSURL:  "https://cal.example.com/a.ics",
+	}
+	repo := &mockRepo{getCalendarAccount: acct}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.GetCalendarAccount(context.Background(), id)
+	s.NoError(err)
+	s.Require().NotNil(got)
+	s.Equal(id, got.ID)
+	s.Equal("personal-cal", got.Name)
+	s.Equal("https://cal.example.com/a.ics", got.ICSURL)
+}
+
+func (s *ServiceManagerSuite) TestGetCalendarAccount_NotFound() {
+	repoErr := errors.New("not found")
+	repo := &mockRepo{getCalendarErr: repoErr}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.GetCalendarAccount(context.Background(), uuid.New())
 	s.ErrorIs(err, repoErr)
 	s.Nil(got)
 }

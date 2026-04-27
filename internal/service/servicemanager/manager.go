@@ -93,3 +93,31 @@ func (m *ServiceManager) ListEmailAccounts(ctx context.Context) ([]*repository.E
 func (m *ServiceManager) ListCalendarAccounts(ctx context.Context) ([]*repository.CalendarAccount, error) {
 	return m.repo.ListCalendarAccounts(ctx)
 }
+
+// CredentialMask is the placeholder used in place of sensitive fields in API responses.
+const CredentialMask = "***"
+
+// GetSlackAccount retrieves a Slack account by ID with credentials masked.
+func (m *ServiceManager) GetSlackAccount(ctx context.Context, id uuid.UUID) (*repository.SlackAccount, error) {
+	acct, err := m.repo.GetSlackAccount(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	acct.Token = CredentialMask
+	return acct, nil
+}
+
+// GetEmailAccount retrieves an Email account by ID with credentials masked.
+func (m *ServiceManager) GetEmailAccount(ctx context.Context, id uuid.UUID) (*repository.EmailAccount, error) {
+	acct, err := m.repo.GetEmailAccount(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	acct.Password = CredentialMask
+	return acct, nil
+}
+
+// GetCalendarAccount retrieves a Calendar account by ID.
+func (m *ServiceManager) GetCalendarAccount(ctx context.Context, id uuid.UUID) (*repository.CalendarAccount, error) {
+	return m.repo.GetCalendarAccount(ctx, id)
+}

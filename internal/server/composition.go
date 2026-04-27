@@ -331,7 +331,9 @@ func (c *Composition) Shutdown(ctx context.Context) error {
 		slog.Info("shutdown initiated")
 
 		slog.Info("stopping orchestrator", "note", "waiting for in-flight polls to complete")
-		c.Orchestrator.Stop()
+		if err := c.Orchestrator.Stop(); err != nil {
+			slog.Error("failed to stop orchestrator", "error", err)
+		}
 
 		slog.Info("stopping queue processor")
 		c.QueueProcessor.Stop()

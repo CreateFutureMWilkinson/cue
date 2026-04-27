@@ -1,7 +1,7 @@
 # Feature 106A: API Documentation
 
 **Phase:** Phase-9-Feature-106A
-**Status:** Planning
+**Status:** Done
 **Depends on:** Features 097–104, 108 (all Done)
 **Artifacts:** `docs/api/openapi.yaml`, `docs/api/websocket.md`, `scripts/api-lint/`, `just api-gen`, `just api-lint`, `cue-server` route `GET /docs/api`
 
@@ -153,3 +153,26 @@ Hand-author `docs/api/websocket.md` covering connection, auth, envelope schema, 
 - Handler framework migration (fuego / huma / goa). Future work if desired.
 - Client codegen automation. The committed spec enables it; the repo does not run it.
 - HTML export of the WebSocket reference — Markdown is sufficient.
+
+## Final Stats
+
+Feature shipped over 16 commits on `develop`:
+
+| Phase | Commits | Notes |
+|-------|---------|-------|
+| A.1 swag tool | `fd4a7aa` | go.mod tool directive + `just api-gen`. |
+| A.2 api-lint | `87cc81b` (RED) → `0a65dc7` (GREEN); refactor skipped | `kin-openapi/openapi3` validator; `just api-lint`. |
+| B Health | `71085d2` | 4 routes + general API info block. |
+| B Timer | `f7209e6` | 1 route. |
+| B Events replay | `b6037b1` | 1 route. |
+| B Messages + Notifications | `e8ac6ad` | 6 handlers. |
+| B Buffer | `fafde08` | 5 handlers. |
+| B Tasks | `1afdeff` | 5 handlers. |
+| B Planner | `28ee0e9` | 4 handlers; `/active` aliases described in prose, not separately routed in spec (path-param mismatch with /active). |
+| B Services | `9cfa470` | 19 handlers. |
+| B Rules | `b5ea72c` | 6 handlers; PATCH covers reorder + toggle in lieu of a separate `/reorder`. |
+| B Auth + Pairing | `21af1f8` | 7 handlers; `/auth/logout` not in current code base — omitted. |
+| C WebSocket reference | `7223821` | `docs/api/websocket.md`. |
+| D /docs/api route | `a71b323` (RED) → `b8097be` (GREEN) → `c6fdb9b` (REFACTOR) | `swaggest/swgui/v5emb`, embed package at `docs/api/embed.go`. |
+
+Quality gates at completion: `just test` green, `just security` clean (0 issues), `just vulncheck` clean (0 vulnerabilities in called code), `just fmt && just lint && just tidy` clean.

@@ -862,3 +862,21 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-9-Feature-106 (L12 WS Reconnection) | GREEN | go-implementer | ~1409s | ~69,654 | 75b8680 |
 | Phase-9-Feature-106 (L12 WS Reconnection) | REFACTOR | go-refactorer | ~47s | ~31,035 | a47b16c |
 | Phase-9-Feature-106 (wiring cleanup) | CHORE | main | inline | inline | 2916b2a |
+| Phase-9-Feature-106A (A.1 swag tool) | CHORE | main | inline | inline | fd4a7aa |
+| Phase-9-Feature-106A (A.2 api-lint) | RED | go-test-designer | ~82s | ~37,144 | 87cc81b |
+| Phase-9-Feature-106A (A.2 api-lint) | GREEN | go-implementer | ~67s | ~38,686 | 0a65dc7 |
+| Phase-9-Feature-106A (A.2 api-lint) | REFACTOR | go-refactorer | ~21s | ~22,932 | — |
+| Phase-9-Feature-106A (B Health) | DOCS | main | inline | inline | 71085d2 |
+| Phase-9-Feature-106A (B Timer) | DOCS | main | inline | inline | f7209e6 |
+| Phase-9-Feature-106A (B Events replay) | DOCS | main | inline | inline | b6037b1 |
+| Phase-9-Feature-106A (B Messages + Notifications) | DOCS | main | inline | inline | e8ac6ad |
+| Phase-9-Feature-106A (B Buffer) | DOCS | main | inline | inline | fafde08 |
+| Phase-9-Feature-106A (B Tasks) | DOCS | main | inline | inline | 1afdeff |
+| Phase-9-Feature-106A (B Planner) | DOCS | main | inline | inline | 28ee0e9 |
+| Phase-9-Feature-106A (B Services) | DOCS | main | inline | inline | 9cfa470 |
+| Phase-9-Feature-106A (B Rules) | DOCS | main | inline | inline | b5ea72c |
+| Phase-9-Feature-106A (B Auth + Pairing) | DOCS | main | inline | inline | 21af1f8 |
+| Phase-9-Feature-106A (C WebSocket reference) | DOCS | main | inline | inline | 7223821 |
+| Phase-9-Feature-106A (D /docs/api route) | RED | go-test-designer | ~80s | ~45,000 | a71b323 |
+| Phase-9-Feature-106A (D /docs/api route) | GREEN | go-implementer | ~5500s | ~61,629 | b8097be |
+| Phase-9-Feature-106A (D /docs/api route) | REFACTOR | go-refactorer | ~63s | ~32,068 | c6fdb9b |

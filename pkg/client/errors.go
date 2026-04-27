@@ -28,6 +28,12 @@ type APIError struct {
 	StatusCode int
 	Code       string
 	Message    string
+
+	// body holds the raw response bytes so the client can re-inspect the
+	// payload after ParseErrorResponse has summarized it (used by the
+	// TOKEN_ISSUED auto-retry path in doJSON). Unexported because it is
+	// an internal transport concern, not part of the SDK's error surface.
+	body []byte
 }
 
 // Error implements the error interface.

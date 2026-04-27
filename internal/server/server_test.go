@@ -714,3 +714,39 @@ func (s *ServerSuite) TestPlannerRoutesNotRegisteredWhenNil() {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Feature-106A Phase D: Swagger UI route — GET /docs/api
+// ---------------------------------------------------------------------------
+
+func (s *ServerSuite) TestDocsAPIRouteServesSwaggerUI() {
+	cfg := config.ServerConfig{
+		Host:                "127.0.0.1",
+		Port:                0,
+		ReadTimeoutSeconds:  5,
+		WriteTimeoutSeconds: 5,
+	}
+
+	srv, err := server.New(cfg)
+	s.Require().NoError(err)
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/docs/api")
+	s.Require().NoError(err)
+	defer resp.Body.Close()
+
+	s.Equal(http.StatusOK, resp.StatusCode,
+		"GET /docs/api should return 200 with Swagger UI")
+
+	contentType := resp.Header.Get("Content-Type")
+	s.Contains(contentType, "text/html",
+		"GET /docs/api should respond with text/html, got %q", contentType)
+
+	body, err := io.ReadAll(resp.Body)
+	s.Require().NoError(err)
+
+	s.Contains(string(body), "swagger-ui",
+		"GET /docs/api response body should contain Swagger UI markup (substring \"swagger-ui\")")
+}

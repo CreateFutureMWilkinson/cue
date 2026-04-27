@@ -39,6 +39,30 @@ type Publisher interface {
 	Unsubscribe(id string) error
 }
 
+// tryReserveSlot attempts to atomically reserve a connection slot using
+// compare-and-swap to prevent TOCTOU races. Returns true if successful.
+func tryReserveSlot(active *atomic.Int32) bool {
+	for {
+		cur := active.Load()
+		if cur >= int32(MaxConnections) {
+			return false
+		}
+		if active.CompareAndSwap(cur, cur+1) {
+			return true
+		}
+		// CAS failed due to concurrent update, retry
+	}
+}
+
+// writeTooManyConnections writes a 503 Service Unavailable response with
+// appropriate headers and JSON error body when connection capacity is exceeded.
+func writeTooManyConnections(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", "5") // Suggest client retry after 5 seconds
+	w.WriteHeader(http.StatusServiceUnavailable)
+	_, _ = w.Write([]byte(`{"error":"too many connections"}`))
+}
+
 // WebSocketHandler returns an http.Handler that upgrades HTTP connections
 // to WebSocket, subscribes to the event hub, and forwards broadcast events
 // to the connected client as JSON messages.
@@ -49,20 +73,10 @@ type Publisher interface {
 func WebSocketHandler(hub Publisher) http.Handler {
 	var active atomic.Int32
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Enforce per-handler connection cap using compare-and-swap to avoid
-		// TOCTOU races under burst traffic.
-		for {
-			cur := active.Load()
-			if cur >= int32(MaxConnections) {
-				w.Header().Set("Content-Type", "application/json")
-				w.Header().Set("Retry-After", "5")
-				w.WriteHeader(http.StatusServiceUnavailable)
-				_, _ = w.Write([]byte(`{"error":"too many connections"}`))
-				return
-			}
-			if active.CompareAndSwap(cur, cur+1) {
-				break
-			}
+		// Enforce per-handler connection cap using atomic operations
+		if !tryReserveSlot(&active) {
+			writeTooManyConnections(w)
+			return
 		}
 		defer active.Add(-1)
 

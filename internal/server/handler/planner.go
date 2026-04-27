@@ -231,10 +231,78 @@ func plannerBlockTypeString(t planner.BlockType) string {
 	}
 }
 
+// dayScheduleToOption converts a planner.DaySchedule to its generateOptionItem form.
+func dayScheduleToOption(ds *planner.DaySchedule) generateOptionItem {
+	blocks := make([]scheduleBlockItem, len(ds.Blocks))
+	var totalFocus int
+	var breakCount int
+	for i, b := range ds.Blocks {
+		blocks[i] = scheduleBlockItem{
+			Start:    b.Start.Format("15:04"),
+			End:      b.End.Format("15:04"),
+			Type:     plannerBlockTypeString(b.Type),
+			TaskName: b.TaskName,
+		}
+		if b.TaskID != nil {
+			s := b.TaskID.String()
+			blocks[i].TaskID = &s
+		}
+		switch b.Type {
+		case planner.BlockFocus:
+			totalFocus += int(b.End.Sub(b.Start).Minutes())
+		case planner.BlockShortBreak, planner.BlockLongBreak:
+			breakCount++
+		}
+	}
+	return generateOptionItem{
+		Strategy:          ds.Strategy,
+		TotalFocusMinutes: totalFocus,
+		BreakCount:        breakCount,
+		Blocks:            blocks,
+	}
+}
+
 // GenerateSchedulesHandler returns an http.HandlerFunc for POST /api/v1/planner/generate.
-func GenerateSchedulesHandler(_ ScheduleGenerator, _ CalendarFetcher) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		writeJSONError(w, http.StatusNotImplemented, ErrNotImplemented.Error())
+func GenerateSchedulesHandler(gen ScheduleGenerator, cal CalendarFetcher) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req generateRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+
+		var targetDate time.Time
+		if req.Date != nil {
+			var err error
+			targetDate, err = time.Parse("2006-01-02", *req.Date)
+			if err != nil {
+				writeJSONError(w, http.StatusBadRequest, "invalid date format")
+				return
+			}
+		} else {
+			targetDate = gen.TargetDate(time.Now())
+		}
+
+		events, err := cal.FetchEvents(r.Context(), targetDate)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to fetch calendar events")
+			return
+		}
+
+		focus, recovery, err := gen.GenerateSchedules(r.Context(), []planner.TaskEstimate{}, events, targetDate)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to generate schedules")
+			return
+		}
+
+		resp := generateResponse{
+			Date: targetDate.Format("2006-01-02"),
+			Options: []generateOptionItem{
+				dayScheduleToOption(focus),
+				dayScheduleToOption(recovery),
+			},
+		}
+		writeJSON(w, http.StatusOK, resp)
 	}
 }
 

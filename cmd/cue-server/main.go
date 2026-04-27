@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
+	sqlite "github.com/CreateFutureMWilkinson/cue/internal/repository/implementation/sqlite"
 	"github.com/CreateFutureMWilkinson/cue/internal/server"
 )
 
@@ -46,7 +47,12 @@ func run() error {
 		return fmt.Errorf("validating config: %w", err)
 	}
 
-	srv, err := server.New(cfg.Server)
+	msgRepo, err := sqlite.NewSQLiteMessageRepository(cfg.Database.Path, cfg.Orchestrator.Router.BufferSizePerSource)
+	if err != nil {
+		return fmt.Errorf("opening message database: %w", err)
+	}
+
+	srv, err := server.New(cfg.Server, server.Deps{Messages: msgRepo})
 	if err != nil {
 		return fmt.Errorf("constructing server: %w", err)
 	}

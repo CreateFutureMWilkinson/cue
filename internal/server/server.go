@@ -10,13 +10,21 @@ import (
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
+	"github.com/CreateFutureMWilkinson/cue/internal/server/handler"
 )
+
+// Deps holds optional dependencies injected into the server.
+// Nil fields disable the corresponding API surface.
+type Deps struct {
+	Messages handler.MessageQuerier
+}
 
 // Server is the headless HTTP/WebSocket entry point for Cue.
 // It wires repositories, services, and watchers and exposes them
 // over HTTP handlers and a WebSocket event broadcaster.
 type Server struct {
 	cfg     config.ServerConfig
+	deps    Deps
 	hub     *Hub
 	mux     *http.ServeMux
 	handler http.Handler
@@ -26,15 +34,22 @@ type Server struct {
 	listener net.Listener
 }
 
-// New creates a Server from the given config. It does not start listening.
-func New(cfg config.ServerConfig) (*Server, error) {
+// New creates a Server from the given config and optional dependencies.
+// It does not start listening.
+func New(cfg config.ServerConfig, deps ...Deps) (*Server, error) {
 	mux := http.NewServeMux()
 	hub := NewHub()
 
+	var d Deps
+	if len(deps) > 0 {
+		d = deps[0]
+	}
+
 	s := &Server{
-		cfg: cfg,
-		hub: hub,
-		mux: mux,
+		cfg:  cfg,
+		deps: d,
+		hub:  hub,
+		mux:  mux,
 	}
 
 	s.registerRoutes()
@@ -63,6 +78,15 @@ func (s *Server) registerRoutes() {
 	s.mux.Handle("GET /health/ready", ReadyHandler())
 	s.mux.Handle("GET /api/v1/health", HealthHandler())
 	s.mux.Handle("GET /api/v1/health/ready", ReadyHandler())
+
+	if s.deps.Messages != nil {
+		s.mux.Handle("GET /api/v1/notifications", handler.ListNotificationsHandler(s.deps.Messages))
+		s.mux.Handle("GET /api/v1/notifications/{id}", handler.GetNotificationHandler(s.deps.Messages))
+		s.mux.Handle("POST /api/v1/notifications/{id}/resolve", handler.ResolveNotificationHandler(s.deps.Messages))
+		s.mux.Handle("POST /api/v1/notifications/{id}/dismiss", handler.DismissNotificationHandler(s.deps.Messages))
+		s.mux.Handle("GET /api/v1/messages", handler.ListMessagesHandler(s.deps.Messages))
+		s.mux.Handle("GET /api/v1/messages/{id}", handler.GetMessageHandler(s.deps.Messages))
+	}
 }
 
 // Hub returns the WebSocket event broadcaster so callers can publish

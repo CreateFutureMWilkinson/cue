@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"sort"
 	"time"
 )
 
@@ -94,7 +95,40 @@ type EmbedIndex struct {
 // SelectExamplesByEmbedding selects up to n pool entries most similar
 // to the scored entry's embedding.
 func SelectExamplesByEmbedding(entryID string, index EmbedIndex, n int) []CorpusEntry {
-	return nil
+	scoredVec, ok := index.Scored[entryID]
+	if !ok {
+		return nil
+	}
+	if n <= 0 || len(index.Pool) == 0 {
+		return nil
+	}
+
+	type ranked struct {
+		entry      CorpusEntry
+		similarity float64
+	}
+
+	items := make([]ranked, len(index.Pool))
+	for i, er := range index.Pool {
+		items[i] = ranked{
+			entry:      er.Entry,
+			similarity: CosineSimilarity(scoredVec, er.Embedding),
+		}
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].similarity > items[j].similarity
+	})
+
+	if n > len(items) {
+		n = len(items)
+	}
+
+	result := make([]CorpusEntry, n)
+	for i := 0; i < n; i++ {
+		result[i] = items[i].entry
+	}
+	return result
 }
 
 // BuildEmbedIndex embeds all pool and scored entries, returning the

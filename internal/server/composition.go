@@ -21,6 +21,10 @@ import (
 // ErrCompositionNotImplemented is returned by stub methods that are not yet implemented.
 var ErrCompositionNotImplemented = errors.New("not implemented")
 
+// orchestratorEventBufferSize defines the buffer size for the activity event channel
+// shared between orchestrator/queue processor and the hub publisher.
+const orchestratorEventBufferSize = 100
+
 // Composition holds all long-lived components wired into cue-server.
 // All repositories share a single SQLite database connection for consistency.
 type Composition struct {
@@ -69,45 +73,10 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, err
 	}
 
-	hub := NewHub()
-	alerter := NewHubAlerter(hub)
-
-	eventCh := make(chan orchestrator.ActivityEvent, 100)
-
-	orch, err := orchestrator.NewOrchestrator(
-		orchestrator.OrchestratorConfig{
-			PollIntervalSeconds:   cfg.Orchestrator.PollIntervalSeconds,
-			QueueWarningThreshold: cfg.Orchestrator.Router.QueueWarningThreshold,
-		},
-		rulesEngine,
-		queueRepo,
-		msgRepo,
-		nil, // watchers wired in B6
-		eventCh,
-		alerter,
-	)
+	hub, alerter, orch, queueProcessor, eventCh, err := startOrchestration(ctx, cfg, msgRepo, queueRepo, rulesEngine, ollamaClient)
 	if err != nil {
-		return nil, fmt.Errorf("creating orchestrator: %w", err)
+		return nil, err
 	}
-
-	queueProcessor, err := orchestrator.NewQueueProcessor(
-		queueRepo,
-		msgRepo,
-		ollamaClient,
-		alerter,
-		eventCh,
-		float64(cfg.Orchestrator.Router.ImportanceThreshold),
-		cfg.Orchestrator.Router.ConfidenceThreshold,
-		time.Duration(cfg.Orchestrator.OllamaCooldownSeconds)*time.Second,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("creating queue processor: %w", err)
-	}
-
-	if err := orch.Start(ctx); err != nil {
-		return nil, fmt.Errorf("starting orchestrator: %w", err)
-	}
-	queueProcessor.Start(ctx)
 
 	return &Composition{
 		MessageRepo:       msgRepo,
@@ -199,6 +168,59 @@ func constructServices(ctx context.Context, cfg config.Config, ruleRepo reposito
 	rulesEngine := decisionengine.NewRulesEngine(ruleList)
 
 	return ollamaClient, vectorStore, rulesEngine, nil
+}
+
+// startOrchestration creates the hub, alerter, orchestrator, and queue processor,
+// then starts the orchestrator and queue processor.
+func startOrchestration(
+	ctx context.Context,
+	cfg config.Config,
+	msgRepo repository.MessageRepository,
+	queueRepo repository.QueueRepository,
+	rulesEngine *decisionengine.RulesEngine,
+	ollamaClient *decisionengine.OllamaClient,
+) (*Hub, *HubAlerter, *orchestrator.Orchestrator, *orchestrator.QueueProcessor, chan orchestrator.ActivityEvent, error) {
+	hub := NewHub()
+	alerter := NewHubAlerter(hub)
+
+	eventCh := make(chan orchestrator.ActivityEvent, orchestratorEventBufferSize)
+
+	orch, err := orchestrator.NewOrchestrator(
+		orchestrator.OrchestratorConfig{
+			PollIntervalSeconds:   cfg.Orchestrator.PollIntervalSeconds,
+			QueueWarningThreshold: cfg.Orchestrator.Router.QueueWarningThreshold,
+		},
+		rulesEngine,
+		queueRepo,
+		msgRepo,
+		nil, // watchers wired in B6
+		eventCh,
+		alerter,
+	)
+	if err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("creating orchestrator: %w", err)
+	}
+
+	queueProcessor, err := orchestrator.NewQueueProcessor(
+		queueRepo,
+		msgRepo,
+		ollamaClient,
+		alerter,
+		eventCh,
+		float64(cfg.Orchestrator.Router.ImportanceThreshold),
+		cfg.Orchestrator.Router.ConfidenceThreshold,
+		time.Duration(cfg.Orchestrator.OllamaCooldownSeconds)*time.Second,
+	)
+	if err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("creating queue processor: %w", err)
+	}
+
+	if err := orch.Start(ctx); err != nil {
+		return nil, nil, nil, nil, nil, fmt.Errorf("starting orchestrator: %w", err)
+	}
+	queueProcessor.Start(ctx)
+
+	return hub, alerter, orch, queueProcessor, eventCh, nil
 }
 
 // Shutdown performs an ordered shutdown of all composition components.

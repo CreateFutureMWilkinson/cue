@@ -1,6 +1,13 @@
 package server
 
-import "context"
+import (
+	"context"
+
+	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
+)
+
+// Compile-time verification that HubAlerter implements orchestrator.Alerter.
+var _ orchestrator.Alerter = (*HubAlerter)(nil)
 
 // HubAlerter is an orchestrator.Alerter implementation that broadcasts alert
 // envelopes to connected WebSocket clients via a Hub, instead of playing local

@@ -18,6 +18,10 @@ const (
 	// MaxConnections is the hard-coded maximum number of concurrent WebSocket
 	// connections. The (MaxConnections+1)th upgrade attempt receives HTTP 503.
 	MaxConnections = 16
+
+	// Production defaults for heartbeat intervals when using WebSocketHandler.
+	defaultHeartbeatInterval = 30 * time.Second // How often to send ping messages
+	defaultHeartbeatTimeout  = 10 * time.Second // How long to wait for pong response
 )
 
 // Subscription represents a connected subscriber that receives broadcast
@@ -63,14 +67,43 @@ func writeTooManyConnections(w http.ResponseWriter) {
 	_, _ = w.Write([]byte(`{"error":"too many connections"}`))
 }
 
+// runHeartbeat sends periodic ping messages to detect half-open connections.
+// It runs in a separate goroutine and closes the connection if no pong is
+// received within the configured timeout. This helps detect clients that
+// have silently disconnected without sending a proper close frame.
+func runHeartbeat(ctx context.Context, conn *websocket.Conn, interval, timeout time.Duration, cancel context.CancelFunc) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			pingCtx, pingCancel := context.WithTimeout(ctx, timeout)
+			pingErr := conn.Ping(pingCtx)
+			pingCancel()
+			if pingErr != nil {
+				// Pong not received within timeout or connection already dead.
+				// Use CloseNow instead of Close because CloseRead (called in the
+				// main handler) already holds the read lock. Using Close would block
+				// on the close handshake trying to acquire that read lock (up to 5s).
+				conn.CloseNow()
+				cancel()
+				return
+			}
+		}
+	}
+}
+
 // WebSocketHandlerWithHeartbeat returns an http.Handler identical to
 // WebSocketHandler but with configurable ping/pong heartbeat intervals.
 // The server sends a WebSocket ping every `interval`; if no pong is
 // received within `timeout` the connection is closed and the subscriber
 // is removed from the hub.
 //
-// Production callers should use WebSocketHandler which delegates here
-// with 30 s / 10 s defaults.
+// For typical production use, prefer WebSocketHandler which uses sensible
+// defaults (30s ping interval, 10s pong timeout). This function is useful
+// for testing or specialized deployments requiring different timings.
 func WebSocketHandlerWithHeartbeat(hub Publisher, interval, timeout time.Duration) http.Handler {
 	var active atomic.Int32
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -105,32 +138,8 @@ func WebSocketHandlerWithHeartbeat(hub Publisher, interval, timeout time.Duratio
 		ctx, cancel := context.WithCancel(conn.CloseRead(r.Context()))
 		defer cancel()
 
-		// Heartbeat goroutine: sends periodic pings and closes the connection
-		// if a pong is not received within the configured timeout. This detects
-		// half-open connections where the client has silently disappeared.
-		go func() {
-			ticker := time.NewTicker(interval)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					pingCtx, pingCancel := context.WithTimeout(ctx, timeout)
-					pingErr := conn.Ping(pingCtx)
-					pingCancel()
-					if pingErr != nil {
-						// Pong not received within timeout or connection already dead.
-						// Use CloseNow instead of Close because CloseRead already
-						// holds the read lock; Close would block on the close
-						// handshake trying to acquire it (up to 5s).
-						conn.CloseNow()
-						cancel()
-						return
-					}
-				}
-			}
-		}()
+		// Start heartbeat monitoring in background goroutine
+		go runHeartbeat(ctx, conn, interval, timeout, cancel)
 
 		for {
 			select {
@@ -162,10 +171,12 @@ func WebSocketHandlerWithHeartbeat(hub Publisher, interval, timeout time.Duratio
 //
 // The handler automatically manages the subscription lifecycle, cleaning up
 // when the client disconnects or an error occurs. Write timeouts prevent
-// slow clients from blocking the event stream.
+// slow clients from blocking the event stream. Heartbeat ping/pong messages
+// detect half-open connections.
 //
-// It delegates to WebSocketHandlerWithHeartbeat with production defaults
-// of 30 s ping interval and 10 s pong timeout.
+// This function uses production defaults for heartbeat timings (30s ping
+// interval, 10s pong timeout). For custom timings, use
+// WebSocketHandlerWithHeartbeat directly.
 func WebSocketHandler(hub Publisher) http.Handler {
-	return WebSocketHandlerWithHeartbeat(hub, 30*time.Second, 10*time.Second)
+	return WebSocketHandlerWithHeartbeat(hub, defaultHeartbeatInterval, defaultHeartbeatTimeout)
 }

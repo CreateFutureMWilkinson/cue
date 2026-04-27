@@ -160,6 +160,13 @@ func writeServiceError(w http.ResponseWriter, err error) {
 // --- Slack handlers ---
 
 // ListSlackAccountsHandler returns an http.HandlerFunc for GET /api/v1/services/slack.
+//
+// @Summary      List Slack accounts
+// @Tags         services-slack
+// @Produce      json
+// @Success      200  {object}  map[string]any
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/services/slack [get]
 func ListSlackAccountsHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		accounts, err := svc.ListSlackAccounts(r.Context())
@@ -181,6 +188,16 @@ func ListSlackAccountsHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // GetSlackAccountHandler returns an http.HandlerFunc for GET /api/v1/services/slack/{id}.
+//
+// @Summary      Get Slack account
+// @Tags         services-slack
+// @Produce      json
+// @Param        id   path      string  true  "Account UUID"
+// @Success      200  {object}  handler.slackAccountItem
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/services/slack/{id} [get]
 func GetSlackAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseServiceID(r)
@@ -200,6 +217,16 @@ func GetSlackAccountHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // CreateSlackAccountHandler returns an http.HandlerFunc for POST /api/v1/services/slack.
+//
+// @Summary      Create Slack account
+// @Tags         services-slack
+// @Accept       json
+// @Produce      json
+// @Param        request  body      handler.createSlackRequest  true  "Slack account fields"
+// @Success      201      {object}  handler.slackAccountItem
+// @Failure      400      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/services/slack [post]
 func CreateSlackAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req createSlackRequest
@@ -226,6 +253,18 @@ func CreateSlackAccountHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // UpdateSlackAccountHandler returns an http.HandlerFunc for PUT /api/v1/services/slack/{id}.
+//
+// @Summary      Update Slack account
+// @Tags         services-slack
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string                      true  "Account UUID"
+// @Param        request  body      handler.createSlackRequest  true  "Slack account fields"
+// @Success      200      {object}  handler.slackAccountItem
+// @Failure      400      {object}  map[string]string
+// @Failure      404      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/services/slack/{id} [put]
 func UpdateSlackAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseServiceID(r)
@@ -258,6 +297,15 @@ func UpdateSlackAccountHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // DeleteSlackAccountHandler returns an http.HandlerFunc for DELETE /api/v1/services/slack/{id}.
+//
+// @Summary      Delete Slack account
+// @Tags         services-slack
+// @Param        id   path  string  true  "Account UUID"
+// @Success      204  "No Content"
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/services/slack/{id} [delete]
 func DeleteSlackAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseServiceID(r)
@@ -276,6 +324,17 @@ func DeleteSlackAccountHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // ToggleSlackAccountHandler returns an http.HandlerFunc for POST /api/v1/services/slack/{id}/toggle.
+//
+// @Summary      Enable or disable Slack account
+// @Tags         services-slack
+// @Accept       json
+// @Param        id       path  string                  true  "Account UUID"
+// @Param        request  body  handler.toggleRequest   true  "Desired enabled state"
+// @Success      204  "No Content"
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/services/slack/{id}/toggle [post]
 func ToggleSlackAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseServiceID(r)
@@ -302,6 +361,13 @@ func ToggleSlackAccountHandler(svc ServiceManager) http.HandlerFunc {
 // --- Email handlers ---
 
 // ListEmailAccountsHandler returns an http.HandlerFunc for GET /api/v1/services/email.
+//
+// @Summary      List email accounts
+// @Tags         services-email
+// @Produce      json
+// @Success      200  {object}  map[string]any
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/services/email [get]
 func ListEmailAccountsHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		accounts, err := svc.ListEmailAccounts(r.Context())
@@ -323,6 +389,16 @@ func ListEmailAccountsHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // GetEmailAccountHandler returns an http.HandlerFunc for GET /api/v1/services/email/{id}.
+//
+// @Summary      Get email account
+// @Tags         services-email
+// @Produce      json
+// @Param        id   path      string  true  "Account UUID"
+// @Success      200  {object}  handler.emailAccountItem
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/services/email/{id} [get]
 func GetEmailAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseServiceID(r)
@@ -342,6 +418,16 @@ func GetEmailAccountHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // CreateEmailAccountHandler returns an http.HandlerFunc for POST /api/v1/services/email.
+//
+// @Summary      Create email account
+// @Tags         services-email
+// @Accept       json
+// @Produce      json
+// @Param        request  body      handler.createEmailRequest  true  "Email account fields"
+// @Success      201      {object}  handler.emailAccountItem
+// @Failure      400      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/services/email [post]
 func CreateEmailAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req createEmailRequest
@@ -371,6 +457,18 @@ func CreateEmailAccountHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // UpdateEmailAccountHandler returns an http.HandlerFunc for PUT /api/v1/services/email/{id}.
+//
+// @Summary      Update email account
+// @Tags         services-email
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string                      true  "Account UUID"
+// @Param        request  body      handler.createEmailRequest  true  "Email account fields"
+// @Success      200      {object}  handler.emailAccountItem
+// @Failure      400      {object}  map[string]string
+// @Failure      404      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/services/email/{id} [put]
 func UpdateEmailAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseServiceID(r)
@@ -406,6 +504,15 @@ func UpdateEmailAccountHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // DeleteEmailAccountHandler returns an http.HandlerFunc for DELETE /api/v1/services/email/{id}.
+//
+// @Summary      Delete email account
+// @Tags         services-email
+// @Param        id   path  string  true  "Account UUID"
+// @Success      204  "No Content"
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/services/email/{id} [delete]
 func DeleteEmailAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseServiceID(r)
@@ -424,6 +531,17 @@ func DeleteEmailAccountHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // ToggleEmailAccountHandler returns an http.HandlerFunc for POST /api/v1/services/email/{id}/toggle.
+//
+// @Summary      Enable or disable email account
+// @Tags         services-email
+// @Accept       json
+// @Param        id       path  string                  true  "Account UUID"
+// @Param        request  body  handler.toggleRequest   true  "Desired enabled state"
+// @Success      204  "No Content"
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/services/email/{id}/toggle [post]
 func ToggleEmailAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseServiceID(r)
@@ -450,6 +568,13 @@ func ToggleEmailAccountHandler(svc ServiceManager) http.HandlerFunc {
 // --- Calendar handlers ---
 
 // ListCalendarAccountsHandler returns an http.HandlerFunc for GET /api/v1/services/calendar.
+//
+// @Summary      List calendar accounts
+// @Tags         services-calendar
+// @Produce      json
+// @Success      200  {object}  map[string]any
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/services/calendar [get]
 func ListCalendarAccountsHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		accounts, err := svc.ListCalendarAccounts(r.Context())
@@ -471,6 +596,16 @@ func ListCalendarAccountsHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // GetCalendarAccountHandler returns an http.HandlerFunc for GET /api/v1/services/calendar/{id}.
+//
+// @Summary      Get calendar account
+// @Tags         services-calendar
+// @Produce      json
+// @Param        id   path      string  true  "Account UUID"
+// @Success      200  {object}  handler.calendarAccountItem
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/services/calendar/{id} [get]
 func GetCalendarAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseServiceID(r)
@@ -490,6 +625,16 @@ func GetCalendarAccountHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // CreateCalendarAccountHandler returns an http.HandlerFunc for POST /api/v1/services/calendar.
+//
+// @Summary      Create calendar account
+// @Tags         services-calendar
+// @Accept       json
+// @Produce      json
+// @Param        request  body      handler.createCalendarRequest  true  "Calendar account fields"
+// @Success      201      {object}  handler.calendarAccountItem
+// @Failure      400      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/services/calendar [post]
 func CreateCalendarAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req createCalendarRequest
@@ -515,6 +660,18 @@ func CreateCalendarAccountHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // UpdateCalendarAccountHandler returns an http.HandlerFunc for PUT /api/v1/services/calendar/{id}.
+//
+// @Summary      Update calendar account
+// @Tags         services-calendar
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string                         true  "Account UUID"
+// @Param        request  body      handler.createCalendarRequest  true  "Calendar account fields"
+// @Success      200      {object}  handler.calendarAccountItem
+// @Failure      400      {object}  map[string]string
+// @Failure      404      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/services/calendar/{id} [put]
 func UpdateCalendarAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseServiceID(r)
@@ -546,6 +703,15 @@ func UpdateCalendarAccountHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // DeleteCalendarAccountHandler returns an http.HandlerFunc for DELETE /api/v1/services/calendar/{id}.
+//
+// @Summary      Delete calendar account
+// @Tags         services-calendar
+// @Param        id   path  string  true  "Account UUID"
+// @Success      204  "No Content"
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/services/calendar/{id} [delete]
 func DeleteCalendarAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseServiceID(r)
@@ -564,6 +730,17 @@ func DeleteCalendarAccountHandler(svc ServiceManager) http.HandlerFunc {
 }
 
 // ToggleCalendarAccountHandler returns an http.HandlerFunc for POST /api/v1/services/calendar/{id}/toggle.
+//
+// @Summary      Enable or disable calendar account
+// @Tags         services-calendar
+// @Accept       json
+// @Param        id       path  string                  true  "Account UUID"
+// @Param        request  body  handler.toggleRequest   true  "Desired enabled state"
+// @Success      204  "No Content"
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/services/calendar/{id}/toggle [post]
 func ToggleCalendarAccountHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseServiceID(r)
@@ -590,6 +767,15 @@ func ToggleCalendarAccountHandler(svc ServiceManager) http.HandlerFunc {
 // --- Status handler ---
 
 // ServiceStatusHandler returns an http.HandlerFunc for GET /api/v1/services/status.
+//
+// @Summary      Service status overview
+// @Description  Returns every configured service (Slack, Email, Calendar) with
+// @Description  its enabled flag and whether an orchestrator watcher is running.
+// @Tags         services
+// @Produce      json
+// @Success      200  {object}  map[string]any
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/services/status [get]
 func ServiceStatusHandler(svc ServiceManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		statuses, err := svc.Status(r.Context())

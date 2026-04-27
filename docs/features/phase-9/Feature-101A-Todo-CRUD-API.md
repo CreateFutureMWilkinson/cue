@@ -1,7 +1,7 @@
 # Feature 101A: Todo CRUD API
 
 **Phase:** Phase-9-Feature-101A
-**Status:** Planning
+**Status:** Done
 **Package:** `internal/server/handler/`, `internal/repository/`
 **Depends on:** 097
 
@@ -212,3 +212,54 @@ type TimeEstimator interface {
 - Effective estimate calculation: user > LLM > nil
 - Validation: missing title on create, invalid UUID on get/update/delete
 - Priority default: task created without priority gets 0
+
+## Implementation Summary
+
+### Packages Changed
+
+| Package | Changes |
+|---------|---------|
+| `internal/repository/todo.go` | Added `EstimateMinutes *int` and `LLMEstimateMinutes *int` to `Todo` model. Replaced `QueryIncomplete`/`QueryAll` with `QueryFiltered(filter TodoFilter)` on `TodoRepository` interface. |
+| `internal/repository/implementation/sqlite/todo_impl.go` | Schema migration adds `estimate_minutes` and `llm_estimate_minutes` columns. `QueryFiltered` builds dynamic WHERE clause for status/category/search filtering with pagination and priority-descending sort. |
+| `internal/service/planner/estimator.go` | Renamed `EstimatePomodoros` to `EstimateMinutes` on `OllamaTaskEstimator`. Returns integer minutes with 30-minute fallback on Ollama failure. |
+| `internal/service/todo/` | New `TodoService` owning `TodoRepository` + async `TimeEstimator` worker. CRUD methods delegate to repository; create/update trigger async LLM estimation via channel when no user estimate provided. |
+| `internal/server/handler/todo.go` | Five REST handlers following the buffer handler pattern: list (filtered/paginated), create, get, update, delete. JSON request/response with validation. |
+| `internal/server/server.go` | `Deps` struct gained `TodoService` field. Routes registered under `/api/v1/tasks`. |
+| `internal/server/composition.go` | `TodoService` wired with todo repository and planner estimator as `TimeEstimator`. |
+| `internal/ui/presenter/planner_presenter.go` | Updated interface call from `QueryIncomplete`/`QueryAll` to `QueryFiltered` (minimal change, UI defunct). |
+
+### Breaking Changes
+
+- **Priority semantics reversed:** Higher value = higher priority (was lower = higher). Default 0.
+- **`EstimatePomodoros` removed:** Replaced by `EstimateMinutes` on `OllamaTaskEstimator` interface.
+- **`QueryIncomplete`/`QueryAll` removed:** Replaced by `QueryFiltered` on `TodoRepository` interface.
+
+## Test Coverage Summary
+
+- Todo model estimate fields and effective estimate logic
+- `QueryFiltered` with status, category, search, pagination, and sort order
+- `EstimateMinutes` with Ollama success and 30-minute fallback
+- `TodoService` CRUD operations (create, get, update, delete, list)
+- Async LLM estimation trigger on create (no user estimate) and update (estimate cleared)
+- All five REST handlers: success paths, validation errors, not-found, pagination
+- Server wiring: `TodoService` in `Deps`, route registration
+
+## TDD Agent Stats
+
+| Behavior | TDD Phase | Agent | Duration | Tokens |
+|----------|-----------|-------|----------|--------|
+| Estimate fields | RED | Test Designer | ~55s | ~33,000 |
+| Estimate fields | GREEN | Implementer | ~53s | ~34,000 |
+| QueryFiltered | RED | Test Designer | ~271s | ~62,000 |
+| QueryFiltered | GREEN | Implementer | ~66s | ~38,000 |
+| QueryFiltered | REFACTOR | Refactorer | ~84s | ~41,000 |
+| EstimateMinutes | RED | Test Designer | ~92s | ~32,000 |
+| EstimateMinutes | GREEN | Implementer | ~30s | ~26,000 |
+| TodoService CRUD | RED | Test Designer | ~92s | ~32,000 |
+| TodoService CRUD | GREEN | Implementer | ~53s | ~29,000 |
+| Async estimation | RED | Test Designer | ~76s | ~33,000 |
+| Async estimation | GREEN | Implementer | ~42s | ~32,000 |
+| Handlers | RED | Test Designer | ~103s | ~48,000 |
+| Handlers | GREEN | Implementer | ~79s | ~41,000 |
+| Server wiring | RED | Test Designer | ~94s | ~39,000 |
+| Server wiring | GREEN | Implementer | ~32s | ~28,000 |

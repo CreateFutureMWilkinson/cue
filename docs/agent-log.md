@@ -729,3 +729,18 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-9-Feature-100 (B5 Stats) | RED | Test Designer | ~44s | 32,871 | b8f297d |
 | Phase-9-Feature-100 (B5 Stats) | GREEN | Implementer | ~20s | 31,110 | 0aeafd5 |
 | Phase-9-Feature-100 (Wiring) | WIRE | main | inline | inline | 83e58bb |
+| Phase-9-Feature-101A (estimate fields) | RED | Test Designer | ~55s | ~33,000 | — |
+| Phase-9-Feature-101A (estimate fields) | GREEN | Implementer | ~53s | ~34,000 | — |
+| Phase-9-Feature-101A (QueryFiltered) | RED | Test Designer | ~271s | ~62,000 | — |
+| Phase-9-Feature-101A (QueryFiltered) | GREEN | Implementer | ~66s | ~38,000 | — |
+| Phase-9-Feature-101A (QueryFiltered) | REFACTOR | Refactorer | ~84s | ~41,000 | — |
+| Phase-9-Feature-101A (EstimateMinutes) | RED | Test Designer | ~92s | ~32,000 | — |
+| Phase-9-Feature-101A (EstimateMinutes) | GREEN | Implementer | ~30s | ~26,000 | — |
+| Phase-9-Feature-101A (TodoService CRUD) | RED | Test Designer | ~92s | ~32,000 | — |
+| Phase-9-Feature-101A (TodoService CRUD) | GREEN | Implementer | ~53s | ~29,000 | — |
+| Phase-9-Feature-101A (async estimation) | RED | Test Designer | ~76s | ~33,000 | — |
+| Phase-9-Feature-101A (async estimation) | GREEN | Implementer | ~42s | ~32,000 | — |
+| Phase-9-Feature-101A (handlers) | RED | Test Designer | ~103s | ~48,000 | — |
+| Phase-9-Feature-101A (handlers) | GREEN | Implementer | ~79s | ~41,000 | — |
+| Phase-9-Feature-101A (server wiring) | RED | Test Designer | ~94s | ~39,000 | — |
+| Phase-9-Feature-101A (server wiring) | GREEN | Implementer | ~32s | ~28,000 | — |

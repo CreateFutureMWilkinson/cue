@@ -365,7 +365,58 @@ func (r *SQLiteMessageRepository) DistinctChannels(ctx context.Context, source, 
 // QueryFiltered returns messages matching the given filter criteria, plus the total count
 // of matching messages (before limit/offset) for pagination.
 func (r *SQLiteMessageRepository) QueryFiltered(ctx context.Context, filter repository.MessageFilter) ([]*repository.Message, int, error) {
-	return nil, 0, repository.ErrNotImplemented
+	where := "WHERE 1=1"
+	var args []any
+
+	if filter.Status != "" {
+		where += " AND status = ?"
+		args = append(args, filter.Status)
+	}
+	if filter.Source != "" {
+		where += " AND source = ?"
+		args = append(args, filter.Source)
+	}
+	if filter.Channel != "" {
+		where += " AND channel = ?"
+		args = append(args, filter.Channel)
+	}
+	if filter.Since != nil {
+		where += " AND created_at > ?"
+		args = append(args, filter.Since.Format(time.RFC3339))
+	}
+
+	// Count total matching rows (before limit/offset).
+	var total int
+	countQuery := "SELECT COUNT(*) FROM messages " + where
+	if err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("query filtered count: %w", err)
+	}
+
+	// Clamp limit.
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	selectQuery := "SELECT " + messageColumnsStr + " FROM messages " + where +
+		" ORDER BY created_at DESC LIMIT ? OFFSET ?"
+	selectArgs := append(args, limit, filter.Offset)
+
+	rows, err := r.db.QueryContext(ctx, selectQuery, selectArgs...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("query filtered: %w", err)
+	}
+	defer rows.Close()
+
+	msgs, err := scanMessages(rows)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return msgs, total, nil
 }
 
 // evictOldestIfNeeded performs FIFO eviction for the given source if at capacity.

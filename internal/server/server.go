@@ -20,6 +20,12 @@ type Deps struct {
 	// Buffer is the feedback buffer service for rating/dismissing buffered messages.
 	// If nil, buffer API endpoints are not registered.
 	Buffer handler.BufferRater
+	// Todos is the todo/task service for CRUD operations.
+	// If nil, task API endpoints are not registered.
+	Todos handler.TodoServicer
+	// EffectiveEstimate computes the effective estimate for a todo.
+	// Required when Todos is non-nil.
+	EffectiveEstimate handler.EffectiveEstimateFunc
 	// Hub is the WebSocket event broadcaster. If nil, New creates its own hub.
 	// Inject a shared hub when you need external components (orchestrator, queue processor)
 	// to publish events to the same WebSocket clients that connect to this server.

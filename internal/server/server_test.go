@@ -6,14 +6,18 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
+	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/server"
+	"github.com/CreateFutureMWilkinson/cue/internal/server/handler"
 )
 
 type ServerSuite struct {
@@ -248,4 +252,182 @@ func (s *ServerSuite) TestEventsRouteMounted() {
 	defer resp2.Body.Close()
 
 	s.Equal(http.StatusBadRequest, resp2.StatusCode, "GET /api/v1/events without since should return 400")
+}
+
+// ---------------------------------------------------------------------------
+// Mock TodoServicer for route registration tests
+// ---------------------------------------------------------------------------
+
+// serverMockTodoServicer implements handler.TodoServicer with minimal stubs.
+type serverMockTodoServicer struct{}
+
+func (m *serverMockTodoServicer) Create(_ context.Context, todo *repository.Todo) (*repository.Todo, error) {
+	now := time.Now()
+	todo.ID = uuid.New()
+	todo.CreatedAt = now
+	return todo, nil
+}
+
+func (m *serverMockTodoServicer) Get(_ context.Context, _ uuid.UUID) (*repository.Todo, error) {
+	now := time.Now()
+	return &repository.Todo{
+		ID:        uuid.New(),
+		Title:     "test task",
+		Priority:  3,
+		CreatedAt: now,
+	}, nil
+}
+
+func (m *serverMockTodoServicer) List(_ context.Context, _ repository.TodoFilter) ([]*repository.Todo, int, error) {
+	return []*repository.Todo{}, 0, nil
+}
+
+func (m *serverMockTodoServicer) Update(_ context.Context, todo *repository.Todo) (*repository.Todo, error) {
+	return todo, nil
+}
+
+func (m *serverMockTodoServicer) Delete(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func stubEffectiveEstimateServer(t *repository.Todo) *int {
+	return t.EstimateMinutes
+}
+
+// ---------------------------------------------------------------------------
+// Task route registration tests
+// ---------------------------------------------------------------------------
+
+func (s *ServerSuite) TestTaskRoutesRegistered() {
+	cfg := config.ServerConfig{
+		Host:                "127.0.0.1",
+		Port:                0,
+		ReadTimeoutSeconds:  5,
+		WriteTimeoutSeconds: 5,
+	}
+
+	srv, err := server.New(cfg, server.Deps{
+		Todos:             &serverMockTodoServicer{},
+		EffectiveEstimate: handler.EffectiveEstimateFunc(stubEffectiveEstimateServer),
+	})
+	s.Require().NoError(err)
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	taskID := uuid.New().String()
+
+	tests := []struct {
+		name       string
+		method     string
+		path       string
+		body       string
+		wantStatus int
+	}{
+		{
+			name:       "GET /api/v1/tasks returns 200",
+			method:     http.MethodGet,
+			path:       "/api/v1/tasks",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "POST /api/v1/tasks returns 201",
+			method:     http.MethodPost,
+			path:       "/api/v1/tasks",
+			body:       `{"title":"test task","priority":3}`,
+			wantStatus: http.StatusCreated,
+		},
+		{
+			name:       "GET /api/v1/tasks/{id} returns 200",
+			method:     http.MethodGet,
+			path:       "/api/v1/tasks/" + taskID,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "PUT /api/v1/tasks/{id} returns 200",
+			method:     http.MethodPut,
+			path:       "/api/v1/tasks/" + taskID,
+			body:       `{"title":"updated"}`,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "DELETE /api/v1/tasks/{id} returns 204",
+			method:     http.MethodDelete,
+			path:       "/api/v1/tasks/" + taskID,
+			wantStatus: http.StatusNoContent,
+		},
+	}
+
+	for _, tc := range tests {
+		s.Run(tc.name, func() {
+			var bodyReader io.Reader
+			if tc.body != "" {
+				bodyReader = strings.NewReader(tc.body)
+			}
+
+			req, err := http.NewRequest(tc.method, ts.URL+tc.path, bodyReader)
+			s.Require().NoError(err)
+
+			if tc.body != "" {
+				req.Header.Set("Content-Type", "application/json")
+			}
+
+			resp, err := http.DefaultClient.Do(req)
+			s.Require().NoError(err)
+			defer resp.Body.Close()
+
+			s.NotEqual(http.StatusNotFound, resp.StatusCode,
+				"route %s %s should be registered (got 404)", tc.method, tc.path)
+			s.Equal(tc.wantStatus, resp.StatusCode,
+				"route %s %s should return %d", tc.method, tc.path, tc.wantStatus)
+		})
+	}
+}
+
+func (s *ServerSuite) TestTaskRoutesNotRegisteredWhenNil() {
+	cfg := config.ServerConfig{
+		Host:                "127.0.0.1",
+		Port:                0,
+		ReadTimeoutSeconds:  5,
+		WriteTimeoutSeconds: 5,
+	}
+
+	// No Todos in Deps — task routes should not be registered.
+	srv, err := server.New(cfg)
+	s.Require().NoError(err)
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	taskID := uuid.New().String()
+
+	paths := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/api/v1/tasks"},
+		{http.MethodPost, "/api/v1/tasks"},
+		{http.MethodGet, "/api/v1/tasks/" + taskID},
+		{http.MethodPut, "/api/v1/tasks/" + taskID},
+		{http.MethodDelete, "/api/v1/tasks/" + taskID},
+	}
+
+	for _, tc := range paths {
+		s.Run(tc.method+" "+tc.path+" returns 404", func() {
+			var bodyReader io.Reader
+			if tc.method == http.MethodPost || tc.method == http.MethodPut {
+				bodyReader = strings.NewReader(`{"title":"test"}`)
+			}
+
+			req, err := http.NewRequest(tc.method, ts.URL+tc.path, bodyReader)
+			s.Require().NoError(err)
+
+			resp, err := http.DefaultClient.Do(req)
+			s.Require().NoError(err)
+			defer resp.Body.Close()
+
+			s.Equal(http.StatusNotFound, resp.StatusCode,
+				"%s %s should return 404 when Todos is nil", tc.method, tc.path)
+		})
+	}
 }

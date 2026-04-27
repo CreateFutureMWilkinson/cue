@@ -7,23 +7,30 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
+
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
-// ErrNotImplemented is returned by the stub Validate implementation until
-// the GREEN phase wires in the real kin-openapi/openapi3 validator.
-var ErrNotImplemented = errors.New("not implemented")
-
-// Validate loads the OpenAPI 3.1 YAML file at path and validates it.
-//
-// In GREEN, this will parse the document via github.com/getkin/kin-openapi/openapi3
-// and run (*openapi3.T).Validate(ctx). For now it is a noop stub.
+// Validate loads the OpenAPI 3.1 YAML file at path and validates it using
+// github.com/getkin/kin-openapi/openapi3. External $ref resolution is
+// disabled so that validation is hermetic and operates only on the local
+// document.
 func Validate(ctx context.Context, path string) error {
-	_ = ctx
-	_ = path
-	return ErrNotImplemented
+	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = false
+
+	doc, err := loader.LoadFromFile(path)
+	if err != nil {
+		return fmt.Errorf("load %s: %w", path, err)
+	}
+
+	if err := doc.Validate(ctx); err != nil {
+		return fmt.Errorf("validate %s: %w", path, err)
+	}
+
+	return nil
 }
 
 func main() {

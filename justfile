@@ -171,6 +171,10 @@ api-gen:
         --quiet
     @mv docs/api/swagger.yaml docs/api/openapi.yaml
 
+# Validate the generated OpenAPI 3.1 spec
+api-lint:
+    go run ./scripts/api-lint docs/api/openapi.yaml
+
 # Clean build artifacts
 clean:
     rm -rf _build/

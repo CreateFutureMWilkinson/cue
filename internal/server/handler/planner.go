@@ -310,6 +310,71 @@ func ActiveDateHandler(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// TimerClock provides the current time for the timer handler.
+type TimerClock interface {
+	Now() time.Time
+}
+
+// timerResponse is the JSON response for GET /api/v1/timer.
+type timerResponse struct {
+	Running          bool    `json:"running"`
+	BlockType        string  `json:"block_type,omitempty"`
+	TaskName         string  `json:"task_name,omitempty"`
+	DurationSeconds  int     `json:"duration_seconds,omitempty"`
+	ElapsedSeconds   int     `json:"elapsed_seconds,omitempty"`
+	RemainingSeconds int     `json:"remaining_seconds,omitempty"`
+	DisplayTime      string  `json:"display_time,omitempty"`
+	ElapsedFraction  float64 `json:"elapsed_fraction,omitempty"`
+}
+
+// GetTimerHandler returns an http.HandlerFunc for GET /api/v1/timer.
+func GetTimerHandler(store ScheduleStore, clock TimerClock) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		now := clock.Now()
+		date := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+		schedule, err := store.LoadByDate(r.Context(), date)
+		if err != nil {
+			writeJSON(w, http.StatusOK, timerResponse{Running: false})
+			return
+		}
+
+		daySchedule := planner.DaySchedule{
+			ID:        schedule.ID,
+			Date:      schedule.Date,
+			Strategy:  schedule.Strategy,
+			CreatedAt: schedule.CreatedAt,
+			Blocks:    make([]planner.TimeBlock, len(schedule.Blocks)),
+		}
+		for i, b := range schedule.Blocks {
+			daySchedule.Blocks[i] = planner.TimeBlock{
+				Start:    b.Start,
+				End:      b.End,
+				Type:     planner.BlockType(b.Type),
+				TaskID:   b.TaskID,
+				TaskName: b.TaskName,
+			}
+		}
+
+		state := planner.ComputeTimerState(&daySchedule, now)
+		if !state.Running {
+			writeJSON(w, http.StatusOK, timerResponse{Running: false})
+			return
+		}
+
+		writeJSON(w, http.StatusOK, timerResponse{
+			Running:          true,
+			BlockType:        state.BlockType,
+			TaskName:         state.TaskName,
+			DurationSeconds:  state.DurationSeconds,
+			ElapsedSeconds:   state.ElapsedSeconds,
+			RemainingSeconds: state.RemainingSeconds,
+			DisplayTime:      state.DisplayTime,
+			ElapsedFraction:  state.ElapsedFraction,
+		})
+	}
+}
+
 // DeleteScheduleHandler returns an http.HandlerFunc for DELETE /api/v1/planner/{date}.
 func DeleteScheduleHandler(store ScheduleStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

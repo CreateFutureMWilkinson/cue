@@ -83,6 +83,23 @@ components:
         username:
           type: string
       type: object
+    handler.createRuleRequest:
+      properties:
+        action:
+          type: string
+        channel_pattern:
+          type: string
+        content_pattern:
+          type: string
+        message_type:
+          type: string
+        name:
+          type: string
+        source_account:
+          type: string
+        source_type:
+          type: string
+      type: object
     handler.createSlackRequest:
       properties:
         bot_token:
@@ -255,6 +272,13 @@ components:
         source_account:
           type: string
       type: object
+    handler.patchRuleRequest:
+      properties:
+        enabled:
+          type: boolean
+        priority:
+          type: integer
+      type: object
     handler.putScheduleRequest:
       properties:
         blocks:
@@ -271,6 +295,33 @@ components:
           type: string
         rating:
           type: integer
+      type: object
+    handler.ruleItem:
+      properties:
+        action:
+          type: string
+        channel_pattern:
+          type: string
+        content_pattern:
+          type: string
+        created_at:
+          type: string
+        enabled:
+          type: boolean
+        id:
+          type: string
+        message_type:
+          type: string
+        name:
+          type: string
+        priority:
+          type: integer
+        source_account:
+          type: string
+        source_type:
+          type: string
+        updated_at:
+          type: string
       type: object
     handler.scheduleBlockItem:
       properties:
@@ -1122,6 +1173,282 @@ paths:
       summary: Generate candidate schedules
       tags:
       - planner
+  /api/v1/rules:
+    get:
+      description: |-
+        Returns rules in priority order. Optional filters: source_type
+        (slack/email) or source_account (UUID). source_account takes
+        precedence when both are supplied.
+      parameters:
+      - description: slack | email
+        in: query
+        name: source_type
+        schema:
+          type: string
+      - description: Account UUID
+        in: query
+        name: source_account
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: {}
+                type: object
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Bad Request
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: List routing rules
+      tags:
+      - rules
+    post:
+      description: |-
+        Adds a new rule to the deterministic-rules pipeline. Patterns
+        use Go regexp syntax. The action determines routing: NOTIFIED,
+        BUFFERED, or IGNORED.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/handler.createRuleRequest'
+                description: Rule fields
+                summary: request
+        description: Rule fields
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.ruleItem'
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Bad Request
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Create routing rule
+      tags:
+      - rules
+  /api/v1/rules/{id}:
+    delete:
+      parameters:
+      - description: Rule UUID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Delete routing rule
+      tags:
+      - rules
+    get:
+      parameters:
+      - description: Rule UUID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.ruleItem'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Get routing rule
+      tags:
+      - rules
+    patch:
+      description: |-
+        Reorders the rule (sets priority) and/or toggles its enabled
+        flag. At least one of priority or enabled must be present;
+        400 if the body has neither.
+      parameters:
+      - description: Rule UUID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/handler.patchRuleRequest'
+                description: Fields to patch
+                summary: request
+        description: Fields to patch
+        required: true
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Patch routing rule (priority / enabled)
+      tags:
+      - rules
+    put:
+      description: |-
+        Full replacement of a rule's content fields. Use PATCH to
+        toggle enabled or change priority.
+      parameters:
+      - description: Rule UUID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/handler.createRuleRequest'
+                description: Rule fields
+                summary: request
+        description: Rule fields
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.ruleItem'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Replace routing rule
+      tags:
+      - rules
   /api/v1/services/calendar:
     get:
       responses:

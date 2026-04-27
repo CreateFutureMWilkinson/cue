@@ -103,6 +103,19 @@ func writeRuleError(w http.ResponseWriter, err error) {
 
 // ListRulesHandler returns an http.HandlerFunc for GET /api/v1/rules.
 // Supports ?source_type= and ?source_account= query parameters.
+//
+// @Summary      List routing rules
+// @Description  Returns rules in priority order. Optional filters: source_type
+// @Description  (slack/email) or source_account (UUID). source_account takes
+// @Description  precedence when both are supplied.
+// @Tags         rules
+// @Produce      json
+// @Param        source_type     query     string  false  "slack | email"
+// @Param        source_account  query     string  false  "Account UUID"
+// @Success      200             {object}  map[string]any
+// @Failure      400             {object}  map[string]string
+// @Failure      500             {object}  map[string]string
+// @Router       /api/v1/rules [get]
 func ListRulesHandler(mgr RulesManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -142,6 +155,16 @@ func ListRulesHandler(mgr RulesManager) http.HandlerFunc {
 }
 
 // GetRuleHandler returns an http.HandlerFunc for GET /api/v1/rules/{id}.
+//
+// @Summary      Get routing rule
+// @Tags         rules
+// @Produce      json
+// @Param        id   path      string  true  "Rule UUID"
+// @Success      200  {object}  handler.ruleItem
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/rules/{id} [get]
 func GetRuleHandler(mgr RulesManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseRuleID(r)
@@ -161,6 +184,19 @@ func GetRuleHandler(mgr RulesManager) http.HandlerFunc {
 }
 
 // CreateRuleHandler returns an http.HandlerFunc for POST /api/v1/rules.
+//
+// @Summary      Create routing rule
+// @Description  Adds a new rule to the deterministic-rules pipeline. Patterns
+// @Description  use Go regexp syntax. The action determines routing: NOTIFIED,
+// @Description  BUFFERED, or IGNORED.
+// @Tags         rules
+// @Accept       json
+// @Produce      json
+// @Param        request  body      handler.createRuleRequest  true  "Rule fields"
+// @Success      201      {object}  handler.ruleItem
+// @Failure      400      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/rules [post]
 func CreateRuleHandler(mgr RulesManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req createRuleRequest
@@ -202,6 +238,20 @@ func CreateRuleHandler(mgr RulesManager) http.HandlerFunc {
 }
 
 // UpdateRuleHandler returns an http.HandlerFunc for PUT /api/v1/rules/{id}.
+//
+// @Summary      Replace routing rule
+// @Description  Full replacement of a rule's content fields. Use PATCH to
+// @Description  toggle enabled or change priority.
+// @Tags         rules
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string                     true  "Rule UUID"
+// @Param        request  body      handler.createRuleRequest  true  "Rule fields"
+// @Success      200      {object}  handler.ruleItem
+// @Failure      400      {object}  map[string]string
+// @Failure      404      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/rules/{id} [put]
 func UpdateRuleHandler(mgr RulesManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseRuleID(r)
@@ -249,6 +299,20 @@ func UpdateRuleHandler(mgr RulesManager) http.HandlerFunc {
 }
 
 // PatchRuleHandler returns an http.HandlerFunc for PATCH /api/v1/rules/{id}.
+//
+// @Summary      Patch routing rule (priority / enabled)
+// @Description  Reorders the rule (sets priority) and/or toggles its enabled
+// @Description  flag. At least one of priority or enabled must be present;
+// @Description  400 if the body has neither.
+// @Tags         rules
+// @Accept       json
+// @Param        id       path  string                     true  "Rule UUID"
+// @Param        request  body  handler.patchRuleRequest   true  "Fields to patch"
+// @Success      204      "No Content"
+// @Failure      400      {object}  map[string]string
+// @Failure      404      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/rules/{id} [patch]
 func PatchRuleHandler(mgr RulesManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseRuleID(r)
@@ -289,6 +353,15 @@ func PatchRuleHandler(mgr RulesManager) http.HandlerFunc {
 }
 
 // DeleteRuleHandler returns an http.HandlerFunc for DELETE /api/v1/rules/{id}.
+//
+// @Summary      Delete routing rule
+// @Tags         rules
+// @Param        id   path  string  true  "Rule UUID"
+// @Success      204  "No Content"
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/rules/{id} [delete]
 func DeleteRuleHandler(mgr RulesManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseRuleID(r)

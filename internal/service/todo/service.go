@@ -42,6 +42,7 @@ func NewService(repo TodoRepository, estimator TimeEstimator) (*Service, error) 
 }
 
 // Create inserts a new todo. Sets ID and CreatedAt if zero. Returns the created todo (re-fetched from DB).
+// If EstimateMinutes is nil or zero, triggers async LLM estimation.
 func (s *Service) Create(ctx context.Context, todo *repository.Todo) (*repository.Todo, error) {
 	if todo.ID == uuid.Nil {
 		todo.ID = uuid.New()
@@ -52,6 +53,14 @@ func (s *Service) Create(ctx context.Context, todo *repository.Todo) (*repositor
 	if err := s.repo.Insert(ctx, todo); err != nil {
 		return nil, fmt.Errorf("todo service: create: %w", err)
 	}
+
+	if todo.EstimateMinutes == nil || *todo.EstimateMinutes == 0 {
+		todoID := todo.ID
+		title := todo.Title
+		description := todo.Description
+		go s.asyncEstimate(todoID, title, description)
+	}
+
 	return s.repo.QueryByID(ctx, todo.ID)
 }
 
@@ -66,16 +75,53 @@ func (s *Service) List(ctx context.Context, filter repository.TodoFilter) ([]*re
 }
 
 // Update updates a todo. Returns the updated todo (re-fetched).
+// If EstimateMinutes was previously non-nil and > 0 but is now nil or zero,
+// clears LLMEstimateMinutes and triggers async re-estimation.
 func (s *Service) Update(ctx context.Context, todo *repository.Todo) (*repository.Todo, error) {
+	existing, err := s.repo.QueryByID(ctx, todo.ID)
+	if err != nil {
+		return nil, fmt.Errorf("todo service: update: %w", err)
+	}
+
+	needsEstimation := existing.EstimateMinutes != nil && *existing.EstimateMinutes > 0 &&
+		(todo.EstimateMinutes == nil || *todo.EstimateMinutes == 0)
+
+	if needsEstimation {
+		todo.LLMEstimateMinutes = nil
+	}
+
 	if err := s.repo.Update(ctx, todo); err != nil {
 		return nil, fmt.Errorf("todo service: update: %w", err)
 	}
+
+	if needsEstimation {
+		todoID := todo.ID
+		title := todo.Title
+		description := todo.Description
+		go s.asyncEstimate(todoID, title, description)
+	}
+
 	return s.repo.QueryByID(ctx, todo.ID)
 }
 
 // Delete removes a todo by ID.
 func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	return s.repo.Delete(ctx, id)
+}
+
+// asyncEstimate calls the LLM estimator and persists the result on the todo.
+func (s *Service) asyncEstimate(todoID uuid.UUID, title, description string) {
+	ctx := context.Background()
+	estimate, err := s.estimator.EstimateMinutes(ctx, title, description)
+	if err != nil {
+		return
+	}
+	t, err := s.repo.QueryByID(ctx, todoID)
+	if err != nil {
+		return
+	}
+	t.LLMEstimateMinutes = &estimate
+	_ = s.repo.Update(ctx, t)
 }
 
 // EffectiveEstimate returns EstimateMinutes if non-nil and > 0, else LLMEstimateMinutes.

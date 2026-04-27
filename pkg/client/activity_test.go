@@ -305,6 +305,301 @@ func (s *ActivitySuite) TestReplayWithTruncatedFlag() {
 	s.Equal(uint64(200), resp.LatestSeq)
 }
 
+// TestReconnectsAfterServerDisconnect verifies that when the server
+// drops the WebSocket connection, the client automatically reconnects
+// and continues receiving events. The first connection delivers Seq=1
+// and then closes abnormally; subsequent connections deliver Seq=2.
+func (s *ActivitySuite) TestReconnectsAfterServerDisconnect() {
+	var connectCount atomic.Int32
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := connectCount.Add(1)
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+
+		if n == 1 {
+			// First connection: send one event, then drop abnormally.
+			data, err := json.Marshal(client.EventEnvelope{
+				Seq:       1,
+				Type:      "activity",
+				Timestamp: time.Date(2026, 4, 24, 10, 0, 0, 0, time.UTC),
+				Data:      s.mustRawMessage(map[string]string{"n": "first"}),
+			})
+			s.Require().NoError(err)
+			_ = conn.Write(r.Context(), websocket.MessageText, data)
+			_ = conn.Close(websocket.StatusGoingAway, "server disconnect")
+			return
+		}
+
+		// Subsequent connections: send an event and stay connected.
+		data, err := json.Marshal(client.EventEnvelope{
+			Seq:       2,
+			Type:      "activity",
+			Timestamp: time.Date(2026, 4, 24, 10, 0, 1, 0, time.UTC),
+			Data:      s.mustRawMessage(map[string]string{"n": "second"}),
+		})
+		s.Require().NoError(err)
+		_ = conn.Write(r.Context(), websocket.MessageText, data)
+		<-r.Context().Done()
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+	}))
+	defer ts.Close()
+
+	c := client.New(ts.URL)
+	c.SetToken("test-token")
+
+	activity := client.NewActivityClient(c,
+		client.WithBackoff(1*time.Millisecond, 10*time.Millisecond))
+	defer activity.Close() //nolint:errcheck
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	s.Require().NoError(activity.Connect(ctx))
+
+	first := s.receiveOrFail(activity.Events())
+	s.Equal(uint64(1), first.Seq, "first event should have Seq=1")
+
+	second := s.receiveOrFail(activity.Events())
+	s.Equal(uint64(2), second.Seq, "after reconnect, should receive Seq=2")
+
+	s.GreaterOrEqual(int(connectCount.Load()), 2,
+		"server should have observed at least 2 connections")
+	s.Require().NoError(activity.Close())
+}
+
+// TestBackoffResetsAfterSuccessfulReconnect verifies that exponential
+// backoff does not grow unbounded across multiple disconnect/reconnect
+// cycles. With initial=1ms, max=5ms, four connection attempts should
+// complete well within 500ms (the reset means we never hit max between
+// cycles, but this test primarily asserts that the reconnect loop makes
+// progress at all after multiple drops).
+func (s *ActivitySuite) TestBackoffResetsAfterSuccessfulReconnect() {
+	var connectCount atomic.Int32
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := connectCount.Add(1)
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+
+		if n < 4 {
+			// Drop the first three connections immediately.
+			_ = conn.Close(websocket.StatusGoingAway, "simulated drop")
+			return
+		}
+
+		// Fourth (and later) connections: send an event and hold open.
+		data, err := json.Marshal(client.EventEnvelope{
+			Seq:       uint64(n),
+			Type:      "activity",
+			Timestamp: time.Date(2026, 4, 24, 10, 0, 0, 0, time.UTC),
+			Data:      s.mustRawMessage(map[string]string{"n": "fourth"}),
+		})
+		s.Require().NoError(err)
+		_ = conn.Write(r.Context(), websocket.MessageText, data)
+		<-r.Context().Done()
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+	}))
+	defer ts.Close()
+
+	c := client.New(ts.URL)
+	c.SetToken("test-token")
+
+	activity := client.NewActivityClient(c,
+		client.WithBackoff(1*time.Millisecond, 5*time.Millisecond))
+	defer activity.Close() //nolint:errcheck
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	s.Require().NoError(activity.Connect(ctx))
+
+	// Wait for the fourth connection's event or fail.
+	select {
+	case env := <-activity.Events():
+		s.GreaterOrEqual(env.Seq, uint64(4),
+			"expected event from the non-dropped connection (attempt >= 4)")
+	case <-time.After(500 * time.Millisecond):
+		s.FailNow("client did not reach the fourth connection within 500ms",
+			"connectCount=%d", connectCount.Load())
+	}
+
+	s.GreaterOrEqual(int(connectCount.Load()), 4,
+		"server should have observed at least 4 connection attempts")
+	s.Require().NoError(activity.Close())
+}
+
+// TestContextCancellationStopsReconnect verifies that cancelling the
+// context passed to Connect stops the reconnection loop cleanly.
+func (s *ActivitySuite) TestContextCancellationStopsReconnect() {
+	var connectCount atomic.Int32
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		connectCount.Add(1)
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		// Drop every connection immediately.
+		_ = conn.Close(websocket.StatusGoingAway, "simulated drop")
+	}))
+	defer ts.Close()
+
+	c := client.New(ts.URL)
+	c.SetToken("test-token")
+
+	activity := client.NewActivityClient(c,
+		client.WithBackoff(1*time.Millisecond, 5*time.Millisecond))
+	defer activity.Close() //nolint:errcheck
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	s.Require().NoError(activity.Connect(ctx))
+
+	// Let a few reconnect cycles happen.
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	// Allow any in-flight dials to settle after cancellation.
+	time.Sleep(100 * time.Millisecond)
+	snapshot := connectCount.Load()
+
+	// After cancellation has propagated, the count should not grow
+	// meaningfully. Allow a small tolerance for in-flight attempts.
+	time.Sleep(100 * time.Millisecond)
+	later := connectCount.Load()
+
+	s.LessOrEqual(later-snapshot, int32(1),
+		"connectCount should stop growing after context cancel: snapshot=%d later=%d",
+		snapshot, later)
+}
+
+// TestCloseStopsReconnectLoop verifies that calling Close stops the
+// reconnection loop, so the server does not continue observing new
+// connection attempts.
+func (s *ActivitySuite) TestCloseStopsReconnectLoop() {
+	var connectCount atomic.Int32
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		connectCount.Add(1)
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		// Drop every connection immediately.
+		_ = conn.Close(websocket.StatusGoingAway, "simulated drop")
+	}))
+	defer ts.Close()
+
+	c := client.New(ts.URL)
+	c.SetToken("test-token")
+
+	activity := client.NewActivityClient(c,
+		client.WithBackoff(1*time.Millisecond, 5*time.Millisecond))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	s.Require().NoError(activity.Connect(ctx))
+
+	// Let a few reconnect cycles happen.
+	time.Sleep(50 * time.Millisecond)
+	// Close may return an error if the server-closed conn races with
+	// our close; the behavior under test is that the reconnect loop
+	// halts, not the return value of Close itself.
+	_ = activity.Close()
+
+	// Allow any in-flight dials to settle after Close.
+	time.Sleep(100 * time.Millisecond)
+	snapshot := connectCount.Load()
+
+	// After Close has taken effect, the count should not grow.
+	time.Sleep(100 * time.Millisecond)
+	later := connectCount.Load()
+
+	s.LessOrEqual(later-snapshot, int32(1),
+		"connectCount should stop growing after Close: snapshot=%d later=%d",
+		snapshot, later)
+}
+
+// TestEventsChannelNeverClosedAcrossReconnect verifies that after a
+// server-side disconnect and subsequent reconnect, the Events() channel
+// remains open — consumers observe the disconnect only via the absence
+// of events, never via a closed-channel receive.
+func (s *ActivitySuite) TestEventsChannelNeverClosedAcrossReconnect() {
+	var connectCount atomic.Int32
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := connectCount.Add(1)
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+
+		if n == 1 {
+			data, err := json.Marshal(client.EventEnvelope{
+				Seq:  1,
+				Type: "activity",
+				Data: s.mustRawMessage(map[string]string{"n": "first"}),
+			})
+			s.Require().NoError(err)
+			_ = conn.Write(r.Context(), websocket.MessageText, data)
+			_ = conn.Close(websocket.StatusGoingAway, "server disconnect")
+			return
+		}
+
+		data, err := json.Marshal(client.EventEnvelope{
+			Seq:  2,
+			Type: "activity",
+			Data: s.mustRawMessage(map[string]string{"n": "second"}),
+		})
+		s.Require().NoError(err)
+		_ = conn.Write(r.Context(), websocket.MessageText, data)
+		<-r.Context().Done()
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+	}))
+	defer ts.Close()
+
+	c := client.New(ts.URL)
+	c.SetToken("test-token")
+
+	activity := client.NewActivityClient(c,
+		client.WithBackoff(1*time.Millisecond, 10*time.Millisecond))
+	defer activity.Close() //nolint:errcheck
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	s.Require().NoError(activity.Connect(ctx))
+
+	// Consume both the pre-disconnect and post-reconnect events.
+	first := s.receiveOrFail(activity.Events())
+	s.Equal(uint64(1), first.Seq)
+
+	second := s.receiveOrFail(activity.Events())
+	s.Equal(uint64(2), second.Seq)
+
+	// The channel must still be OPEN after a reconnect. A closed
+	// channel would yield a zero-value immediately; an open but empty
+	// channel blocks until timeout.
+	select {
+	case _, ok := <-activity.Events():
+		if !ok {
+			s.FailNow("Events() channel was closed across reconnect — must remain open")
+		}
+		// Receiving a zero-value envelope on an open channel only
+		// happens if the server actually sent one; fail here because
+		// our test server should not have.
+		s.FailNow("unexpected event received; channel should have been empty")
+	case <-time.After(100 * time.Millisecond):
+		// expected: channel is open but empty.
+	}
+}
+
 // TestReplayReturnsAPIErrorOnServerFailure verifies that a 500 response
 // surfaces as *APIError with ErrCodeServerError.
 func (s *ActivitySuite) TestReplayReturnsAPIErrorOnServerFailure() {

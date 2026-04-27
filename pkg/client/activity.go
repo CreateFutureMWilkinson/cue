@@ -58,21 +58,45 @@ type ActivityClient interface {
 }
 
 type activityAdapter struct {
-	client  *APIClient
-	events  chan EventEnvelope
-	lastSeq atomic.Uint64
-	conn    *websocket.Conn
-	mu      sync.Mutex
-	closed  atomic.Bool
+	client         *APIClient
+	events         chan EventEnvelope
+	lastSeq        atomic.Uint64
+	conn           *websocket.Conn
+	mu             sync.Mutex
+	closed         atomic.Bool
+	backoffInitial time.Duration
+	backoffMax     time.Duration
+	connectCtx     context.Context
+	connectCancel  context.CancelFunc
+}
+
+// ActivityOption configures an ActivityClient.
+type ActivityOption func(*activityAdapter)
+
+// WithBackoff sets the exponential-backoff parameters used during
+// reconnection. Intervals are clamped: initial must be > 0; max must
+// be >= initial. Default: 1s initial, 30s max.
+func WithBackoff(initial, max time.Duration) ActivityOption {
+	return func(a *activityAdapter) {
+		a.backoffInitial = initial
+		a.backoffMax = max
+	}
 }
 
 // NewActivityClient returns an ActivityClient backed by the given APIClient.
 // The events channel is buffered to prevent blocking the read loop under load.
-func NewActivityClient(c *APIClient) ActivityClient {
-	return &activityAdapter{
-		client: c,
-		events: make(chan EventEnvelope, 64),
+// Optional ActivityOption arguments customize reconnection behavior.
+func NewActivityClient(c *APIClient, opts ...ActivityOption) ActivityClient {
+	a := &activityAdapter{
+		client:         c,
+		events:         make(chan EventEnvelope, 64),
+		backoffInitial: 1 * time.Second,
+		backoffMax:     30 * time.Second,
 	}
+	for _, opt := range opts {
+		opt(a)
+	}
+	return a
 }
 
 // ErrAlreadyConnected is returned when Connect is called while already connected.

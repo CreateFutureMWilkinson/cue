@@ -2,15 +2,11 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 )
-
-// ErrNotImplemented is returned by stub functions that have not yet been implemented.
-var ErrNotImplemented = errors.New("not implemented")
 
 // ScheduleQuerier is the subset of ScheduleRepository needed by the GET schedule handler.
 type ScheduleQuerier interface {
@@ -34,9 +30,59 @@ type scheduleResponse struct {
 	CreatedAt string              `json:"created_at"`
 }
 
+// blockTypeString converts a ScheduleBlockType to its JSON string representation.
+func blockTypeString(t repository.ScheduleBlockType) string {
+	switch t {
+	case repository.ScheduleBlockFocus:
+		return "focus"
+	case repository.ScheduleBlockShortBreak:
+		return "short_break"
+	case repository.ScheduleBlockLongBreak:
+		return "long_break"
+	case repository.ScheduleBlockMeeting:
+		return "meeting"
+	default:
+		return "unknown"
+	}
+}
+
 // GetScheduleHandler returns an http.HandlerFunc for GET /api/v1/planner/{date}.
-func GetScheduleHandler(_ ScheduleQuerier) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		writeJSONError(w, http.StatusNotImplemented, ErrNotImplemented.Error())
+func GetScheduleHandler(repo ScheduleQuerier) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		dateStr := r.PathValue("date")
+		date, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid date format")
+			return
+		}
+
+		schedule, err := repo.LoadByDate(r.Context(), date)
+		if err != nil {
+			writeNotFoundOrError(w, err)
+			return
+		}
+
+		blocks := make([]scheduleBlockItem, len(schedule.Blocks))
+		for i, b := range schedule.Blocks {
+			item := scheduleBlockItem{
+				Start:    b.Start.Format("15:04"),
+				End:      b.End.Format("15:04"),
+				Type:     blockTypeString(b.Type),
+				TaskName: b.TaskName,
+			}
+			if b.TaskID != nil {
+				s := b.TaskID.String()
+				item.TaskID = &s
+			}
+			blocks[i] = item
+		}
+
+		resp := scheduleResponse{
+			Date:      schedule.Date.Format("2006-01-02"),
+			Strategy:  schedule.Strategy,
+			Blocks:    blocks,
+			CreatedAt: schedule.CreatedAt.Format(time.RFC3339),
+		}
+		writeJSON(w, http.StatusOK, resp)
 	}
 }

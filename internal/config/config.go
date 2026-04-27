@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -430,4 +431,10 @@ func isValidTimeOfDay(s string) bool {
 // parseTimeOfDay parses a "HH:MM" string into a time.Time on the zero date.
 func parseTimeOfDay(s string) (time.Time, error) {
 	return time.Parse("15:04", s)
+}
+
+// ValidateForServer is like Validate but requires the [server] section to be configured.
+// Use this in cue-server which cannot start without an HTTP listener.
+func (c *Config) ValidateForServer() error {
+	return errors.New("not implemented")
 }

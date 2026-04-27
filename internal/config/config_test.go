@@ -1833,3 +1833,39 @@ embedding_model = "nomic-embed-text"
 	err = cfg.Validate()
 	s.NoError(err, "server section should not be required when absent")
 }
+
+// ---------------------------------------------------------------------------
+// ValidateForServer — requires [server] section to be configured
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestValidateForServerRejectsMissingServer() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	// Minimal valid config WITHOUT [server] section.
+	tomlContent := `
+[database]
+path = "/tmp/test.db"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+
+	// Standard Validate should pass (server is optional).
+	err = cfg.Validate()
+	s.Require().NoError(err, "Validate() should accept config without [server]")
+
+	// ValidateForServer must reject it — server is required for cue-server.
+	err = cfg.ValidateForServer()
+	s.Require().Error(err)
+	s.Contains(err.Error(), "server", "error should mention the server section")
+}

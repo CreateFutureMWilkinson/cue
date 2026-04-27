@@ -30,8 +30,9 @@ Create a `cue-server` binary that runs Cue headless — no GUI, no Fyne dependen
 | 102 | [Service Configuration API](Feature-102-Service-Configuration-API.md) | REST | Medium | 097 |
 | 103 | [Routing Rules API](Feature-103-Routing-Rules-API.md) | REST | Low | 097 |
 | 104 | [Timer API](Feature-104-Timer-API.md) | REST + WS | Medium | 097, 099 |
-| 105 | [Settings API](Feature-105-Settings-API.md) | REST | Low | 097 |
-| 106 | [API Client SDK](Feature-106-API-Client-SDK.md) | Client | High | 096-105 |
+| 105 | ~~Settings API~~ (removed — redundant with 102) | — | — | — |
+| 106 | [API Client SDK](Feature-106-API-Client-SDK.md) | Client | High | 096-104 |
+| 106A | [AsyncAPI Documentation](Feature-106A-AsyncAPI-Documentation.md) | Documentation | Low | 097-104 |
 | 107 | [Fyne Client Re-wire](Feature-107-Fyne-Client-Rewire.md) | Client | High | 106 |
 
 ## Suggested Implementation Order
@@ -46,13 +47,13 @@ Create a `cue-server` binary that runs Cue headless — no GUI, no Fyne dependen
 099A (server orchestrator wiring) ─── unblocks 102, 104, 107
     ↓                                     │
 103 (rules) ──────────┐                   │
-105 (settings) ───────┤ can be parallel   │
-102 (config) ─────────┘ depends on 099A   │
+102 (config) ─────────┘ can be parallel   │
     ↓                                     │
 101 (planner) ────────── most complex     │
 104 (timer) ──────────── depends on 099   │
     ↓                                     │
 106 (client SDK) ─────── depends on all   │
+106A (AsyncAPI docs) ──── can parallel 106 │
 107 (Fyne re-wire) ───── depends on 106   │
 ```
 

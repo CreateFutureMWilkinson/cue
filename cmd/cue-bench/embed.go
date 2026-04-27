@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"time"
@@ -75,4 +77,28 @@ func embedText(ctx context.Context, model, text, host string, httpClient *http.C
 	}
 
 	return result.Embeddings[0], latencyMs, nil
+}
+
+// EmbedResult pairs a corpus entry with its embedding vector.
+type EmbedResult struct {
+	Entry     CorpusEntry
+	Embedding []float32
+}
+
+// EmbedIndex holds pre-computed embeddings for vector-based selection.
+type EmbedIndex struct {
+	Pool   []EmbedResult
+	Scored map[string][]float32 // keyed by entry ID
+}
+
+// SelectExamplesByEmbedding selects up to n pool entries most similar
+// to the scored entry's embedding.
+func SelectExamplesByEmbedding(entryID string, index EmbedIndex, n int) []CorpusEntry {
+	return nil
+}
+
+// BuildEmbedIndex embeds all pool and scored entries, returning the
+// index and per-request latencies for metrics reporting.
+func BuildEmbedIndex(ctx context.Context, model, host string, pool, scored []CorpusEntry, httpClient *http.Client, progressWriter io.Writer) (EmbedIndex, []int64, error) {
+	return EmbedIndex{}, nil, errors.New("not implemented")
 }

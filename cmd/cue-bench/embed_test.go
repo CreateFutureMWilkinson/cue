@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -126,4 +128,191 @@ func (s *EmbedSuite) TestEmbedText_SendsCorrectRequest() {
 	s.Require().NotNil(capturedBody, "request body was not captured")
 	s.Equal("test-model", capturedBody["model"])
 	s.Equal("test input", capturedBody["input"])
+}
+
+// SelectExamplesByEmbedding tests
+
+func (s *EmbedSuite) TestSelectExamplesByEmbedding_RanksBySimilarity() {
+	scored := []float32{1, 0, 0}
+	index := EmbedIndex{
+		Pool: []EmbedResult{
+			{Entry: CorpusEntry{ID: "far"}, Embedding: []float32{0, 1, 0}},
+			{Entry: CorpusEntry{ID: "close"}, Embedding: []float32{0.9, 0.1, 0}},
+			{Entry: CorpusEntry{ID: "medium"}, Embedding: []float32{0.5, 0.5, 0}},
+		},
+		Scored: map[string][]float32{
+			"entry1": scored,
+		},
+	}
+
+	results := SelectExamplesByEmbedding("entry1", index, 3)
+
+	s.Require().Len(results, 3)
+	s.Equal("close", results[0].ID)
+	s.Equal("medium", results[1].ID)
+	s.Equal("far", results[2].ID)
+}
+
+func (s *EmbedSuite) TestSelectExamplesByEmbedding_CapsAtN() {
+	scored := []float32{1, 0, 0}
+	index := EmbedIndex{
+		Pool: []EmbedResult{
+			{Entry: CorpusEntry{ID: "a"}, Embedding: []float32{0.9, 0.1, 0}},
+			{Entry: CorpusEntry{ID: "b"}, Embedding: []float32{0.5, 0.5, 0}},
+			{Entry: CorpusEntry{ID: "c"}, Embedding: []float32{0, 1, 0}},
+		},
+		Scored: map[string][]float32{
+			"entry1": scored,
+		},
+	}
+
+	results := SelectExamplesByEmbedding("entry1", index, 2)
+
+	s.Require().Len(results, 2)
+	s.Equal("a", results[0].ID)
+	s.Equal("b", results[1].ID)
+}
+
+func (s *EmbedSuite) TestSelectExamplesByEmbedding_MissingEntryID() {
+	index := EmbedIndex{
+		Pool: []EmbedResult{
+			{Entry: CorpusEntry{ID: "a"}, Embedding: []float32{1, 0, 0}},
+		},
+		Scored: map[string][]float32{
+			"other": {1, 0, 0},
+		},
+	}
+
+	results := SelectExamplesByEmbedding("nonexistent", index, 3)
+
+	s.Nil(results)
+}
+
+func (s *EmbedSuite) TestSelectExamplesByEmbedding_EmptyPool() {
+	index := EmbedIndex{
+		Pool:   []EmbedResult{},
+		Scored: map[string][]float32{"entry1": {1, 0, 0}},
+	}
+
+	results := SelectExamplesByEmbedding("entry1", index, 3)
+
+	s.Nil(results)
+}
+
+func (s *EmbedSuite) TestSelectExamplesByEmbedding_NZero() {
+	index := EmbedIndex{
+		Pool: []EmbedResult{
+			{Entry: CorpusEntry{ID: "a"}, Embedding: []float32{1, 0, 0}},
+		},
+		Scored: map[string][]float32{"entry1": {1, 0, 0}},
+	}
+
+	results := SelectExamplesByEmbedding("entry1", index, 0)
+
+	s.Nil(results)
+}
+
+// BuildEmbedIndex tests
+
+func makeEntry(id, content string, rating *int) CorpusEntry {
+	return CorpusEntry{ID: id, Content: content, UserRating: rating}
+}
+
+func embedMockServer(counter *atomic.Int64) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := float32(counter.Add(1))
+		w.Header().Set("Content-Type", "application/json")
+		resp := map[string]interface{}{
+			"embeddings": [][]float32{{n, 0, 0}},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+}
+
+func (s *EmbedSuite) TestBuildEmbedIndex_IndexesPoolAndScored() {
+	var counter atomic.Int64
+	server := embedMockServer(&counter)
+	defer server.Close()
+
+	pool := []CorpusEntry{
+		makeEntry("pool-1", "first pool entry", intPtr(5)),
+		makeEntry("pool-2", "second pool entry", intPtr(8)),
+	}
+	scored := []CorpusEntry{
+		makeEntry("scored-1", "first scored entry", nil),
+		makeEntry("scored-2", "second scored entry", nil),
+	}
+
+	index, _, err := BuildEmbedIndex(context.Background(), "test-model", server.URL, pool, scored, server.Client(), io.Discard)
+
+	s.Require().NoError(err)
+	s.Require().Len(index.Pool, 2, "pool should have 2 entries")
+	s.Require().Len(index.Scored, 2, "scored should have 2 entries")
+
+	for i, p := range index.Pool {
+		s.NotNil(p.Embedding, "pool entry %d embedding should not be nil", i)
+		s.NotEmpty(p.Embedding, "pool entry %d embedding should not be empty", i)
+	}
+
+	s.NotNil(index.Scored["scored-1"], "scored-1 embedding should exist")
+	s.NotNil(index.Scored["scored-2"], "scored-2 embedding should exist")
+}
+
+func (s *EmbedSuite) TestBuildEmbedIndex_CollectsLatencies() {
+	var counter atomic.Int64
+	server := embedMockServer(&counter)
+	defer server.Close()
+
+	pool := []CorpusEntry{
+		makeEntry("pool-1", "entry one", intPtr(3)),
+		makeEntry("pool-2", "entry two", intPtr(7)),
+	}
+	scored := []CorpusEntry{
+		makeEntry("scored-1", "entry three", nil),
+	}
+
+	_, latencies, err := BuildEmbedIndex(context.Background(), "test-model", server.URL, pool, scored, server.Client(), io.Discard)
+
+	s.Require().NoError(err)
+	s.Require().Len(latencies, 3, "should have 3 latencies (2 pool + 1 scored)")
+	for i, lat := range latencies {
+		s.Greater(lat, int64(0), "latency %d should be > 0", i)
+	}
+}
+
+func (s *EmbedSuite) TestBuildEmbedIndex_PrintsProgress() {
+	var counter atomic.Int64
+	server := embedMockServer(&counter)
+	defer server.Close()
+
+	pool := []CorpusEntry{
+		makeEntry("pool-1", "entry one", intPtr(5)),
+	}
+	scored := []CorpusEntry{
+		makeEntry("scored-1", "entry two", nil),
+	}
+
+	var buf bytes.Buffer
+	_, _, err := BuildEmbedIndex(context.Background(), "test-model", server.URL, pool, scored, server.Client(), &buf)
+
+	s.Require().NoError(err)
+	s.NotEmpty(buf.String(), "progress writer should have received output")
+}
+
+func (s *EmbedSuite) TestBuildEmbedIndex_ErrorOnEmbedFailure() {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	pool := []CorpusEntry{
+		makeEntry("pool-1", "entry", intPtr(5)),
+	}
+	scored := []CorpusEntry{
+		makeEntry("scored-1", "entry", nil),
+	}
+
+	_, _, err := BuildEmbedIndex(context.Background(), "test-model", server.URL, pool, scored, server.Client(), io.Discard)
+
+	s.Error(err, "should return error when embed requests fail")
 }

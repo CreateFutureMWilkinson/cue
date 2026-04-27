@@ -9,6 +9,8 @@ import (
 
 	chromem "github.com/rengensheng/chromem-go"
 
+	"log/slog"
+
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/repository/implementation/sqlite"
@@ -16,6 +18,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/vector"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
 )
 
 // ErrCompositionNotImplemented is returned by stub methods that are not yet implemented.
@@ -73,7 +76,7 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, err
 	}
 
-	hub, alerter, orch, queueProcessor, eventCh, err := startOrchestration(ctx, cfg, msgRepo, queueRepo, rulesEngine, ollamaClient)
+	hub, alerter, orch, queueProcessor, eventCh, err := startOrchestration(ctx, cfg, msgRepo, queueRepo, rulesEngine, ollamaClient, serviceConfigRepo)
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +182,7 @@ func startOrchestration(
 	queueRepo repository.QueueRepository,
 	rulesEngine *decisionengine.RulesEngine,
 	ollamaClient *decisionengine.OllamaClient,
+	serviceConfigRepo repository.ServiceConfigRepository,
 ) (*Hub, *HubAlerter, *orchestrator.Orchestrator, *orchestrator.QueueProcessor, chan orchestrator.ActivityEvent, error) {
 	hub := NewHub()
 	alerter := NewHubAlerter(hub)
@@ -220,9 +224,57 @@ func startOrchestration(
 	}
 	queueProcessor.Start(ctx)
 
-	// TODO(B6): register watchers from DB
+	registerWatchersFromDB(ctx, orch, serviceConfigRepo)
 
 	return hub, alerter, orch, queueProcessor, eventCh, nil
+}
+
+// registerWatchersFromDB queries enabled Slack and Email accounts from the
+// ServiceConfigRepository and registers watchers with the orchestrator.
+func registerWatchersFromDB(ctx context.Context, orch *orchestrator.Orchestrator, serviceConfigRepo repository.ServiceConfigRepository) {
+	slackAccounts, err := serviceConfigRepo.ListSlackAccounts(ctx)
+	if err != nil {
+		slog.Warn("listing slack accounts", "error", err)
+	} else {
+		for _, acct := range slackAccounts {
+			if !acct.Enabled {
+				continue
+			}
+			slackAPI, err := watcher.NewSlackWebClient(acct.Token)
+			if err != nil {
+				slog.Warn("creating slack API client", "workspace_id", acct.WorkspaceID, "error", err)
+				continue
+			}
+			sw, err := watcher.NewSlackWatcher(slackAPI, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID})
+			if err != nil {
+				slog.Warn("creating slack watcher", "workspace_id", acct.WorkspaceID, "error", err)
+				continue
+			}
+			orch.AddWatcher("slack:"+acct.WorkspaceID, sw)
+		}
+	}
+
+	emailAccounts, err := serviceConfigRepo.ListEmailAccounts(ctx)
+	if err != nil {
+		slog.Warn("listing email accounts", "error", err)
+	} else {
+		for _, acct := range emailAccounts {
+			if !acct.Enabled {
+				continue
+			}
+			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.Password, acct.Encryption)
+			if err != nil {
+				slog.Warn("creating IMAP client", "username", acct.Username, "error", err)
+				continue
+			}
+			ew, err := watcher.NewEmailWatcher(emailAPI, watcher.EmailWatcherConfig{Username: acct.Username})
+			if err != nil {
+				slog.Warn("creating email watcher", "username", acct.Username, "error", err)
+				continue
+			}
+			orch.AddWatcher("email:"+acct.Username, ew)
+		}
+	}
 }
 
 // Shutdown performs an ordered shutdown of all composition components.

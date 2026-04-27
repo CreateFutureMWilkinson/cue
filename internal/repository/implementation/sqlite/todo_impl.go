@@ -104,11 +104,12 @@ func (r *SQLiteTodoRepository) Insert(ctx context.Context, todo *repository.Todo
 		return fmt.Errorf("insert todo: %w", err)
 	}
 
-	for _, cat := range todo.Categories {
-		_, err = tx.ExecContext(ctx, queryInsertTodoCategory, todo.ID.String(), cat.ID.String())
-		if err != nil {
-			return fmt.Errorf("insert todo category: %w", err)
-		}
+	// TODO(feat-109 Loop 4): rewrite category persistence against the new
+	// category_key FK column on tasks. The old todo_categories junction
+	// table goes away in Loop 4; for now, skip association writes so the
+	// package compiles after the Category struct reshape.
+	_ = queryInsertTodoCategory
+	for range todo.Categories {
 	}
 
 	return tx.Commit()
@@ -141,11 +142,9 @@ func (r *SQLiteTodoRepository) Update(ctx context.Context, todo *repository.Todo
 		return fmt.Errorf("delete todo categories: %w", err)
 	}
 
-	for _, cat := range todo.Categories {
-		_, err = tx.ExecContext(ctx, queryInsertTodoCategory, todo.ID.String(), cat.ID.String())
-		if err != nil {
-			return fmt.Errorf("insert todo category: %w", err)
-		}
+	// TODO(feat-109 Loop 4): rewrite category persistence against the new
+	// category_key FK column on tasks. See Insert above.
+	for range todo.Categories {
 	}
 
 	return tx.Commit()
@@ -296,34 +295,14 @@ func (r *SQLiteTodoRepository) Complete(ctx context.Context, id uuid.UUID, compl
 	return nil
 }
 
-// fetchCategories loads the categories associated with a todo via the junction table.
+// fetchCategories loads the categories associated with a todo.
+//
+// TODO(feat-109 Loop 4): rewrite against the new category_key FK column on
+// tasks. The old todo_categories junction is being torn down; this stub
+// returns nil so the package compiles after the Category struct reshape.
 func (r *SQLiteTodoRepository) fetchCategories(ctx context.Context, todoID uuid.UUID) ([]repository.Category, error) {
-	rows, err := r.db.QueryContext(ctx, querySelectTodoCategories, todoID.String())
-	if err != nil {
-		return nil, fmt.Errorf("fetch todo categories: %w", err)
-	}
-	defer rows.Close()
-
-	var cats []repository.Category
-	for rows.Next() {
-		var (
-			cat   repository.Category
-			idStr string
-		)
-		if err := rows.Scan(&idStr, &cat.Name, &cat.Color); err != nil {
-			return nil, fmt.Errorf("scan todo category: %w", err)
-		}
-		cat.ID, err = uuid.Parse(idStr)
-		if err != nil {
-			return nil, fmt.Errorf("parse category ID: %w", err)
-		}
-		cats = append(cats, cat)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate todo categories: %w", err)
-	}
-
-	return cats, nil
+	_ = querySelectTodoCategories
+	return nil, nil
 }
 
 // scanTodo reads a todo from a sql.Rows scanner.

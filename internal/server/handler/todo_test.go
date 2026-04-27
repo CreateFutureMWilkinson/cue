@@ -97,7 +97,7 @@ func (s *TodoHandlerSuite) TestListTasksHandler() {
 		Title:              "Review PR #42",
 		Description:        "Check the new auth middleware",
 		Priority:           5,
-		Categories:         []repository.Category{{ID: uuid.New(), Name: "code-review", Color: "#FF5733"}},
+		Categories:         []repository.Category{{NameKey: "code_review"}},
 		LLMEstimateMinutes: &llmEst,
 		CreatedAt:          now.Add(-1 * time.Hour),
 	}

@@ -130,7 +130,7 @@ func sampleAvailableTasks() []presenter.TodoRow {
 			Priority: 1,
 			DueDate:  &due,
 			Categories: []repository.Category{
-				{ID: uuid.New(), Name: "work", Color: "#FF0000"},
+				{NameKey: "work"},
 			},
 			Selected: true,
 		},

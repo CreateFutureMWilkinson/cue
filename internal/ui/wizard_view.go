@@ -158,11 +158,14 @@ func (v *WizardView) buildTaskSelection() {
 	v.nextButtonEnabled = v.vm.SelectedCount() > 0
 }
 
-// extractCategoryNames converts category structs to name strings.
+// extractCategoryNames converts category structs to display strings.
+//
+// TODO(feat-109 Loop 7): switch to a single-category embed once the
+// task DTO carries `category: {key, name}` instead of a slice.
 func (v *WizardView) extractCategoryNames(categories []repository.Category) []string {
 	names := make([]string, len(categories))
 	for i, c := range categories {
-		names[i] = c.Name
+		names[i] = repository.PresentCategoryName(c.NameKey)
 	}
 	return names
 }

@@ -380,7 +380,7 @@ func (s *PlannerPresenterSuite) TestPreviousStepFromTaskSelectReturnsToIdle() {
 
 func (s *PlannerPresenterSuite) TestAvailableTasksReturnsLoadedTodosWithSelectionState() {
 	dueDate := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-	cat := repository.Category{ID: uuid.New(), Name: "work", Color: "#FF0000"}
+	cat := repository.Category{NameKey: "work"}
 	todo := &repository.Todo{
 		ID:         uuid.New(),
 		Title:      "Review PR",

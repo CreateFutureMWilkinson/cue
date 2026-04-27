@@ -79,9 +79,10 @@ func todoToTaskItem(t *repository.Todo, effectiveFn EffectiveEstimateFunc) taskI
 	}
 
 	// Convert categories to string slice of names.
+	// TODO(feat-109 Loop 7): switch to single-category embed.
 	cats := make([]string, len(t.Categories))
 	for i, c := range t.Categories {
-		cats[i] = c.Name
+		cats[i] = repository.PresentCategoryName(c.NameKey)
 	}
 	item.Categories = cats
 
@@ -186,11 +187,13 @@ func CreateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http
 			todo.DueDate = &t
 		}
 
-		// Convert category names to repository.Category slice.
+		// TODO(feat-109 Loop 7): replace with single-category FK wire format.
+		// For now, stash raw names in NameKey so the package compiles after
+		// the Category struct reshape; behaviour is rewritten in Loop 7.
 		if len(req.Categories) > 0 {
 			cats := make([]repository.Category, len(req.Categories))
 			for i, name := range req.Categories {
-				cats[i] = repository.Category{Name: name}
+				cats[i] = repository.Category{NameKey: name}
 			}
 			todo.Categories = cats
 		}
@@ -295,10 +298,11 @@ func UpdateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http
 			}
 			existing.DueDate = &t
 		}
+		// TODO(feat-109 Loop 7): replace with single-category FK wire format.
 		if req.Categories != nil {
 			cats := make([]repository.Category, len(req.Categories))
 			for i, name := range req.Categories {
-				cats[i] = repository.Category{Name: name}
+				cats[i] = repository.Category{NameKey: name}
 			}
 			existing.Categories = cats
 		}

@@ -12,31 +12,31 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// NOTE (Feature 109 Loop 1 RED):
+// This file is intentionally stubbed pending Loop 2, which will rewrite
+// the SQLite category repository against the reshaped name-keyed schema
+// and the new repository.CategoryRepository interface. The methods here
+// keep the package compiling for legacy call sites that still reference
+// the old shape. Their behaviour is undefined and Loop 2 replaces them
+// wholesale; do not rely on them.
+
 const createCategoriesTable = `
 CREATE TABLE IF NOT EXISTS categories (
-    id    TEXT PRIMARY KEY,
-    name  TEXT NOT NULL UNIQUE,
-    color TEXT NOT NULL DEFAULT '#808080'
+    name_key   TEXT PRIMARY KEY,
+    colour     TEXT,
+    created_at TEXT NOT NULL DEFAULT ''
 );
 `
 
-const (
-	queryInsertCategory       = "INSERT INTO categories (id, name, color) VALUES (?, ?, ?)"
-	queryUpdateCategory       = "UPDATE categories SET name = ?, color = ? WHERE id = ?"
-	queryDeleteCategory       = "DELETE FROM categories WHERE id = ?"
-	querySelectAllCategories  = "SELECT " + categoryColumnsStr + " FROM categories"
-	querySelectCategoryByName = "SELECT " + categoryColumnsStr + " FROM categories WHERE name = ?"
-)
-
-const categoryColumnsStr = "id, name, color"
-
-// SQLiteCategoryRepository implements repository.CategoryRepository using SQLite.
+// SQLiteCategoryRepository is a stub implementation pending Loop 2.
 type SQLiteCategoryRepository struct {
 	db *sql.DB
 }
 
-// NewSQLiteCategoryRepository opens a SQLite database at dbPath, enables WAL mode
-// and foreign keys, creates the categories table, and returns a ready repository.
+// NewSQLiteCategoryRepository opens a SQLite database at dbPath, enables
+// WAL mode and foreign keys, and creates the categories table skeleton.
+//
+// Stub pending Loop 2.
 func NewSQLiteCategoryRepository(dbPath string) (*SQLiteCategoryRepository, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
@@ -61,104 +61,31 @@ func NewSQLiteCategoryRepository(dbPath string) (*SQLiteCategoryRepository, erro
 	return &SQLiteCategoryRepository{db: db}, nil
 }
 
-// Insert adds a new category to the database.
+// Insert is a stub pending Loop 2.
 func (r *SQLiteCategoryRepository) Insert(ctx context.Context, category *repository.Category) error {
-	_, err := r.db.ExecContext(ctx, queryInsertCategory,
-		category.ID.String(), category.Name, category.Color,
-	)
-	if err != nil {
-		return fmt.Errorf("insert category: %w", err)
-	}
-	return nil
+	return repository.ErrNotImplemented
 }
 
-// Update modifies an existing category's name and color.
+// Update is a legacy stub kept so existing call sites compile;
+// removed entirely in Loop 2 in favour of Rename/UpdateColour.
 func (r *SQLiteCategoryRepository) Update(ctx context.Context, category *repository.Category) error {
-	_, err := r.db.ExecContext(ctx, queryUpdateCategory,
-		category.Name, category.Color, category.ID.String(),
-	)
-	if err != nil {
-		return fmt.Errorf("update category: %w", err)
-	}
-	return nil
+	return repository.ErrNotImplemented
 }
 
-// Delete removes a category by ID.
+// Delete is a legacy UUID-keyed stub kept so existing call sites compile;
+// the new key-based Delete(string) ships in Loop 2.
 func (r *SQLiteCategoryRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, queryDeleteCategory, id.String())
-	if err != nil {
-		return fmt.Errorf("delete category: %w", err)
-	}
-	return nil
+	return repository.ErrNotImplemented
 }
 
-// QueryAll returns all categories.
+// QueryAll is a legacy stub kept so the planner presenter's
+// CategoryQuerier interface still binds; reshaped to (ctx, bool) in Loop 2.
 func (r *SQLiteCategoryRepository) QueryAll(ctx context.Context) ([]*repository.Category, error) {
-	rows, err := r.db.QueryContext(ctx, querySelectAllCategories)
-	if err != nil {
-		return nil, fmt.Errorf("query all categories: %w", err)
-	}
-	defer rows.Close()
-
-	return scanCategories(rows)
+	return nil, repository.ErrNotImplemented
 }
 
-// QueryByName returns a single category by name, or an error wrapping
-// repository.ErrNotFound if no category with that name exists.
+// QueryByName is a legacy stub kept so existing call sites compile;
+// removed in Loop 2 in favour of GetByKey.
 func (r *SQLiteCategoryRepository) QueryByName(ctx context.Context, name string) (*repository.Category, error) {
-	rows, err := r.db.QueryContext(ctx, querySelectCategoryByName, name)
-	if err != nil {
-		return nil, fmt.Errorf("query category by name: %w", err)
-	}
-	defer rows.Close()
-
-	if !rows.Next() {
-		if err := rows.Err(); err != nil {
-			return nil, fmt.Errorf("query category by name: %w", err)
-		}
-		return nil, fmt.Errorf("query category by name: %w", repository.ErrNotFound)
-	}
-
-	cat, err := scanCategory(rows)
-	if err != nil {
-		return nil, fmt.Errorf("scan category: %w", err)
-	}
-
-	return cat, nil
-}
-
-// scanCategories scans rows into a slice of Category pointers.
-func scanCategories(rows *sql.Rows) ([]*repository.Category, error) {
-	var categories []*repository.Category
-	for rows.Next() {
-		cat, err := scanCategory(rows)
-		if err != nil {
-			return nil, fmt.Errorf("scan category: %w", err)
-		}
-		categories = append(categories, cat)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate categories: %w", err)
-	}
-	return categories, nil
-}
-
-// scanCategory reads a category from a sql.Rows scanner.
-func scanCategory(rows *sql.Rows) (*repository.Category, error) {
-	var (
-		cat   repository.Category
-		idStr string
-	)
-
-	err := rows.Scan(&idStr, &cat.Name, &cat.Color)
-	if err != nil {
-		return nil, fmt.Errorf("scan category row: %w", err)
-	}
-
-	cat.ID, err = uuid.Parse(idStr)
-	if err != nil {
-		return nil, fmt.Errorf("parse category ID: %w", err)
-	}
-
-	return &cat, nil
+	return nil, repository.ErrNotImplemented
 }

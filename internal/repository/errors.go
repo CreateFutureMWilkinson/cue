@@ -14,3 +14,8 @@ var ErrDuplicate = errors.New("duplicate")
 
 // ErrInvalidRoutingRule is returned when a routing rule fails validation.
 var ErrInvalidRoutingRule = errors.New("invalid routing rule")
+
+// ErrValidation marks errors caused by invalid user-supplied input
+// (e.g. malformed category names or colour codes). Handlers wrap this
+// sentinel to map service errors to HTTP 400 without string matching.
+var ErrValidation = errors.New("validation")

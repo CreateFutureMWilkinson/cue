@@ -77,10 +77,10 @@ func validateColour(colour *string) error {
 func (s *Service) CreateCategory(ctx context.Context, rawName string, colour *string) (*repository.Category, error) {
 	key, err := repository.NormalizeCategoryKey(rawName)
 	if err != nil {
-		return nil, fmt.Errorf("todo service: create category: %w", err)
+		return nil, fmt.Errorf("todo service: create category: %w: %w", repository.ErrValidation, err)
 	}
 	if err := validateColour(colour); err != nil {
-		return nil, fmt.Errorf("todo service: create category: %w", err)
+		return nil, fmt.Errorf("todo service: create category: %w: %w", repository.ErrValidation, err)
 	}
 	cat := &repository.Category{
 		NameKey:   key,
@@ -99,7 +99,7 @@ func (s *Service) CreateCategory(ctx context.Context, rawName string, colour *st
 func (s *Service) RenameCategory(ctx context.Context, oldKey, newRawName string) (*repository.Category, error) {
 	newKey, err := repository.NormalizeCategoryKey(newRawName)
 	if err != nil {
-		return nil, fmt.Errorf("todo service: rename category: %w", err)
+		return nil, fmt.Errorf("todo service: rename category: %w: %w", repository.ErrValidation, err)
 	}
 	if newKey == oldKey {
 		cat, err := s.categories.GetByKey(ctx, oldKey)
@@ -122,7 +122,7 @@ func (s *Service) RenameCategory(ctx context.Context, oldKey, newRawName string)
 // categories.UpdateColour.
 func (s *Service) SetCategoryColour(ctx context.Context, key string, colour *string) error {
 	if err := validateColour(colour); err != nil {
-		return fmt.Errorf("todo service: set category colour: %w", err)
+		return fmt.Errorf("todo service: set category colour: %w: %w", repository.ErrValidation, err)
 	}
 	return s.categories.UpdateColour(ctx, key, colour)
 }

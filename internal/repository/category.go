@@ -2,7 +2,11 @@ package repository
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 	"time"
+	"unicode"
 )
 
 // Category represents a user-defined category for tasks.
@@ -50,7 +54,40 @@ type CategoryRepository interface {
 //
 // Stub: returns ErrNotImplemented; replaced in Loop 1 GREEN.
 func NormalizeCategoryKey(input string) (string, error) {
-	return "", ErrNotImplemented
+	s := strings.TrimSpace(input)
+	if strings.ContainsRune(s, '_') {
+		return "", errors.New("underscores not allowed in category name")
+	}
+	if s == "" {
+		return "", errors.New("category name must not be empty")
+	}
+	if len(s) > 64 {
+		return "", fmt.Errorf("category name exceeds 64 characters: %d", len(s))
+	}
+	for _, r := range s {
+		if r > unicode.MaxASCII {
+			return "", fmt.Errorf("category name contains non-ASCII character: %q", r)
+		}
+		if !(unicode.IsLetter(r) || unicode.IsDigit(r) || unicode.IsSpace(r)) {
+			return "", fmt.Errorf("category name contains invalid character: %q", r)
+		}
+	}
+	s = strings.ToLower(s)
+	var b strings.Builder
+	b.Grow(len(s))
+	prevSpace := false
+	for _, r := range s {
+		if unicode.IsSpace(r) {
+			if !prevSpace {
+				b.WriteRune('_')
+			}
+			prevSpace = true
+			continue
+		}
+		b.WriteRune(r)
+		prevSpace = false
+	}
+	return b.String(), nil
 }
 
 // PresentCategoryName converts a normalized category key back to a
@@ -59,5 +96,20 @@ func NormalizeCategoryKey(input string) (string, error) {
 //
 // Stub: returns empty string; replaced in Loop 1 GREEN.
 func PresentCategoryName(key string) string {
-	return ""
+	if key == "" {
+		return ""
+	}
+	parts := strings.Split(key, "_")
+	for i, p := range parts {
+		if p == "" {
+			continue
+		}
+		runes := []rune(p)
+		runes[0] = unicode.ToUpper(runes[0])
+		for j := 1; j < len(runes); j++ {
+			runes[j] = unicode.ToLower(runes[j])
+		}
+		parts[i] = string(runes)
+	}
+	return strings.Join(parts, " ")
 }

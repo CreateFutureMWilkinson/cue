@@ -80,9 +80,10 @@ func (s *CategorySuite) TestListCategoriesDecodesResponse() {
 func (s *CategorySuite) TestGetCategoryByDisplayForm() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.Equal(http.MethodGet, r.Method)
-		// r.URL.Path is the decoded form; r.URL.RawPath preserves escaping.
+		// r.URL.Path is decoded; r.RequestURI preserves the wire-form so
+		// we can assert the client URL-escaped " " as "%20".
 		s.Equal("/api/v1/todo/categories/Foo Bar", r.URL.Path)
-		s.Equal("/api/v1/todo/categories/Foo%20Bar", r.URL.RawPath)
+		s.Equal("/api/v1/todo/categories/Foo%20Bar", r.RequestURI)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

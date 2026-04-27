@@ -23,10 +23,31 @@ import (
 const configRelPath = ".cue/config.toml"
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--reset-auth" {
+		if err := resetAuth(); err != nil {
+			slog.Error("reset-auth failed", "error", err)
+			os.Exit(1)
+		}
+		fmt.Println("All auth tokens deleted. The next client to connect will be auto-issued a token.")
+		os.Exit(0)
+	}
+
 	if err := run(); err != nil {
 		slog.Error("cue-server: fatal", "error", err)
 		os.Exit(1)
 	}
+}
+
+func resetAuth() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("finding home directory: %w", err)
+	}
+	cfg, err := config.Load(filepath.Join(home, configRelPath))
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+	return server.ResetAuth(cfg.Database.Path)
 }
 
 func run() error {

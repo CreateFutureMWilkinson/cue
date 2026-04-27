@@ -23,6 +23,9 @@ type Deps struct {
 	// Todos is the todo/task service for CRUD operations.
 	// If nil, task API endpoints are not registered.
 	Todos handler.TaskServicer
+	// Categories is the todo category service for CRUD operations.
+	// If nil, category API endpoints are not registered.
+	Categories handler.CategoryServicer
 	// EffectiveEstimate computes the effective estimate for a todo.
 	// Required when Todos is non-nil.
 	EffectiveEstimate handler.EffectiveEstimateFunc
@@ -176,6 +179,14 @@ func (s *Server) registerRoutes() {
 			s.mux.Handle("POST /api/v1/buffer/{id}/rate", handler.RateBufferedHandler(s.deps.Messages, s.deps.Buffer))
 			s.mux.Handle("DELETE /api/v1/buffer/{id}", handler.DeleteBufferedHandler(s.deps.Messages, s.deps.Buffer))
 		}
+	}
+
+	if s.deps.Categories != nil {
+		s.mux.Handle("GET /api/v1/todo/categories", handler.ListCategoriesHandler(s.deps.Categories))
+		s.mux.Handle("POST /api/v1/todo/categories", handler.CreateCategoryHandler(s.deps.Categories))
+		s.mux.Handle("GET /api/v1/todo/categories/{name}", handler.GetCategoryHandler(s.deps.Categories))
+		s.mux.Handle("PUT /api/v1/todo/categories/{name}", handler.UpdateCategoryHandler(s.deps.Categories))
+		s.mux.Handle("DELETE /api/v1/todo/categories/{name}", handler.DeleteCategoryHandler(s.deps.Categories))
 	}
 
 	if s.deps.Todos != nil {

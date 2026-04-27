@@ -279,6 +279,7 @@ func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository
 		Buffer:            bufSvc,
 		Hub:               hub,
 		Todos:             todoSvc,
+		Categories:        todoSvc,
 		EffectiveEstimate: todosvc.EffectiveEstimate,
 		Schedules:         scheduleRepo,
 		ScheduleGenerator: plannerEngine,

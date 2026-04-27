@@ -17,6 +17,7 @@ import (
 // Nil fields disable the corresponding API surface.
 type Deps struct {
 	Messages handler.MessageQuerier
+	Hub      *Hub // optional: if nil, New creates its own hub
 }
 
 // Server is the headless HTTP/WebSocket entry point for Cue.

@@ -49,6 +49,10 @@ type Composition struct {
 	// RulesEngine holds compiled deterministic routing rules
 	RulesEngine *decisionengine.RulesEngine
 
+	// HTTP is the headless HTTP/WebSocket server surface.
+	// TODO(B10): construct HTTP server and wire shared hub
+	HTTP *Server
+
 	// Hub is the central event broadcaster for WebSocket clients
 	Hub *Hub
 	// Alerter broadcasts alert envelopes to connected WebSocket clients
@@ -86,7 +90,15 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, err
 	}
 
+	// Construct the HTTP server surface. TODO(B10): pass the shared hub so
+	// that WebSocket clients and the publisher goroutine use the same Hub.
+	httpSrv, err := New(cfg.Server, Deps{Messages: msgRepo})
+	if err != nil {
+		return nil, fmt.Errorf("creating http server: %w", err)
+	}
+
 	return &Composition{
+		HTTP:              httpSrv,
 		MessageRepo:       msgRepo,
 		QueueRepo:         queueRepo,
 		RuleRepo:          ruleRepo,

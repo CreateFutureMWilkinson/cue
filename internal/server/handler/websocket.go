@@ -44,6 +44,10 @@ type Publisher interface {
 	Unsubscribe(id string) error
 }
 
+// TokenValidator checks whether a bearer token is valid.
+// A nil TokenValidator means authentication is disabled (all connections allowed).
+type TokenValidator func(token string) bool
+
 // Manager owns a WebSocket handler and a registry of active connections.
 // It tracks hijacked WebSocket connections in a map protected by mu, allowing
 // the server to close all live connections on shutdown (since net/http.Shutdown
@@ -53,12 +57,22 @@ type Publisher interface {
 // Lock ordering: Manager.mu must never be held while calling methods on
 // individual websocket.Conn instances to prevent deadlocks.
 type Manager struct {
-	mu       sync.Mutex                   // protects conns map
-	conns    map[*websocket.Conn]struct{} // registry of live connections
-	active   atomic.Int32                 // connection count for limit enforcement
-	hub      Publisher                    // event publisher for subscriptions
-	interval time.Duration                // heartbeat ping interval
-	timeout  time.Duration                // heartbeat pong timeout
+	mu        sync.Mutex                   // protects conns map
+	conns     map[*websocket.Conn]struct{} // registry of live connections
+	active    atomic.Int32                 // connection count for limit enforcement
+	hub       Publisher                    // event publisher for subscriptions
+	interval  time.Duration                // heartbeat ping interval
+	timeout   time.Duration                // heartbeat pong timeout
+	validator TokenValidator               // optional token auth; nil = no auth
+}
+
+// SetTokenValidator configures optional token-based authentication for
+// WebSocket upgrades. When set, the Handler extracts the ?token= query
+// parameter and calls fn to validate it before upgrading the connection.
+// If fn returns false, the server responds with 401 Unauthorized.
+// Passing nil disables authentication (the default).
+func (m *Manager) SetTokenValidator(fn TokenValidator) {
+	m.validator = fn
 }
 
 // NewManager creates a Manager with production-default heartbeat timings.
@@ -82,6 +96,16 @@ func NewManagerWithHeartbeat(hub Publisher, interval, timeout time.Duration) *Ma
 // so they can be closed on server shutdown via CloseAll.
 func (m *Manager) Handler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if m.validator != nil {
+			token := r.URL.Query().Get("token")
+			if token == "" || !m.validator(token) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
+				return
+			}
+		}
+
 		if !tryReserveSlot(&m.active) {
 			writeTooManyConnections(w)
 			return

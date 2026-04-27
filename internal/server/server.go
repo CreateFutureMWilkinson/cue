@@ -54,6 +54,7 @@ type Server struct {
 	cfg       config.ServerConfig
 	deps      Deps
 	hub       *Hub
+	ticker    *Ticker
 	wsManager *handler.Manager
 	mux       *http.ServeMux
 	handler   http.Handler
@@ -177,13 +178,25 @@ func (s *Server) registerRoutes() {
 	}
 
 	if s.deps.Schedules != nil {
+		// Timer endpoint (read-only, no onChange needed).
+		s.mux.Handle("GET /api/v1/timer", handler.GetTimerHandler(s.deps.Schedules, wallClockTimerAdapter{}))
+
+		// Build onChange callbacks for schedule mutations.
+		// The closure captures s and checks s.ticker at call time,
+		// so the ticker can be attached after server construction.
+		onChange := []func(){func() {
+			if s.ticker != nil {
+				s.ticker.NotifyScheduleChanged(context.Background())
+			}
+		}}
+
 		// Register /active routes before /{date} so ServeMux does not
 		// match "active" as a {date} parameter.
 		s.mux.Handle("GET /api/v1/planner/active", handler.ActiveDateHandler(handler.GetScheduleHandler(s.deps.Schedules)))
-		s.mux.Handle("DELETE /api/v1/planner/active", handler.ActiveDateHandler(handler.DeleteScheduleHandler(s.deps.Schedules)))
+		s.mux.Handle("DELETE /api/v1/planner/active", handler.ActiveDateHandler(handler.DeleteScheduleHandler(s.deps.Schedules, onChange...)))
 		s.mux.Handle("GET /api/v1/planner/{date}", handler.GetScheduleHandler(s.deps.Schedules))
-		s.mux.Handle("PUT /api/v1/planner/{date}", handler.PutScheduleHandler(s.deps.Schedules))
-		s.mux.Handle("DELETE /api/v1/planner/{date}", handler.DeleteScheduleHandler(s.deps.Schedules))
+		s.mux.Handle("PUT /api/v1/planner/{date}", handler.PutScheduleHandler(s.deps.Schedules, onChange...))
+		s.mux.Handle("DELETE /api/v1/planner/{date}", handler.DeleteScheduleHandler(s.deps.Schedules, onChange...))
 		if s.deps.ScheduleGenerator != nil && s.deps.Calendar != nil {
 			s.mux.Handle("POST /api/v1/planner/generate", handler.GenerateSchedulesHandler(s.deps.ScheduleGenerator, s.deps.Calendar))
 		}
@@ -236,6 +249,14 @@ func (s *Server) Addr() string {
 	}
 	return s.listener.Addr().String()
 }
+
+// wallClockTimerAdapter implements handler.TimerClock using the real system clock.
+type wallClockTimerAdapter struct{}
+
+func (wallClockTimerAdapter) Now() time.Time { return time.Now() }
+
+// SetTicker attaches a Ticker to the server for schedule-change notifications.
+func (s *Server) SetTicker(t *Ticker) { s.ticker = t }
 
 // chain wraps h with the given middleware. The first middleware in the
 // list runs first (outermost).

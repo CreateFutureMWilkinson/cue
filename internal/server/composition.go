@@ -72,6 +72,8 @@ type Composition struct {
 	QueueProcessor *orchestrator.QueueProcessor
 	// EventCh carries activity events from orchestrator to the hub publisher
 	EventCh chan orchestrator.ActivityEvent
+	// Ticker broadcasts timer events at 0.2Hz while a schedule is active
+	Ticker *Ticker
 
 	shutdownOnce sync.Once
 	shutdownErr  error
@@ -141,8 +143,15 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, err
 	}
 
+	// Create and start the timer ticker, then attach it to the server
+	// so schedule-mutation handlers can notify it of changes.
+	ticker := NewTicker(scheduleRepo, hub, plannerClock, cfg.Planner.WorkdayStart, cfg.Planner.WorkdayEnd)
+	ticker.Start(ctx)
+	httpSrv.SetTicker(ticker)
+
 	return &Composition{
 		HTTP:              httpSrv,
+		Ticker:            ticker,
 		MessageRepo:       msgRepo,
 		QueueRepo:         queueRepo,
 		RuleRepo:          ruleRepo,
@@ -449,6 +458,11 @@ func (c *Composition) Shutdown(ctx context.Context) error {
 
 		slog.Info("stopping queue processor")
 		c.QueueProcessor.Stop()
+
+		if c.Ticker != nil {
+			slog.Info("stopping ticker")
+			c.Ticker.Stop()
+		}
 
 		slog.Info("closing event channel")
 		close(c.EventCh)

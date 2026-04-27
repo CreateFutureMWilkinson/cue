@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
@@ -70,37 +69,9 @@ func writeCategoryError(w http.ResponseWriter, err error) {
 		writeJSONError(w, http.StatusNotFound, "not found")
 	case errors.Is(err, repository.ErrDuplicate):
 		writeJSONError(w, http.StatusConflict, "already exists")
-	case looksLikeValidation(err):
-		writeJSONError(w, http.StatusBadRequest, err.Error())
 	default:
 		writeJSONError(w, http.StatusInternalServerError, "internal error")
 	}
-}
-
-// looksLikeValidation is a defensive fallback for service errors that bubble
-// up from repository.NormalizeCategoryKey or colour validation but were not
-// wrapped with repository.ErrValidation (e.g. tests using bare errors).
-func looksLikeValidation(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(err.Error())
-	for _, marker := range []string{
-		"underscore",
-		"colour",
-		"color",
-		"empty",
-		"too long",
-		"exceeds",
-		"invalid character",
-		"non-ascii",
-		"normalize",
-	} {
-		if strings.Contains(msg, marker) {
-			return true
-		}
-	}
-	return false
 }
 
 // taskCountFor looks up a category's task count by querying the full list.

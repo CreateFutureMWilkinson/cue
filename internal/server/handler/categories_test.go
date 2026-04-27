@@ -3,6 +3,7 @@ package handler_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -322,11 +323,8 @@ func (s *CategoriesHandlerSuite) TestCreateNoColour() {
 func (s *CategoriesHandlerSuite) TestCreateBadName() {
 	// Service surfaces a validation error from NormalizeCategoryKey.
 	mock := &mockCategoryServicer{
-		createErr: repository.ErrNotFound, // any non-duplicate, non-nil err — handler distinguishes via specific sentinels
+		createErr: fmt.Errorf("underscores not allowed in category name: %w", repository.ErrValidation),
 	}
-	// Use a distinct sentinel by overriding above: validation errors are
-	// not ErrNotFound / ErrDuplicate, so the handler should map them to 400.
-	mock.createErr = errString("underscores not allowed in category name")
 
 	body := strings.NewReader(`{"name":"foo_bar"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/todo/categories", body)
@@ -345,7 +343,7 @@ func (s *CategoriesHandlerSuite) TestCreateBadColour() {
 		// If the handler pre-validates colour, the service is never reached.
 		// If the handler defers to the service, the service returns an error
 		// that is NOT ErrDuplicate / ErrNotFound, which should map to 400.
-		createErr: errString("colour must match #RRGGBB"),
+		createErr: fmt.Errorf("colour must match #RRGGBB: %w", repository.ErrValidation),
 	}
 	s.newMux(mock).ServeHTTP(rec, req)
 
@@ -538,10 +536,3 @@ func (s *CategoriesHandlerSuite) TestDeleteNotFound() {
 
 	s.Equal(http.StatusNotFound, rec.Code)
 }
-
-// errString is a tiny error type for stub validation/colour errors that are
-// neither ErrNotFound nor ErrDuplicate. Defined here (not in production code)
-// since it only exists to drive handler error-mapping behaviour from tests.
-type errString string
-
-func (e errString) Error() string { return string(e) }

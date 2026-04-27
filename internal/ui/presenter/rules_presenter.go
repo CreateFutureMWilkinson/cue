@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"context"
+	"errors"
 	"sort"
 
 	"github.com/google/uuid"
@@ -15,12 +16,26 @@ type RulesPresenter struct {
 	ruleRepo  repository.RoutingRuleRepository
 	queueRepo repository.QueueRepository
 	warnAt    int
+	reloader  func()
+}
+
+// WithReloader returns an option that sets a callback invoked after
+// every mutation (SaveRule, DeleteRule, ReorderRule, ToggleRule).
+func WithReloader(fn func()) func(*RulesPresenter) {
+	return func(p *RulesPresenter) {
+		p.reloader = fn
+	}
 }
 
 // NewRulesPresenter creates a RulesPresenter. warnAt is the queue depth
-// threshold above which a warning is displayed.
-func NewRulesPresenter(ruleRepo repository.RoutingRuleRepository, queueRepo repository.QueueRepository, warnAt int) *RulesPresenter {
-	return &RulesPresenter{ruleRepo: ruleRepo, queueRepo: queueRepo, warnAt: warnAt}
+// threshold above which a warning is displayed. Optional functional options
+// (e.g. WithReloader) may be passed to customise behaviour.
+func NewRulesPresenter(ruleRepo repository.RoutingRuleRepository, queueRepo repository.QueueRepository, warnAt int, opts ...func(*RulesPresenter)) *RulesPresenter {
+	p := &RulesPresenter{ruleRepo: ruleRepo, queueRepo: queueRepo, warnAt: warnAt}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p
 }
 
 // ListRules returns all routing rules sorted by priority.
@@ -121,4 +136,19 @@ func (p *RulesPresenter) QueueDepth(ctx context.Context) (int, error) {
 // QueueWarningThreshold returns the threshold above which a warning is shown.
 func (p *RulesPresenter) QueueWarningThreshold() int {
 	return p.warnAt
+}
+
+// GetRule retrieves a single routing rule by ID.
+func (p *RulesPresenter) GetRule(ctx context.Context, id uuid.UUID) (*repository.RoutingRule, error) {
+	return p.ruleRepo.GetRule(ctx, id)
+}
+
+// ListRulesBySourceType returns rules filtered by source type.
+func (p *RulesPresenter) ListRulesBySourceType(ctx context.Context, sourceType string) ([]*repository.RoutingRule, error) {
+	return nil, errors.New("not implemented")
+}
+
+// ListRulesBySourceAccount returns rules filtered by source account ID.
+func (p *RulesPresenter) ListRulesBySourceAccount(ctx context.Context, accountID uuid.UUID) ([]*repository.RoutingRule, error) {
+	return nil, errors.New("not implemented")
 }

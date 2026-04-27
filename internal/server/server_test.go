@@ -572,6 +572,102 @@ func (s *ServerSuite) TestPlannerRoutesRegistered() {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Mock RulesManager for route registration tests
+// ---------------------------------------------------------------------------
+
+type serverMockRulesManager struct{}
+
+func (m *serverMockRulesManager) ListRules(_ context.Context) ([]*repository.RoutingRule, error) {
+	return []*repository.RoutingRule{}, nil
+}
+
+func (m *serverMockRulesManager) ListRulesBySourceType(_ context.Context, _ string) ([]*repository.RoutingRule, error) {
+	return []*repository.RoutingRule{}, nil
+}
+
+func (m *serverMockRulesManager) ListRulesBySourceAccount(_ context.Context, _ uuid.UUID) ([]*repository.RoutingRule, error) {
+	return []*repository.RoutingRule{}, nil
+}
+
+func (m *serverMockRulesManager) GetRule(_ context.Context, _ uuid.UUID) (*repository.RoutingRule, error) {
+	return &repository.RoutingRule{
+		ID:             uuid.New(),
+		SourceType:     "slack",
+		ChannelPattern: "general",
+		Action:         "notified",
+		Enabled:        true,
+	}, nil
+}
+
+func (m *serverMockRulesManager) SaveRule(_ context.Context, _ *repository.RoutingRule) error {
+	return nil
+}
+
+func (m *serverMockRulesManager) DeleteRule(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *serverMockRulesManager) ReorderRule(_ context.Context, _ uuid.UUID, _ int) error {
+	return nil
+}
+
+func (m *serverMockRulesManager) ToggleRule(_ context.Context, _ uuid.UUID, _ bool) error {
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// Rules route registration tests
+// ---------------------------------------------------------------------------
+
+func (s *ServerSuite) TestRulesRoutesRegisteredWhenDepsSet() {
+	cfg := config.ServerConfig{
+		Host:                "127.0.0.1",
+		Port:                0,
+		ReadTimeoutSeconds:  5,
+		WriteTimeoutSeconds: 5,
+	}
+
+	srv, err := server.New(cfg, server.Deps{
+		Rules: &serverMockRulesManager{},
+	})
+	s.Require().NoError(err)
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	// GET /api/v1/rules should be registered (not 404).
+	resp, err := http.Get(ts.URL + "/api/v1/rules")
+	s.Require().NoError(err)
+	defer resp.Body.Close()
+
+	s.NotEqual(http.StatusNotFound, resp.StatusCode,
+		"GET /api/v1/rules should be registered when Deps.Rules is set (got 404)")
+}
+
+func (s *ServerSuite) TestRulesRoutesNotRegisteredWhenDepsNil() {
+	cfg := config.ServerConfig{
+		Host:                "127.0.0.1",
+		Port:                0,
+		ReadTimeoutSeconds:  5,
+		WriteTimeoutSeconds: 5,
+	}
+
+	// No Rules in Deps — rules routes should not be registered.
+	srv, err := server.New(cfg)
+	s.Require().NoError(err)
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/api/v1/rules")
+	s.Require().NoError(err)
+	defer resp.Body.Close()
+
+	s.Equal(http.StatusNotFound, resp.StatusCode,
+		"GET /api/v1/rules should return 404 when Deps.Rules is nil")
+}
+
 func (s *ServerSuite) TestPlannerRoutesNotRegisteredWhenNil() {
 	cfg := config.ServerConfig{
 		Host:                "127.0.0.1",

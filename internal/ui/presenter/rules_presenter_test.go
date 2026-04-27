@@ -239,3 +239,114 @@ func (s *RulesPresenterSuite) TestQueueWarningThresholdReturnsWarnAt() {
 
 	s.Equal(75, p.QueueWarningThreshold())
 }
+
+// --- Reloader callback tests ---
+
+func (s *RulesPresenterSuite) TestSaveRuleCallsReloader() {
+	ruleRepo := &mockRuleRepo{}
+	queueRepo := &mockQueueRepo{}
+
+	callCount := 0
+	reloader := func() { callCount++ }
+
+	p := presenter.NewRulesPresenter(ruleRepo, queueRepo, 50, presenter.WithReloader(reloader))
+
+	rule := &repository.RoutingRule{
+		ID:             uuid.New(),
+		Priority:       0,
+		SourceType:     "slack",
+		ChannelPattern: "general",
+		Action:         "notified",
+		Enabled:        true,
+	}
+
+	err := p.SaveRule(context.Background(), rule)
+	s.Require().NoError(err)
+	s.Equal(1, callCount, "reloader should be called once after SaveRule")
+}
+
+func (s *RulesPresenterSuite) TestDeleteRuleCallsReloader() {
+	ruleRepo := &mockRuleRepo{}
+	queueRepo := &mockQueueRepo{}
+
+	callCount := 0
+	reloader := func() { callCount++ }
+
+	p := presenter.NewRulesPresenter(ruleRepo, queueRepo, 50, presenter.WithReloader(reloader))
+
+	err := p.DeleteRule(context.Background(), uuid.New())
+	s.Require().NoError(err)
+	s.Equal(1, callCount, "reloader should be called once after DeleteRule")
+}
+
+func (s *RulesPresenterSuite) TestReorderRuleCallsReloader() {
+	id0 := uuid.New()
+	id1 := uuid.New()
+
+	rules := []*repository.RoutingRule{
+		{ID: id0, Priority: 0, SourceType: "slack", ChannelPattern: "a", Action: "notified", Enabled: true},
+		{ID: id1, Priority: 1, SourceType: "slack", ChannelPattern: "b", Action: "notified", Enabled: true},
+	}
+
+	ruleRepo := &mockRuleRepo{rules: rules}
+	queueRepo := &mockQueueRepo{}
+
+	callCount := 0
+	reloader := func() { callCount++ }
+
+	p := presenter.NewRulesPresenter(ruleRepo, queueRepo, 50, presenter.WithReloader(reloader))
+
+	err := p.ReorderRule(context.Background(), id1, 0)
+	s.Require().NoError(err)
+	s.Equal(1, callCount, "reloader should be called once after ReorderRule")
+}
+
+func (s *RulesPresenterSuite) TestToggleRuleCallsReloader() {
+	id := uuid.New()
+	rule := &repository.RoutingRule{
+		ID:             id,
+		Priority:       0,
+		SourceType:     "slack",
+		ChannelPattern: "general",
+		Action:         "notified",
+		Enabled:        true,
+	}
+
+	ruleRepo := &mockRuleRepo{getRule: rule}
+	queueRepo := &mockQueueRepo{}
+
+	callCount := 0
+	reloader := func() { callCount++ }
+
+	p := presenter.NewRulesPresenter(ruleRepo, queueRepo, 50, presenter.WithReloader(reloader))
+
+	err := p.ToggleRule(context.Background(), id, false)
+	s.Require().NoError(err)
+	s.Equal(1, callCount, "reloader should be called once after ToggleRule")
+}
+
+func (s *RulesPresenterSuite) TestMutationWithoutReloaderDoesNotPanic() {
+	ruleRepo := &mockRuleRepo{}
+	queueRepo := &mockQueueRepo{}
+
+	// No WithReloader option — reloader is nil.
+	p := presenter.NewRulesPresenter(ruleRepo, queueRepo, 50)
+
+	rule := &repository.RoutingRule{
+		ID:             uuid.New(),
+		Priority:       0,
+		SourceType:     "slack",
+		ChannelPattern: "general",
+		Action:         "notified",
+		Enabled:        true,
+	}
+
+	// These should not panic even though no reloader is set.
+	s.NotPanics(func() {
+		_ = p.SaveRule(context.Background(), rule)
+	}, "SaveRule without reloader should not panic")
+
+	s.NotPanics(func() {
+		_ = p.DeleteRule(context.Background(), uuid.New())
+	}, "DeleteRule without reloader should not panic")
+}

@@ -35,6 +35,9 @@ type Deps struct {
 	// Calendar fetches calendar events for schedule generation.
 	// Required when Schedules is non-nil.
 	Calendar handler.CalendarFetcher
+	// Rules is the routing-rules manager for CRUD operations.
+	// If nil, routing-rule API endpoints are not registered.
+	Rules handler.RulesManager
 	// Services is the service configuration manager for CRUD operations.
 	// If nil, service configuration API endpoints are not registered.
 	Services handler.ServiceManager

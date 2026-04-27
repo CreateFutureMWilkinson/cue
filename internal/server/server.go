@@ -117,6 +117,14 @@ func (s *Server) registerRoutes() {
 			s.mux.Handle("DELETE /api/v1/buffer/{id}", handler.DeleteBufferedHandler(s.deps.Messages, s.deps.Buffer))
 		}
 	}
+
+	if s.deps.Todos != nil {
+		s.mux.Handle("GET /api/v1/tasks", handler.ListTasksHandler(s.deps.Todos, s.deps.EffectiveEstimate))
+		s.mux.Handle("POST /api/v1/tasks", handler.CreateTaskHandler(s.deps.Todos, s.deps.EffectiveEstimate))
+		s.mux.Handle("GET /api/v1/tasks/{id}", handler.GetTaskHandler(s.deps.Todos, s.deps.EffectiveEstimate))
+		s.mux.Handle("PUT /api/v1/tasks/{id}", handler.UpdateTaskHandler(s.deps.Todos, s.deps.EffectiveEstimate))
+		s.mux.Handle("DELETE /api/v1/tasks/{id}", handler.DeleteTaskHandler(s.deps.Todos))
+	}
 }
 
 // Hub returns the WebSocket event broadcaster so callers can publish

@@ -106,3 +106,10 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 func writeJSONError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
 }
+
+// GetNotificationHandler returns an http.HandlerFunc for GET /api/v1/notifications/{id}.
+func GetNotificationHandler(repo MessageQuerier) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "not implemented", http.StatusNotImplemented)
+	}
+}

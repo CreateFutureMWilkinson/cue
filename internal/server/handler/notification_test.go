@@ -110,3 +110,69 @@ func (s *NotificationHandlerSuite) TestListNotificationsReturnsNotifiedMessages(
 	s.Equal(50, mock.capturedFilter.Limit)
 	s.Equal(0, mock.capturedFilter.Offset)
 }
+
+func (s *NotificationHandlerSuite) TestGetNotificationReturnsFullDetail() {
+	now := time.Now().UTC().Truncate(time.Second)
+	msgID := uuid.New()
+
+	msg := &repository.Message{
+		ID:              msgID,
+		Source:          "slack",
+		SourceAccount:   "T12345",
+		Channel:         "#incidents",
+		Sender:          "alice",
+		MessageID:       "slack-msg-001",
+		RawContent:      "Server is down in us-east-1",
+		ImportanceScore: 9.0,
+		ConfidenceScore: 0.95,
+		Reasoning:       "Production outage affecting customers",
+		Status:          "Notified",
+		CreatedAt:       now.Add(-5 * time.Minute),
+		UpdatedAt:       now.Add(-4 * time.Minute),
+	}
+
+	mock := &mockMessageQuerier{
+		queryByIDMessage: msg,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/notifications/"+msgID.String(), nil)
+	req.SetPathValue("id", msgID.String())
+	rec := httptest.NewRecorder()
+
+	handler.GetNotificationHandler(mock)(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code, "expected 200 OK")
+
+	var body map[string]any
+	err := json.NewDecoder(rec.Body).Decode(&body)
+	s.Require().NoError(err, "response body should be valid JSON")
+
+	s.Equal(msgID.String(), body["id"])
+	s.Equal("slack", body["source"])
+	s.Equal("T12345", body["source_account"])
+	s.Equal("#incidents", body["channel"])
+	s.Equal("alice", body["sender"])
+	s.Equal("slack-msg-001", body["message_id"])
+	s.Equal("Server is down in us-east-1", body["content"])
+	s.Equal(9.0, body["importance_score"])
+	s.Equal(0.95, body["confidence_score"])
+	s.Equal("Production outage affecting customers", body["reasoning"])
+	s.Equal("Notified", body["status"])
+	s.Equal(msg.CreatedAt.Format(time.RFC3339), body["created_at"])
+	s.Equal(msg.UpdatedAt.Format(time.RFC3339), body["updated_at"])
+}
+
+func (s *NotificationHandlerSuite) TestGetNotificationNotFound() {
+	mock := &mockMessageQuerier{
+		queryByIDErr: repository.ErrNotFound,
+	}
+
+	unknownID := uuid.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/notifications/"+unknownID.String(), nil)
+	req.SetPathValue("id", unknownID.String())
+	rec := httptest.NewRecorder()
+
+	handler.GetNotificationHandler(mock)(rec, req)
+
+	s.Equal(http.StatusNotFound, rec.Code, "expected 404 Not Found")
+}

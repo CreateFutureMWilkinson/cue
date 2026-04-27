@@ -85,6 +85,12 @@ func (h *Hub) Broadcast(data []byte) error {
 	return nil
 }
 
+// Publish creates an ActivityEnvelope for the given data, assigns a
+// monotonically increasing sequence number, and stores it internally.
+func (h *Hub) Publish(data ActivityData) ActivityEnvelope {
+	return ActivityEnvelope{}
+}
+
 // SubscriberCount returns the number of active subscribers.
 func (h *Hub) SubscriberCount() int {
 	h.mu.RLock()

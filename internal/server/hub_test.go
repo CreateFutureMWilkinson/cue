@@ -149,3 +149,48 @@ func (s *HubSuite) TestSubscriberCountZeroInitially() {
 	hub := server.NewHub()
 	s.Equal(0, hub.SubscriberCount(), "new hub should have 0 subscribers")
 }
+
+// ---------------------------------------------------------------------------
+// Behavior 2: Publish assigns seq and stamps envelope
+// ---------------------------------------------------------------------------
+
+func (s *HubSuite) TestPublishAssignsSeqAndStamps() {
+	hub := server.NewHub()
+
+	data1 := server.ActivityData{
+		Source:  "slack",
+		Message: "new message in #general",
+		IsError: false,
+	}
+	data2 := server.ActivityData{
+		Source:  "email",
+		Message: "urgent from boss",
+		IsError: true,
+	}
+
+	env1 := hub.Publish(data1)
+	env2 := hub.Publish(data2)
+
+	// First publish gets seq=1, second gets seq=2.
+	s.Equal(uint64(1), env1.Seq, "first Publish must return Seq==1")
+	s.Equal(uint64(2), env2.Seq, "second Publish must return Seq==2")
+
+	// Type is always "activity".
+	s.Equal("activity", env1.Type, "envelope Type must be 'activity'")
+	s.Equal("activity", env2.Type, "envelope Type must be 'activity'")
+
+	// Timestamp is non-zero and in UTC.
+	s.False(env1.Timestamp.IsZero(), "envelope Timestamp must be non-zero")
+	s.Equal(time.UTC, env1.Timestamp.Location(), "envelope Timestamp must be UTC")
+	s.False(env2.Timestamp.IsZero(), "envelope Timestamp must be non-zero")
+	s.Equal(time.UTC, env2.Timestamp.Location(), "envelope Timestamp must be UTC")
+
+	// Data round-trips the payload.
+	got1, ok1 := env1.Data.(server.ActivityData)
+	s.Require().True(ok1, "envelope Data must be ActivityData")
+	s.Equal(data1, got1, "envelope Data must match published payload")
+
+	got2, ok2 := env2.Data.(server.ActivityData)
+	s.Require().True(ok2, "envelope Data must be ActivityData")
+	s.Equal(data2, got2, "envelope Data must match published payload")
+}

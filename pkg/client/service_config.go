@@ -164,60 +164,96 @@ type toggleRequest struct {
 	Enabled bool `json:"enabled"`
 }
 
-// --- Slack ---
+// servicePath constructs the full URL path for service operations by combining
+// the base service path with the UUID-based resource path.
+func servicePath(basePath string, id uuid.UUID) string {
+	return basePath + "/" + id.String()
+}
 
-// ListSlackAccounts issues GET /api/v1/services/slack and decodes the
-// server's plain-array response into a slice of SlackAccount.
-func (a *serviceConfigAdapter) ListSlackAccounts(ctx context.Context) ([]SlackAccount, error) {
-	var accounts []SlackAccount
-	if err := a.client.doJSON(ctx, http.MethodGet, slackServicePath, nil, &accounts); err != nil {
+// doServiceList performs a GET request to list all accounts for a service type.
+func doServiceList[T any](ctx context.Context, client *APIClient, basePath string) ([]T, error) {
+	var accounts []T
+	if err := client.doJSON(ctx, http.MethodGet, basePath, nil, &accounts); err != nil {
 		return nil, err
 	}
 	return accounts, nil
 }
 
+// doServiceGet performs a GET request to retrieve a single account by ID.
+func doServiceGet[T any](ctx context.Context, client *APIClient, basePath string, id uuid.UUID) (*T, error) {
+	var account T
+	if err := client.doJSON(ctx, http.MethodGet, servicePath(basePath, id), nil, &account); err != nil {
+		return nil, err
+	}
+	return &account, nil
+}
+
+// doServiceCreate performs a POST request to create a new account.
+func doServiceCreate[T, R any](ctx context.Context, client *APIClient, basePath string, req R) (*T, error) {
+	var account T
+	if err := client.doJSON(ctx, http.MethodPost, basePath, req, &account); err != nil {
+		return nil, err
+	}
+	return &account, nil
+}
+
+// doServiceUpdate performs a PUT request to update an account by ID.
+func doServiceUpdate[T, R any](ctx context.Context, client *APIClient, basePath string, id uuid.UUID, req R) (*T, error) {
+	var account T
+	if err := client.doJSON(ctx, http.MethodPut, servicePath(basePath, id), req, &account); err != nil {
+		return nil, err
+	}
+	return &account, nil
+}
+
+// doServiceDelete performs a DELETE request to remove an account by ID.
+func doServiceDelete(ctx context.Context, client *APIClient, basePath string, id uuid.UUID) error {
+	return client.doJSON(ctx, http.MethodDelete, servicePath(basePath, id), nil, nil)
+}
+
+// doServiceToggle performs a POST request to toggle the enabled state of an account.
+func doServiceToggle(ctx context.Context, client *APIClient, basePath string, id uuid.UUID, enabled bool) error {
+	return client.doJSON(ctx, http.MethodPost, servicePath(basePath, id)+"/toggle", toggleRequest{Enabled: enabled}, nil)
+}
+
+// --- Slack ---
+
+// ListSlackAccounts issues GET /api/v1/services/slack and decodes the
+// server's plain-array response into a slice of SlackAccount.
+func (a *serviceConfigAdapter) ListSlackAccounts(ctx context.Context) ([]SlackAccount, error) {
+	return doServiceList[SlackAccount](ctx, a.client, slackServicePath)
+}
+
 // GetSlackAccount issues GET /api/v1/services/slack/{id} and decodes the
 // slackAccountItem payload.
 func (a *serviceConfigAdapter) GetSlackAccount(ctx context.Context, id uuid.UUID) (*SlackAccount, error) {
-	var acct SlackAccount
-	if err := a.client.doJSON(ctx, http.MethodGet, slackServicePath+"/"+id.String(), nil, &acct); err != nil {
-		return nil, err
-	}
-	return &acct, nil
+	return doServiceGet[SlackAccount](ctx, a.client, slackServicePath, id)
 }
 
 // CreateSlackAccount issues POST /api/v1/services/slack with req as the
 // JSON body (carrying the bot_token) and decodes the server's response
 // (which omits bot_token).
 func (a *serviceConfigAdapter) CreateSlackAccount(ctx context.Context, req CreateSlackAccountRequest) (*SlackAccount, error) {
-	var acct SlackAccount
-	if err := a.client.doJSON(ctx, http.MethodPost, slackServicePath, req, &acct); err != nil {
-		return nil, err
-	}
-	return &acct, nil
+	return doServiceCreate[SlackAccount](ctx, a.client, slackServicePath, req)
 }
 
 // UpdateSlackAccount issues PUT /api/v1/services/slack/{id} with req as the
 // full replacement JSON body and decodes the updated slackAccountItem
 // response.
 func (a *serviceConfigAdapter) UpdateSlackAccount(ctx context.Context, id uuid.UUID, req UpdateSlackAccountRequest) (*SlackAccount, error) {
-	var acct SlackAccount
-	if err := a.client.doJSON(ctx, http.MethodPut, slackServicePath+"/"+id.String(), req, &acct); err != nil {
-		return nil, err
-	}
-	return &acct, nil
+	return doServiceUpdate[SlackAccount](ctx, a.client, slackServicePath, id, req)
 }
 
 // DeleteSlackAccount issues DELETE /api/v1/services/slack/{id}. The server
 // returns 204 No Content on success.
 func (a *serviceConfigAdapter) DeleteSlackAccount(ctx context.Context, id uuid.UUID) error {
-	return a.client.doJSON(ctx, http.MethodDelete, slackServicePath+"/"+id.String(), nil, nil)
+	return doServiceDelete(ctx, a.client, slackServicePath, id)
 }
 
 // ToggleSlackAccount issues POST /api/v1/services/slack/{id}/toggle with a
 // {"enabled": enabled} body. The server's 200 response body is ignored.
 func (a *serviceConfigAdapter) ToggleSlackAccount(ctx context.Context, id uuid.UUID, enabled bool) error {
-	return a.client.doJSON(ctx, http.MethodPost, slackServicePath+"/"+id.String()+"/toggle", toggleRequest{Enabled: enabled}, nil)
+	return doServiceToggle(ctx, a.client, slackServicePath, id, enabled)
 }
 
 // --- Email ---
@@ -225,55 +261,39 @@ func (a *serviceConfigAdapter) ToggleSlackAccount(ctx context.Context, id uuid.U
 // ListEmailAccounts issues GET /api/v1/services/email and decodes the
 // server's plain-array response into a slice of EmailAccount.
 func (a *serviceConfigAdapter) ListEmailAccounts(ctx context.Context) ([]EmailAccount, error) {
-	var accounts []EmailAccount
-	if err := a.client.doJSON(ctx, http.MethodGet, emailServicePath, nil, &accounts); err != nil {
-		return nil, err
-	}
-	return accounts, nil
+	return doServiceList[EmailAccount](ctx, a.client, emailServicePath)
 }
 
 // GetEmailAccount issues GET /api/v1/services/email/{id} and decodes the
 // emailAccountItem payload.
 func (a *serviceConfigAdapter) GetEmailAccount(ctx context.Context, id uuid.UUID) (*EmailAccount, error) {
-	var acct EmailAccount
-	if err := a.client.doJSON(ctx, http.MethodGet, emailServicePath+"/"+id.String(), nil, &acct); err != nil {
-		return nil, err
-	}
-	return &acct, nil
+	return doServiceGet[EmailAccount](ctx, a.client, emailServicePath, id)
 }
 
 // CreateEmailAccount issues POST /api/v1/services/email with req as the
 // JSON body (carrying the password) and decodes the server's response
 // (which omits password).
 func (a *serviceConfigAdapter) CreateEmailAccount(ctx context.Context, req CreateEmailAccountRequest) (*EmailAccount, error) {
-	var acct EmailAccount
-	if err := a.client.doJSON(ctx, http.MethodPost, emailServicePath, req, &acct); err != nil {
-		return nil, err
-	}
-	return &acct, nil
+	return doServiceCreate[EmailAccount](ctx, a.client, emailServicePath, req)
 }
 
 // UpdateEmailAccount issues PUT /api/v1/services/email/{id} with req as
 // the full replacement JSON body and decodes the updated emailAccountItem
 // response.
 func (a *serviceConfigAdapter) UpdateEmailAccount(ctx context.Context, id uuid.UUID, req UpdateEmailAccountRequest) (*EmailAccount, error) {
-	var acct EmailAccount
-	if err := a.client.doJSON(ctx, http.MethodPut, emailServicePath+"/"+id.String(), req, &acct); err != nil {
-		return nil, err
-	}
-	return &acct, nil
+	return doServiceUpdate[EmailAccount](ctx, a.client, emailServicePath, id, req)
 }
 
 // DeleteEmailAccount issues DELETE /api/v1/services/email/{id}. The server
 // returns 204 No Content on success.
 func (a *serviceConfigAdapter) DeleteEmailAccount(ctx context.Context, id uuid.UUID) error {
-	return a.client.doJSON(ctx, http.MethodDelete, emailServicePath+"/"+id.String(), nil, nil)
+	return doServiceDelete(ctx, a.client, emailServicePath, id)
 }
 
 // ToggleEmailAccount issues POST /api/v1/services/email/{id}/toggle with a
 // {"enabled": enabled} body. The server's 200 response body is ignored.
 func (a *serviceConfigAdapter) ToggleEmailAccount(ctx context.Context, id uuid.UUID, enabled bool) error {
-	return a.client.doJSON(ctx, http.MethodPost, emailServicePath+"/"+id.String()+"/toggle", toggleRequest{Enabled: enabled}, nil)
+	return doServiceToggle(ctx, a.client, emailServicePath, id, enabled)
 }
 
 // --- Calendar ---
@@ -281,55 +301,39 @@ func (a *serviceConfigAdapter) ToggleEmailAccount(ctx context.Context, id uuid.U
 // ListCalendarAccounts issues GET /api/v1/services/calendar and decodes
 // the server's plain-array response into a slice of CalendarAccount.
 func (a *serviceConfigAdapter) ListCalendarAccounts(ctx context.Context) ([]CalendarAccount, error) {
-	var accounts []CalendarAccount
-	if err := a.client.doJSON(ctx, http.MethodGet, calendarServicePath, nil, &accounts); err != nil {
-		return nil, err
-	}
-	return accounts, nil
+	return doServiceList[CalendarAccount](ctx, a.client, calendarServicePath)
 }
 
 // GetCalendarAccount issues GET /api/v1/services/calendar/{id} and decodes
 // the calendarAccountItem payload.
 func (a *serviceConfigAdapter) GetCalendarAccount(ctx context.Context, id uuid.UUID) (*CalendarAccount, error) {
-	var acct CalendarAccount
-	if err := a.client.doJSON(ctx, http.MethodGet, calendarServicePath+"/"+id.String(), nil, &acct); err != nil {
-		return nil, err
-	}
-	return &acct, nil
+	return doServiceGet[CalendarAccount](ctx, a.client, calendarServicePath, id)
 }
 
 // CreateCalendarAccount issues POST /api/v1/services/calendar with req as
 // the JSON body and decodes the server's calendarAccountItem response.
 func (a *serviceConfigAdapter) CreateCalendarAccount(ctx context.Context, req CreateCalendarAccountRequest) (*CalendarAccount, error) {
-	var acct CalendarAccount
-	if err := a.client.doJSON(ctx, http.MethodPost, calendarServicePath, req, &acct); err != nil {
-		return nil, err
-	}
-	return &acct, nil
+	return doServiceCreate[CalendarAccount](ctx, a.client, calendarServicePath, req)
 }
 
 // UpdateCalendarAccount issues PUT /api/v1/services/calendar/{id} with req
 // as the full replacement JSON body and decodes the updated
 // calendarAccountItem response.
 func (a *serviceConfigAdapter) UpdateCalendarAccount(ctx context.Context, id uuid.UUID, req UpdateCalendarAccountRequest) (*CalendarAccount, error) {
-	var acct CalendarAccount
-	if err := a.client.doJSON(ctx, http.MethodPut, calendarServicePath+"/"+id.String(), req, &acct); err != nil {
-		return nil, err
-	}
-	return &acct, nil
+	return doServiceUpdate[CalendarAccount](ctx, a.client, calendarServicePath, id, req)
 }
 
 // DeleteCalendarAccount issues DELETE /api/v1/services/calendar/{id}. The
 // server returns 204 No Content on success.
 func (a *serviceConfigAdapter) DeleteCalendarAccount(ctx context.Context, id uuid.UUID) error {
-	return a.client.doJSON(ctx, http.MethodDelete, calendarServicePath+"/"+id.String(), nil, nil)
+	return doServiceDelete(ctx, a.client, calendarServicePath, id)
 }
 
 // ToggleCalendarAccount issues POST /api/v1/services/calendar/{id}/toggle
 // with a {"enabled": enabled} body. The server's 200 response body is
 // ignored.
 func (a *serviceConfigAdapter) ToggleCalendarAccount(ctx context.Context, id uuid.UUID, enabled bool) error {
-	return a.client.doJSON(ctx, http.MethodPost, calendarServicePath+"/"+id.String()+"/toggle", toggleRequest{Enabled: enabled}, nil)
+	return doServiceToggle(ctx, a.client, calendarServicePath, id, enabled)
 }
 
 // --- Cross-service ---

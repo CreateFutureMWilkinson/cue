@@ -3,251 +3,79 @@
 **Phase:** Phase-9-Feature-101
 **Status:** Planning
 **Package:** `internal/server/handler/`
+**Depends on:** 097, 101A
 
 ---
 
 ## Overview
 
-Expose the day planner workflow over REST. This is the most complex API surface because the planner is a multi-step wizard with state transitions. The API must support: listing available tasks, starting a planning session, estimating pomodoros, generating schedule options, confirming a plan, and tracking progress through the active schedule.
+Expose day planner schedule generation and management over REST. The planner is purely about **time management** — it reads the user's calendar, generates two schedule options of focus/break blocks around meetings, and lets the user save one. Tasks are managed independently via Feature 101A and are not referenced by the planner.
 
-## The State Machine Problem
+Schedules are stored by date. Only today's schedule is considered "active" (eligible for timer progression). Future schedules can be created and stored but are inert until their date arrives.
 
-The GUI planner uses `PlannerPresenter` which manages a state machine:
+## Design Decisions
 
-```
-StepIdle → StepTaskSelect → StepEstimates → StepPriority → StepSchedule → StepActive
-```
-
-Each step depends on the previous step's output. The GUI presenter holds this state in memory.
-
-**Question: How should the API handle stateful wizard flow?**
-
-### Option A: Session-Based State (Server-Side)
-
-Server creates a planning session with an ID. Each step mutates server-side state.
-
-```
-POST /api/v1/planner/sessions → {"session_id": "abc"}
-POST /api/v1/planner/sessions/abc/select-tasks {task_ids: [...]}
-POST /api/v1/planner/sessions/abc/next → returns estimates
-POST /api/v1/planner/sessions/abc/override-estimate {task_id, pomos}
-POST /api/v1/planner/sessions/abc/next → returns schedule previews
-POST /api/v1/planner/sessions/abc/confirm {strategy: "focus-maximized"}
-```
-
-- Pro: Mirrors the GUI flow exactly. Easy to understand.
-- Con: Server holds session state. Need session timeout/cleanup. What if client disconnects mid-wizard?
-
-### Option B: Stateless Steps (Client-Side State)
-
-Each endpoint is independent. Client passes accumulated state with each request.
-
-```
-GET  /api/v1/planner/tasks → available tasks
-POST /api/v1/planner/estimate {task_ids: [...]} → estimates for selected tasks
-POST /api/v1/planner/generate {tasks: [{id, pomos}...], date: "2026-04-10"} → two schedule options
-POST /api/v1/planner/confirm {schedule: {strategy, blocks: [...]}} → saves plan
-```
-
-- Pro: Truly stateless. No session management. Each call is self-contained.
-- Con: Client must manage and re-send state. Generate endpoint receives potentially large payload. No server-side validation that the wizard was followed in order.
-
-### Option C: Hybrid — Persistent Draft
-
-```
-POST /api/v1/planner/draft → creates draft plan (persisted in DB)
-PATCH /api/v1/planner/draft/tasks {task_ids: [...]}
-POST /api/v1/planner/draft/estimate → runs Ollama estimation, stores results in draft
-PATCH /api/v1/planner/draft/estimates/{task_id} {override_pomos: 3}
-POST /api/v1/planner/draft/generate → generates schedule options, stores in draft
-POST /api/v1/planner/draft/confirm {strategy: "focus-maximized"} → promotes draft to active plan
-DELETE /api/v1/planner/draft → abandon
-```
-
-- Pro: State is persisted (survives crashes). Each step is a mutation on a known entity. Client can resume a partially-completed wizard.
-- Con: Most complex to implement. Needs draft table or reuse of schedule table with "draft" status.
-
-**Recommendation:** Option A (session-based) for v1. The planning wizard is inherently stateful — fighting that with Option B creates a worse API. Session timeout of 30 minutes handles abandoned wizards. Only one session at a time per server (single-user app). Option C is better long-term but over-engineered for v1.
+1. **No state machine** — the old `PlannerPresenter` wizard (6-step state machine) is replaced by two stateless operations: generate and save. No sessions, no server-side wizard state.
+2. **No tasks in schedules** — blocks are typed as `focus`, `short_break`, `long_break`, or `meeting`. What the user does during a focus block is a UI concern.
+3. **Date-keyed storage** — schedules are addressed by ISO date (`/api/v1/planner/{date}`). `/api/v1/planner/active` is an alias for today's date.
+4. **PUT upsert** — saving a schedule overwrites any existing plan for that date. No 409 conflict — PUT is idempotent.
+5. **Future schedules** — can be stored but not progressed. Only today's plan drives timers.
+6. **Stateless generation** — generate reads calendar and config, returns two options. Nothing stored until the client PUTs one.
 
 ## Endpoints
 
-### Active Plan
-
-```
-GET /api/v1/planner/active
-```
-
-Returns the current active schedule if one exists, including current block and progress.
-
-**Response:**
-```json
-{
-  "active": true,
-  "schedule": {
-    "id": "uuid",
-    "date": "2026-04-10",
-    "strategy": "focus-maximized",
-    "blocks": [
-      {
-        "start": "09:00",
-        "end": "09:45",
-        "type": "focus",
-        "task_id": "uuid",
-        "task_name": "Review PR #42",
-        "status": "completed"
-      },
-      {
-        "start": "09:45",
-        "end": "09:55",
-        "type": "short_break",
-        "status": "current"
-      }
-    ],
-    "current_block_index": 1,
-    "total_focus_time_minutes": 180,
-    "elapsed_focus_time_minutes": 45
-  }
-}
-```
-
-If no active plan: `{"active": false}`.
-
-### Complete Current Task
-
-```
-POST /api/v1/planner/active/complete-task
-```
-
-Marks the current focus block as complete and advances to the next block. Returns updated schedule state.
-
-### Abandon Plan
-
-```
-DELETE /api/v1/planner/active
-```
-
-Abandons the active plan. Returns 200. Idempotent — returns 200 even if no active plan.
-
-### Available Tasks
-
-```
-GET /api/v1/planner/tasks
-```
-
-Returns incomplete todos available for planning. Includes categories.
-
-**Response:**
-```json
-{
-  "tasks": [
-    {
-      "id": "uuid",
-      "title": "Review PR #42",
-      "priority": 2,
-      "due_date": "2026-04-11",
-      "categories": ["code-review", "team"]
-    }
-  ]
-}
-```
-
-### Start Planning Session
-
-```
-POST /api/v1/planner/sessions
-```
-
-Creates a new planning session. Fails with 409 if a session already exists or an active plan is running.
-
-**Response:**
-```json
-{
-  "session_id": "uuid",
-  "step": "task_select",
-  "tasks": [...same as GET /tasks...]
-}
-```
-
-### Select Tasks
-
-```
-POST /api/v1/planner/sessions/{id}/select-tasks
-```
-
-**Request:**
-```json
-{
-  "task_ids": ["uuid1", "uuid2", "uuid3"]
-}
-```
-
-### Get Estimates
-
-```
-POST /api/v1/planner/sessions/{id}/estimate
-```
-
-Triggers Ollama estimation for selected tasks. This may take several seconds.
-
-**Question: Should estimation be synchronous or async?**
-
-- **Synchronous**: Client waits for response. Simple but could take 10-30s for many tasks.
-- **Async**: Server returns 202 Accepted, client polls for completion.
-
-**Recommendation:** Synchronous for v1. The planner currently estimates synchronously in the GUI. Set a generous HTTP timeout (60s). If this proves too slow for many tasks, add async later.
-
-**Response:**
-```json
-{
-  "session_id": "uuid",
-  "step": "estimates",
-  "estimates": [
-    {
-      "task_id": "uuid1",
-      "title": "Review PR #42",
-      "estimated_pomos": 2,
-      "user_override": null,
-      "effective_pomos": 2
-    }
-  ],
-  "summary": {
-    "total_pomos": 8,
-    "available_blocks": 10,
-    "overloaded": false
-  }
-}
-```
-
-### Override Estimate
-
-```
-PATCH /api/v1/planner/sessions/{id}/estimates/{task_id}
-```
-
-**Request:**
-```json
-{"override_pomos": 3}
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/v1/planner/generate` | Generate two schedule options |
+| GET | `/api/v1/planner/{date}` | Get schedule for a date |
+| PUT | `/api/v1/planner/{date}` | Save/overwrite schedule for a date |
+| DELETE | `/api/v1/planner/{date}` | Delete schedule for a date |
+| GET | `/api/v1/planner/active` | Alias for GET `/api/v1/planner/{today}` |
+| DELETE | `/api/v1/planner/active` | Alias for DELETE `/api/v1/planner/{today}` |
 
 ### Generate Schedules
 
 ```
-POST /api/v1/planner/sessions/{id}/generate
+POST /api/v1/planner/generate
+Content-Type: application/json
+
+{"date": "2026-04-20"}
 ```
 
-Generates two schedule options (focus-maximized and recovery-balanced). Includes calendar events if configured.
+**Request:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `date` | string (ISO date) | No | Target date. Defaults to today or next working day (via `Planner.TargetDate()` logic). |
+
+Server fetches calendar events for the target date, then generates two schedule options using the existing `Planner.GenerateSchedules()` with empty task list.
 
 **Response:**
 ```json
 {
-  "session_id": "uuid",
-  "step": "schedule",
+  "date": "2026-04-20",
   "options": [
     {
       "strategy": "focus-maximized",
       "total_focus_minutes": 225,
       "break_count": 5,
-      "blocks": [...]
+      "blocks": [
+        {
+          "start": "09:00",
+          "end": "09:25",
+          "type": "focus"
+        },
+        {
+          "start": "09:25",
+          "end": "09:30",
+          "type": "short_break"
+        },
+        {
+          "start": "10:00",
+          "end": "11:00",
+          "type": "meeting"
+        }
+      ]
     },
     {
       "strategy": "recovery-balanced",
@@ -259,74 +87,117 @@ Generates two schedule options (focus-maximized and recovery-balanced). Includes
 }
 ```
 
-### Confirm Schedule
+### Get Schedule
 
 ```
-POST /api/v1/planner/sessions/{id}/confirm
+GET /api/v1/planner/2026-04-20
+GET /api/v1/planner/active
 ```
 
-**Request:**
+Returns the saved schedule for the given date. `/active` resolves to today's date.
+
+**Response:**
 ```json
-{"strategy": "focus-maximized"}
+{
+  "date": "2026-04-20",
+  "strategy": "focus-maximized",
+  "blocks": [
+    {
+      "start": "09:00",
+      "end": "09:25",
+      "type": "focus"
+    }
+  ],
+  "created_at": "2026-04-20T08:30:00Z"
+}
 ```
 
-Saves the schedule, destroys the session, transitions to active plan.
+**404** if no schedule exists for the date.
 
-### Abandon Session
+### Save Schedule
 
 ```
-DELETE /api/v1/planner/sessions/{id}
+PUT /api/v1/planner/2026-04-20
+Content-Type: application/json
+
+{
+  "strategy": "focus-maximized",
+  "blocks": [
+    {
+      "start": "09:00",
+      "end": "09:25",
+      "type": "focus"
+    },
+    {
+      "start": "09:25",
+      "end": "09:30",
+      "type": "short_break"
+    }
+  ]
+}
 ```
 
-Discards the planning session without saving.
+Upserts the schedule for the given date. Overwrites any existing schedule. The client sends the full schedule payload (typically one of the two options from generate, but the API does not enforce this).
 
-## Design Decisions to Make
+**Response:** 200 OK with the saved schedule (same shape as GET response). 400 if blocks are malformed.
 
-### Todo CRUD
+### Delete Schedule
 
-**Question: Should the planner API include todo management, or is that a separate feature?**
+```
+DELETE /api/v1/planner/2026-04-20
+DELETE /api/v1/planner/active
+```
 
-The planner reads from `TodoRepository` but doesn't create/edit/delete todos — the GUI has a separate todo management interface. Options:
-- Include basic todo CRUD here (since planning needs it)
-- Separate Feature 106: Todo API
+Deletes the schedule for the given date. Returns 204 No Content. 404 if no schedule exists.
 
-**Recommendation:** Separate feature. The planner API is already the most complex one. Keep it focused on the planning workflow.
+## Block Types
 
-### Calendar Event Inclusion
+| Type | Description |
+|------|-------------|
+| `focus` | Focus/work time block |
+| `short_break` | Short break (default 5 min) |
+| `long_break` | Long break (default 20 min) |
+| `meeting` | Calendar event (from CalendarProvider) |
 
-The planner uses `CalendarProvider.FetchEvents()` to include calendar blocks in schedule generation. This is transparent to the API — events are included in the generated schedule blocks.
+Blocks carry no task references. The UI decides what to display in focus blocks.
 
-**Question: Should there be an endpoint to preview calendar events for the day?** This would help UIs show "here's what's already on your calendar" before the user commits to a plan.
+## Active Plan Semantics
+
+- **Active** means today's date has a saved schedule.
+- `/active` is a routing alias — it resolves to today's date and delegates to the same handler.
+- Timer progression, current block tracking, etc. are separate concerns (Feature 104: Timer API).
+- Future schedules (date > today) are stored but have no active behavior.
+
+## Changes to Existing Code
+
+### Schedule Generator
+
+The existing `Planner.GenerateSchedules()` requires a `[]TaskEstimate` parameter for assigning tasks to focus blocks. Since the planner no longer assigns tasks, this will be called with an empty task list. Focus blocks will have no `TaskID` or `TaskName` — they are anonymous time slots.
+
+This may require adjusting the generator to handle empty task lists gracefully (generate focus blocks without task assignment).
+
+### Schedule Repository
+
+The existing `ScheduleRepository` uses a unique constraint on date, which aligns with the PUT upsert semantics. The `Save` method may need to become an upsert (INSERT OR REPLACE) if it isn't already.
+
+### PlannerPresenter
+
+The GUI presenter's state machine is not modified by this feature. It will be revisited in Feature 107 (Fyne Client Re-wire) when the UI is rebuilt against the API.
 
 ## Behaviors to Implement
 
-1. **Get active plan handler** — Return current schedule state or empty.
-2. **Complete task handler** — Advance the active schedule.
-3. **Abandon plan handler** — Clear active schedule.
-4. **List available tasks handler** — Query incomplete todos.
-5. **Create session handler** — Initialize planning session, return task list.
-6. **Select tasks handler** — Store task selection in session.
-7. **Estimate handler** — Run Ollama estimation, return estimates.
-8. **Override estimate handler** — Update user override for a task.
-9. **Generate schedules handler** — Run schedule generation, return options.
-10. **Confirm handler** — Save schedule, destroy session.
-11. **Abandon session handler** — Clean up session.
-12. **Session timeout** — Background goroutine that cleans up expired sessions.
+1. **Generate handler** — parse optional date, fetch calendar, generate two schedules, return options
+2. **Get schedule handler** — load by date, 404 if missing
+3. **Put schedule handler** — validate blocks, upsert by date
+4. **Delete schedule handler** — delete by date, 404 if missing
+5. **Active alias routing** — resolve `/active` to today's date, delegate to date handlers
+6. **Generator adaptation** — handle empty task list in schedule generation
 
 ## Testing Considerations
 
-- Full wizard flow: Create session → select tasks → estimate → generate → confirm → verify active plan.
-- Session expiry: Create session, wait, verify it's cleaned up.
-- Concurrent session rejection: Two clients try to create sessions simultaneously.
-- Estimation timeout: Mock slow Ollama, verify client gets a response (or timeout error).
-- Active plan operations without an active plan: Verify appropriate error responses.
-
-## Questions Summary
-
-1. Session-based, stateless, or persistent draft for the wizard flow?
-2. Synchronous or async estimation?
-3. Should todo CRUD be part of this feature or separate?
-4. Calendar event preview endpoint?
-5. Session timeout duration?
-6. What happens if the server restarts mid-session? (Sessions lost — acceptable for v1?)
-7. Should the API support resuming a partially-completed wizard?
+- Generate: with and without date param, default date logic, calendar event inclusion
+- GET: existing schedule, missing schedule (404), active alias resolves to today
+- PUT: new schedule, overwrite existing, malformed blocks (400)
+- DELETE: existing schedule, missing schedule (404), active alias
+- Active alias: verify `/active` and `/planner/{today}` return identical results
+- Generator: empty task list produces valid focus/break blocks without task references

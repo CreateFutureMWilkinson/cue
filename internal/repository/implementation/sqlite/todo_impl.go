@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,6 +46,8 @@ const (
 	queryInsertTodoCategory   = "INSERT INTO todo_categories (todo_id, category_id) VALUES (?, ?)"
 	queryDeleteTodoCategories = "DELETE FROM todo_categories WHERE todo_id = ?"
 	querySelectTodoCategories = "SELECT c.id, c.name, c.color FROM categories c INNER JOIN todo_categories tc ON c.id = tc.category_id WHERE tc.todo_id = ?"
+
+	defaultTodoQueryLimit = 50
 )
 
 // SQLiteTodoRepository implements repository.TodoRepository using SQLite.
@@ -231,10 +234,7 @@ func (r *SQLiteTodoRepository) QueryFiltered(ctx context.Context, filter reposit
 	// Assemble WHERE clause.
 	whereClause := ""
 	if len(whereClauses) > 0 {
-		whereClause = " WHERE " + whereClauses[0]
-		for _, clause := range whereClauses[1:] {
-			whereClause += " AND " + clause
-		}
+		whereClause = " WHERE " + strings.Join(whereClauses, " AND ")
 	}
 
 	// Count query (no LIMIT/OFFSET).
@@ -248,16 +248,14 @@ func (r *SQLiteTodoRepository) QueryFiltered(ctx context.Context, filter reposit
 	// Data query with ORDER BY, LIMIT, OFFSET.
 	limit := filter.Limit
 	if limit == 0 {
-		limit = 50
+		limit = defaultTodoQueryLimit
 	}
 
 	dataQuery := "SELECT t.id, t.title, t.description, t.priority, t.due_date, t.created_at, t.completed_at, t.estimate_minutes, t.llm_estimate_minutes " +
 		fromClause + whereClause +
 		" ORDER BY t.priority DESC, t.created_at ASC LIMIT ? OFFSET ?"
 
-	dataArgs := make([]any, len(args))
-	copy(dataArgs, args)
-	dataArgs = append(dataArgs, limit, filter.Offset)
+	dataArgs := append(args, limit, filter.Offset)
 
 	rows, err := r.db.QueryContext(ctx, dataQuery, dataArgs...)
 	if err != nil {

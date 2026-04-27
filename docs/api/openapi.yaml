@@ -1,5 +1,49 @@
 components:
   schemas:
+    handler.bufferStatsResponse:
+      properties:
+        by_source:
+          additionalProperties:
+            type: integer
+          type: object
+        total_buffered:
+          type: integer
+      type: object
+    handler.bufferedListResponse:
+      properties:
+        count:
+          type: integer
+        messages:
+          items:
+            $ref: '#/components/schemas/handler.bufferedMessageItem'
+          type: array
+          uniqueItems: false
+        total:
+          type: integer
+      type: object
+    handler.bufferedMessageItem:
+      properties:
+        channel:
+          type: string
+        confidence_score:
+          type: number
+        content:
+          type: string
+        created_at:
+          type: string
+        id:
+          type: string
+        importance_score:
+          type: number
+        reasoning:
+          type: string
+        sender:
+          type: string
+        source:
+          type: string
+        source_account:
+          type: string
+      type: object
     handler.listResponse:
       properties:
         notifications:
@@ -95,6 +139,13 @@ components:
         source_account:
           type: string
       type: object
+    handler.rateRequest:
+      properties:
+        feedback:
+          type: string
+        rating:
+          type: integer
+      type: object
     handler.timerResponse:
       properties:
         block_type:
@@ -129,6 +180,211 @@ info:
   version: "1.0"
 openapi: 3.1.0
 paths:
+  /api/v1/buffer:
+    get:
+      description: |-
+        Paginated list of messages awaiting user review (status = Buffered),
+        sorted by created_at descending.
+      parameters:
+      - description: Page size (default 50)
+        in: query
+        name: limit
+        schema:
+          type: integer
+      - description: Page offset (default 0)
+        in: query
+        name: offset
+        schema:
+          type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.bufferedListResponse'
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: List buffered messages
+      tags:
+      - buffer
+  /api/v1/buffer/{id}:
+    delete:
+      description: |-
+        Deletes the message from the buffer without recording a rating.
+        Returns 409 if the message has already been resolved.
+      parameters:
+      - description: Message UUID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.messageDetail'
+          description: OK
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "409":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: already resolved
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Remove a buffered message
+      tags:
+      - buffer
+    get:
+      description: |-
+        Returns a single buffered message. Responds 404 if the message
+        exists but has a non-Buffered status.
+      parameters:
+      - description: Message UUID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.messageDetail'
+          description: OK
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Get buffered message by ID
+      tags:
+      - buffer
+  /api/v1/buffer/{id}/rate:
+    post:
+      description: |-
+        Records a 0–10 user rating plus optional free-text feedback and
+        moves the message out of the buffer. Returns 409 if the message
+        has already been resolved.
+      parameters:
+      - description: Message UUID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/handler.rateRequest'
+                description: Rating (0–10) and optional feedback
+                summary: request
+        description: Rating (0–10) and optional feedback
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.messageDetail'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "409":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: already resolved
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Rate a buffered message
+      tags:
+      - buffer
+  /api/v1/buffer/stats:
+    get:
+      description: Returns the total count of buffered messages and a breakdown by
+        source.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.bufferStatsResponse'
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Buffer summary statistics
+      tags:
+      - buffer
   /api/v1/events:
     get:
       description: |-

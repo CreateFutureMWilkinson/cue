@@ -54,6 +54,17 @@ func messageToBufferedItem(m *repository.Message) bufferedMessageItem {
 
 // ListBufferedHandler returns an http.HandlerFunc for GET /api/v1/buffer.
 // It queries messages with status "Buffered" ordered by created_at descending.
+//
+// @Summary      List buffered messages
+// @Description  Paginated list of messages awaiting user review (status = Buffered),
+// @Description  sorted by created_at descending.
+// @Tags         buffer
+// @Produce      json
+// @Param        limit   query     int  false  "Page size (default 50)"
+// @Param        offset  query     int  false  "Page offset (default 0)"
+// @Success      200     {object}  handler.bufferedListResponse
+// @Failure      500     {object}  map[string]string
+// @Router       /api/v1/buffer [get]
 func ListBufferedHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		limit, offset := parsePagination(r)
@@ -84,6 +95,17 @@ func ListBufferedHandler(repo MessageQuerier) http.HandlerFunc {
 }
 
 // GetBufferedHandler returns an http.HandlerFunc for GET /api/v1/buffer/{id}.
+//
+// @Summary      Get buffered message by ID
+// @Description  Returns a single buffered message. Responds 404 if the message
+// @Description  exists but has a non-Buffered status.
+// @Tags         buffer
+// @Produce      json
+// @Param        id   path      string  true  "Message UUID"
+// @Success      200  {object}  handler.messageDetail
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/buffer/{id} [get]
 func GetBufferedHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		msg, err := getMessageByPathID(repo, r)
@@ -106,6 +128,22 @@ type rateRequest struct {
 }
 
 // RateBufferedHandler returns an http.HandlerFunc for POST /api/v1/buffer/{id}/rate.
+//
+// @Summary      Rate a buffered message
+// @Description  Records a 0–10 user rating plus optional free-text feedback and
+// @Description  moves the message out of the buffer. Returns 409 if the message
+// @Description  has already been resolved.
+// @Tags         buffer
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string               true  "Message UUID"
+// @Param        request  body      handler.rateRequest  true  "Rating (0–10) and optional feedback"
+// @Success      200      {object}  handler.messageDetail
+// @Failure      400      {object}  map[string]string
+// @Failure      404      {object}  map[string]string
+// @Failure      409      {object}  map[string]string  "already resolved"
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/buffer/{id}/rate [post]
 func RateBufferedHandler(repo MessageQuerier, buf BufferRater) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req rateRequest
@@ -146,6 +184,18 @@ func RateBufferedHandler(repo MessageQuerier, buf BufferRater) http.HandlerFunc 
 }
 
 // DeleteBufferedHandler returns an http.HandlerFunc for DELETE /api/v1/buffer/{id}.
+//
+// @Summary      Remove a buffered message
+// @Description  Deletes the message from the buffer without recording a rating.
+// @Description  Returns 409 if the message has already been resolved.
+// @Tags         buffer
+// @Produce      json
+// @Param        id   path      string  true  "Message UUID"
+// @Success      200  {object}  handler.messageDetail
+// @Failure      404  {object}  map[string]string
+// @Failure      409  {object}  map[string]string  "already resolved"
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/buffer/{id} [delete]
 func DeleteBufferedHandler(repo MessageQuerier, buf BufferRater) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		msg, err := getMessageByPathID(repo, r)
@@ -181,6 +231,14 @@ type bufferStatsResponse struct {
 }
 
 // BufferStatsHandler returns an http.HandlerFunc for GET /api/v1/buffer/stats.
+//
+// @Summary      Buffer summary statistics
+// @Description  Returns the total count of buffered messages and a breakdown by source.
+// @Tags         buffer
+// @Produce      json
+// @Success      200  {object}  handler.bufferStatsResponse
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/buffer/stats [get]
 func BufferStatsHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		filter := repository.MessageFilter{

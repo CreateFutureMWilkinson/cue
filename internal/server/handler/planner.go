@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -13,9 +12,6 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/service/planner"
 	"github.com/google/uuid"
 )
-
-// ErrNotImplemented is returned by stub handlers that have not been implemented yet.
-var ErrNotImplemented = errors.New("not implemented")
 
 // ScheduleStore is the subset of ScheduleRepository needed by the schedule handlers.
 type ScheduleStore interface {

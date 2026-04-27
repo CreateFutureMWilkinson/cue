@@ -263,3 +263,55 @@ func (s *NotificationHandlerSuite) TestResolveNotificationAlreadyResolved() {
 
 	s.Equal(http.StatusConflict, rec.Code, "expected 409 Conflict")
 }
+
+func (s *NotificationHandlerSuite) TestDismissNotificationSuccess() {
+	now := time.Now().UTC().Truncate(time.Second)
+	msgID := uuid.New()
+
+	msg := &repository.Message{
+		ID:              msgID,
+		Source:          "slack",
+		SourceAccount:   "T12345",
+		Channel:         "#incidents",
+		Sender:          "alice",
+		MessageID:       "slack-msg-001",
+		RawContent:      "Server is down in us-east-1",
+		ImportanceScore: 9.0,
+		ConfidenceScore: 0.95,
+		Reasoning:       "Production outage affecting customers",
+		Status:          "Notified",
+		CreatedAt:       now.Add(-5 * time.Minute),
+		UpdatedAt:       now.Add(-4 * time.Minute),
+	}
+
+	mock := &mockMessageQuerier{
+		queryByIDMessage: msg,
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/"+msgID.String()+"/dismiss", nil)
+	req.SetPathValue("id", msgID.String())
+	rec := httptest.NewRecorder()
+
+	handler.DismissNotificationHandler(mock)(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code, "expected 200 OK")
+	s.Require().Len(mock.updateCalls, 1, "expected exactly one Update call")
+
+	updated := mock.updateCalls[0]
+	s.Equal("Ignored", updated.Status, "status should be Ignored")
+}
+
+func (s *NotificationHandlerSuite) TestDismissNotificationNotFound() {
+	mock := &mockMessageQuerier{
+		queryByIDErr: repository.ErrNotFound,
+	}
+
+	unknownID := uuid.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/"+unknownID.String()+"/dismiss", nil)
+	req.SetPathValue("id", unknownID.String())
+	rec := httptest.NewRecorder()
+
+	handler.DismissNotificationHandler(mock)(rec, req)
+
+	s.Equal(http.StatusNotFound, rec.Code, "expected 404 Not Found")
+}

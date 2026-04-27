@@ -1,0 +1,97 @@
+# Phase 9: Headless Server Mode
+
+## Goal
+
+Create a `cue-server` binary that runs Cue headless — no GUI, no Fyne dependency. All functionality is exposed over REST + WebSocket, enabling alternative UIs (web frontend, TUI, mobile app, CLI scripts) to connect and interact with Cue.
+
+## Design Principles
+
+1. **Same services, different consumer.** The server wires the same repositories, orchestrator, watchers, planner, and buffer as the GUI binary. Only the presentation layer changes.
+2. **Stateless where possible.** REST endpoints are stateless request/response. Server-side state is limited to the planner wizard session and the timer.
+3. **Real-time via WebSocket.** Activity events, timer ticks, and notification arrivals are pushed to connected clients over a single multiplexed WebSocket connection.
+4. **Local-first.** The server binds to localhost by default. No authentication in v1 (configurable for LAN access later).
+5. **No Fyne dependency.** The server binary must not import Fyne packages. This ensures it builds and runs on headless systems.
+
+## Protocol Decision
+
+**REST + WebSocket Hybrid.** See Feature 096 for the full comparison of REST, gRPC, GraphQL, and the rationale for this choice.
+
+## Feature Map
+
+| # | Feature | Type | Complexity | Dependencies |
+|---|---|---|---|---|
+| 096 | [Protocol Selection](Feature-096-Server-Protocol-Selection.md) | ADR | N/A | None |
+| 097 | [Server Infrastructure](Feature-097-Server-Infrastructure.md) | Infrastructure | Medium | 096 |
+| 098 | [Message & Notification API](Feature-098-Message-Notification-API.md) | REST | Low-Medium | 097 |
+| 099 | [Activity Event Stream](Feature-099-Activity-Event-Stream.md) | WebSocket | Medium | 097 |
+| 100 | [Feedback Buffer API](Feature-100-Feedback-Buffer-API.md) | REST | Low | 097 |
+| 101 | [Day Planner API](Feature-101-Day-Planner-API.md) | REST + State | High | 097 |
+| 102 | [Service Configuration API](Feature-102-Service-Configuration-API.md) | REST | Medium | 097 |
+| 103 | [Routing Rules API](Feature-103-Routing-Rules-API.md) | REST | Low | 097 |
+| 104 | [Timer API](Feature-104-Timer-API.md) | REST + WS | Medium | 097, 099 |
+| 105 | [Settings API](Feature-105-Settings-API.md) | REST | Low | 097 |
+| 106 | [API Client SDK](Feature-106-API-Client-SDK.md) | Client | High | 096-105 |
+| 107 | [Fyne Client Re-wire](Feature-107-Fyne-Client-Rewire.md) | Client | High | 106 |
+
+## Suggested Implementation Order
+
+```
+097 (infrastructure) ─────────────────────┐
+    ↓                                     │
+098 (notifications) ──┐                   │
+099 (event stream) ───┤ can be parallel   │
+100 (buffer) ─────────┘                   │
+    ↓                                     │
+103 (rules) ──────────┐                   │
+105 (settings) ───────┤ can be parallel   │
+102 (config) ─────────┘                   │
+    ↓                                     │
+101 (planner) ────────── most complex     │
+104 (timer) ──────────── depends on 099   │
+    ↓                                     │
+106 (client SDK) ─────── depends on all   │
+107 (Fyne re-wire) ───── depends on 106   │
+```
+
+**Critical path:** 097 → 098/099/100 → 101. The planner API depends on the most infrastructure and is the most complex — save it for last when patterns are established.
+
+## Cross-Cutting Questions
+
+These questions affect multiple features and should be resolved before implementation begins:
+
+### 1. Authentication Model
+Even for localhost, should the server require a bearer token? This matters if:
+- A mobile UI connects over LAN
+- Multiple users share a machine
+- A web UI runs on a different port (CORS + auth)
+
+**Recommendation:** No auth for v1 (localhost-only binding). Add optional token auth in a follow-up when LAN access is needed.
+
+### 2. API Versioning
+`/api/v1/...` from day one. Cheap insurance against breaking changes.
+
+### 3. JSON Conventions
+Decide once, enforce everywhere:
+- Field names: `snake_case`
+- Dates: RFC 3339
+- UUIDs: Standard hyphenated
+- Nulls: Omit (`omitempty`)
+- Errors: `{"error": {"code": "NOT_FOUND", "message": "..."}}`
+
+### 4. Testing Strategy
+Each feature needs:
+- Unit tests for handlers (mock repositories/services)
+- Integration tests against real SQLite + HTTP server on ephemeral port
+- WebSocket tests with real connections
+
+### 5. Documentation
+Consider auto-generating OpenAPI/Swagger from handler definitions or annotations. This gives alternative UI developers a machine-readable API contract.
+
+## Not In Scope (Future)
+
+- Todo CRUD API (separate feature — planner reads todos but doesn't manage them)
+- Calendar event preview API
+- Webhook/callback support (server pushes to external URL)
+- Multi-user / authentication
+- TLS termination (use a reverse proxy)
+- API rate limiting

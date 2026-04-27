@@ -165,3 +165,22 @@ Replaces the batch-score-everything approach with a two-stage pipeline: configur
 | 093 | Model benchmark tool (cmd/cue-bench) | Feature | Done | 092, 094 | [Feature-093](features/phase-8/Feature-093-Model-Benchmark-Tool.md) |
 | 094 | Calibration loop redesign (few-shot prompt injection) | Feature | Done | 042, 086, 087, 092 | [Feature-094](features/phase-8/Feature-094-Calibration-Loop-Enhancements.md) |
 | 095 | Embedding model benchmarking (cue-bench) | Feature | Planned | 093, 094 | [Feature-095](features/phase-8/Feature-095-Embedding-Model-Benchmarking.md) |
+
+## Phase 9 — Headless Server Mode + Client Re-architecture
+
+Server binary exposing REST + WebSocket APIs, then re-wire the Fyne GUI as a thin client connecting to the server. See [Phase-9 Overview](features/phase-9/Phase-9-Overview.md).
+
+| # | Component | Type | Status | Depends on | Doc |
+|---|---|---|---|---|---|
+| 096 | Server protocol selection (ADR) | ADR | Done | — | [Feature-096](features/phase-9/Feature-096-Server-Protocol-Selection.md) |
+| 097 | Server infrastructure + composition root | Infrastructure | Planning | 096 | [Feature-097](features/phase-9/Feature-097-Server-Infrastructure.md) |
+| 098 | Message & notification API | REST | Planning | 097 | [Feature-098](features/phase-9/Feature-098-Message-Notification-API.md) |
+| 099 | Activity event stream | WebSocket | Planning | 097 | [Feature-099](features/phase-9/Feature-099-Activity-Event-Stream.md) |
+| 100 | Feedback buffer API | REST | Planning | 097 | [Feature-100](features/phase-9/Feature-100-Feedback-Buffer-API.md) |
+| 101 | Day planner API | REST + State | Planning | 097 | [Feature-101](features/phase-9/Feature-101-Day-Planner-API.md) |
+| 102 | Service configuration API | REST | Planning | 097 | [Feature-102](features/phase-9/Feature-102-Service-Configuration-API.md) |
+| 103 | Routing rules API | REST | Planning | 097 | [Feature-103](features/phase-9/Feature-103-Routing-Rules-API.md) |
+| 104 | Timer API | REST + WS | Planning | 097, 099 | [Feature-104](features/phase-9/Feature-104-Timer-API.md) |
+| 105 | Settings API | REST | Planning | 097 | [Feature-105](features/phase-9/Feature-105-Settings-API.md) |
+| 106 | API client SDK | Client | Planning | 096-105 | [Feature-106](features/phase-9/Feature-106-API-Client-SDK.md) |
+| 107 | Fyne client re-wire | Client | Planning | 106 | [Feature-107](features/phase-9/Feature-107-Fyne-Client-Rewire.md) |

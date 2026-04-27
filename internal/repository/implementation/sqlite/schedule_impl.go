@@ -39,7 +39,6 @@ const (
 	queryInsertBlock    = "INSERT INTO schedule_blocks (schedule_id, start_time, end_time, block_type, task_id, task_name, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)"
 	querySelectByDate   = "SELECT id, date, strategy, created_at FROM schedules WHERE date = ?"
 	querySelectBlocks   = "SELECT start_time, end_time, block_type, task_id, task_name FROM schedule_blocks WHERE schedule_id = ? ORDER BY sort_order ASC"
-	queryDeleteSchedule = "DELETE FROM schedules WHERE id = ?"
 	queryDeleteByDate   = "DELETE FROM schedules WHERE date = ?"
 )
 

@@ -62,3 +62,19 @@ func (s *CompositionSuite) TestNewCompositionOpensRepositories() {
 	s.NotNil(comp.RuleRepo, "RuleRepo should be populated")
 	s.NotNil(comp.ServiceConfigRepo, "ServiceConfigRepo should be populated")
 }
+
+// TestNewCompositionConstructsServices verifies that NewComposition populates
+// OllamaClient, VectorStore, and RulesEngine (B4 services).
+func (s *CompositionSuite) TestNewCompositionConstructsServices() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	cfg := minimalConfig(dbPath)
+
+	comp, err := server.NewComposition(context.Background(), cfg)
+	s.Require().NoError(err, "NewComposition should not return an error")
+	s.Require().NotNil(comp, "NewComposition should return a non-nil Composition")
+
+	s.NotNil(comp.OllamaClient, "OllamaClient should be populated")
+	s.NotNil(comp.VectorStore, "VectorStore should be populated")
+	s.NotNil(comp.RulesEngine, "RulesEngine should be populated")
+}

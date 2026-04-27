@@ -10,6 +10,8 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/repository/implementation/sqlite"
 	"github.com/CreateFutureMWilkinson/cue/internal/secret"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/vector"
 )
 
 // ErrCompositionNotImplemented is returned by stub methods that are not yet implemented.
@@ -26,6 +28,13 @@ type Composition struct {
 	RuleRepo repository.RoutingRuleRepository
 	// ServiceConfigRepo stores encrypted service credentials and config
 	ServiceConfigRepo repository.ServiceConfigRepository
+
+	// OllamaClient connects to the local Ollama instance for LLM scoring
+	OllamaClient *decisionengine.OllamaClient
+	// VectorStore provides chromem-go backed vector embeddings
+	VectorStore *vector.ChromemVectorStore
+	// RulesEngine holds compiled deterministic routing rules
+	RulesEngine *decisionengine.RulesEngine
 }
 
 // NewComposition opens all repositories, constructs services, wires the
@@ -63,6 +72,8 @@ func NewComposition(_ context.Context, cfg config.Config) (*Composition, error) 
 	if err != nil {
 		return nil, fmt.Errorf("opening service config repository: %w", err)
 	}
+
+	// TODO(B4): construct OllamaClient, VectorStore, RulesEngine
 
 	return &Composition{
 		MessageRepo:       msgRepo,

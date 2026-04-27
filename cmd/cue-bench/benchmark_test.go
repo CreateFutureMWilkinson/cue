@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -60,7 +62,7 @@ func (s *BenchmarkSuite) TestRunBenchmark_ProducesRunResults() {
 	}
 
 	ctx := context.Background()
-	report, err := RunBenchmark(ctx, cfg, scored, pool, server.Client())
+	report, err := RunBenchmark(ctx, cfg, scored, pool, server.Client(), io.Discard)
 
 	s.Require().NoError(err, "RunBenchmark should not return an error")
 
@@ -76,4 +78,77 @@ func (s *BenchmarkSuite) TestRunBenchmark_ProducesRunResults() {
 		"first result should be for the baseline model")
 	s.Equal(0, report.RunResults[0].ExampleCount,
 		"first result should have ExampleCount=0")
+}
+
+func (s *BenchmarkSuite) TestRunBenchmark_ProgressOutput() {
+	// Mock Ollama server returning valid scored responses.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"response":"{\"importance_score\":6.0,\"confidence_score\":0.5,\"reasoning\":\"bench progress test\"}","done":true}`)
+	}))
+	defer server.Close()
+
+	scored := []CorpusEntry{
+		{
+			ID:           "prog-01",
+			Source:       "slack",
+			Sender:       "alice",
+			Channel:      "#ops",
+			Content:      "Server alert triggered",
+			ExpectedBand: "buffered",
+			Tags:         []string{"alert"},
+		},
+		{
+			ID:           "prog-02",
+			Source:       "email",
+			Sender:       "bob@example.com",
+			Channel:      "inbox",
+			Content:      "Meeting notes from standup",
+			ExpectedBand: "ignored",
+			Tags:         []string{"routine"},
+		},
+		{
+			ID:           "prog-03",
+			Source:       "slack",
+			Sender:       "carol",
+			Channel:      "#general",
+			Content:      "Reminder about Friday deadline",
+			ExpectedBand: "ignored",
+			Tags:         []string{"reminder"},
+		},
+	}
+	var pool []CorpusEntry
+
+	cfg := BenchConfig{
+		Baseline:   "progress-model",
+		Models:     []string{},
+		OllamaHost: server.URL,
+		Timeout:    5 * time.Second,
+		NoFewShot:  true,
+		Seed:       42,
+	}
+
+	var progressBuf bytes.Buffer
+	ctx := context.Background()
+	_, err := RunBenchmark(ctx, cfg, scored, pool, server.Client(), &progressBuf)
+	s.Require().NoError(err, "RunBenchmark should not return an error")
+
+	output := progressBuf.String()
+	s.NotEmpty(output, "progress output should not be empty")
+
+	// Should contain model name.
+	s.Contains(output, "progress-model",
+		"progress output should contain the model name")
+
+	// Should contain the shot label for 0-shot.
+	s.Contains(output, "0-shot",
+		"progress output should contain the example count label")
+
+	// Should contain the total entry count.
+	s.Contains(output, "3/3",
+		"progress output should contain entry progress (current/total)")
+
+	// Should contain 100% at completion.
+	s.Contains(output, "100%",
+		"progress output should show 100%% when complete")
 }

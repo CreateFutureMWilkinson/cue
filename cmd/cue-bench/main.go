@@ -77,7 +77,7 @@ func NewApp(onRun func(cfg BenchConfig)) *cli.Command {
 			scored := ScoredEntries(entries)
 			pool := RatedEntries(entries)
 
-			report, err := RunBenchmark(ctx, cfg, scored, pool, &http.Client{Timeout: cfg.Timeout})
+			report, err := RunBenchmark(ctx, cfg, scored, pool, &http.Client{Timeout: cfg.Timeout}, os.Stderr)
 			if err != nil {
 				return fmt.Errorf("run benchmark: %w", err)
 			}

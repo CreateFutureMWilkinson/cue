@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
@@ -82,12 +83,24 @@ func formatCorpusStats(scoredCount, poolCount, ratedCount, runs int) string {
 		totalMessages, scoredCount, ratedCount, runs)
 }
 
+// writeProgress writes a progress line to the given writer.
+func writeProgress(w io.Writer, modelName string, exampleCount, current, total int) {
+	if w == nil {
+		return
+	}
+	const barWidth = 20
+	pct := current * 100 / total
+	filled := barWidth * current / total
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
+	fmt.Fprintf(w, "\r%s [%d-shot]  %s  %d/%d  (%d%%)", modelName, exampleCount, bar, current, total, pct)
+}
+
 // RunBenchmark executes the scoring loop: for each model (baseline + cfg.Models)
 // x each example count x each scored entry, it selects few-shot examples from
 // pool, builds a prompt, POSTs to Ollama, parses the response, derives the
 // routing band, and appends a RunResult. The returned BenchReport contains
 // ModelOrder, RunResults, aggregated Results, BaselineName, and ExampleCounts.
-func RunBenchmark(ctx context.Context, cfg BenchConfig, scored []CorpusEntry, pool []CorpusEntry, httpClient *http.Client) (BenchReport, error) {
+func RunBenchmark(ctx context.Context, cfg BenchConfig, scored []CorpusEntry, pool []CorpusEntry, httpClient *http.Client, progressWriter io.Writer) (BenchReport, error) {
 	// 1. Build model list: baseline first, then additional models.
 	models := append([]string{cfg.Baseline}, cfg.Models...)
 
@@ -99,6 +112,8 @@ func RunBenchmark(ctx context.Context, cfg BenchConfig, scored []CorpusEntry, po
 
 	for _, modelName := range models {
 		for _, exampleCount := range counts {
+			total := len(scored)
+			current := 0
 			for _, scoredEntry := range scored {
 				// a. Select few-shot examples from pool.
 				selectedExamples := SelectExamples(scoredEntry, pool, exampleCount, cfg.Seed)
@@ -144,22 +159,25 @@ func RunBenchmark(ctx context.Context, cfg BenchConfig, scored []CorpusEntry, po
 					result.Reasoning = fmt.Sprintf("error: %v", err)
 					result.Band = DeriveBand(7, 0)
 					result.BandCorrect = (result.Band == scoredEntry.ExpectedBand)
-					allResults = append(allResults, result)
-					continue
+				} else {
+					// g. Populate successful scoring result.
+					result.IS = scorerResp.ImportanceScore
+					result.CS = scorerResp.ConfidenceScore
+					result.Reasoning = scorerResp.Reasoning
+
+					// h. Derive band.
+					result.Band = DeriveBand(scorerResp.ImportanceScore, scorerResp.ConfidenceScore)
+
+					// i. Check band correctness.
+					result.BandCorrect = (result.Band == scoredEntry.ExpectedBand)
 				}
 
-				// g. Populate successful scoring result.
-				result.IS = scorerResp.ImportanceScore
-				result.CS = scorerResp.ConfidenceScore
-				result.Reasoning = scorerResp.Reasoning
-
-				// h. Derive band.
-				result.Band = DeriveBand(scorerResp.ImportanceScore, scorerResp.ConfidenceScore)
-
-				// i. Check band correctness.
-				result.BandCorrect = (result.Band == scoredEntry.ExpectedBand)
-
 				allResults = append(allResults, result)
+				current++
+				writeProgress(progressWriter, modelName, exampleCount, current, total)
+			}
+			if progressWriter != nil {
+				fmt.Fprint(progressWriter, "\n")
 			}
 		}
 	}

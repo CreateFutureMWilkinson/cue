@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -46,7 +47,25 @@ type Publisher interface {
 // when the client disconnects or an error occurs. Write timeouts prevent
 // slow clients from blocking the event stream.
 func WebSocketHandler(hub Publisher) http.Handler {
+	var active atomic.Int32
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Enforce per-handler connection cap using compare-and-swap to avoid
+		// TOCTOU races under burst traffic.
+		for {
+			cur := active.Load()
+			if cur >= int32(MaxConnections) {
+				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Retry-After", "5")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_, _ = w.Write([]byte(`{"error":"too many connections"}`))
+				return
+			}
+			if active.CompareAndSwap(cur, cur+1) {
+				break
+			}
+		}
+		defer active.Add(-1)
+
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
 			return // Accept already wrote the HTTP error response.

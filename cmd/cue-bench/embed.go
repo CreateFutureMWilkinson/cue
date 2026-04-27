@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -134,5 +133,36 @@ func SelectExamplesByEmbedding(entryID string, index EmbedIndex, n int) []Corpus
 // BuildEmbedIndex embeds all pool and scored entries, returning the
 // index and per-request latencies for metrics reporting.
 func BuildEmbedIndex(ctx context.Context, model, host string, pool, scored []CorpusEntry, httpClient *http.Client, progressWriter io.Writer) (EmbedIndex, []int64, error) {
-	return EmbedIndex{}, nil, errors.New("not implemented")
+	index := EmbedIndex{
+		Pool:   make([]EmbedResult, 0, len(pool)),
+		Scored: make(map[string][]float32, len(scored)),
+	}
+
+	total := len(pool) + len(scored)
+	latencies := make([]int64, 0, total)
+	current := 0
+
+	for _, entry := range pool {
+		vec, latency, err := embedText(ctx, model, entry.Content, host, httpClient)
+		if err != nil {
+			return EmbedIndex{}, nil, err
+		}
+		index.Pool = append(index.Pool, EmbedResult{Entry: entry, Embedding: vec})
+		latencies = append(latencies, latency)
+		current++
+		fmt.Fprintf(progressWriter, "Embedding %d/%d...\n", current, total)
+	}
+
+	for _, entry := range scored {
+		vec, latency, err := embedText(ctx, model, entry.Content, host, httpClient)
+		if err != nil {
+			return EmbedIndex{}, nil, err
+		}
+		index.Scored[entry.ID] = vec
+		latencies = append(latencies, latency)
+		current++
+		fmt.Fprintf(progressWriter, "Embedding %d/%d...\n", current, total)
+	}
+
+	return index, latencies, nil
 }

@@ -168,9 +168,11 @@ func (s *JSONReporterSuite) TestRenderJSON_ProducesValidJSON() {
 	err := RenderJSON(&buf, report)
 	s.Require().NoError(err, "RenderJSON must not return an error")
 
-	var decoded []map[string]any
+	var decoded map[string]any
 	err = json.Unmarshal(buf.Bytes(), &decoded)
-	s.NoError(err, "RenderJSON output must be valid JSON that unmarshals into []map[string]any")
+	s.NoError(err, "RenderJSON output must be valid JSON object")
+	_, hasResults := decoded["results"]
+	s.True(hasResults, "JSON must contain 'results' key")
 }
 
 func (s *JSONReporterSuite) TestRenderJSON_ContainsRunResults() {
@@ -180,12 +182,12 @@ func (s *JSONReporterSuite) TestRenderJSON_ContainsRunResults() {
 	err := RenderJSON(&buf, report)
 	s.Require().NoError(err, "RenderJSON must not return an error")
 
-	var decoded []map[string]any
+	var decoded map[string]any
 	err = json.Unmarshal(buf.Bytes(), &decoded)
-	s.Require().NoError(err, "output must be valid JSON")
-
-	s.Equal(len(report.RunResults), len(decoded),
-		"JSON array length must match len(report.RunResults)")
+	s.Require().NoError(err)
+	results, ok := decoded["results"].([]any)
+	s.Require().True(ok, "results must be an array")
+	s.Equal(len(report.RunResults), len(results))
 }
 
 func (s *JSONReporterSuite) TestRenderJSON_FieldsPresent() {
@@ -195,15 +197,80 @@ func (s *JSONReporterSuite) TestRenderJSON_FieldsPresent() {
 	err := RenderJSON(&buf, report)
 	s.Require().NoError(err, "RenderJSON must not return an error")
 
-	var decoded []map[string]any
+	var decoded map[string]any
 	err = json.Unmarshal(buf.Bytes(), &decoded)
 	s.Require().NoError(err, "output must be valid JSON")
-	s.Require().NotEmpty(decoded, "JSON array must not be empty")
-
-	first := decoded[0]
+	results, ok := decoded["results"].([]any)
+	s.Require().True(ok)
+	s.Require().NotEmpty(results)
+	first, ok := results[0].(map[string]any)
+	s.Require().True(ok)
 	expectedKeys := []string{"model_name", "entry_id", "band"}
 	for _, key := range expectedKeys {
 		_, exists := first[key]
 		s.True(exists, "first JSON element must contain key %q", key)
 	}
+}
+
+func (s *JSONReporterSuite) TestRenderJSON_OmitsEmbedFieldsWhenEmpty() {
+	var buf bytes.Buffer
+	report := s.helperJSONReport()
+	// EmbedModel is already empty in helperJSONReport
+
+	err := RenderJSON(&buf, report)
+	s.Require().NoError(err)
+
+	var decoded map[string]any
+	err = json.Unmarshal(buf.Bytes(), &decoded)
+	s.Require().NoError(err)
+	_, hasEmbedModel := decoded["embed_model"]
+	s.False(hasEmbedModel, "embed_model must be omitted when empty")
+	_, hasP50 := decoded["embed_p50_ms"]
+	s.False(hasP50, "embed_p50_ms must be omitted when zero")
+	_, hasP95 := decoded["embed_p95_ms"]
+	s.False(hasP95, "embed_p95_ms must be omitted when zero")
+}
+
+func (s *JSONReporterSuite) TestRenderJSON_IncludesEmbedFieldsWhenSet() {
+	var buf bytes.Buffer
+	report := s.helperJSONReport()
+	report.EmbedModel = "nomic-embed-text"
+	report.EmbedP50Ms = 12
+	report.EmbedP95Ms = 28
+
+	err := RenderJSON(&buf, report)
+	s.Require().NoError(err)
+
+	var decoded map[string]any
+	err = json.Unmarshal(buf.Bytes(), &decoded)
+	s.Require().NoError(err)
+	s.Equal("nomic-embed-text", decoded["embed_model"])
+	s.InDelta(12, decoded["embed_p50_ms"], 0.1)
+	s.InDelta(28, decoded["embed_p95_ms"], 0.1)
+}
+
+func (s *ReporterSuite) TestRenderTable_ContainsEmbedStats() {
+	var buf bytes.Buffer
+	report := s.helperReport()
+	report.EmbedModel = "nomic-embed-text"
+	report.EmbedP50Ms = 12
+	report.EmbedP95Ms = 28
+
+	RenderTable(&buf, report)
+	output := buf.String()
+
+	s.Contains(output, "Embed Model: nomic-embed-text")
+	s.Contains(output, "p50: 12ms")
+	s.Contains(output, "p95: 28ms")
+}
+
+func (s *ReporterSuite) TestRenderTable_OmitsEmbedLineWhenEmpty() {
+	var buf bytes.Buffer
+	report := s.helperReport()
+	// EmbedModel is already empty in helperReport
+
+	RenderTable(&buf, report)
+	output := buf.String()
+
+	s.NotContains(output, "Embed Model")
 }

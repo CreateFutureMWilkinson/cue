@@ -8,10 +8,24 @@ import (
 	"strings"
 )
 
-// RenderJSON marshals the report's RunResults into a JSON array and writes
-// it to w.
+// jsonReport is the top-level JSON serialization wrapper for benchmark output.
+type jsonReport struct {
+	Results    []RunResult `json:"results"`
+	EmbedModel string      `json:"embed_model,omitempty"`
+	EmbedP50Ms int64       `json:"embed_p50_ms,omitempty"`
+	EmbedP95Ms int64       `json:"embed_p95_ms,omitempty"`
+}
+
+// RenderJSON marshals the report into a JSON object with a "results" key
+// and optional embed model stats, then writes it to w.
 func RenderJSON(w io.Writer, report BenchReport) error {
-	return json.NewEncoder(w).Encode(report.RunResults)
+	jr := jsonReport{
+		Results:    report.RunResults,
+		EmbedModel: report.EmbedModel,
+		EmbedP50Ms: report.EmbedP50Ms,
+		EmbedP95Ms: report.EmbedP95Ms,
+	}
+	return json.NewEncoder(w).Encode(jr)
 }
 
 // Table column widths
@@ -33,6 +47,9 @@ type BenchReport struct {
 	ModelOrder    []string
 	ExampleCounts []int
 	RunResults    []RunResult // per-message results for JSON export
+	EmbedModel    string      // empty when tag-based selection used
+	EmbedP50Ms    int64       // 0 when no embed model
+	EmbedP95Ms    int64       // 0 when no embed model
 }
 
 // RenderTable writes an ASCII table summary of the benchmark report to w.
@@ -42,6 +59,9 @@ func RenderTable(w io.Writer, report BenchReport) {
 	fmt.Fprintf(w, "=======================\n")
 	fmt.Fprintf(w, "Baseline: %s\n", report.BaselineName)
 	fmt.Fprintf(w, "Corpus: %s\n", report.CorpusStats)
+	if report.EmbedModel != "" {
+		fmt.Fprintf(w, "Embed Model: %s (p50: %dms, p95: %dms)\n", report.EmbedModel, report.EmbedP50Ms, report.EmbedP95Ms)
+	}
 	fmt.Fprintf(w, "\n")
 
 	// Sort example counts so 0 comes first

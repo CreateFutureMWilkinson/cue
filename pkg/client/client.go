@@ -10,9 +10,6 @@ import (
 	"net/http"
 )
 
-// ErrNotImplemented is returned by stubs not yet implemented.
-var ErrNotImplemented = errors.New("not implemented")
-
 // APIClient is the base client for the Cue server API.
 // Adapters share this for HTTP transport, auth header injection, and error parsing.
 type APIClient struct {

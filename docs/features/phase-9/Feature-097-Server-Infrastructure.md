@@ -1,8 +1,8 @@
 # Feature 097: Server Infrastructure + Composition Root
 
 **Phase:** Phase-9-Feature-097
-**Status:** Planning
-**Package:** `cmd/cue-server/`, `internal/server/`
+**Status:** Complete
+**Packages:** `cmd/cue-server/`, `internal/server/`, `internal/config/` (added `[server]` section)
 
 ---
 
@@ -132,3 +132,82 @@ These are valuable for any UI that needs to show connection/system status.
 6. **Authentication:** TOFU with pairing flow, bearer tokens (Feature 096 Decision 3).
 7. **Module:** Same Go module as `cmd/cue/`. Single `go.mod`.
 8. **Host binding:** `0.0.0.0` (all interfaces). TOFU auth is the trust boundary.
+
+## Implementation Notes
+
+### What This Feature Delivered
+
+- `[server]` section in `~/.cue/config.toml` with conditional validation —
+  existing GUI-only configs remain valid because validation only fires
+  when any `server.*` field is non-default.
+- `internal/server/` package:
+  - `Server` (lifecycle: `New`/`Handler`/`Start`/`Shutdown`/`Addr`/`Hub`).
+  - `Hub` event broadcaster — RWMutex-guarded subscriber map, per-
+    subscriber buffered channel (16); slow consumers drop instead of
+    blocking the hub.
+  - Health endpoints — `/health` (liveness) and `/health/ready` (per-
+    subsystem checks, returns 503 if any fail).
+  - Middleware: Recovery, RequestID, CORS, ContentType, Logging.
+- `cmd/cue-server/main.go` — loads config, validates, starts the hub +
+  HTTP listener on background goroutines, blocks on SIGINT/SIGTERM and
+  runs an ordered 15s shutdown.
+
+### Deferred to Later Features
+
+- Repository/service/watcher wiring into the server binary — Features
+  098+ will attach the orchestrator, queue processor, watchers, and
+  other dependencies as they introduce HTTP/WebSocket endpoints that
+  need them. The current server runs with no domain state attached;
+  health/ready checks accept zero subsystems and return 200.
+- TOFU pairing and bearer-token authentication middleware (Feature 096
+  Decision 3).
+- WebSocket transport upgrade — `Hub` exists and broadcasts to
+  `Subscriber.Events` channels, but no HTTP route currently upgrades
+  connections to WebSocket. Feature 099 (Activity Event Stream) will
+  add the upgrade handler.
+
+### Decisions Refined During Implementation
+
+- **Hub.Run is a context-blocked no-op.** Broadcast dispatches
+  synchronously under RLock, so an internal event loop would only add
+  goroutine overhead without serialization benefit. `Run` exists so
+  callers can manage hub lifecycle uniformly with other goroutines and
+  so future enhancements (e.g., per-subscriber writer goroutines) have
+  a place to live.
+- **Unsubscribe leaves the channel open.** Closing on Unsubscribe risks
+  panics from concurrent `Broadcast` writers and produces an
+  immediately-readable channel, defeating the
+  `TestBroadcastDoesNotDeliverToUnsubscribed` semantics. Subscribers
+  signal disconnect through their own connection lifecycle (when
+  WebSocket support lands).
+- **Health is mounted twice** — `/health` and `/api/v1/health`. The
+  unversioned form is the conventional probe path for orchestrators
+  (Kubernetes, systemd, etc.); the versioned form keeps API consumers
+  on a single namespace.
+
+## Test Coverage
+
+| File | Coverage |
+|---|---|
+| `health_test.go` | `/health` returns 200 + JSON; `/health/ready` 200/503 with subsystem details; empty checker list returns 200 |
+| `hub_test.go` | NewHub, Subscribe/Unsubscribe (count tracking), Broadcast delivery to all + isolation after unsubscribe, Run terminates on context cancel |
+| `middleware_test.go` | Recovery (panic→500, normal pass-through), RequestID (header set, unique per request), CORS (headers + preflight), ContentType (rejects non-JSON POST, allows JSON, skips GET), Logging (status pass-through) |
+| `server_test.go` | New returns non-nil; Handler non-nil; router serves `/api/v1/`; Addr empty before Start; Shutdown returns nil; connections refused after shutdown |
+
+## TDD Agent Stats
+
+This feature was implemented directly in the main session rather than
+via the agent-team pipeline; the test suite was authored as a single
+RED commit (a63dc6c) with all stubs in place, then GREEN was driven
+behavior-by-behavior with one commit per behavior.
+
+| Implementation Phase | TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|---|
+| Phase-9-Feature-097 (config) | GREEN | main | inline | inline | 2b2d2ad |
+| Phase-9-Feature-097 (RED bundle) | RED | main | inline | inline | a63dc6c |
+| Phase-9-Feature-097 (B4-health) | GREEN | main | inline | inline | 98941ac |
+| Phase-9-Feature-097 (B5-hub) | GREEN | main | inline | inline | ebb6704 |
+| Phase-9-Feature-097 (middleware) | GREEN | main | inline | inline | c38f0c9 |
+| Phase-9-Feature-097 (B1+B3+B6-server) | GREEN | main | inline | inline | d348c77 |
+| Phase-9-Feature-097 (composition root) | GREEN | main | inline | inline | 3965b46 |
+| Phase-9-Feature-097 (gosec G706) | REFACTOR | main | inline | inline | a525b15 |

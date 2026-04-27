@@ -11,6 +11,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- **`cue-server` binary + HTTP server foundation** — New headless entry point at `cmd/cue-server/` that loads `~/.cue/config.toml`, starts an HTTP server, and shuts down cleanly on SIGINT/SIGTERM. `internal/server/` provides the lifecycle (`Server`), a WebSocket-ready broadcaster (`Hub`), `/health` + `/health/ready` endpoints with pluggable `SubsystemChecker`s, and a middleware stack (Recovery, RequestID, CORS, ContentType, Logging). Config gains a `[server]` section (host, port, read/write timeouts; defaults to `0.0.0.0:7130` with TOFU auth as the trust boundary). Repository/service/watcher wiring and authentication are deferred to subsequent Phase 9 features. (Phase-9-Feature-097)
+
 ### Breaking
 
 - **Scorer interface renamed** — `Scorer.Score(ctx, msg)` replaced by `Scorer.ScoreWithContext(ctx, msg, []FewShotExample)`. All callers pass examples explicitly; pass nil for no calibration. `VectorScoreAdvisor`, `ScoreAdvice`, `VectorAdvisorConfig`, and their arithmetic adjustment logic are removed. (Phase-8-Feature-094)

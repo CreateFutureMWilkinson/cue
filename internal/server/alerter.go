@@ -2,15 +2,22 @@ package server
 
 import "context"
 
-// HubAlerter adapts a Hub into an orchestrator.Alerter by broadcasting
-// alert envelopes to connected WebSocket clients.
-type HubAlerter struct{}
+// HubAlerter is an orchestrator.Alerter implementation that broadcasts alert
+// envelopes to connected WebSocket clients via a Hub, instead of playing local
+// audio. This allows the web-based GUI to render its own notification sounds or
+// visual cues in response to alert events.
+type HubAlerter struct {
+	hub *Hub
+}
 
 // NewHubAlerter creates a HubAlerter that publishes alerts via the given Hub.
-func NewHubAlerter(hub *Hub) *HubAlerter { return &HubAlerter{} }
+func NewHubAlerter(hub *Hub) *HubAlerter { return &HubAlerter{hub: hub} }
 
 // PlayNotification broadcasts a notification alert to all connected clients.
-// noop stub — returns nil without publishing an envelope.
 func (a *HubAlerter) PlayNotification(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	a.hub.PublishAlert(AlertData{Kind: "notification"})
 	return nil
 }

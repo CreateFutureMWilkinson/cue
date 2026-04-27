@@ -85,3 +85,102 @@ func (s *BufferHandlerSuite) TestListBufferedReturnsBufferedMessages() {
 	s.Equal(50, mock.capturedFilter.Limit)
 	s.Equal(0, mock.capturedFilter.Offset)
 }
+
+func (s *BufferHandlerSuite) TestGetBufferedReturnsFullDetail() {
+	now := time.Now().UTC().Truncate(time.Second)
+	msgID := uuid.New()
+
+	msg := &repository.Message{
+		ID:              msgID,
+		Source:          "slack",
+		SourceAccount:   "T12345",
+		Channel:         "#deployments",
+		Sender:          "bob",
+		MessageID:       "slack-msg-042",
+		RawContent:      "Deploy scheduled for tonight",
+		ImportanceScore: 7.5,
+		ConfidenceScore: 0.6,
+		Reasoning:       "Deployment notice with potential impact",
+		Status:          "Buffered",
+		CreatedAt:       now.Add(-10 * time.Minute),
+		UpdatedAt:       now.Add(-9 * time.Minute),
+	}
+
+	mock := &mockMessageQuerier{
+		queryByIDMessage: msg,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/buffer/"+msgID.String(), nil)
+	req.SetPathValue("id", msgID.String())
+	rec := httptest.NewRecorder()
+
+	handler.GetBufferedHandler(mock)(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code, "expected 200 OK")
+
+	var body map[string]any
+	err := json.NewDecoder(rec.Body).Decode(&body)
+	s.Require().NoError(err, "response body should be valid JSON")
+
+	s.Equal(msgID.String(), body["id"])
+	s.Equal("slack", body["source"])
+	s.Equal("T12345", body["source_account"])
+	s.Equal("#deployments", body["channel"])
+	s.Equal("bob", body["sender"])
+	s.Equal("slack-msg-042", body["message_id"])
+	s.Equal("Deploy scheduled for tonight", body["content"])
+	s.Equal(7.5, body["importance_score"])
+	s.Equal(0.6, body["confidence_score"])
+	s.Equal("Deployment notice with potential impact", body["reasoning"])
+	s.Equal("Buffered", body["status"])
+	s.Equal(msg.CreatedAt.Format(time.RFC3339), body["created_at"])
+	s.Equal(msg.UpdatedAt.Format(time.RFC3339), body["updated_at"])
+}
+
+func (s *BufferHandlerSuite) TestGetBufferedReturns404ForNonBufferedMessage() {
+	now := time.Now().UTC().Truncate(time.Second)
+	msgID := uuid.New()
+
+	msg := &repository.Message{
+		ID:              msgID,
+		Source:          "slack",
+		SourceAccount:   "T12345",
+		Channel:         "#incidents",
+		Sender:          "alice",
+		MessageID:       "slack-msg-099",
+		RawContent:      "Server is down",
+		ImportanceScore: 9.0,
+		ConfidenceScore: 0.95,
+		Reasoning:       "Production outage",
+		Status:          "Notified",
+		CreatedAt:       now.Add(-5 * time.Minute),
+		UpdatedAt:       now.Add(-4 * time.Minute),
+	}
+
+	mock := &mockMessageQuerier{
+		queryByIDMessage: msg,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/buffer/"+msgID.String(), nil)
+	req.SetPathValue("id", msgID.String())
+	rec := httptest.NewRecorder()
+
+	handler.GetBufferedHandler(mock)(rec, req)
+
+	s.Equal(http.StatusNotFound, rec.Code, "expected 404 for non-Buffered message")
+}
+
+func (s *BufferHandlerSuite) TestGetBufferedReturns404ForUnknownID() {
+	mock := &mockMessageQuerier{
+		queryByIDErr: repository.ErrNotFound,
+	}
+
+	unknownID := uuid.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/buffer/"+unknownID.String(), nil)
+	req.SetPathValue("id", unknownID.String())
+	rec := httptest.NewRecorder()
+
+	handler.GetBufferedHandler(mock)(rec, req)
+
+	s.Equal(http.StatusNotFound, rec.Code, "expected 404 Not Found")
+}

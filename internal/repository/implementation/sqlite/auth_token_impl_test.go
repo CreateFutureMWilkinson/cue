@@ -174,6 +174,46 @@ func (s *AuthTokenSuite) TestLookupByHashNotFound() {
 	s.Nil(got)
 }
 
+// --- Behavior 7: CountActive ---
+
+func (s *AuthTokenSuite) TestCountActive() {
+	ctx := context.Background()
+
+	count, err := s.repo.CountActive(ctx)
+	s.Require().NoError(err)
+	s.Equal(0, count, "empty table should have zero active tokens")
+
+	t1 := s.validToken("active1", "hash-active1")
+	t2 := s.validToken("active2", "hash-active2")
+	t3 := s.validToken("revoked1", "hash-revoked1")
+
+	s.Require().NoError(s.repo.Create(ctx, t1))
+	s.Require().NoError(s.repo.Create(ctx, t2))
+	s.Require().NoError(s.repo.Create(ctx, t3))
+	s.Require().NoError(s.repo.Revoke(ctx, t3.ID))
+
+	count, err = s.repo.CountActive(ctx)
+	s.Require().NoError(err)
+	s.Equal(2, count, "should count only non-revoked tokens")
+}
+
+// --- Behavior 8: UpdateLastSeen ---
+
+func (s *AuthTokenSuite) TestUpdateLastSeen() {
+	ctx := context.Background()
+	token := s.validToken("seen-test", "hash-seen")
+
+	s.Require().NoError(s.repo.Create(ctx, token))
+
+	newTime := token.LastSeen.Add(5 * time.Minute)
+	err := s.repo.UpdateLastSeen(ctx, token.ID, newTime)
+	s.Require().NoError(err)
+
+	got, err := s.repo.LookupByHash(ctx, "hash-seen")
+	s.Require().NoError(err)
+	s.WithinDuration(newTime, got.LastSeen, time.Second, "last_seen should be updated")
+}
+
 // --- Constructor: table creation ---
 
 func (s *AuthTokenSuite) TestNewCreatesTable() {

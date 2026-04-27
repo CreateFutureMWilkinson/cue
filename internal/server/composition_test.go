@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
@@ -13,6 +14,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository/implementation/sqlite"
 	"github.com/CreateFutureMWilkinson/cue/internal/secret"
 	"github.com/CreateFutureMWilkinson/cue/internal/server"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
 )
 
 // CompositionSuite tests the server composition root.
@@ -156,4 +158,57 @@ func (s *CompositionSuite) TestNewCompositionBuildsWatchersFromDB() {
 	s.Require().Len(names, 2, "expected exactly 2 watchers registered")
 	s.Contains(names, "slack:T999", "expected slack watcher registered with workspace ID")
 	s.Contains(names, "email:test@example.com", "expected email watcher registered with username")
+}
+
+// TestNewCompositionPublishesOrchestratorEventsToHub verifies that activity
+// events sent to EventCh are forwarded to the hub's ring buffer via Publish.
+func (s *CompositionSuite) TestNewCompositionPublishesOrchestratorEventsToHub() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	cfg := minimalConfig(dbPath)
+
+	comp, err := server.NewComposition(context.Background(), cfg)
+	s.Require().NoError(err, "NewComposition should not return an error")
+	s.Require().NotNil(comp, "NewComposition should return a non-nil Composition")
+
+	// Send an activity event into the composition's event channel.
+	comp.EventCh <- orchestrator.ActivityEvent{
+		Source:  "slack",
+		Message: "test event",
+		IsError: false,
+	}
+
+	// Wait for the publisher goroutine to forward the event to the hub.
+	s.Require().Eventually(func() bool {
+		resp := comp.Hub.History(0)
+		for _, env := range resp.Events {
+			if env.Type == "activity" {
+				ad, ok := env.Data.(server.ActivityData)
+				if ok && ad.Message == "test event" {
+					return true
+				}
+			}
+		}
+		return false
+	}, 500*time.Millisecond, 10*time.Millisecond, "expected hub to contain activity envelope with Message 'test event'")
+
+	// Find the matching envelope and assert all fields.
+	resp := comp.Hub.History(0)
+	var found *server.ActivityEnvelope
+	for i := range resp.Events {
+		if resp.Events[i].Type == "activity" {
+			ad, ok := resp.Events[i].Data.(server.ActivityData)
+			if ok && ad.Message == "test event" {
+				found = &resp.Events[i]
+				break
+			}
+		}
+	}
+	s.Require().NotNil(found, "should find an activity envelope with Message 'test event'")
+
+	ad := found.Data.(server.ActivityData)
+	s.Equal("activity", found.Type)
+	s.Equal("slack", ad.Source)
+	s.Equal("test event", ad.Message)
+	s.Equal(false, ad.IsError)
 }

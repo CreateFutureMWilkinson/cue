@@ -226,6 +226,9 @@ func startOrchestration(
 
 	registerWatchersFromDB(ctx, orch, serviceConfigRepo)
 
+	// TODO(B7): start publisher goroutine that ranges over eventCh and
+	// calls hub.Publish(ActivityData{Source, Message, IsError}) for each event.
+
 	return hub, alerter, orch, queueProcessor, eventCh, nil
 }
 

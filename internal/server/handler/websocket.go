@@ -63,6 +63,20 @@ func writeTooManyConnections(w http.ResponseWriter) {
 	_, _ = w.Write([]byte(`{"error":"too many connections"}`))
 }
 
+// WebSocketHandlerWithHeartbeat returns an http.Handler identical to
+// WebSocketHandler but with configurable ping/pong heartbeat intervals.
+// The server sends a WebSocket ping every `interval`; if no pong is
+// received within `timeout` the connection is closed and the subscriber
+// is removed from the hub.
+//
+// Production callers should use WebSocketHandler which delegates here
+// with 30 s / 10 s defaults.
+func WebSocketHandlerWithHeartbeat(hub Publisher, interval, timeout time.Duration) http.Handler {
+	// Stub: heartbeat parameters are accepted but not yet used.
+	// The handler behaves identically to the pre-heartbeat implementation.
+	return webSocketHandler(hub)
+}
+
 // WebSocketHandler returns an http.Handler that upgrades HTTP connections
 // to WebSocket, subscribes to the event hub, and forwards broadcast events
 // to the connected client as JSON messages.
@@ -70,7 +84,14 @@ func writeTooManyConnections(w http.ResponseWriter) {
 // The handler automatically manages the subscription lifecycle, cleaning up
 // when the client disconnects or an error occurs. Write timeouts prevent
 // slow clients from blocking the event stream.
+//
+// It delegates to WebSocketHandlerWithHeartbeat with production defaults
+// of 30 s ping interval and 10 s pong timeout.
 func WebSocketHandler(hub Publisher) http.Handler {
+	return WebSocketHandlerWithHeartbeat(hub, 30*time.Second, 10*time.Second)
+}
+
+func webSocketHandler(hub Publisher) http.Handler {
 	var active atomic.Int32
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Enforce per-handler connection cap using atomic operations

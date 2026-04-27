@@ -191,6 +191,49 @@ func (s *WebSocketHandlerSuite) TestWebSocketHandler_ConnectionCap() {
 	s.Equal("too many connections", errBody.Error)
 }
 
+func (s *WebSocketHandlerSuite) TestWebSocketHandler_HeartbeatClosesOnTimeout() {
+	hub := server.NewHub()
+	pub := &hubAdapter{hub: hub}
+
+	// Use very short heartbeat intervals so the test runs fast.
+	// The server will ping every 50ms and expect a pong within 100ms.
+	h := handler.WebSocketHandlerWithHeartbeat(pub, 50*time.Millisecond, 100*time.Millisecond)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// Dial the WebSocket but do NOT start a read loop. Without reading,
+	// the coder/websocket client cannot auto-respond to pings, so server-side
+	// conn.Ping calls will time out.
+	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	s.Require().NoError(err, "WebSocket dial should succeed")
+	defer conn.CloseNow() //nolint:errcheck
+
+	// Verify the subscriber was registered.
+	s.Eventually(func() bool {
+		return hub.SubscriberCount() == 1
+	}, 500*time.Millisecond, 10*time.Millisecond, "hub should have 1 subscriber after dial")
+
+	// Wait for the server to detect the heartbeat timeout and unsubscribe.
+	// Total budget: interval (50ms) + timeout (100ms) + margin ≈ 200ms,
+	// but we allow up to 1s to avoid flakiness.
+	s.Eventually(func() bool {
+		return hub.SubscriberCount() == 0
+	}, 1*time.Second, 10*time.Millisecond,
+		"hub should have 0 subscribers after heartbeat timeout")
+
+	// The connection should now be closed on the server side. Any read
+	// attempt from the client should return an error.
+	readCtx, readCancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer readCancel()
+	_, _, readErr := conn.Read(readCtx)
+	s.Error(readErr, "reading from a server-closed connection should fail")
+}
+
 // upgradeRequest sends a raw HTTP request with WebSocket upgrade headers.
 // If origin is non-empty it is included as the Origin header.
 func upgradeRequest(url, origin string) (*http.Response, error) {

@@ -80,7 +80,18 @@ func NewApp(onRun func(cfg BenchConfig)) *cli.Command {
 			scored := ScoredEntries(entries)
 			pool := RatedEntries(entries)
 
-			report, err := RunBenchmark(ctx, cfg, scored, pool, nil, &http.Client{Timeout: cfg.Timeout}, os.Stderr)
+			httpClient := &http.Client{Timeout: cfg.Timeout}
+
+			var embedIndex *EmbedIndex
+			if cfg.EmbedModel != "" {
+				idx, _, err := BuildEmbedIndex(ctx, cfg.EmbedModel, cfg.OllamaHost, pool, scored, httpClient, os.Stderr)
+				if err != nil {
+					return fmt.Errorf("build embed index: %w", err)
+				}
+				embedIndex = &idx
+			}
+
+			report, err := RunBenchmark(ctx, cfg, scored, pool, embedIndex, httpClient, os.Stderr)
 			if err != nil {
 				return fmt.Errorf("run benchmark: %w", err)
 			}

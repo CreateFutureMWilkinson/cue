@@ -226,19 +226,25 @@ func startOrchestration(
 
 	registerWatchersFromDB(ctx, orch, serviceConfigRepo)
 
-	// Publisher goroutine: ranges over eventCh and publishes each activity
-	// event to the hub for broadcast to WebSocket clients.
-	go func() {
-		for ev := range eventCh {
-			hub.Publish(ActivityData{
-				Source:  ev.Source,
-				Message: ev.Message,
-				IsError: ev.IsError,
-			})
-		}
-	}()
+	// Start the event publisher goroutine
+	go publishEventsToHub(eventCh, hub)
 
 	return hub, alerter, orch, queueProcessor, eventCh, nil
+}
+
+// publishEventsToHub is a goroutine that ranges over the orchestrator activity
+// event channel and publishes each event to the hub for broadcast to WebSocket clients.
+//
+// This goroutine is the sole consumer of eventCh; the orchestrator and queue processor
+// are the producers. The goroutine exits naturally when eventCh is closed (during shutdown).
+func publishEventsToHub(eventCh <-chan orchestrator.ActivityEvent, hub *Hub) {
+	for ev := range eventCh {
+		hub.Publish(ActivityData{
+			Source:  ev.Source,
+			Message: ev.Message,
+			IsError: ev.IsError,
+		})
+	}
 }
 
 // registerWatchersFromDB queries enabled Slack and Email accounts from the

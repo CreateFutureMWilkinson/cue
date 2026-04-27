@@ -356,6 +356,73 @@ drained:
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Behavior: PublishAlert emits type=="alert" envelopes with AlertData payload
+// ---------------------------------------------------------------------------
+
+func (s *HubSuite) TestPublishAlertEmitsAlertEnvelopeWithMonotonicSeq() {
+	hub := server.NewHub()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go hub.Run(ctx)
+
+	// Subscribe before publishing so we can verify broadcast delivery.
+	sub, err := hub.Subscribe("alert-client")
+	s.Require().NoError(err)
+
+	// Publish a regular activity first to occupy seq 1.
+	env1 := hub.Publish(server.ActivityData{Source: "slack", Message: "hello"})
+	s.Equal(uint64(1), env1.Seq, "regular Publish must get seq 1")
+
+	// Drain the activity envelope from the subscriber channel.
+	select {
+	case <-sub.Events:
+	case <-time.After(time.Second):
+		s.Fail("subscriber did not receive activity envelope within timeout")
+	}
+
+	// PublishAlert with AlertData{Kind: "notification"}.
+	alertData := server.AlertData{Kind: "notification"}
+	env2 := hub.PublishAlert(alertData)
+
+	// --- Returned envelope assertions ---
+	s.Equal("alert", env2.Type, "PublishAlert envelope Type must be 'alert'")
+	s.Equal(uint64(2), env2.Seq, "PublishAlert must get seq 2 (monotonic after Publish)")
+	s.False(env2.Timestamp.IsZero(), "PublishAlert envelope Timestamp must be non-zero")
+	s.Equal(time.UTC, env2.Timestamp.Location(), "Timestamp must be UTC")
+
+	gotData, ok := env2.Data.(server.AlertData)
+	s.Require().True(ok, "envelope Data must be AlertData")
+	s.Equal(alertData, gotData, "envelope Data must match published AlertData")
+
+	// --- Ring buffer (History) assertions ---
+	resp := hub.History(0)
+	s.Require().Len(resp.Events, 2, "History(0) must return 2 events (1 activity + 1 alert)")
+	s.Equal(uint64(1), resp.Events[0].Seq)
+	s.Equal("activity", resp.Events[0].Type)
+	s.Equal(uint64(2), resp.Events[1].Seq)
+	s.Equal("alert", resp.Events[1].Type)
+
+	// --- Subscriber broadcast assertions ---
+	select {
+	case raw := <-sub.Events:
+		var got struct {
+			Seq       uint64           `json:"seq"`
+			Type      string           `json:"type"`
+			Timestamp time.Time        `json:"timestamp"`
+			Data      server.AlertData `json:"data"`
+		}
+		err := json.Unmarshal(raw, &got)
+		s.Require().NoError(err, "received bytes must be valid JSON envelope")
+		s.Equal(env2.Seq, got.Seq, "broadcast Seq must match returned envelope Seq")
+		s.Equal("alert", got.Type, "broadcast Type must be 'alert'")
+		s.Equal("notification", got.Data.Kind, "broadcast Data.Kind must be 'notification'")
+	case <-time.After(time.Second):
+		s.Fail("subscriber did not receive alert broadcast within timeout")
+	}
+}
+
 func (s *HubSuite) TestHistoryTruncationAfterEviction() {
 	hub := server.NewHub()
 

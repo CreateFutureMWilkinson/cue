@@ -279,6 +279,14 @@ func (h *Hub) History(sinceSeq uint64) HistoryResponse {
 	}
 }
 
+// PublishAlert creates an ActivityEnvelope for the given AlertData, assigns a
+// monotonically increasing sequence number, stores it in the ring buffer for
+// history replay, and broadcasts the JSON-serialized envelope to all current
+// subscribers. Stub: returns zero-valued envelope.
+func (h *Hub) PublishAlert(data AlertData) ActivityEnvelope {
+	return ActivityEnvelope{}
+}
+
 // SubscriberCount returns the number of active subscribers.
 func (h *Hub) SubscriberCount() int {
 	h.mu.RLock()

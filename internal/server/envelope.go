@@ -18,3 +18,8 @@ type ActivityData struct {
 	Message string `json:"message"`
 	IsError bool   `json:"is_error"`
 }
+
+// AlertData is the type-specific payload for alert events.
+type AlertData struct {
+	Kind string `json:"kind"`
+}

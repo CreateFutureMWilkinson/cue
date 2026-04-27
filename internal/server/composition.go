@@ -2,14 +2,14 @@ package server
 
 import (
 	"context"
-	"errors"
+	"database/sql"
 	"fmt"
+	"log/slog"
 	"path/filepath"
+	"sync"
 	"time"
 
 	chromem "github.com/rengensheng/chromem-go"
-
-	"log/slog"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
@@ -21,8 +21,10 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
 )
 
-// ErrCompositionNotImplemented is returned by stub methods that are not yet implemented.
-var ErrCompositionNotImplemented = errors.New("not implemented")
+// dbAccessor is implemented by repository types that expose their underlying database connection.
+type dbAccessor interface {
+	DB() *sql.DB
+}
 
 // orchestratorEventBufferSize defines the buffer size for the activity event channel
 // shared between orchestrator/queue processor and the hub publisher.
@@ -57,6 +59,9 @@ type Composition struct {
 	QueueProcessor *orchestrator.QueueProcessor
 	// EventCh carries activity events from orchestrator to the hub publisher
 	EventCh chan orchestrator.ActivityEvent
+
+	shutdownOnce sync.Once
+	shutdownErr  error
 }
 
 // NewComposition opens all repositories, constructs services (Ollama client,
@@ -298,6 +303,28 @@ func registerWatchersFromDB(ctx context.Context, orch *orchestrator.Orchestrator
 }
 
 // Shutdown performs an ordered shutdown of all composition components.
+// It is safe to call multiple times; only the first call executes the shutdown sequence.
 func (c *Composition) Shutdown(ctx context.Context) error {
-	return ErrCompositionNotImplemented
+	c.shutdownOnce.Do(func() {
+		slog.Info("shutdown initiated")
+
+		slog.Info("stopping orchestrator", "note", "waiting for in-flight polls to complete")
+		c.Orchestrator.Stop()
+
+		slog.Info("stopping queue processor")
+		c.QueueProcessor.Stop()
+
+		slog.Info("closing event channel")
+		close(c.EventCh)
+
+		slog.Info("closing database")
+		if accessor, ok := c.MessageRepo.(dbAccessor); ok {
+			if err := accessor.DB().Close(); err != nil {
+				c.shutdownErr = fmt.Errorf("closing database: %w", err)
+			}
+		}
+
+		slog.Info("shutdown complete")
+	})
+	return c.shutdownErr
 }

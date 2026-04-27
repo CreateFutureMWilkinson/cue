@@ -407,6 +407,30 @@ func (s *ScheduleGenerationSuite) TestNoTasks() {
 }
 
 // ---------------------------------------------------------------------------
+// 13b. Empty task slice — focus blocks have nil TaskID and empty TaskName
+// ---------------------------------------------------------------------------
+
+func (s *ScheduleGenerationSuite) TestEmptyTaskSlice_FocusBlocksUnassigned() {
+	p := s.newPlanner()
+	ctx := context.Background()
+
+	focus, recovery, err := p.GenerateSchedules(ctx, []planner.TaskEstimate{}, nil, s.date)
+	s.Require().NoError(err)
+	s.Require().NotNil(focus)
+	s.Require().NotNil(recovery)
+
+	for _, sched := range []*planner.DaySchedule{focus, recovery} {
+		s.NotEmpty(sched.Blocks, "schedule should still have blocks")
+		for i, b := range sched.Blocks {
+			if b.Type == planner.BlockFocus {
+				s.Nil(b.TaskID, "focus block %d in %s should have nil TaskID with empty task list", i, sched.Strategy)
+				s.Empty(b.TaskName, "focus block %d in %s should have empty TaskName with empty task list", i, sched.Strategy)
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // 14. No overlapping blocks — blocks must be contiguous or sequential
 // ---------------------------------------------------------------------------
 

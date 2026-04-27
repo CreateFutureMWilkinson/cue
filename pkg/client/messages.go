@@ -2,6 +2,9 @@ package client
 
 import (
 	"context"
+	"net/http"
+	"net/url"
+	"strconv"
 
 	"github.com/google/uuid"
 )
@@ -104,35 +107,95 @@ func NewMessageClient(c *APIClient) MessageClient {
 
 // ListMessages issues GET /api/v1/messages with the provided filter encoded
 // as query parameters. Returns the messages slice, total count, or an error.
-func (a *messageAdapter) ListMessages(_ context.Context, _ MessageFilter) ([]Message, int, error) {
-	return nil, 0, ErrNotImplemented
+func (a *messageAdapter) ListMessages(ctx context.Context, filter MessageFilter) ([]Message, int, error) {
+	q := url.Values{}
+	if filter.Status != "" {
+		q.Set("status", filter.Status)
+	}
+	if filter.Source != "" {
+		q.Set("source", filter.Source)
+	}
+	if filter.Channel != "" {
+		q.Set("channel", filter.Channel)
+	}
+	if filter.Since != "" {
+		q.Set("since", filter.Since)
+	}
+	if filter.Limit > 0 {
+		q.Set("limit", strconv.Itoa(filter.Limit))
+	}
+	if filter.Offset > 0 {
+		q.Set("offset", strconv.Itoa(filter.Offset))
+	}
+
+	path := "/api/v1/messages"
+	if encoded := q.Encode(); encoded != "" {
+		path += "?" + encoded
+	}
+
+	var out struct {
+		Messages []Message `json:"messages"`
+		Total    int       `json:"total"`
+	}
+	if err := a.client.doJSON(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, 0, err
+	}
+	return out.Messages, out.Total, nil
 }
 
 // GetMessage issues GET /api/v1/messages/{id} and returns the full detail.
-func (a *messageAdapter) GetMessage(_ context.Context, _ uuid.UUID) (*MessageDetail, error) {
-	return nil, ErrNotImplemented
+func (a *messageAdapter) GetMessage(ctx context.Context, id uuid.UUID) (*MessageDetail, error) {
+	var detail MessageDetail
+	if err := a.client.doJSON(ctx, http.MethodGet, "/api/v1/messages/"+id.String(), nil, &detail); err != nil {
+		return nil, err
+	}
+	return &detail, nil
 }
 
 // ListNotifications issues GET /api/v1/notifications with pagination.
 // The server filters to status="Notified" automatically.
-func (a *messageAdapter) ListNotifications(_ context.Context, _ ListOptions) ([]NotificationSummary, int, error) {
-	return nil, 0, ErrNotImplemented
+func (a *messageAdapter) ListNotifications(ctx context.Context, opts ListOptions) ([]NotificationSummary, int, error) {
+	q := url.Values{}
+	if opts.Limit > 0 {
+		q.Set("limit", strconv.Itoa(opts.Limit))
+	}
+	if opts.Offset > 0 {
+		q.Set("offset", strconv.Itoa(opts.Offset))
+	}
+
+	path := "/api/v1/notifications"
+	if encoded := q.Encode(); encoded != "" {
+		path += "?" + encoded
+	}
+
+	var out struct {
+		Notifications []NotificationSummary `json:"notifications"`
+		Total         int                   `json:"total"`
+	}
+	if err := a.client.doJSON(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, 0, err
+	}
+	return out.Notifications, out.Total, nil
 }
 
 // GetNotification issues GET /api/v1/notifications/{id}. Returns the same
 // MessageDetail shape as GetMessage.
-func (a *messageAdapter) GetNotification(_ context.Context, _ uuid.UUID) (*MessageDetail, error) {
-	return nil, ErrNotImplemented
+func (a *messageAdapter) GetNotification(ctx context.Context, id uuid.UUID) (*MessageDetail, error) {
+	var detail MessageDetail
+	if err := a.client.doJSON(ctx, http.MethodGet, "/api/v1/notifications/"+id.String(), nil, &detail); err != nil {
+		return nil, err
+	}
+	return &detail, nil
 }
 
 // ResolveNotification issues POST /api/v1/notifications/{id}/resolve.
 // Returns a *APIError with ErrCodeConflict when the notification has
 // already been resolved.
-func (a *messageAdapter) ResolveNotification(_ context.Context, _ uuid.UUID) error {
-	return ErrNotImplemented
+func (a *messageAdapter) ResolveNotification(ctx context.Context, id uuid.UUID) error {
+	return a.client.doJSON(ctx, http.MethodPost, "/api/v1/notifications/"+id.String()+"/resolve", nil, nil)
 }
 
 // DismissNotification issues POST /api/v1/notifications/{id}/dismiss.
-func (a *messageAdapter) DismissNotification(_ context.Context, _ uuid.UUID) error {
-	return ErrNotImplemented
+func (a *messageAdapter) DismissNotification(ctx context.Context, id uuid.UUID) error {
+	return a.client.doJSON(ctx, http.MethodPost, "/api/v1/notifications/"+id.String()+"/dismiss", nil, nil)
 }

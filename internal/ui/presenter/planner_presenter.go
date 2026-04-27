@@ -587,11 +587,15 @@ func (p *PlannerPresenter) buildTaskEstimates() []planner.TaskEstimate {
 
 func todoToRow(t *repository.Task) TodoRow {
 	return TodoRow{
-		ID:         t.ID,
-		Title:      t.Title,
-		Priority:   t.Priority,
-		DueDate:    t.DueDate,
-		Categories: t.Categories,
+		ID:       t.ID,
+		Title:    t.Title,
+		Priority: t.Priority,
+		DueDate:  t.DueDate,
+		// TODO(feat-109 Loop 7): populate from t.CategoryKey via the
+		// CategoryRepository so the wizard can render the display
+		// name. For now the row is built without category info to
+		// keep the UI compiling; Loop 7 supplies the wire format.
+		Categories: nil,
 		Selected:   false,
 	}
 }

@@ -11,23 +11,23 @@ import (
 type Task struct {
 	ID                 uuid.UUID
 	Title              string
-	Description        string     // markdown
-	Priority           int        // higher = higher priority
-	DueDate            *time.Time // optional
-	Categories         []Category
-	EstimateMinutes    *int // user-provided time estimate
-	LLMEstimateMinutes *int // LLM-generated time estimate
+	Description        string // markdown
+	Priority           int    // higher = higher priority
+	DueDate            *time.Time
+	CategoryKey        *string // FK to categories.name_key; nullable
+	EstimateMinutes    *int    // user-provided time estimate
+	LLMEstimateMinutes *int    // LLM-generated time estimate
 	CreatedAt          time.Time
 	CompletedAt        *time.Time // nil = incomplete
 }
 
 // TaskFilter controls filtering, searching, and pagination for QueryFiltered.
 type TaskFilter struct {
-	Status   string // "incomplete", "complete", "all" (default: "incomplete")
-	Category string // filter by category name (empty = no filter)
-	Search   string // LIKE match against title AND description (empty = no filter)
-	Limit    int    // page size (default: 50)
-	Offset   int    // pagination offset (default: 0)
+	Status      string // "incomplete", "complete", "all" (default: "incomplete")
+	CategoryKey string // canonical category key (empty = no filter)
+	Search      string // LIKE match against title AND description (empty = no filter)
+	Limit       int    // page size (default: 50)
+	Offset      int    // pagination offset (default: 0)
 }
 
 // TaskRepository defines the contract for task persistence.

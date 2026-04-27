@@ -380,13 +380,14 @@ func (s *PlannerPresenterSuite) TestPreviousStepFromTaskSelectReturnsToIdle() {
 
 func (s *PlannerPresenterSuite) TestAvailableTasksReturnsLoadedTodosWithSelectionState() {
 	dueDate := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-	cat := repository.Category{NameKey: "work"}
+	// Feature 109 Loop 4: Task multi-category replaced with single FK;
+	// Loop 7 will rewire the presenter to populate TodoRow.Categories
+	// from CategoryKey via the CategoryRepository.
 	todo := &repository.Task{
-		ID:         uuid.New(),
-		Title:      "Review PR",
-		Priority:   2,
-		DueDate:    &dueDate,
-		Categories: []repository.Category{cat},
+		ID:       uuid.New(),
+		Title:    "Review PR",
+		Priority: 2,
+		DueDate:  &dueDate,
 	}
 	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Task{todo}, 1, nil)
 
@@ -399,7 +400,9 @@ func (s *PlannerPresenterSuite) TestAvailableTasksReturnsLoadedTodosWithSelectio
 	s.Equal("Review PR", tasks[0].Title)
 	s.Equal(2, tasks[0].Priority)
 	s.Equal(&dueDate, tasks[0].DueDate)
-	s.Len(tasks[0].Categories, 1)
+	// TODO(feat-109 Loop 7): re-enable when categories are populated
+	// from CategoryKey. For now categories pass through as nil.
+	s.Empty(tasks[0].Categories)
 	s.False(tasks[0].Selected)
 }
 

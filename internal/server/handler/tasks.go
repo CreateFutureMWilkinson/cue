@@ -78,13 +78,15 @@ func taskToItem(t *repository.Task, effectiveFn EffectiveEstimateFunc) taskItem 
 		CreatedAt:                t.CreatedAt.Format(time.RFC3339),
 	}
 
-	// Convert categories to string slice of names.
-	// TODO(feat-109 Loop 7): switch to single-category embed.
-	cats := make([]string, len(t.Categories))
-	for i, c := range t.Categories {
-		cats[i] = repository.PresentCategoryName(c.NameKey)
+	// TODO(feat-109 Loop 7): switch to single-category embed
+	// {key, name} | null. For now emit an empty slice so existing
+	// tests (which only check presence of "categories") still see a
+	// non-nil JSON value.
+	_ = repository.PresentCategoryName // keep import once Loop 7 wires it.
+	item.Categories = []string{}
+	if t.CategoryKey != nil {
+		item.Categories = []string{repository.PresentCategoryName(*t.CategoryKey)}
 	}
-	item.Categories = cats
 
 	if t.DueDate != nil {
 		s := t.DueDate.Format(time.RFC3339)
@@ -118,11 +120,14 @@ func ListTasksHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http.
 		limit, offset := parsePagination(r)
 
 		filter := repository.TaskFilter{
-			Status:   r.URL.Query().Get("status"),
-			Category: r.URL.Query().Get("category"),
-			Search:   r.URL.Query().Get("search"),
-			Limit:    limit,
-			Offset:   offset,
+			Status: r.URL.Query().Get("status"),
+			// TODO(feat-109 Loop 7): normalize raw input via
+			// NormalizeCategoryKey before passing to the repo. For
+			// now treat the query param as already-canonical.
+			CategoryKey: r.URL.Query().Get("category"),
+			Search:      r.URL.Query().Get("search"),
+			Limit:       limit,
+			Offset:      offset,
 		}
 
 		tasks, total, err := svc.List(r.Context(), filter)
@@ -187,16 +192,13 @@ func CreateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http
 			task.DueDate = &t
 		}
 
-		// TODO(feat-109 Loop 7): replace with single-category FK wire format.
-		// For now, stash raw names in NameKey so the package compiles after
-		// the Category struct reshape; behaviour is rewritten in Loop 7.
-		if len(req.Categories) > 0 {
-			cats := make([]repository.Category, len(req.Categories))
-			for i, name := range req.Categories {
-				cats[i] = repository.Category{NameKey: name}
-			}
-			task.Categories = cats
-		}
+		// TODO(feat-109 Loop 7): wire single-category FK. Accept
+		// `category: string|null` per Decision 8, normalize via
+		// NormalizeCategoryKey, look up against CategoryRepository,
+		// reject unknown with 400. For now, drop the legacy multi-
+		// category input on the floor so the package compiles.
+		_ = req.Categories
+		task.CategoryKey = nil
 
 		created, err := svc.Create(r.Context(), task)
 		if err != nil {
@@ -298,14 +300,9 @@ func UpdateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http
 			}
 			existing.DueDate = &t
 		}
-		// TODO(feat-109 Loop 7): replace with single-category FK wire format.
-		if req.Categories != nil {
-			cats := make([]repository.Category, len(req.Categories))
-			for i, name := range req.Categories {
-				cats[i] = repository.Category{NameKey: name}
-			}
-			existing.Categories = cats
-		}
+		// TODO(feat-109 Loop 7): wire single-category FK. See
+		// CreateTaskHandler above. For now, drop input on the floor.
+		_ = req.Categories
 		if req.CompletedAt != nil {
 			t, err := time.Parse(time.RFC3339, *req.CompletedAt)
 			if err != nil {

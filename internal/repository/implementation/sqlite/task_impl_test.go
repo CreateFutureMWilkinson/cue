@@ -319,8 +319,240 @@ func (s *TaskRepositorySuite) TestQueryFilteredStatusAll() {
 	s.Equal(incomplete.ID, results[1].ID, "lower priority should be second")
 }
 
-func (s *TaskRepositorySuite) TestQueryFilteredCategoryFilter() {
-	s.T().Skip("rewritten in Feature 109 Loop 4 against the new category_key FK")
+// insertCategory is a test helper that creates a category row directly
+// via the category repo so tasks can FK-reference it.
+func (s *TaskRepositorySuite) insertCategory(catRepo *sqlite.SQLiteCategoryRepository, key string) {
+	s.T().Helper()
+	err := catRepo.Insert(context.Background(), &repository.Category{
+		NameKey:   key,
+		CreatedAt: time.Now().UTC().Truncate(time.Second),
+	})
+	s.Require().NoError(err)
+}
+
+func (s *TaskRepositorySuite) TestInsertWithCategoryKey() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	taskRepo, catRepo := s.makeTaskRepo(dbPath)
+	s.insertCategory(catRepo, "work")
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+	key := "work"
+
+	task := &repository.Task{
+		ID:          uuid.New(),
+		Title:       "Categorized task",
+		Priority:    1,
+		CategoryKey: &key,
+		CreatedAt:   now,
+	}
+	s.Require().NoError(taskRepo.Insert(ctx, task))
+
+	got, err := taskRepo.QueryByID(ctx, task.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+	s.Require().NotNil(got.CategoryKey, "CategoryKey should round-trip non-nil")
+	s.Equal("work", *got.CategoryKey)
+}
+
+func (s *TaskRepositorySuite) TestInsertWithNilCategoryKey() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	taskRepo, _ := s.makeTaskRepo(dbPath)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	task := &repository.Task{
+		ID:          uuid.New(),
+		Title:       "Uncategorized task",
+		Priority:    1,
+		CategoryKey: nil,
+		CreatedAt:   now,
+	}
+	s.Require().NoError(taskRepo.Insert(ctx, task))
+
+	got, err := taskRepo.QueryByID(ctx, task.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got)
+	s.Nil(got.CategoryKey, "nil CategoryKey should round-trip as nil")
+}
+
+func (s *TaskRepositorySuite) TestInsertWithUnknownCategoryKey() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	taskRepo, _ := s.makeTaskRepo(dbPath)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+	missing := "no_such_category"
+
+	task := &repository.Task{
+		ID:          uuid.New(),
+		Title:       "Bad FK",
+		Priority:    1,
+		CategoryKey: &missing,
+		CreatedAt:   now,
+	}
+	err := taskRepo.Insert(ctx, task)
+	s.Require().Error(err, "inserting with unknown category_key should fail FK constraint")
+}
+
+func (s *TaskRepositorySuite) TestUpdateChangesCategoryKey() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	taskRepo, catRepo := s.makeTaskRepo(dbPath)
+	s.insertCategory(catRepo, "work")
+	s.insertCategory(catRepo, "home")
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+	keyA := "work"
+	keyB := "home"
+
+	task := &repository.Task{
+		ID:          uuid.New(),
+		Title:       "Switcheroo",
+		Priority:    1,
+		CategoryKey: &keyA,
+		CreatedAt:   now,
+	}
+	s.Require().NoError(taskRepo.Insert(ctx, task))
+
+	task.CategoryKey = &keyB
+	s.Require().NoError(taskRepo.Update(ctx, task))
+
+	got, err := taskRepo.QueryByID(ctx, task.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got.CategoryKey)
+	s.Equal("home", *got.CategoryKey, "Update should change category_key from work -> home")
+}
+
+func (s *TaskRepositorySuite) TestUpdateClearsCategoryKey() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	taskRepo, catRepo := s.makeTaskRepo(dbPath)
+	s.insertCategory(catRepo, "work")
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+	key := "work"
+
+	task := &repository.Task{
+		ID:          uuid.New(),
+		Title:       "To be uncategorized",
+		Priority:    1,
+		CategoryKey: &key,
+		CreatedAt:   now,
+	}
+	s.Require().NoError(taskRepo.Insert(ctx, task))
+
+	task.CategoryKey = nil
+	s.Require().NoError(taskRepo.Update(ctx, task))
+
+	got, err := taskRepo.QueryByID(ctx, task.ID)
+	s.Require().NoError(err)
+	s.Nil(got.CategoryKey, "Update with nil CategoryKey should clear category_key")
+}
+
+func (s *TaskRepositorySuite) TestQueryFilteredByCategoryKey() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	taskRepo, catRepo := s.makeTaskRepo(dbPath)
+	s.insertCategory(catRepo, "work")
+	s.insertCategory(catRepo, "home")
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+	work := "work"
+	home := "home"
+
+	t1 := &repository.Task{ID: uuid.New(), Title: "w1", Priority: 3, CategoryKey: &work, CreatedAt: now}
+	t2 := &repository.Task{ID: uuid.New(), Title: "w2", Priority: 2, CategoryKey: &work, CreatedAt: now.Add(time.Second)}
+	t3 := &repository.Task{ID: uuid.New(), Title: "h1", Priority: 1, CategoryKey: &home, CreatedAt: now.Add(2 * time.Second)}
+
+	s.Require().NoError(taskRepo.Insert(ctx, t1))
+	s.Require().NoError(taskRepo.Insert(ctx, t2))
+	s.Require().NoError(taskRepo.Insert(ctx, t3))
+
+	results, total, err := taskRepo.QueryFiltered(ctx, repository.TaskFilter{CategoryKey: "work"})
+	s.Require().NoError(err)
+	s.Equal(2, total, "only the 2 work tasks should match")
+	s.Require().Len(results, 2)
+
+	for _, r := range results {
+		s.Require().NotNil(r.CategoryKey)
+		s.Equal("work", *r.CategoryKey)
+	}
+
+	allResults, allTotal, err := taskRepo.QueryFiltered(ctx, repository.TaskFilter{})
+	s.Require().NoError(err)
+	s.Equal(3, allTotal, "empty filter should return all 3 incomplete tasks")
+	s.Require().Len(allResults, 3)
+}
+
+func (s *TaskRepositorySuite) TestRenameCategoryCascadesToTasks() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	taskRepo, catRepo := s.makeTaskRepo(dbPath)
+	s.insertCategory(catRepo, "work")
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+	key := "work"
+
+	task := &repository.Task{
+		ID:          uuid.New(),
+		Title:       "Cascading rename",
+		Priority:    1,
+		CategoryKey: &key,
+		CreatedAt:   now,
+	}
+	s.Require().NoError(taskRepo.Insert(ctx, task))
+
+	// Rename the category — ON UPDATE CASCADE should propagate.
+	s.Require().NoError(catRepo.Rename(ctx, "work", "professional"))
+
+	got, err := taskRepo.QueryByID(ctx, task.ID)
+	s.Require().NoError(err)
+	s.Require().NotNil(got.CategoryKey, "task should still reference a category after rename")
+	s.Equal("professional", *got.CategoryKey, "ON UPDATE CASCADE should propagate the new key")
+}
+
+func (s *TaskRepositorySuite) TestDeleteCategorySetsTasksCategoryToNull() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	taskRepo, catRepo := s.makeTaskRepo(dbPath)
+	s.insertCategory(catRepo, "work")
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+	key := "work"
+
+	task := &repository.Task{
+		ID:          uuid.New(),
+		Title:       "Will outlive its category",
+		Priority:    1,
+		CategoryKey: &key,
+		CreatedAt:   now,
+	}
+	s.Require().NoError(taskRepo.Insert(ctx, task))
+
+	s.Require().NoError(catRepo.Delete(ctx, "work"))
+
+	got, err := taskRepo.QueryByID(ctx, task.ID)
+	s.Require().NoError(err, "task should still exist after its category is deleted")
+	s.Require().NotNil(got)
+	s.Nil(got.CategoryKey, "ON DELETE SET NULL should clear category_key")
 }
 
 func (s *TaskRepositorySuite) TestQueryFilteredSearchMatchesTitleOrDescription() {
@@ -582,8 +814,4 @@ func (s *TaskRepositorySuite) TestEstimateFieldsRoundTrip() {
 
 	s.Nil(got2.EstimateMinutes, "EstimateMinutes should round-trip as nil")
 	s.Nil(got2.LLMEstimateMinutes, "LLMEstimateMinutes should round-trip as nil")
-}
-
-func (s *TaskRepositorySuite) TestCategoriesAssociation() {
-	s.T().Skip("rewritten in Feature 109 Loop 4 against the new category_key FK")
 }

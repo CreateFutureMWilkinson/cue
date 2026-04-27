@@ -68,6 +68,10 @@ func (m *mockTaskServicer) Delete(_ context.Context, id uuid.UUID) error {
 	return m.deleteErr
 }
 
+// stringPtr returns a pointer to the given string. Used for optional
+// fields like CategoryKey in test fixtures.
+func stringPtr(s string) *string { return &s }
+
 // stubEffectiveEstimate returns EstimateMinutes if set, else LLMEstimateMinutes.
 func stubEffectiveEstimate(t *repository.Task) *int {
 	if t.EstimateMinutes != nil && *t.EstimateMinutes > 0 {
@@ -97,7 +101,7 @@ func (s *TaskHandlerSuite) TestListTasksHandler() {
 		Title:              "Review PR #42",
 		Description:        "Check the new auth middleware",
 		Priority:           5,
-		Categories:         []repository.Category{{NameKey: "code_review"}},
+		CategoryKey:        stringPtr("code_review"),
 		LLMEstimateMinutes: &llmEst,
 		CreatedAt:          now.Add(-1 * time.Hour),
 	}
@@ -139,7 +143,8 @@ func (s *TaskHandlerSuite) TestListTasksHandler() {
 	s.NotNil(task["categories"])
 	cats := task["categories"].([]any)
 	s.Len(cats, 1)
-	s.Equal("code-review", cats[0])
+	// PresentCategoryName("code_review") -> "Code Review".
+	s.Equal("Code Review", cats[0])
 	s.Equal(float64(30), task["llm_estimate_minutes"])
 	s.Equal(float64(30), task["effective_estimate_minutes"])
 	s.Nil(task["estimate_minutes"])

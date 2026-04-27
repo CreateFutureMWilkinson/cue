@@ -2,15 +2,21 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 )
 
-// ScheduleQuerier is the subset of ScheduleRepository needed by the GET schedule handler.
-type ScheduleQuerier interface {
+// ErrNotImplemented is returned by stub handlers that have not been implemented yet.
+var ErrNotImplemented = errors.New("not implemented")
+
+// ScheduleStore is the subset of ScheduleRepository needed by the schedule handlers.
+type ScheduleStore interface {
 	LoadByDate(ctx context.Context, date time.Time) (*repository.Schedule, error)
+	Save(ctx context.Context, schedule *repository.Schedule) error
+	Delete(ctx context.Context, date time.Time) error
 }
 
 // scheduleBlockItem is the JSON representation of a single time block.
@@ -46,8 +52,34 @@ func blockTypeString(t repository.ScheduleBlockType) string {
 	}
 }
 
+// putScheduleRequest is the JSON body for PUT /api/v1/planner/{date}.
+type putScheduleRequest struct {
+	Strategy string              `json:"strategy"`
+	Blocks   []scheduleBlockItem `json:"blocks"`
+}
+
+// parseBlockType converts a JSON block type string to its ScheduleBlockType constant.
+// Returns the type and true if valid, or 0 and false if the string is unrecognized.
+func parseBlockType(_ string) (repository.ScheduleBlockType, bool) {
+	return 0, false
+}
+
+// PutScheduleHandler returns an http.HandlerFunc for PUT /api/v1/planner/{date}.
+func PutScheduleHandler(_ ScheduleStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotImplemented)
+	}
+}
+
+// DeleteScheduleHandler returns an http.HandlerFunc for DELETE /api/v1/planner/{date}.
+func DeleteScheduleHandler(_ ScheduleStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotImplemented)
+	}
+}
+
 // GetScheduleHandler returns an http.HandlerFunc for GET /api/v1/planner/{date}.
-func GetScheduleHandler(repo ScheduleQuerier) http.HandlerFunc {
+func GetScheduleHandler(repo ScheduleStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		dateStr := r.PathValue("date")
 		date, err := time.Parse("2006-01-02", dateStr)

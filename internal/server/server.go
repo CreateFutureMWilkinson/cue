@@ -141,6 +141,15 @@ func (s *Server) registerRoutes() {
 		s.mux.Handle("DELETE /api/v1/tasks/{id}", handler.DeleteTaskHandler(s.deps.Todos))
 	}
 
+	if s.deps.Rules != nil {
+		s.mux.Handle("GET /api/v1/rules", handler.ListRulesHandler(s.deps.Rules))
+		s.mux.Handle("GET /api/v1/rules/{id}", handler.GetRuleHandler(s.deps.Rules))
+		s.mux.Handle("POST /api/v1/rules", handler.CreateRuleHandler(s.deps.Rules))
+		s.mux.Handle("PUT /api/v1/rules/{id}", handler.UpdateRuleHandler(s.deps.Rules))
+		s.mux.Handle("PATCH /api/v1/rules/{id}", handler.PatchRuleHandler(s.deps.Rules))
+		s.mux.Handle("DELETE /api/v1/rules/{id}", handler.DeleteRuleHandler(s.deps.Rules))
+	}
+
 	if s.deps.Services != nil {
 		// Slack
 		s.mux.Handle("GET /api/v1/services/slack", handler.ListSlackAccountsHandler(s.deps.Services))

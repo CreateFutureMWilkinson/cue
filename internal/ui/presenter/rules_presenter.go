@@ -2,7 +2,6 @@ package presenter
 
 import (
 	"context"
-	"errors"
 	"sort"
 
 	"github.com/google/uuid"
@@ -48,12 +47,20 @@ func (p *RulesPresenter) SaveRule(ctx context.Context, rule *repository.RoutingR
 	if err := rule.Validate(); err != nil {
 		return err
 	}
-	return p.ruleRepo.UpsertRule(ctx, rule)
+	if err := p.ruleRepo.UpsertRule(ctx, rule); err != nil {
+		return err
+	}
+	p.reload()
+	return nil
 }
 
 // DeleteRule removes a routing rule by ID.
 func (p *RulesPresenter) DeleteRule(ctx context.Context, id uuid.UUID) error {
-	return p.ruleRepo.DeleteRule(ctx, id)
+	if err := p.ruleRepo.DeleteRule(ctx, id); err != nil {
+		return err
+	}
+	p.reload()
+	return nil
 }
 
 // ReorderRule moves a rule to a new priority, shifting others as needed.
@@ -115,6 +122,7 @@ func (p *RulesPresenter) ReorderRule(ctx context.Context, id uuid.UUID, newPrior
 		}
 	}
 
+	p.reload()
 	return nil
 }
 
@@ -125,7 +133,18 @@ func (p *RulesPresenter) ToggleRule(ctx context.Context, id uuid.UUID, enabled b
 		return err
 	}
 	rule.Enabled = enabled
-	return p.ruleRepo.UpsertRule(ctx, rule)
+	if err := p.ruleRepo.UpsertRule(ctx, rule); err != nil {
+		return err
+	}
+	p.reload()
+	return nil
+}
+
+// reload calls the reloader callback if one is set.
+func (p *RulesPresenter) reload() {
+	if p.reloader != nil {
+		p.reloader()
+	}
 }
 
 // QueueDepth returns the number of pending items in the Ollama queue.
@@ -145,10 +164,10 @@ func (p *RulesPresenter) GetRule(ctx context.Context, id uuid.UUID) (*repository
 
 // ListRulesBySourceType returns rules filtered by source type.
 func (p *RulesPresenter) ListRulesBySourceType(ctx context.Context, sourceType string) ([]*repository.RoutingRule, error) {
-	return nil, errors.New("not implemented")
+	return p.ruleRepo.ListRulesBySourceType(ctx, sourceType)
 }
 
 // ListRulesBySourceAccount returns rules filtered by source account ID.
 func (p *RulesPresenter) ListRulesBySourceAccount(ctx context.Context, accountID uuid.UUID) ([]*repository.RoutingRule, error) {
-	return nil, errors.New("not implemented")
+	return p.ruleRepo.ListRulesBySourceAccount(ctx, accountID)
 }

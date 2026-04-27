@@ -27,6 +27,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/service/validation"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/vector"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
+	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
 
 // dbAccessor is implemented by repository types that expose their underlying database connection.
@@ -135,7 +136,7 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, fmt.Errorf("creating service manager: %w", err)
 	}
 
-	httpSrv, err := constructHTTPServer(cfg, msgRepo, vectorStore, hub, todoSvc, scheduleRepo, plannerEngine, calProvider, svcMgr)
+	httpSrv, err := constructHTTPServer(cfg, msgRepo, vectorStore, hub, todoSvc, scheduleRepo, plannerEngine, calProvider, svcMgr, ruleRepo, queueRepo, orch)
 	if err != nil {
 		return nil, err
 	}
@@ -234,11 +235,22 @@ func constructServices(ctx context.Context, cfg config.Config, ruleRepo reposito
 }
 
 // constructHTTPServer builds the HTTP/WebSocket server surface with shared hub.
-func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository, vectorStore *vector.ChromemVectorStore, hub *Hub, todoSvc *todosvc.Service, scheduleRepo repository.ScheduleRepository, plannerEngine *planner.Planner, calProvider calendar.CalendarProvider, svcMgr *servicemanager.ServiceManager) (*Server, error) {
+func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository, vectorStore *vector.ChromemVectorStore, hub *Hub, todoSvc *todosvc.Service, scheduleRepo repository.ScheduleRepository, plannerEngine *planner.Planner, calProvider calendar.CalendarProvider, svcMgr *servicemanager.ServiceManager, ruleRepo repository.RoutingRuleRepository, queueRepo repository.QueueRepository, orch *orchestrator.Orchestrator) (*Server, error) {
 	bufSvc, err := buffer.NewBufferService(msgRepo, vectorStore)
 	if err != nil {
 		return nil, fmt.Errorf("creating buffer service: %w", err)
 	}
+
+	rulesPresenter := presenter.NewRulesPresenter(ruleRepo, queueRepo, cfg.Orchestrator.Router.QueueWarningThreshold, presenter.WithReloader(func() {
+		ctx := context.Background()
+		rules, err := ruleRepo.ListRules(ctx)
+		if err != nil {
+			slog.Warn("failed to reload routing rules", "error", err)
+			return
+		}
+		orch.ReloadRules(rules)
+	}))
+
 	return New(cfg.Server, Deps{
 		Messages:          msgRepo,
 		Buffer:            bufSvc,
@@ -248,6 +260,7 @@ func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository
 		Schedules:         scheduleRepo,
 		ScheduleGenerator: plannerEngine,
 		Calendar:          calProvider,
+		Rules:             rulesPresenter,
 		Services:          svcMgr,
 	})
 }

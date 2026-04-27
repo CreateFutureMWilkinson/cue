@@ -40,67 +40,22 @@ type Composition struct {
 	RulesEngine *decisionengine.RulesEngine
 }
 
-// NewComposition opens all repositories, constructs services, wires the
-// orchestrator, and returns a ready-to-use Composition.
+// NewComposition opens all repositories, constructs services (Ollama client,
+// vector store, rules engine), and returns a ready-to-use Composition.
 //
 // All repositories share a single SQLite database connection opened by the
 // message repository. Service configuration is encrypted using a keyfile
 // stored alongside the database.
 func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error) {
-	// Open the primary message repository, which owns the SQLite connection
-	msgRepo, err := sqlite.NewSQLiteMessageRepository(cfg.Database.Path, cfg.Orchestrator.Router.BufferSizePerSource)
+	msgRepo, queueRepo, ruleRepo, serviceConfigRepo, err := openRepositories(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("opening message repository: %w", err)
+		return nil, err
 	}
 
-	// Open remaining repositories sharing the same database connection
-	queueRepo, err := sqlite.NewSQLiteQueueRepository(msgRepo.DB())
+	ollamaClient, vectorStore, rulesEngine, err := constructServices(ctx, cfg, ruleRepo)
 	if err != nil {
-		return nil, fmt.Errorf("opening queue repository: %w", err)
+		return nil, err
 	}
-
-	ruleRepo, err := sqlite.NewSQLiteRoutingRuleRepository(msgRepo.DB())
-	if err != nil {
-		return nil, fmt.Errorf("opening routing rule repository: %w", err)
-	}
-
-	// Initialize encryption for service configuration storage
-	keyfilePath := filepath.Join(filepath.Dir(cfg.Database.Path), "secret.key")
-	encryptor, err := secret.NewKeyFileEncryptor(keyfilePath)
-	if err != nil {
-		return nil, fmt.Errorf("opening encryptor: %w", err)
-	}
-
-	serviceConfigRepo, err := sqlite.NewSQLiteServiceConfigRepository(msgRepo.DB(), encryptor)
-	if err != nil {
-		return nil, fmt.Errorf("opening service config repository: %w", err)
-	}
-
-	// Construct Ollama client for LLM scoring
-	ollamaURL := fmt.Sprintf("http://%s:%d", cfg.Ollama.Host, cfg.Ollama.Port)
-	ollamaClient, err := decisionengine.NewOllamaClient(
-		ollamaURL,
-		cfg.Ollama.InferenceModel,
-		time.Duration(cfg.Ollama.TimeoutSeconds)*time.Second,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("creating ollama client: %w", err)
-	}
-
-	// Construct chromem-go vector store for persistent embeddings
-	vectorPath := filepath.Join(filepath.Dir(cfg.Database.Path), "vectors")
-	ollamaEmbFn := chromem.NewEmbeddingFuncOllama(cfg.Ollama.EmbeddingModel, ollamaURL+"/api")
-	vectorStore, err := vector.NewChromemVectorStore(vectorPath, vector.EmbeddingFunc(ollamaEmbFn), cfg.Ollama.EmbeddingModel)
-	if err != nil {
-		return nil, fmt.Errorf("creating vector store: %w", err)
-	}
-
-	// Load routing rules and construct rules engine
-	ruleList, err := ruleRepo.ListRules(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("loading routing rules: %w", err)
-	}
-	rulesEngine := decisionengine.NewRulesEngine(ruleList)
 
 	return &Composition{
 		MessageRepo:       msgRepo,
@@ -111,6 +66,82 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		VectorStore:       vectorStore,
 		RulesEngine:       rulesEngine,
 	}, nil
+}
+
+// openRepositories opens all SQLite repositories sharing a single database connection.
+func openRepositories(cfg config.Config) (
+	repository.MessageRepository,
+	repository.QueueRepository,
+	repository.RoutingRuleRepository,
+	repository.ServiceConfigRepository,
+	error,
+) {
+	// Open the primary message repository, which owns the SQLite connection
+	msgRepo, err := sqlite.NewSQLiteMessageRepository(cfg.Database.Path, cfg.Orchestrator.Router.BufferSizePerSource)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("opening message repository: %w", err)
+	}
+
+	// Open remaining repositories sharing the same database connection
+	queueRepo, err := sqlite.NewSQLiteQueueRepository(msgRepo.DB())
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("opening queue repository: %w", err)
+	}
+
+	ruleRepo, err := sqlite.NewSQLiteRoutingRuleRepository(msgRepo.DB())
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("opening routing rule repository: %w", err)
+	}
+
+	// Initialize encryption for service configuration storage
+	keyfilePath := filepath.Join(filepath.Dir(cfg.Database.Path), "secret.key")
+	encryptor, err := secret.NewKeyFileEncryptor(keyfilePath)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("opening encryptor: %w", err)
+	}
+
+	serviceConfigRepo, err := sqlite.NewSQLiteServiceConfigRepository(msgRepo.DB(), encryptor)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("opening service config repository: %w", err)
+	}
+
+	return msgRepo, queueRepo, ruleRepo, serviceConfigRepo, nil
+}
+
+// constructServices builds the Ollama client, vector store, and rules engine.
+func constructServices(ctx context.Context, cfg config.Config, ruleRepo repository.RoutingRuleRepository) (
+	*decisionengine.OllamaClient,
+	*vector.ChromemVectorStore,
+	*decisionengine.RulesEngine,
+	error,
+) {
+	// Construct Ollama client for LLM scoring
+	ollamaURL := fmt.Sprintf("http://%s:%d", cfg.Ollama.Host, cfg.Ollama.Port)
+	ollamaClient, err := decisionengine.NewOllamaClient(
+		ollamaURL,
+		cfg.Ollama.InferenceModel,
+		time.Duration(cfg.Ollama.TimeoutSeconds)*time.Second,
+	)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("creating ollama client: %w", err)
+	}
+
+	// Construct chromem-go vector store for persistent embeddings
+	vectorPath := filepath.Join(filepath.Dir(cfg.Database.Path), "vectors")
+	ollamaEmbFn := chromem.NewEmbeddingFuncOllama(cfg.Ollama.EmbeddingModel, ollamaURL+"/api")
+	vectorStore, err := vector.NewChromemVectorStore(vectorPath, vector.EmbeddingFunc(ollamaEmbFn), cfg.Ollama.EmbeddingModel)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("creating vector store: %w", err)
+	}
+
+	// Load routing rules and construct rules engine
+	ruleList, err := ruleRepo.ListRules(ctx)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("loading routing rules: %w", err)
+	}
+	rulesEngine := decisionengine.NewRulesEngine(ruleList)
+
+	return ollamaClient, vectorStore, rulesEngine, nil
 }
 
 // Shutdown performs an ordered shutdown of all composition components.

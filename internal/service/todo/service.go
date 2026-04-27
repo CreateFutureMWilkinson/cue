@@ -3,6 +3,7 @@ package todo
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -42,30 +43,48 @@ func NewService(repo TodoRepository, estimator TimeEstimator) (*Service, error) 
 
 // Create inserts a new todo. Sets ID and CreatedAt if zero. Returns the created todo (re-fetched from DB).
 func (s *Service) Create(ctx context.Context, todo *repository.Todo) (*repository.Todo, error) {
-	return nil, fmt.Errorf("not implemented")
+	if todo.ID == uuid.Nil {
+		todo.ID = uuid.New()
+	}
+	if todo.CreatedAt.IsZero() {
+		todo.CreatedAt = time.Now()
+	}
+	if err := s.repo.Insert(ctx, todo); err != nil {
+		return nil, fmt.Errorf("todo service: create: %w", err)
+	}
+	return s.repo.QueryByID(ctx, todo.ID)
 }
 
 // Get returns a single todo by ID.
 func (s *Service) Get(ctx context.Context, id uuid.UUID) (*repository.Todo, error) {
-	return nil, fmt.Errorf("not implemented")
+	return s.repo.QueryByID(ctx, id)
 }
 
 // List returns filtered/paginated todos + total count.
 func (s *Service) List(ctx context.Context, filter repository.TodoFilter) ([]*repository.Todo, int, error) {
-	return nil, 0, fmt.Errorf("not implemented")
+	return s.repo.QueryFiltered(ctx, filter)
 }
 
 // Update updates a todo. Returns the updated todo (re-fetched).
 func (s *Service) Update(ctx context.Context, todo *repository.Todo) (*repository.Todo, error) {
-	return nil, fmt.Errorf("not implemented")
+	if err := s.repo.Update(ctx, todo); err != nil {
+		return nil, fmt.Errorf("todo service: update: %w", err)
+	}
+	return s.repo.QueryByID(ctx, todo.ID)
 }
 
 // Delete removes a todo by ID.
 func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	return fmt.Errorf("not implemented")
+	return s.repo.Delete(ctx, id)
 }
 
 // EffectiveEstimate returns EstimateMinutes if non-nil and > 0, else LLMEstimateMinutes.
 func EffectiveEstimate(t *repository.Todo) *int {
+	if t.EstimateMinutes != nil && *t.EstimateMinutes > 0 {
+		return t.EstimateMinutes
+	}
+	if t.LLMEstimateMinutes != nil {
+		return t.LLMEstimateMinutes
+	}
 	return nil
 }

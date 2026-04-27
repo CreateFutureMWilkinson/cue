@@ -343,6 +343,70 @@ func (m *ServiceManager) DeleteCalendarAccount(ctx context.Context, id uuid.UUID
 	return nil
 }
 
+// ToggleSlackAccount enables or disables a Slack account. When enabled, the watcher factory
+// is called to register a new watcher. When disabled, the existing watcher is removed.
+func (m *ServiceManager) ToggleSlackAccount(ctx context.Context, id uuid.UUID, enabled bool) error {
+	acct, err := m.repo.GetSlackAccount(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	acct.Enabled = enabled
+	if err := m.repo.UpsertSlackAccount(ctx, acct); err != nil {
+		return fmt.Errorf("toggle slack account: %w", err)
+	}
+
+	if enabled {
+		if err := m.watcherFactory("slack", acct.ID); err != nil {
+			return fmt.Errorf("toggle slack account: watcher factory: %w", err)
+		}
+	} else {
+		m.watchers.RemoveWatcher("slack:" + acct.WorkspaceID)
+	}
+
+	return nil
+}
+
+// ToggleEmailAccount enables or disables an Email account. When enabled, the watcher factory
+// is called to register a new watcher. When disabled, the existing watcher is removed.
+func (m *ServiceManager) ToggleEmailAccount(ctx context.Context, id uuid.UUID, enabled bool) error {
+	acct, err := m.repo.GetEmailAccount(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	acct.Enabled = enabled
+	if err := m.repo.UpsertEmailAccount(ctx, acct); err != nil {
+		return fmt.Errorf("toggle email account: %w", err)
+	}
+
+	if enabled {
+		if err := m.watcherFactory("email", acct.ID); err != nil {
+			return fmt.Errorf("toggle email account: watcher factory: %w", err)
+		}
+	} else {
+		m.watchers.RemoveWatcher("email:" + acct.Username)
+	}
+
+	return nil
+}
+
+// ToggleCalendarAccount enables or disables a Calendar account. Calendar accounts have
+// no watcher lifecycle, so only the enabled state is persisted.
+func (m *ServiceManager) ToggleCalendarAccount(ctx context.Context, id uuid.UUID, enabled bool) error {
+	acct, err := m.repo.GetCalendarAccount(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	acct.Enabled = enabled
+	if err := m.repo.UpsertCalendarAccount(ctx, acct); err != nil {
+		return fmt.Errorf("toggle calendar account: %w", err)
+	}
+
+	return nil
+}
+
 // UpdateSlackAccount fetches the existing account, merges non-zero fields from the input,
 // preserves credentials when empty or masked, validates, upserts, and re-registers the watcher.
 // Returns the updated account with credentials masked.

@@ -1415,3 +1415,214 @@ func (s *ServiceManagerSuite) TestDeleteCalendarAccount_NotFound() {
 	s.Empty(watchers.removedNames)
 	s.Equal(uuid.Nil, repo.deletedCalendarID)
 }
+
+// --- ToggleSlackAccount ---
+
+func (s *ServiceManagerSuite) TestToggleSlackAccount_Enable() {
+	acctID := uuid.New()
+	existing := &repository.SlackAccount{
+		ID:                  acctID,
+		Enabled:             false,
+		Token:               "xoxp-real-token",
+		WorkspaceID:         "T001",
+		Username:            "testuser",
+		PollIntervalSeconds: 60,
+	}
+	repo := &mockRepo{getSlackAccount: existing}
+	watchers := &mockWatchers{}
+	factory := &trackingFactory{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, factory.create, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	err = mgr.ToggleSlackAccount(context.Background(), acctID, true)
+	s.NoError(err)
+
+	// Account upserted with enabled=true
+	s.Require().NotNil(repo.upsertSlackAccount)
+	s.True(repo.upsertSlackAccount.Enabled)
+	s.Equal(acctID, repo.upsertSlackAccount.ID)
+
+	// Watcher factory called to register
+	s.Equal("slack", factory.calledType)
+	s.Equal(acctID, factory.calledID)
+
+	// No watcher removal when enabling
+	s.Empty(watchers.removedNames)
+}
+
+func (s *ServiceManagerSuite) TestToggleSlackAccount_Disable() {
+	acctID := uuid.New()
+	existing := &repository.SlackAccount{
+		ID:                  acctID,
+		Enabled:             true,
+		Token:               "xoxp-real-token",
+		WorkspaceID:         "T001",
+		Username:            "testuser",
+		PollIntervalSeconds: 60,
+	}
+	repo := &mockRepo{getSlackAccount: existing}
+	watchers := &mockWatchers{}
+	factory := &trackingFactory{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, factory.create, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	err = mgr.ToggleSlackAccount(context.Background(), acctID, false)
+	s.NoError(err)
+
+	// Account upserted with enabled=false
+	s.Require().NotNil(repo.upsertSlackAccount)
+	s.False(repo.upsertSlackAccount.Enabled)
+	s.Equal(acctID, repo.upsertSlackAccount.ID)
+
+	// Watcher removed with correct name
+	s.Contains(watchers.removedNames, "slack:T001")
+
+	// Factory should NOT have been called when disabling
+	s.Equal("", factory.calledType)
+	s.Equal(uuid.Nil, factory.calledID)
+}
+
+func (s *ServiceManagerSuite) TestToggleSlackAccount_NotFound() {
+	repoErr := errors.New("not found")
+	repo := &mockRepo{getSlackErr: repoErr}
+	watchers := &mockWatchers{}
+	factory := &trackingFactory{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, factory.create, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	err = mgr.ToggleSlackAccount(context.Background(), uuid.New(), true)
+	s.ErrorIs(err, repoErr)
+
+	// No side effects
+	s.Nil(repo.upsertSlackAccount)
+	s.Empty(watchers.removedNames)
+	s.Equal("", factory.calledType)
+}
+
+// --- ToggleEmailAccount ---
+
+func (s *ServiceManagerSuite) TestToggleEmailAccount_Enable() {
+	acctID := uuid.New()
+	existing := &repository.EmailAccount{
+		ID:                  acctID,
+		Enabled:             false,
+		IMAPHost:            "imap.example.com",
+		IMAPPort:            993,
+		Username:            "user@example.com",
+		Password:            "secret",
+		PollIntervalSeconds: 600,
+	}
+	repo := &mockRepo{getEmailAccount: existing}
+	watchers := &mockWatchers{}
+	factory := &trackingFactory{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, factory.create, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	err = mgr.ToggleEmailAccount(context.Background(), acctID, true)
+	s.NoError(err)
+
+	// Account upserted with enabled=true
+	s.Require().NotNil(repo.upsertEmailAccount)
+	s.True(repo.upsertEmailAccount.Enabled)
+	s.Equal(acctID, repo.upsertEmailAccount.ID)
+
+	// Watcher factory called to register
+	s.Equal("email", factory.calledType)
+	s.Equal(acctID, factory.calledID)
+
+	// No watcher removal when enabling
+	s.Empty(watchers.removedNames)
+}
+
+func (s *ServiceManagerSuite) TestToggleEmailAccount_Disable() {
+	acctID := uuid.New()
+	existing := &repository.EmailAccount{
+		ID:                  acctID,
+		Enabled:             true,
+		IMAPHost:            "imap.example.com",
+		IMAPPort:            993,
+		Username:            "user@example.com",
+		Password:            "secret",
+		PollIntervalSeconds: 600,
+	}
+	repo := &mockRepo{getEmailAccount: existing}
+	watchers := &mockWatchers{}
+	factory := &trackingFactory{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, factory.create, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	err = mgr.ToggleEmailAccount(context.Background(), acctID, false)
+	s.NoError(err)
+
+	// Account upserted with enabled=false
+	s.Require().NotNil(repo.upsertEmailAccount)
+	s.False(repo.upsertEmailAccount.Enabled)
+	s.Equal(acctID, repo.upsertEmailAccount.ID)
+
+	// Watcher removed with correct name
+	s.Contains(watchers.removedNames, "email:user@example.com")
+
+	// Factory should NOT have been called when disabling
+	s.Equal("", factory.calledType)
+	s.Equal(uuid.Nil, factory.calledID)
+}
+
+// --- ToggleCalendarAccount ---
+
+func (s *ServiceManagerSuite) TestToggleCalendarAccount_Enable() {
+	acctID := uuid.New()
+	existing := &repository.CalendarAccount{
+		ID:                  acctID,
+		Enabled:             false,
+		Name:                "personal-cal",
+		ICSURL:              "https://cal.example.com/a.ics",
+		PollIntervalSeconds: 600,
+	}
+	repo := &mockRepo{getCalendarAccount: existing}
+	watchers := &mockWatchers{}
+	factory := &trackingFactory{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, factory.create, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	err = mgr.ToggleCalendarAccount(context.Background(), acctID, true)
+	s.NoError(err)
+
+	// Account upserted with enabled=true
+	s.Require().NotNil(repo.upsertCalendarAccount)
+	s.True(repo.upsertCalendarAccount.Enabled)
+	s.Equal(acctID, repo.upsertCalendarAccount.ID)
+
+	// No watcher operations for calendar
+	s.Empty(watchers.removedNames)
+	s.Equal("", factory.calledType)
+	s.Equal(uuid.Nil, factory.calledID)
+}
+
+func (s *ServiceManagerSuite) TestToggleCalendarAccount_Disable() {
+	acctID := uuid.New()
+	existing := &repository.CalendarAccount{
+		ID:                  acctID,
+		Enabled:             true,
+		Name:                "personal-cal",
+		ICSURL:              "https://cal.example.com/a.ics",
+		PollIntervalSeconds: 600,
+	}
+	repo := &mockRepo{getCalendarAccount: existing}
+	watchers := &mockWatchers{}
+	factory := &trackingFactory{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, factory.create, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	err = mgr.ToggleCalendarAccount(context.Background(), acctID, false)
+	s.NoError(err)
+
+	// Account upserted with enabled=false
+	s.Require().NotNil(repo.upsertCalendarAccount)
+	s.False(repo.upsertCalendarAccount.Enabled)
+	s.Equal(acctID, repo.upsertCalendarAccount.ID)
+
+	// No watcher operations for calendar
+	s.Empty(watchers.removedNames)
+	s.Equal("", factory.calledType)
+	s.Equal(uuid.Nil, factory.calledID)
+}

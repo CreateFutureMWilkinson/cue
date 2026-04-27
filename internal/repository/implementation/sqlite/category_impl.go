@@ -5,38 +5,38 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/google/uuid"
-
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 
 	_ "modernc.org/sqlite"
 )
 
-// NOTE (Feature 109 Loop 1 RED):
-// This file is intentionally stubbed pending Loop 2, which will rewrite
-// the SQLite category repository against the reshaped name-keyed schema
-// and the new repository.CategoryRepository interface. The methods here
-// keep the package compiling for legacy call sites that still reference
-// the old shape. Their behaviour is undefined and Loop 2 replaces them
-// wholesale; do not rely on them.
+// Loop 2 RED: stub implementation of repository.CategoryRepository against
+// the new name-keyed schema (Feature 109 Decision 4). All methods return
+// repository.ErrNotImplemented so that the test suite in
+// category_impl_test.go compiles and fails with assertion errors rather
+// than build errors. Loop 2 GREEN replaces these stubs with real SQL.
 
 const createCategoriesTable = `
 CREATE TABLE IF NOT EXISTS categories (
     name_key   TEXT PRIMARY KEY,
     colour     TEXT,
-    created_at TEXT NOT NULL DEFAULT ''
+    created_at TEXT NOT NULL
 );
 `
 
-// SQLiteCategoryRepository is a stub implementation pending Loop 2.
+// Compile-time check that SQLiteCategoryRepository satisfies the new
+// repository.CategoryRepository contract.
+var _ repository.CategoryRepository = (*SQLiteCategoryRepository)(nil)
+
+// SQLiteCategoryRepository persists categories in a SQLite database
+// using the name-keyed schema (no UUIDs, no display-name column).
 type SQLiteCategoryRepository struct {
 	db *sql.DB
 }
 
 // NewSQLiteCategoryRepository opens a SQLite database at dbPath, enables
-// WAL mode and foreign keys, and creates the categories table skeleton.
-//
-// Stub pending Loop 2.
+// WAL mode and foreign keys, and creates the categories table if it does
+// not already exist.
 func NewSQLiteCategoryRepository(dbPath string) (*SQLiteCategoryRepository, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
@@ -61,31 +61,51 @@ func NewSQLiteCategoryRepository(dbPath string) (*SQLiteCategoryRepository, erro
 	return &SQLiteCategoryRepository{db: db}, nil
 }
 
-// Insert is a stub pending Loop 2.
-func (r *SQLiteCategoryRepository) Insert(ctx context.Context, category *repository.Category) error {
+// Insert persists a new category. Returns repository.ErrDuplicate on a
+// UNIQUE-key collision against an existing name_key.
+//
+// Stub: returns ErrNotImplemented; replaced in Loop 2 GREEN.
+func (r *SQLiteCategoryRepository) Insert(ctx context.Context, c *repository.Category) error {
 	return repository.ErrNotImplemented
 }
 
-// Update is a legacy stub kept so existing call sites compile;
-// removed entirely in Loop 2 in favour of Rename/UpdateColour.
-func (r *SQLiteCategoryRepository) Update(ctx context.Context, category *repository.Category) error {
+// Rename moves a category from oldKey to newKey. Returns ErrNotFound if
+// no row matches oldKey, or ErrDuplicate if newKey already exists.
+//
+// Stub: returns ErrNotImplemented; replaced in Loop 2 GREEN.
+func (r *SQLiteCategoryRepository) Rename(ctx context.Context, oldKey, newKey string) error {
 	return repository.ErrNotImplemented
 }
 
-// Delete is a legacy UUID-keyed stub kept so existing call sites compile;
-// the new key-based Delete(string) ships in Loop 2.
-func (r *SQLiteCategoryRepository) Delete(ctx context.Context, id uuid.UUID) error {
+// UpdateColour sets the colour of an existing category. nil colour
+// stores SQL NULL. Returns ErrNotFound if the key does not exist.
+//
+// Stub: returns ErrNotImplemented; replaced in Loop 2 GREEN.
+func (r *SQLiteCategoryRepository) UpdateColour(ctx context.Context, key string, colour *string) error {
 	return repository.ErrNotImplemented
 }
 
-// QueryAll is a legacy stub kept so the planner presenter's
-// CategoryQuerier interface still binds; reshaped to (ctx, bool) in Loop 2.
-func (r *SQLiteCategoryRepository) QueryAll(ctx context.Context) ([]*repository.Category, error) {
+// Delete removes a category by key. Returns ErrNotFound if no row
+// matches.
+//
+// Stub: returns ErrNotImplemented; replaced in Loop 2 GREEN.
+func (r *SQLiteCategoryRepository) Delete(ctx context.Context, key string) error {
+	return repository.ErrNotImplemented
+}
+
+// GetByKey looks up a single category by its canonical key. Returns
+// ErrNotFound if no row matches.
+//
+// Stub: returns ErrNotImplemented; replaced in Loop 2 GREEN.
+func (r *SQLiteCategoryRepository) GetByKey(ctx context.Context, key string) (*repository.Category, error) {
 	return nil, repository.ErrNotImplemented
 }
 
-// QueryByName is a legacy stub kept so existing call sites compile;
-// removed in Loop 2 in favour of GetByKey.
-func (r *SQLiteCategoryRepository) QueryByName(ctx context.Context, name string) (*repository.Category, error) {
+// QueryAll returns every category ordered by name_key. When withCounts is
+// true the result includes the number of tasks referencing each category
+// via tasks.category_key; otherwise TaskCount is zero.
+//
+// Stub: returns ErrNotImplemented; replaced in Loop 2 GREEN.
+func (r *SQLiteCategoryRepository) QueryAll(ctx context.Context, withCounts bool) ([]*repository.CategoryWithCount, error) {
 	return nil, repository.ErrNotImplemented
 }

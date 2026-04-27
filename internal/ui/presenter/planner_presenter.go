@@ -21,8 +21,13 @@ type TodoQuerier interface {
 }
 
 // CategoryQuerier abstracts category query operations needed by the planner presenter.
+//
+// Updated for Feature 109: QueryAll takes a withCounts flag and returns
+// CategoryWithCount so the planner can show task totals alongside each
+// category. The presenter currently only needs the name_key list and
+// passes withCounts=false.
 type CategoryQuerier interface {
-	QueryAll(ctx context.Context) ([]*repository.Category, error)
+	QueryAll(ctx context.Context, withCounts bool) ([]*repository.CategoryWithCount, error)
 }
 
 // ScheduleGenerator abstracts schedule generation for the planner presenter.

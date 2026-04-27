@@ -54,12 +54,12 @@ type mockCategoryQuerier struct {
 	mock.Mock
 }
 
-func (m *mockCategoryQuerier) QueryAll(ctx context.Context) ([]*repository.Category, error) {
-	args := m.Called(ctx)
+func (m *mockCategoryQuerier) QueryAll(ctx context.Context, withCounts bool) ([]*repository.CategoryWithCount, error) {
+	args := m.Called(ctx, withCounts)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*repository.Category), args.Error(1)
+	return args.Get(0).([]*repository.CategoryWithCount), args.Error(1)
 }
 
 type mockCalendarProvider struct {

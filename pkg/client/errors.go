@@ -1,7 +1,10 @@
 package client
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"strconv"
 )
 
 // Error code constants derived from HTTP status codes in server error responses.
@@ -29,7 +32,7 @@ type APIError struct {
 
 // Error implements the error interface.
 func (e *APIError) Error() string {
-	return fmt.Sprintf("not implemented")
+	return fmt.Sprintf("%s: %s", e.Code, e.Message)
 }
 
 // ParseErrorResponse parses a server error response body into an APIError.
@@ -39,5 +42,51 @@ func (e *APIError) Error() string {
 // consumers can reuse the parsing logic when they receive a raw response
 // from a custom transport.
 func ParseErrorResponse(statusCode int, body []byte) *APIError {
-	return nil
+	code := codeForStatus(statusCode)
+	message := messageFromBody(body, statusCode)
+	return &APIError{
+		StatusCode: statusCode,
+		Code:       code,
+		Message:    message,
+	}
+}
+
+// codeForStatus maps an HTTP status code to one of the SDK's Err* constants.
+func codeForStatus(statusCode int) string {
+	switch statusCode {
+	case http.StatusBadRequest:
+		return ErrCodeValidation
+	case http.StatusUnauthorized:
+		return ErrCodeUnauthorized
+	case http.StatusNotFound:
+		return ErrCodeNotFound
+	case http.StatusConflict:
+		return ErrCodeConflict
+	}
+	if statusCode >= 500 && statusCode <= 599 {
+		return ErrCodeServerError
+	}
+	if statusCode >= 400 && statusCode <= 499 {
+		return ErrCodeClientError
+	}
+	// Conservative default for unexpected status codes.
+	return ErrCodeServerError
+}
+
+// messageFromBody attempts to extract the server's flat `{"error": "..."}`
+// message from body. Falls back to http.StatusText (or "HTTP <code>") on
+// empty or unparseable input.
+func messageFromBody(body []byte, statusCode int) string {
+	if len(body) > 0 {
+		var payload struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(body, &payload); err == nil && payload.Error != "" {
+			return payload.Error
+		}
+	}
+	if text := http.StatusText(statusCode); text != "" {
+		return text
+	}
+	return "HTTP " + strconv.Itoa(statusCode)
 }

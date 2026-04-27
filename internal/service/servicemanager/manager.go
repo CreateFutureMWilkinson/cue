@@ -2,7 +2,6 @@ package servicemanager
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -10,9 +9,6 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
 )
-
-// ErrNotImplemented is returned by stubs that have not yet been replaced with real logic.
-var ErrNotImplemented = errors.New("not implemented")
 
 // ServiceConfigRepo defines the subset of repository.ServiceConfigRepository used by ServiceManager
 // for managing service account configurations across Slack, Email, and Calendar providers.

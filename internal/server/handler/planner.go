@@ -106,6 +106,19 @@ func parseDateParam(r *http.Request) (time.Time, error) {
 }
 
 // GetScheduleHandler returns an http.HandlerFunc for GET /api/v1/planner/{date}.
+//
+// @Summary      Get day schedule
+// @Description  Returns the saved schedule for a given date. Mounted twice:
+// @Description  /api/v1/planner/{date} for explicit dates (YYYY-MM-DD), and
+// @Description  /api/v1/planner/active which substitutes today's UTC date.
+// @Tags         planner
+// @Produce      json
+// @Param        date  path      string  true  "YYYY-MM-DD"
+// @Success      200   {object}  handler.scheduleResponse
+// @Failure      400   {object}  map[string]string
+// @Failure      404   {object}  map[string]string
+// @Failure      500   {object}  map[string]string
+// @Router       /api/v1/planner/{date} [get]
 func GetScheduleHandler(repo ScheduleStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		date, err := parseDateParam(r)
@@ -126,6 +139,19 @@ func GetScheduleHandler(repo ScheduleStore) http.HandlerFunc {
 
 // PutScheduleHandler returns an http.HandlerFunc for PUT /api/v1/planner/{date}.
 // Optional onChange callbacks are invoked after a successful save.
+//
+// @Summary      Save day schedule
+// @Description  Replaces the schedule for the given date with the provided blocks.
+// @Description  Block times use HH:MM (24h) and are anchored to the path date.
+// @Tags         planner
+// @Accept       json
+// @Produce      json
+// @Param        date     path      string                      true  "YYYY-MM-DD"
+// @Param        request  body      handler.putScheduleRequest  true  "Strategy + blocks"
+// @Success      200      {object}  handler.scheduleResponse
+// @Failure      400      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/planner/{date} [put]
 func PutScheduleHandler(store ScheduleStore, onChange ...func()) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		date, err := parseDateParam(r)
@@ -264,6 +290,20 @@ func dayScheduleToOption(ds *planner.DaySchedule) generateOptionItem {
 }
 
 // GenerateSchedulesHandler returns an http.HandlerFunc for POST /api/v1/planner/generate.
+//
+// @Summary      Generate candidate schedules
+// @Description  Produces two schedule options (focus-heavy and recovery) for the
+// @Description  target date using calendar events. If the request body omits
+// @Description  "date", the planner's default target (usually today or tomorrow)
+// @Description  is used.
+// @Tags         planner
+// @Accept       json
+// @Produce      json
+// @Param        request  body      handler.generateRequest  true  "Optional target date"
+// @Success      200      {object}  handler.generateResponse
+// @Failure      400      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/planner/generate [post]
 func GenerateSchedulesHandler(gen ScheduleGenerator, cal CalendarFetcher) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req generateRequest
@@ -391,6 +431,17 @@ func GetTimerHandler(store ScheduleStore, clock TimerClock) http.HandlerFunc {
 
 // DeleteScheduleHandler returns an http.HandlerFunc for DELETE /api/v1/planner/{date}.
 // Optional onChange callbacks are invoked after a successful delete.
+//
+// @Summary      Delete day schedule
+// @Description  Removes the saved schedule for the given date. Also served at
+// @Description  /api/v1/planner/active for today's UTC date.
+// @Tags         planner
+// @Param        date  path  string  true  "YYYY-MM-DD"
+// @Success      204   "No Content"
+// @Failure      400   {object}  map[string]string
+// @Failure      404   {object}  map[string]string
+// @Failure      500   {object}  map[string]string
+// @Router       /api/v1/planner/{date} [delete]
 func DeleteScheduleHandler(store ScheduleStore, onChange ...func()) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		date, err := parseDateParam(r)

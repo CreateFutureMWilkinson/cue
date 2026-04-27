@@ -158,6 +158,19 @@ check *args='./...':
 test-pkg *args:
     go test -count=1 -v {{args}}
 
+# Generate OpenAPI 3.1 spec from swaggo/swag annotations
+api-gen:
+    @mkdir -p docs/api
+    go tool swag init \
+        --v3.1 \
+        --generalInfo server.go \
+        --dir internal/server,internal/server/handler \
+        --parseInternal \
+        --output docs/api \
+        --outputTypes yaml \
+        --quiet
+    @mv docs/api/swagger.yaml docs/api/openapi.yaml
+
 # Clean build artifacts
 clean:
     rm -rf _build/

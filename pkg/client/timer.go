@@ -1,6 +1,11 @@
 package client
 
-import "context"
+import (
+	"context"
+	"net/http"
+)
+
+const timerPath = "/api/v1/timer"
 
 // TimerState mirrors the server's timerResponse emitted by GET /api/v1/timer.
 //
@@ -35,5 +40,9 @@ func NewTimerClient(c *APIClient) TimerClient {
 
 // GetTimerState issues GET /api/v1/timer and returns the decoded TimerState.
 func (t *timerAdapter) GetTimerState(ctx context.Context) (*TimerState, error) {
-	return nil, ErrNotImplemented
+	var state TimerState
+	if err := t.client.doJSON(ctx, http.MethodGet, timerPath, nil, &state); err != nil {
+		return nil, err
+	}
+	return &state, nil
 }

@@ -2,7 +2,13 @@ package client
 
 import (
 	"context"
+	"net/http"
 	"time"
+)
+
+const (
+	plannerPath       = "/api/v1/planner"
+	plannerActivePath = "/api/v1/planner/active"
 )
 
 // ScheduleBlock represents a single time block in a schedule.
@@ -87,35 +93,56 @@ func NewScheduleClient(c *APIClient) ScheduleClient {
 
 // ActiveSchedule issues GET /api/v1/planner/active and returns today's schedule.
 func (a *scheduleAdapter) ActiveSchedule(ctx context.Context) (*Schedule, error) {
-	return nil, ErrNotImplemented
+	var schedule Schedule
+	if err := a.client.doJSON(ctx, http.MethodGet, plannerActivePath, nil, &schedule); err != nil {
+		return nil, err
+	}
+	return &schedule, nil
 }
 
-// DeleteActiveSchedule issues DELETE /api/v1/planner/active.
+// DeleteActiveSchedule issues DELETE /api/v1/planner/active. The server
+// responds with 204 No Content; doJSON's nil-out path skips decoding.
 func (a *scheduleAdapter) DeleteActiveSchedule(ctx context.Context) error {
-	return ErrNotImplemented
+	return a.client.doJSON(ctx, http.MethodDelete, plannerActivePath, nil, nil)
 }
 
 // GetSchedule issues GET /api/v1/planner/{date} for the given date formatted
 // as "YYYY-MM-DD".
 func (a *scheduleAdapter) GetSchedule(ctx context.Context, date time.Time) (*Schedule, error) {
-	return nil, ErrNotImplemented
+	var schedule Schedule
+	path := plannerPath + "/" + date.Format("2006-01-02")
+	if err := a.client.doJSON(ctx, http.MethodGet, path, nil, &schedule); err != nil {
+		return nil, err
+	}
+	return &schedule, nil
 }
 
 // PutSchedule issues PUT /api/v1/planner/{date} with the supplied strategy
 // and blocks. The date comes from the URL; req.Strategy and req.Blocks form
 // the request body.
 func (a *scheduleAdapter) PutSchedule(ctx context.Context, date time.Time, req PutScheduleRequest) (*Schedule, error) {
-	return nil, ErrNotImplemented
+	var schedule Schedule
+	path := plannerPath + "/" + date.Format("2006-01-02")
+	if err := a.client.doJSON(ctx, http.MethodPut, path, req, &schedule); err != nil {
+		return nil, err
+	}
+	return &schedule, nil
 }
 
-// DeleteSchedule issues DELETE /api/v1/planner/{date}.
+// DeleteSchedule issues DELETE /api/v1/planner/{date}. The server responds
+// with 204 No Content; doJSON's nil-out path skips decoding.
 func (a *scheduleAdapter) DeleteSchedule(ctx context.Context, date time.Time) error {
-	return ErrNotImplemented
+	path := plannerPath + "/" + date.Format("2006-01-02")
+	return a.client.doJSON(ctx, http.MethodDelete, path, nil, nil)
 }
 
 // GenerateSchedules issues POST /api/v1/planner/generate. When req.Date is
 // empty the omitempty tag suppresses the field, allowing the server to pick
 // its own target date via planner.TargetDate(time.Now()).
 func (a *scheduleAdapter) GenerateSchedules(ctx context.Context, req GenerateSchedulesRequest) (*GenerateSchedulesResponse, error) {
-	return nil, ErrNotImplemented
+	var resp GenerateSchedulesResponse
+	if err := a.client.doJSON(ctx, http.MethodPost, plannerPath+"/generate", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }

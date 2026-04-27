@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/calendar"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/planner"
 	"github.com/google/uuid"
 )
 
@@ -180,6 +182,59 @@ func PutScheduleHandler(store ScheduleStore) http.HandlerFunc {
 		}
 
 		writeJSON(w, http.StatusOK, scheduleToResponse(schedule))
+	}
+}
+
+// ScheduleGenerator is the subset of planner.Planner needed to generate schedule options.
+type ScheduleGenerator interface {
+	GenerateSchedules(ctx context.Context, tasks []planner.TaskEstimate, events []calendar.CalendarEvent, targetDate time.Time) (*planner.DaySchedule, *planner.DaySchedule, error)
+	TargetDate(now time.Time) time.Time
+}
+
+// CalendarFetcher is the subset of CalendarProvider needed to fetch events for a date.
+type CalendarFetcher interface {
+	FetchEvents(ctx context.Context, date time.Time) ([]calendar.CalendarEvent, error)
+}
+
+// generateRequest is the JSON body for POST /api/v1/planner/generate.
+type generateRequest struct {
+	Date *string `json:"date"`
+}
+
+// generateOptionItem is the JSON representation of a single schedule option.
+type generateOptionItem struct {
+	Strategy          string              `json:"strategy"`
+	TotalFocusMinutes int                 `json:"total_focus_minutes"`
+	BreakCount        int                 `json:"break_count"`
+	Blocks            []scheduleBlockItem `json:"blocks"`
+}
+
+// generateResponse is the JSON response for POST /api/v1/planner/generate.
+type generateResponse struct {
+	Date    string               `json:"date"`
+	Options []generateOptionItem `json:"options"`
+}
+
+// plannerBlockTypeString converts a planner.BlockType to its JSON string representation.
+func plannerBlockTypeString(t planner.BlockType) string {
+	switch t {
+	case planner.BlockFocus:
+		return "focus"
+	case planner.BlockShortBreak:
+		return "short_break"
+	case planner.BlockLongBreak:
+		return "long_break"
+	case planner.BlockMeeting:
+		return "meeting"
+	default:
+		return "unknown"
+	}
+}
+
+// GenerateSchedulesHandler returns an http.HandlerFunc for POST /api/v1/planner/generate.
+func GenerateSchedulesHandler(_ ScheduleGenerator, _ CalendarFetcher) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		writeJSONError(w, http.StatusNotImplemented, ErrNotImplemented.Error())
 	}
 }
 

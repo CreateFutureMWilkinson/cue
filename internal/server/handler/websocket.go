@@ -108,10 +108,10 @@ func (m *Manager) Handler() http.Handler {
 		id := fmt.Sprintf("ws-%d", time.Now().UnixNano())
 		sub, err := m.hub.Subscribe(id)
 		if err != nil {
-			conn.Close(websocket.StatusInternalError, "subscribe failed")
+			_ = conn.Close(websocket.StatusInternalError, "subscribe failed")
 			return
 		}
-		defer m.hub.Unsubscribe(id)
+		defer func() { _ = m.hub.Unsubscribe(id) }()
 
 		ctx, cancel := context.WithCancel(conn.CloseRead(r.Context()))
 		defer cancel()
@@ -121,11 +121,11 @@ func (m *Manager) Handler() http.Handler {
 		for {
 			select {
 			case <-ctx.Done():
-				conn.Close(websocket.StatusNormalClosure, "")
+				_ = conn.Close(websocket.StatusNormalClosure, "")
 				return
 			case data, ok := <-sub.Events:
 				if !ok {
-					conn.Close(websocket.StatusNormalClosure, "")
+					_ = conn.Close(websocket.StatusNormalClosure, "")
 					return
 				}
 				writeCtx, writeCancel := context.WithTimeout(ctx, writeTimeout)
@@ -195,7 +195,7 @@ func runHeartbeat(ctx context.Context, conn *websocket.Conn, interval, timeout t
 				// Use CloseNow instead of Close because CloseRead (called in the
 				// main handler) already holds the read lock. Using Close would block
 				// on the close handshake trying to acquire that read lock (up to 5s).
-				conn.CloseNow()
+				_ = conn.CloseNow()
 				cancel()
 				return
 			}

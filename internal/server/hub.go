@@ -213,7 +213,8 @@ func (h *Hub) Publish(data ActivityData) ActivityEnvelope {
 // oldestSeq returns the sequence number of the oldest retained envelope.
 // Must be called with at least a read lock held and ringUsed > 0.
 func (h *Hub) oldestSeq() uint64 {
-	return h.seq - uint64(h.ringUsed) + 1
+	// ringUsed is bounded by ringCapacity (500) and never negative.
+	return h.seq - uint64(h.ringUsed) + 1 //#nosec G115 -- ringUsed is always non-negative and <= 500
 }
 
 // HistoryResponse is the return value of Hub.History, containing a slice
@@ -256,14 +257,12 @@ func (h *Hub) History(sinceSeq uint64) HistoryResponse {
 	// Start from the next sequence after sinceSeq, but clamp to oldest available
 	startSeq := max(sinceSeq+1, oldestSeq)
 
-	count := int(latestSeq - startSeq + 1)
+	// Both differences are bounded by ringCapacity (500), so the int cast is safe.
+	count := int(latestSeq - startSeq + 1) //#nosec G115 -- bounded by ringCapacity (500)
 	events := make([]ActivityEnvelope, count)
-
-	// Calculate ring buffer positions for traversal:
-	// - oldestIdx: ring position of the oldest retained envelope
-	// - startIdx: ring position of the envelope with seq == startSeq
-	oldestIdx := (h.ringPos - h.ringUsed + ringCapacity) % ringCapacity
-	startIdx := (oldestIdx + int(startSeq-oldestSeq)) % ringCapacity
+	offset := int(startSeq - oldestSeq)                                 //#nosec G115 -- bounded by ringCapacity (500)
+	oldestIdx := (h.ringPos - h.ringUsed + ringCapacity) % ringCapacity //
+	startIdx := (oldestIdx + offset) % ringCapacity                     //
 
 	// Traverse the ring buffer in chronological order, wrapping as needed
 	for i := 0; i < count; i++ {

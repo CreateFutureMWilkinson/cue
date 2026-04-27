@@ -231,10 +231,12 @@ func startOrchestration(
 
 // registerWatchersFromDB queries enabled Slack and Email accounts from the
 // ServiceConfigRepository and registers watchers with the orchestrator.
+// Errors during account listing, API client creation, or watcher construction
+// are logged and skipped to allow partial success.
 func registerWatchersFromDB(ctx context.Context, orch *orchestrator.Orchestrator, serviceConfigRepo repository.ServiceConfigRepository) {
 	slackAccounts, err := serviceConfigRepo.ListSlackAccounts(ctx)
 	if err != nil {
-		slog.Warn("listing slack accounts", "error", err)
+		slog.Warn("failed to list slack accounts", "source", "slack", "error", err)
 	} else {
 		for _, acct := range slackAccounts {
 			if !acct.Enabled {
@@ -242,12 +244,12 @@ func registerWatchersFromDB(ctx context.Context, orch *orchestrator.Orchestrator
 			}
 			slackAPI, err := watcher.NewSlackWebClient(acct.Token)
 			if err != nil {
-				slog.Warn("creating slack API client", "workspace_id", acct.WorkspaceID, "error", err)
+				slog.Warn("failed to create slack API client", "source", "slack", "account_id", acct.WorkspaceID, "error", err)
 				continue
 			}
 			sw, err := watcher.NewSlackWatcher(slackAPI, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID})
 			if err != nil {
-				slog.Warn("creating slack watcher", "workspace_id", acct.WorkspaceID, "error", err)
+				slog.Warn("failed to create slack watcher", "source", "slack", "account_id", acct.WorkspaceID, "error", err)
 				continue
 			}
 			orch.AddWatcher("slack:"+acct.WorkspaceID, sw)
@@ -256,7 +258,7 @@ func registerWatchersFromDB(ctx context.Context, orch *orchestrator.Orchestrator
 
 	emailAccounts, err := serviceConfigRepo.ListEmailAccounts(ctx)
 	if err != nil {
-		slog.Warn("listing email accounts", "error", err)
+		slog.Warn("failed to list email accounts", "source", "email", "error", err)
 	} else {
 		for _, acct := range emailAccounts {
 			if !acct.Enabled {
@@ -264,12 +266,12 @@ func registerWatchersFromDB(ctx context.Context, orch *orchestrator.Orchestrator
 			}
 			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.Password, acct.Encryption)
 			if err != nil {
-				slog.Warn("creating IMAP client", "username", acct.Username, "error", err)
+				slog.Warn("failed to create IMAP client", "source", "email", "account_id", acct.Username, "error", err)
 				continue
 			}
 			ew, err := watcher.NewEmailWatcher(emailAPI, watcher.EmailWatcherConfig{Username: acct.Username})
 			if err != nil {
-				slog.Warn("creating email watcher", "username", acct.Username, "error", err)
+				slog.Warn("failed to create email watcher", "source", "email", "account_id", acct.Username, "error", err)
 				continue
 			}
 			orch.AddWatcher("email:"+acct.Username, ew)

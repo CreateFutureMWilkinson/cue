@@ -6,6 +6,7 @@ require (
 	fyne.io/fyne/v2 v2.7.3
 	github.com/BurntSushi/toml v1.6.0
 	github.com/arran4/golang-ical v0.3.4
+	github.com/coder/websocket v1.8.14
 	github.com/emersion/go-imap/v2 v2.0.0-beta.8
 	github.com/gen2brain/beeep v0.11.2
 	github.com/google/uuid v1.6.0
@@ -20,7 +21,6 @@ require (
 require (
 	fyne.io/systray v1.12.0 // indirect
 	git.sr.ht/~jackmordaunt/go-toast v1.1.2 // indirect
-	github.com/coder/websocket v1.8.14 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/oto/v3 v3.3.2 // indirect

@@ -78,3 +78,18 @@ func NewServiceManager(repo ServiceConfigRepo, watchers WatcherLifecycle, factor
 		messageDeleter: messageDeleter,
 	}, nil
 }
+
+// ListSlackAccounts returns all configured Slack accounts from the repository.
+func (m *ServiceManager) ListSlackAccounts(ctx context.Context) ([]*repository.SlackAccount, error) {
+	return m.repo.ListSlackAccounts(ctx)
+}
+
+// ListEmailAccounts returns all configured Email accounts from the repository.
+func (m *ServiceManager) ListEmailAccounts(ctx context.Context) ([]*repository.EmailAccount, error) {
+	return m.repo.ListEmailAccounts(ctx)
+}
+
+// ListCalendarAccounts returns all configured Calendar accounts from the repository.
+func (m *ServiceManager) ListCalendarAccounts(ctx context.Context) ([]*repository.CalendarAccount, error) {
+	return m.repo.ListCalendarAccounts(ctx)
+}

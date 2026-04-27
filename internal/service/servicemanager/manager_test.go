@@ -2,6 +2,7 @@ package servicemanager_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -14,10 +15,17 @@ import (
 
 // --- Test Mocks ---
 
-type mockRepo struct{}
+type mockRepo struct {
+	slackAccounts    []*repository.SlackAccount
+	slackErr         error
+	emailAccounts    []*repository.EmailAccount
+	emailErr         error
+	calendarAccounts []*repository.CalendarAccount
+	calendarErr      error
+}
 
 func (m *mockRepo) ListSlackAccounts(_ context.Context) ([]*repository.SlackAccount, error) {
-	return nil, nil
+	return m.slackAccounts, m.slackErr
 }
 
 func (m *mockRepo) GetSlackAccount(_ context.Context, _ uuid.UUID) (*repository.SlackAccount, error) {
@@ -33,7 +41,7 @@ func (m *mockRepo) DeleteSlackAccount(_ context.Context, _ uuid.UUID) error {
 }
 
 func (m *mockRepo) ListEmailAccounts(_ context.Context) ([]*repository.EmailAccount, error) {
-	return nil, nil
+	return m.emailAccounts, m.emailErr
 }
 
 func (m *mockRepo) GetEmailAccount(_ context.Context, _ uuid.UUID) (*repository.EmailAccount, error) {
@@ -49,7 +57,7 @@ func (m *mockRepo) DeleteEmailAccount(_ context.Context, _ uuid.UUID) error {
 }
 
 func (m *mockRepo) ListCalendarAccounts(_ context.Context) ([]*repository.CalendarAccount, error) {
-	return nil, nil
+	return m.calendarAccounts, m.calendarErr
 }
 
 func (m *mockRepo) GetCalendarAccount(_ context.Context, _ uuid.UUID) (*repository.CalendarAccount, error) {
@@ -126,4 +134,85 @@ func (s *ServiceManagerSuite) TestNewServiceManager_NilMessageDeleter() {
 	s.Error(err)
 	s.Nil(mgr)
 	s.Contains(err.Error(), "message")
+}
+
+// --- ListSlackAccounts ---
+
+func (s *ServiceManagerSuite) TestListSlackAccounts_ReturnsFromRepo() {
+	accounts := []*repository.SlackAccount{
+		{ID: uuid.New(), Enabled: true, WorkspaceID: "T001", FriendlyName: "workspace-1"},
+		{ID: uuid.New(), Enabled: false, WorkspaceID: "T002", FriendlyName: "workspace-2"},
+	}
+	repo := &mockRepo{slackAccounts: accounts}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.ListSlackAccounts(context.Background())
+	s.NoError(err)
+	s.Equal(accounts, got)
+}
+
+func (s *ServiceManagerSuite) TestListSlackAccounts_RepoError() {
+	repoErr := errors.New("slack list failed")
+	repo := &mockRepo{slackErr: repoErr}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.ListSlackAccounts(context.Background())
+	s.ErrorIs(err, repoErr)
+	s.Nil(got)
+}
+
+// --- ListEmailAccounts ---
+
+func (s *ServiceManagerSuite) TestListEmailAccounts_ReturnsFromRepo() {
+	accounts := []*repository.EmailAccount{
+		{ID: uuid.New(), Enabled: true, IMAPHost: "imap.example.com", FriendlyName: "personal"},
+		{ID: uuid.New(), Enabled: false, IMAPHost: "imap.work.com", FriendlyName: "work"},
+	}
+	repo := &mockRepo{emailAccounts: accounts}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.ListEmailAccounts(context.Background())
+	s.NoError(err)
+	s.Equal(accounts, got)
+}
+
+func (s *ServiceManagerSuite) TestListEmailAccounts_RepoError() {
+	repoErr := errors.New("email list failed")
+	repo := &mockRepo{emailErr: repoErr}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.ListEmailAccounts(context.Background())
+	s.ErrorIs(err, repoErr)
+	s.Nil(got)
+}
+
+// --- ListCalendarAccounts ---
+
+func (s *ServiceManagerSuite) TestListCalendarAccounts_ReturnsFromRepo() {
+	accounts := []*repository.CalendarAccount{
+		{ID: uuid.New(), Enabled: true, Name: "personal-cal", ICSURL: "https://cal.example.com/a.ics"},
+		{ID: uuid.New(), Enabled: false, Name: "work-cal", ICSURL: "https://cal.work.com/b.ics"},
+	}
+	repo := &mockRepo{calendarAccounts: accounts}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.ListCalendarAccounts(context.Background())
+	s.NoError(err)
+	s.Equal(accounts, got)
+}
+
+func (s *ServiceManagerSuite) TestListCalendarAccounts_RepoError() {
+	repoErr := errors.New("calendar list failed")
+	repo := &mockRepo{calendarErr: repoErr}
+	mgr, err := servicemanager.NewServiceManager(repo, &mockWatchers{}, stubFactory, &mockMessageDeleter{})
+	s.Require().NoError(err)
+
+	got, err := mgr.ListCalendarAccounts(context.Background())
+	s.ErrorIs(err, repoErr)
+	s.Nil(got)
 }

@@ -72,26 +72,6 @@ func writeTooManyConnections(w http.ResponseWriter) {
 // Production callers should use WebSocketHandler which delegates here
 // with 30 s / 10 s defaults.
 func WebSocketHandlerWithHeartbeat(hub Publisher, interval, timeout time.Duration) http.Handler {
-	// Stub: heartbeat parameters are accepted but not yet used.
-	// The handler behaves identically to the pre-heartbeat implementation.
-	return webSocketHandler(hub)
-}
-
-// WebSocketHandler returns an http.Handler that upgrades HTTP connections
-// to WebSocket, subscribes to the event hub, and forwards broadcast events
-// to the connected client as JSON messages.
-//
-// The handler automatically manages the subscription lifecycle, cleaning up
-// when the client disconnects or an error occurs. Write timeouts prevent
-// slow clients from blocking the event stream.
-//
-// It delegates to WebSocketHandlerWithHeartbeat with production defaults
-// of 30 s ping interval and 10 s pong timeout.
-func WebSocketHandler(hub Publisher) http.Handler {
-	return WebSocketHandlerWithHeartbeat(hub, 30*time.Second, 10*time.Second)
-}
-
-func webSocketHandler(hub Publisher) http.Handler {
 	var active atomic.Int32
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Enforce per-handler connection cap using atomic operations
@@ -105,6 +85,7 @@ func webSocketHandler(hub Publisher) http.Handler {
 		if err != nil {
 			return // Accept already wrote the HTTP error response.
 		}
+		defer conn.CloseNow() //nolint:errcheck
 
 		// Generate unique subscription ID using nanosecond timestamp.
 		// This ensures uniqueness across concurrent connections without
@@ -121,7 +102,35 @@ func webSocketHandler(hub Publisher) http.Handler {
 		// close frames and ping/pong messages. It returns a context that gets
 		// cancelled when the client disconnects, allowing us to detect connection
 		// loss even when we're not actively writing.
-		ctx := conn.CloseRead(r.Context())
+		ctx, cancel := context.WithCancel(conn.CloseRead(r.Context()))
+		defer cancel()
+
+		// Heartbeat goroutine: sends periodic pings and closes the connection
+		// if a pong is not received within the configured timeout. This detects
+		// half-open connections where the client has silently disappeared.
+		go func() {
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					pingCtx, pingCancel := context.WithTimeout(ctx, timeout)
+					pingErr := conn.Ping(pingCtx)
+					pingCancel()
+					if pingErr != nil {
+						// Pong not received within timeout or connection already dead.
+						// Use CloseNow instead of Close because CloseRead already
+						// holds the read lock; Close would block on the close
+						// handshake trying to acquire it (up to 5s).
+						conn.CloseNow()
+						cancel()
+						return
+					}
+				}
+			}
+		}()
 
 		for {
 			select {
@@ -136,13 +145,27 @@ func webSocketHandler(hub Publisher) http.Handler {
 				// Apply write timeout to prevent slow clients from blocking
 				// the event stream for other subscribers. If the write takes
 				// longer than writeTimeout, we close the connection.
-				writeCtx, cancel := context.WithTimeout(ctx, writeTimeout)
-				err := conn.Write(writeCtx, websocket.MessageText, data)
-				cancel()
-				if err != nil {
+				writeCtx, writeCancel := context.WithTimeout(ctx, writeTimeout)
+				writeErr := conn.Write(writeCtx, websocket.MessageText, data)
+				writeCancel()
+				if writeErr != nil {
 					return
 				}
 			}
 		}
 	})
+}
+
+// WebSocketHandler returns an http.Handler that upgrades HTTP connections
+// to WebSocket, subscribes to the event hub, and forwards broadcast events
+// to the connected client as JSON messages.
+//
+// The handler automatically manages the subscription lifecycle, cleaning up
+// when the client disconnects or an error occurs. Write timeouts prevent
+// slow clients from blocking the event stream.
+//
+// It delegates to WebSocketHandlerWithHeartbeat with production defaults
+// of 30 s ping interval and 10 s pong timeout.
+func WebSocketHandler(hub Publisher) http.Handler {
+	return WebSocketHandlerWithHeartbeat(hub, 30*time.Second, 10*time.Second)
 }

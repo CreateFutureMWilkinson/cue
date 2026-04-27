@@ -3,6 +3,7 @@ package handler_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -140,6 +141,54 @@ func (s *WebSocketHandlerSuite) TestWebSocketHandler_OriginPolicy() {
 			s.Equal(tc.wantStatus, resp.StatusCode)
 		})
 	}
+}
+
+func (s *WebSocketHandlerSuite) TestWebSocketHandler_ConnectionCap() {
+	hub := server.NewHub()
+	pub := &hubAdapter{hub: hub}
+
+	srv := httptest.NewServer(handler.WebSocketHandler(pub))
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http")
+
+	// Open 16 connections — the maximum allowed.
+	conns := make([]*websocket.Conn, 0, handler.MaxConnections)
+	s.T().Cleanup(func() {
+		for _, c := range conns {
+			c.CloseNow() //nolint:errcheck
+		}
+	})
+
+	for i := 0; i < handler.MaxConnections; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		c, _, err := websocket.Dial(ctx, wsURL, nil)
+		s.Require().NoError(err, "connection %d should succeed", i+1)
+		conns = append(conns, c)
+	}
+
+	// The 17th connection must be rejected with 503.
+	resp, err := upgradeRequest(srv.URL, "")
+	s.Require().NoError(err, "HTTP request should not fail")
+	defer resp.Body.Close()
+
+	s.Equal(http.StatusServiceUnavailable, resp.StatusCode,
+		"17th connection should be rejected with 503")
+
+	s.Equal("5", resp.Header.Get("Retry-After"),
+		"response should include Retry-After: 5 header")
+
+	body, err := io.ReadAll(resp.Body)
+	s.Require().NoError(err, "should read response body")
+
+	var errBody struct {
+		Error string `json:"error"`
+	}
+	s.Require().NoError(json.Unmarshal(body, &errBody),
+		"response body should be valid JSON")
+	s.Equal("too many connections", errBody.Error)
 }
 
 // upgradeRequest sends a raw HTTP request with WebSocket upgrade headers.

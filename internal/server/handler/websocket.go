@@ -13,6 +13,10 @@ const (
 	// writeTimeout defines how long we wait for a WebSocket message to be written
 	// before timing out. This prevents slow clients from blocking the handler.
 	writeTimeout = 5 * time.Second
+
+	// MaxConnections is the hard-coded maximum number of concurrent WebSocket
+	// connections. The (MaxConnections+1)th upgrade attempt receives HTTP 503.
+	MaxConnections = 16
 )
 
 // Subscription represents a connected subscriber that receives broadcast

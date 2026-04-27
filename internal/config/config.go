@@ -432,14 +432,15 @@ func parseTimeOfDay(s string) (time.Time, error) {
 	return time.Parse("15:04", s)
 }
 
-// ValidateForServer is like Validate but requires the [server] section to be configured.
-// Use this in cue-server which cannot start without an HTTP listener.
+// ValidateForServer performs standard validation and additionally requires the [server] section
+// to be configured with valid host, port, and timeout values. Use this for cue-server which
+// requires an HTTP listener to function, unlike the standard cue binary where server is optional.
 func (c *Config) ValidateForServer() error {
 	if err := c.Validate(); err != nil {
 		return err
 	}
 	if !c.Server.isConfigured() {
-		return fmt.Errorf("server section must be configured (host, port, timeouts)")
+		return fmt.Errorf("server configuration required: [server] section must specify host, port, read_timeout_seconds, and write_timeout_seconds")
 	}
 	return nil
 }

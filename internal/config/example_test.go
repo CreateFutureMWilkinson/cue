@@ -65,6 +65,10 @@ func (s *ExampleConfigSuite) TestExampleTOMLMatchesDefaultRouterValues() {
 	s.Equal(7, cfg.Orchestrator.Router.ImportanceThreshold)
 	s.InDelta(0.8, cfg.Orchestrator.Router.ConfidenceThreshold, 0.001)
 	s.Equal(100, cfg.Orchestrator.Router.BufferSizePerSource)
+	s.Equal(50, cfg.Orchestrator.Router.QueueWarningThreshold)
+	s.False(cfg.Orchestrator.Router.CalibrationEnabled)
+	s.InDelta(0.75, cfg.Orchestrator.Router.CalibrationSimilarityThreshold, 0.001)
+	s.Equal(5, cfg.Orchestrator.Router.CalibrationMaxExamples)
 	s.Equal(600, cfg.Orchestrator.PollIntervalSeconds)
 	s.Equal(10, cfg.Orchestrator.OllamaCooldownSeconds)
 }
@@ -93,6 +97,7 @@ func (s *ExampleConfigSuite) TestExampleTOMLMatchesDefaultGUIValues() {
 	s.Equal(1200, cfg.GUI.WindowWidth)
 	s.Equal(800, cfg.GUI.WindowHeight)
 	s.Equal("none", cfg.GUI.Character)
+	s.Equal("~/.cue/characters", cfg.GUI.CharacterDir)
 }
 
 func (s *ExampleConfigSuite) TestExampleTOMLMatchesDefaultLoggingValues() {
@@ -234,4 +239,18 @@ func (s *ExampleConfigSuite) TestWriteExampleConfigCreatesParentDirectories() {
 func (s *ExampleConfigSuite) TestExampleTOMLOmitsBatchProcess() {
 	output := config.ExampleTOML()
 	s.NotContains(output, "batch_process", "ExampleTOML should not contain batch_process after removal")
+}
+
+// --- Feature 097: Server section ---
+
+func (s *ExampleConfigSuite) TestExampleTOMLContainsServerSection() {
+	output := config.ExampleTOML()
+	s.Contains(output, "[server]", "ExampleTOML should contain a [server] section")
+}
+
+func (s *ExampleConfigSuite) TestExampleTOMLServerSectionIsCommentedOut() {
+	output := config.ExampleTOML()
+	s.Contains(output, "# [server]", "server section should be commented out by default")
+	s.Contains(output, "# host =", "server host should be commented out by default")
+	s.Contains(output, "# port =", "server port should be commented out by default")
 }

@@ -58,21 +58,19 @@ confidence_threshold = 0.8
 # Maximum messages retained per source (FIFO eviction).
 buffer_size_per_source = 100
 
-# ─── Vector-Assisted Routing ─────────────────────────────────
-# When enabled, historical user feedback influences future scoring.
-# The router queries the vector store for similar previously-rated
-# messages and adjusts importance scores accordingly.
-vector_enabled = false
+# Warn in activity log when pending queue exceeds this count.
+queue_warning_threshold = 50
 
-# Minimum cosine similarity to consider a match (0.0-1.0).
-vector_similarity_threshold = 0.75
+# ─── Calibration-Assisted Routing ────────────────────────────
+# When enabled, historical user feedback (vector similarity)
+# influences future scoring adjustments.
+calibration_enabled = false
 
-# Maximum number of similar messages to consider.
-vector_top_n = 5
+# Minimum cosine similarity to consider a feedback match (0.0-1.0).
+calibration_similarity_threshold = 0.75
 
-# How aggressively to adjust scores (0.0-1.0).
-# 0.0 = no adjustment, 1.0 = full adjustment.
-vector_damping_factor = 0.5
+# Maximum number of similar past messages to consider.
+calibration_max_examples = 5
 
 # ─── Notifications & Audio ─────────────────────────────────
 [notification]
@@ -104,6 +102,10 @@ window_height = 800
 # Character displayed in the center area.
 # Options: "none", "fairy"
 character = "none"
+
+# Directory containing character WASM plugins.
+# Supports ~ for home directory.
+character_dir = "~/.cue/characters"
 
 # ─── Logging ────────────────────────────────────────────────
 [logging]
@@ -140,6 +142,16 @@ timer_sound = ""
 
 # Timer alert volume (0-100).
 timer_volume = 75
+
+# ─── Server (Headless HTTP/WebSocket) ─────────────────────
+# Uncomment this section to configure the cue-server binary.
+# The GUI binary ignores this section; the server binary ignores [gui].
+
+# [server]
+# host = "0.0.0.0"
+# port = 7130
+# read_timeout_seconds = 30
+# write_timeout_seconds = 30
 `
 }
 

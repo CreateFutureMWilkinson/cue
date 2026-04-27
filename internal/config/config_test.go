@@ -1558,3 +1558,278 @@ func (s *ConfigSuite) TestQueueWarningThresholdDefault() {
 	s.Equal(50, cfg.Orchestrator.Router.QueueWarningThreshold,
 		"default queue_warning_threshold should be 50")
 }
+
+// ---------------------------------------------------------------------------
+// Feature 097: Server config
+// ---------------------------------------------------------------------------
+
+func (s *ConfigSuite) TestServerConfigDefaults() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "nonexistent", "config.toml")
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	s.Equal("0.0.0.0", cfg.Server.Host, "default server host should be 0.0.0.0")
+	s.Equal(7130, cfg.Server.Port, "default server port should be 7130")
+	s.Equal(30, cfg.Server.ReadTimeoutSeconds, "default read timeout should be 30")
+	s.Equal(30, cfg.Server.WriteTimeoutSeconds, "default write timeout should be 30")
+}
+
+func (s *ConfigSuite) TestServerConfigParsesFromTOML() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+
+[server]
+host = "127.0.0.1"
+port = 8080
+read_timeout_seconds = 15
+write_timeout_seconds = 60
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+	s.Require().NotNil(cfg)
+
+	s.Equal("127.0.0.1", cfg.Server.Host)
+	s.Equal(8080, cfg.Server.Port)
+	s.Equal(15, cfg.Server.ReadTimeoutSeconds)
+	s.Equal(60, cfg.Server.WriteTimeoutSeconds)
+}
+
+func (s *ConfigSuite) TestServerConfigValidation_EmptyHost() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+
+[server]
+host = ""
+port = 7130
+read_timeout_seconds = 30
+write_timeout_seconds = 30
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		s.Contains(err.Error(), "server.host")
+		return
+	}
+
+	err = cfg.Validate()
+	s.Require().Error(err)
+	s.Contains(err.Error(), "server.host")
+}
+
+func (s *ConfigSuite) TestServerConfigValidation_PortZero() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+
+[server]
+host = "0.0.0.0"
+port = 0
+read_timeout_seconds = 30
+write_timeout_seconds = 30
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		s.Contains(err.Error(), "server.port")
+		return
+	}
+
+	err = cfg.Validate()
+	s.Require().Error(err)
+	s.Contains(err.Error(), "server.port")
+}
+
+func (s *ConfigSuite) TestServerConfigValidation_PortTooHigh() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+
+[server]
+host = "0.0.0.0"
+port = 70000
+read_timeout_seconds = 30
+write_timeout_seconds = 30
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		s.Contains(err.Error(), "server.port")
+		return
+	}
+
+	err = cfg.Validate()
+	s.Require().Error(err)
+	s.Contains(err.Error(), "server.port")
+}
+
+func (s *ConfigSuite) TestServerConfigValidation_ReadTimeoutZero() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+
+[server]
+host = "0.0.0.0"
+port = 7130
+read_timeout_seconds = 0
+write_timeout_seconds = 30
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		s.Contains(err.Error(), "read_timeout")
+		return
+	}
+
+	err = cfg.Validate()
+	s.Require().Error(err)
+	s.Contains(err.Error(), "read_timeout")
+}
+
+func (s *ConfigSuite) TestServerConfigValidation_WriteTimeoutZero() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+
+[server]
+host = "0.0.0.0"
+port = 7130
+read_timeout_seconds = 30
+write_timeout_seconds = 0
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		s.Contains(err.Error(), "write_timeout")
+		return
+	}
+
+	err = cfg.Validate()
+	s.Require().Error(err)
+	s.Contains(err.Error(), "write_timeout")
+}
+
+func (s *ConfigSuite) TestServerConfigValidation_ValidConfig() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+
+[server]
+host = "0.0.0.0"
+port = 7130
+read_timeout_seconds = 30
+write_timeout_seconds = 30
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+
+	err = cfg.Validate()
+	s.NoError(err, "valid server config should pass validation")
+}
+
+func (s *ConfigSuite) TestServerConfigNotRequiredWhenAbsent() {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+
+	tomlContent := `
+[database]
+path = "/tmp/db.sqlite"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+`
+	err := os.WriteFile(cfgPath, []byte(tomlContent), 0644)
+	s.Require().NoError(err)
+
+	cfg, err := config.Load(cfgPath)
+	s.Require().NoError(err)
+
+	err = cfg.Validate()
+	s.NoError(err, "server section should not be required when absent")
+}

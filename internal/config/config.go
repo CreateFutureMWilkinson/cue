@@ -19,6 +19,21 @@ type Config struct {
 	GUI          GUIConfig          `toml:"gui"`
 	Logging      LoggingConfig      `toml:"logging"`
 	Planner      PlannerConfig      `toml:"planner"`
+	Server       ServerConfig       `toml:"server"`
+}
+
+// ServerConfig holds the HTTP/WebSocket server configuration.
+type ServerConfig struct {
+	Host                string `toml:"host"`
+	Port                int    `toml:"port"`
+	ReadTimeoutSeconds  int    `toml:"read_timeout_seconds"`
+	WriteTimeoutSeconds int    `toml:"write_timeout_seconds"`
+}
+
+// isConfigured returns true if any server field has been explicitly set.
+func (s ServerConfig) isConfigured() bool {
+	defaultCfg := ServerConfig{}
+	return s != defaultCfg
 }
 
 type PlannerConfig struct {
@@ -157,6 +172,12 @@ func defaultConfig() *Config {
 			LunchWindowEnd:         "14:00",
 			TimerSound:             "",
 			TimerVolume:            75,
+		},
+		Server: ServerConfig{
+			Host:                "0.0.0.0",
+			Port:                7130,
+			ReadTimeoutSeconds:  30,
+			WriteTimeoutSeconds: 30,
 		},
 	}
 }
@@ -373,6 +394,23 @@ func (c *Config) Validate() error {
 			func(cfg *Config) bool { return cfg.Orchestrator.Router.CalibrationEnabled },
 			func(cfg *Config) bool { return cfg.Orchestrator.Router.CalibrationMaxExamples > 0 },
 			"orchestrator.router.calibration_max_examples must be greater than 0"),
+		// Server config validation (conditional — only when server section is configured)
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Server.isConfigured() },
+			func(cfg *Config) bool { return cfg.Server.Host != "" },
+			"server.host must not be empty"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Server.isConfigured() },
+			func(cfg *Config) bool { return cfg.Server.Port > 0 && cfg.Server.Port <= 65535 },
+			"server.port must be between 1 and 65535"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Server.isConfigured() },
+			func(cfg *Config) bool { return cfg.Server.ReadTimeoutSeconds > 0 },
+			"server.read_timeout_seconds must be greater than 0"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Server.isConfigured() },
+			func(cfg *Config) bool { return cfg.Server.WriteTimeoutSeconds > 0 },
+			"server.write_timeout_seconds must be greater than 0"),
 	}
 
 	for _, rule := range rules {

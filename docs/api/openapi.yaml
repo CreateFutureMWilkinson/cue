@@ -1,0 +1,100 @@
+components: {}
+externalDocs:
+  description: WebSocket event channel reference
+  url: https://git.hrafn.xyz/aether/cue/src/branch/main/docs/api/websocket.md
+info:
+  description: |-
+    Cue is a local-first, privacy-centric productivity assistant.
+    This REST API exposes messages, notifications, feedback buffer,
+    tasks, day planner, routing rules, service configuration, timer,
+    auth/pairing, and event replay. The WebSocket event channel at
+    /api/v1/websocket/events is documented separately in
+    docs/api/websocket.md.
+  title: Cue API
+  version: "1.0"
+openapi: 3.1.0
+paths:
+  /api/v1/health:
+    get:
+      description: |-
+        Returns 200 {"status":"ok"} whenever the HTTP server is running.
+        Does not inspect any subsystem; use /health/ready for readiness.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: OK
+      summary: Liveness check
+      tags:
+      - health
+  /api/v1/health/ready:
+    get:
+      description: |-
+        Runs every registered subsystem check and returns 200 only if
+        all report healthy. Returns 503 with per-subsystem error detail
+        when any check fails. The response body always includes a
+        "subsystems" object keyed by subsystem name.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: {}
+                type: object
+          description: OK
+        "503":
+          content:
+            application/json:
+              schema:
+                additionalProperties: {}
+                type: object
+          description: Service Unavailable
+      summary: Readiness check
+      tags:
+      - health
+  /health:
+    get:
+      description: |-
+        Returns 200 {"status":"ok"} whenever the HTTP server is running.
+        Does not inspect any subsystem; use /health/ready for readiness.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: OK
+      summary: Liveness check
+      tags:
+      - health
+  /health/ready:
+    get:
+      description: |-
+        Runs every registered subsystem check and returns 200 only if
+        all report healthy. Returns 503 with per-subsystem error detail
+        when any check fails. The response body always includes a
+        "subsystems" object keyed by subsystem name.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: {}
+                type: object
+          description: OK
+        "503":
+          content:
+            application/json:
+              schema:
+                additionalProperties: {}
+                type: object
+          description: Service Unavailable
+      summary: Readiness check
+      tags:
+      - health

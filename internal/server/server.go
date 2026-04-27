@@ -71,6 +71,17 @@ type Server struct {
 	listener net.Listener
 }
 
+// @title           Cue API
+// @version         1.0
+// @description     Cue is a local-first, privacy-centric productivity assistant.
+// @description     This REST API exposes messages, notifications, feedback buffer,
+// @description     tasks, day planner, routing rules, service configuration, timer,
+// @description     auth/pairing, and event replay. The WebSocket event channel at
+// @description     /api/v1/websocket/events is documented separately in
+// @description     docs/api/websocket.md.
+// @externalDocs.description  WebSocket event channel reference
+// @externalDocs.url          https://github.com/CreateFutureMWilkinson/cue/src/branch/main/docs/api/websocket.md
+//
 // New creates a Server from the given config and optional dependencies.
 // It does not start listening.
 func New(cfg config.ServerConfig, deps ...Deps) (*Server, error) {

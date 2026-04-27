@@ -14,40 +14,40 @@ import (
 	sqlite "github.com/CreateFutureMWilkinson/cue/internal/repository/implementation/sqlite"
 )
 
-// TodoRepositorySuite tests the SQLite implementation of TodoRepository.
-type TodoRepositorySuite struct {
+// TaskRepositorySuite tests the SQLite implementation of TaskRepository.
+type TaskRepositorySuite struct {
 	suite.Suite
 }
 
-func TestTodo(t *testing.T) {
-	suite.Run(t, new(TodoRepositorySuite))
+func TestTask(t *testing.T) {
+	suite.Run(t, new(TaskRepositorySuite))
 }
 
-// makeTodoRepo creates a category repo and a todo repo sharing the same DB file.
+// makeTaskRepo creates a category repo and a task repo sharing the same DB file.
 // The category repo is created first so the categories table exists for foreign keys.
-func (s *TodoRepositorySuite) makeTodoRepo(dbPath string) (*sqlite.SQLiteTodoRepository, *sqlite.SQLiteCategoryRepository) {
+func (s *TaskRepositorySuite) makeTaskRepo(dbPath string) (*sqlite.SQLiteTaskRepository, *sqlite.SQLiteCategoryRepository) {
 	catRepo, err := sqlite.NewSQLiteCategoryRepository(dbPath)
 	s.Require().NoError(err)
 	s.Require().NotNil(catRepo)
 
-	todoRepo, err := sqlite.NewSQLiteTodoRepository(dbPath)
+	taskRepo, err := sqlite.NewSQLiteTaskRepository(dbPath)
 	s.Require().NoError(err)
-	s.Require().NotNil(todoRepo)
+	s.Require().NotNil(taskRepo)
 
-	return todoRepo, catRepo
+	return taskRepo, catRepo
 }
 
-func (s *TodoRepositorySuite) TestInsert() {
+func (s *TaskRepositorySuite) TestInsert() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	todoRepo, _ := s.makeTodoRepo(dbPath)
+	taskRepo, _ := s.makeTaskRepo(dbPath)
 
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
 	dueDate := now.Add(24 * time.Hour)
 
-	todo := &repository.Todo{
+	task := &repository.Task{
 		ID:          uuid.New(),
 		Title:       "Fix the server",
 		Description: "The production server needs attention",
@@ -56,33 +56,33 @@ func (s *TodoRepositorySuite) TestInsert() {
 		CreatedAt:   now,
 	}
 
-	err := todoRepo.Insert(ctx, todo)
+	err := taskRepo.Insert(ctx, task)
 	s.Require().NoError(err)
 
-	got, err := todoRepo.QueryByID(ctx, todo.ID)
+	got, err := taskRepo.QueryByID(ctx, task.ID)
 	s.Require().NoError(err)
 	s.Require().NotNil(got)
 
-	s.Equal(todo.ID, got.ID)
-	s.Equal(todo.Title, got.Title)
-	s.Equal(todo.Description, got.Description)
-	s.Equal(todo.Priority, got.Priority)
+	s.Equal(task.ID, got.ID)
+	s.Equal(task.Title, got.Title)
+	s.Equal(task.Description, got.Description)
+	s.Equal(task.Priority, got.Priority)
 	s.Require().NotNil(got.DueDate)
-	s.WithinDuration(*todo.DueDate, *got.DueDate, time.Second)
-	s.WithinDuration(todo.CreatedAt, got.CreatedAt, time.Second)
-	s.Nil(got.CompletedAt, "new todo should not be completed")
+	s.WithinDuration(*task.DueDate, *got.DueDate, time.Second)
+	s.WithinDuration(task.CreatedAt, got.CreatedAt, time.Second)
+	s.Nil(got.CompletedAt, "new task should not be completed")
 }
 
-func (s *TodoRepositorySuite) TestUpdate() {
+func (s *TaskRepositorySuite) TestUpdate() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	todoRepo, _ := s.makeTodoRepo(dbPath)
+	taskRepo, _ := s.makeTaskRepo(dbPath)
 
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
 
-	todo := &repository.Todo{
+	task := &repository.Task{
 		ID:          uuid.New(),
 		Title:       "Original title",
 		Description: "Original description",
@@ -90,20 +90,20 @@ func (s *TodoRepositorySuite) TestUpdate() {
 		CreatedAt:   now,
 	}
 
-	err := todoRepo.Insert(ctx, todo)
+	err := taskRepo.Insert(ctx, task)
 	s.Require().NoError(err)
 
 	// Update fields.
 	newDueDate := now.Add(48 * time.Hour)
-	todo.Title = "Updated title"
-	todo.Description = "Updated description"
-	todo.Priority = 1
-	todo.DueDate = &newDueDate
+	task.Title = "Updated title"
+	task.Description = "Updated description"
+	task.Priority = 1
+	task.DueDate = &newDueDate
 
-	err = todoRepo.Update(ctx, todo)
+	err = taskRepo.Update(ctx, task)
 	s.Require().NoError(err)
 
-	got, err := todoRepo.QueryByID(ctx, todo.ID)
+	got, err := taskRepo.QueryByID(ctx, task.ID)
 	s.Require().NoError(err)
 	s.Require().NotNil(got)
 
@@ -114,16 +114,16 @@ func (s *TodoRepositorySuite) TestUpdate() {
 	s.WithinDuration(newDueDate, *got.DueDate, time.Second)
 }
 
-func (s *TodoRepositorySuite) TestDelete() {
+func (s *TaskRepositorySuite) TestDelete() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	todoRepo, _ := s.makeTodoRepo(dbPath)
+	taskRepo, _ := s.makeTaskRepo(dbPath)
 
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
 
-	todo := &repository.Todo{
+	task := &repository.Task{
 		ID:          uuid.New(),
 		Title:       "To be deleted",
 		Description: "This will be removed",
@@ -131,113 +131,113 @@ func (s *TodoRepositorySuite) TestDelete() {
 		CreatedAt:   now,
 	}
 
-	err := todoRepo.Insert(ctx, todo)
+	err := taskRepo.Insert(ctx, task)
 	s.Require().NoError(err)
 
-	err = todoRepo.Delete(ctx, todo.ID)
+	err = taskRepo.Delete(ctx, task.ID)
 	s.Require().NoError(err)
 
-	_, err = todoRepo.QueryByID(ctx, todo.ID)
+	_, err = taskRepo.QueryByID(ctx, task.ID)
 	s.Require().Error(err)
 	s.True(errors.Is(err, repository.ErrNotFound),
 		"expected error wrapping repository.ErrNotFound, got: %v", err)
 }
 
-func (s *TodoRepositorySuite) TestQueryByID() {
+func (s *TaskRepositorySuite) TestQueryByID() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	todoRepo, _ := s.makeTodoRepo(dbPath)
+	taskRepo, _ := s.makeTaskRepo(dbPath)
 
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
 
-	todo := &repository.Todo{
+	task := &repository.Task{
 		ID:          uuid.New(),
 		Title:       "Query me",
-		Description: "Find this todo by ID",
+		Description: "Find this task by ID",
 		Priority:    4,
 		CreatedAt:   now,
 	}
 
-	err := todoRepo.Insert(ctx, todo)
+	err := taskRepo.Insert(ctx, task)
 	s.Require().NoError(err)
 
-	got, err := todoRepo.QueryByID(ctx, todo.ID)
+	got, err := taskRepo.QueryByID(ctx, task.ID)
 	s.Require().NoError(err)
 	s.Require().NotNil(got)
 
-	s.Equal(todo.ID, got.ID)
-	s.Equal(todo.Title, got.Title)
-	s.Equal(todo.Description, got.Description)
-	s.Equal(todo.Priority, got.Priority)
+	s.Equal(task.ID, got.ID)
+	s.Equal(task.Title, got.Title)
+	s.Equal(task.Description, got.Description)
+	s.Equal(task.Priority, got.Priority)
 }
 
-func (s *TodoRepositorySuite) TestQueryByIDNotFound() {
+func (s *TaskRepositorySuite) TestQueryByIDNotFound() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	todoRepo, _ := s.makeTodoRepo(dbPath)
+	taskRepo, _ := s.makeTaskRepo(dbPath)
 
 	ctx := context.Background()
 
 	randomID := uuid.New()
-	got, err := todoRepo.QueryByID(ctx, randomID)
-	s.Nil(got, "result should be nil when todo not found")
+	got, err := taskRepo.QueryByID(ctx, randomID)
+	s.Nil(got, "result should be nil when task not found")
 	s.Require().Error(err)
 	s.True(errors.Is(err, repository.ErrNotFound),
 		"error should wrap repository.ErrNotFound, got: %v", err)
 }
 
-func (s *TodoRepositorySuite) TestQueryFilteredDefaultReturnsIncompleteByPriorityDesc() {
+func (s *TaskRepositorySuite) TestQueryFilteredDefaultReturnsIncompleteByPriorityDesc() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	todoRepo, _ := s.makeTodoRepo(dbPath)
+	taskRepo, _ := s.makeTaskRepo(dbPath)
 
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
 
-	// Insert 2 incomplete todos with different priorities and created_at for secondary sort.
-	lowPri := &repository.Todo{
+	// Insert 2 incomplete tasks with different priorities and created_at for secondary sort.
+	lowPri := &repository.Task{
 		ID:        uuid.New(),
 		Title:     "Low priority",
 		Priority:  1,
 		CreatedAt: now,
 	}
-	highPri := &repository.Todo{
+	highPri := &repository.Task{
 		ID:        uuid.New(),
 		Title:     "High priority",
 		Priority:  5,
 		CreatedAt: now.Add(time.Second),
 	}
 	// Same priority as highPri but created earlier — should appear first among ties.
-	highPriEarlier := &repository.Todo{
+	highPriEarlier := &repository.Task{
 		ID:        uuid.New(),
 		Title:     "High priority earlier",
 		Priority:  5,
 		CreatedAt: now.Add(-time.Second),
 	}
 
-	// Insert 1 completed todo — should NOT appear in default (incomplete) filter.
+	// Insert 1 completed task — should NOT appear in default (incomplete) filter.
 	completedAt := now.Add(time.Hour)
-	completed := &repository.Todo{
+	completed := &repository.Task{
 		ID:          uuid.New(),
-		Title:       "Completed todo",
+		Title:       "Completed task",
 		Priority:    10,
 		CreatedAt:   now,
 		CompletedAt: &completedAt,
 	}
 
-	s.Require().NoError(todoRepo.Insert(ctx, lowPri))
-	s.Require().NoError(todoRepo.Insert(ctx, highPri))
-	s.Require().NoError(todoRepo.Insert(ctx, highPriEarlier))
-	s.Require().NoError(todoRepo.Insert(ctx, completed))
+	s.Require().NoError(taskRepo.Insert(ctx, lowPri))
+	s.Require().NoError(taskRepo.Insert(ctx, highPri))
+	s.Require().NoError(taskRepo.Insert(ctx, highPriEarlier))
+	s.Require().NoError(taskRepo.Insert(ctx, completed))
 
 	// Default filter: status="" defaults to "incomplete".
-	results, total, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{})
+	results, total, err := taskRepo.QueryFiltered(ctx, repository.TaskFilter{})
 	s.Require().NoError(err)
-	s.Equal(3, total, "total should count all matching (incomplete) todos")
+	s.Equal(3, total, "total should count all matching (incomplete) tasks")
 	s.Require().Len(results, 3)
 
 	// Priority DESC: 5, 5, 1. Among priority=5, created_at ASC: earlier first.
@@ -246,16 +246,16 @@ func (s *TodoRepositorySuite) TestQueryFilteredDefaultReturnsIncompleteByPriorit
 	s.Equal(lowPri.ID, results[2].ID, "lowest priority should be last")
 }
 
-func (s *TodoRepositorySuite) TestQueryFilteredStatusComplete() {
+func (s *TaskRepositorySuite) TestQueryFilteredStatusComplete() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	todoRepo, _ := s.makeTodoRepo(dbPath)
+	taskRepo, _ := s.makeTaskRepo(dbPath)
 
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
 
-	incomplete := &repository.Todo{
+	incomplete := &repository.Task{
 		ID:        uuid.New(),
 		Title:     "Incomplete task",
 		Priority:  3,
@@ -263,7 +263,7 @@ func (s *TodoRepositorySuite) TestQueryFilteredStatusComplete() {
 	}
 
 	completedAt := now.Add(time.Hour)
-	completed := &repository.Todo{
+	completed := &repository.Task{
 		ID:          uuid.New(),
 		Title:       "Completed task",
 		Priority:    2,
@@ -271,26 +271,26 @@ func (s *TodoRepositorySuite) TestQueryFilteredStatusComplete() {
 		CompletedAt: &completedAt,
 	}
 
-	s.Require().NoError(todoRepo.Insert(ctx, incomplete))
-	s.Require().NoError(todoRepo.Insert(ctx, completed))
+	s.Require().NoError(taskRepo.Insert(ctx, incomplete))
+	s.Require().NoError(taskRepo.Insert(ctx, completed))
 
-	results, total, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Status: "complete"})
+	results, total, err := taskRepo.QueryFiltered(ctx, repository.TaskFilter{Status: "complete"})
 	s.Require().NoError(err)
 	s.Equal(1, total)
 	s.Require().Len(results, 1)
-	s.Equal(completed.ID, results[0].ID, "should only return completed todos")
+	s.Equal(completed.ID, results[0].ID, "should only return completed tasks")
 }
 
-func (s *TodoRepositorySuite) TestQueryFilteredStatusAll() {
+func (s *TaskRepositorySuite) TestQueryFilteredStatusAll() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	todoRepo, _ := s.makeTodoRepo(dbPath)
+	taskRepo, _ := s.makeTaskRepo(dbPath)
 
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
 
-	incomplete := &repository.Todo{
+	incomplete := &repository.Task{
 		ID:        uuid.New(),
 		Title:     "Incomplete",
 		Priority:  1,
@@ -298,7 +298,7 @@ func (s *TodoRepositorySuite) TestQueryFilteredStatusAll() {
 	}
 
 	completedAt := now.Add(time.Hour)
-	completed := &repository.Todo{
+	completed := &repository.Task{
 		ID:          uuid.New(),
 		Title:       "Completed",
 		Priority:    5,
@@ -306,10 +306,10 @@ func (s *TodoRepositorySuite) TestQueryFilteredStatusAll() {
 		CompletedAt: &completedAt,
 	}
 
-	s.Require().NoError(todoRepo.Insert(ctx, incomplete))
-	s.Require().NoError(todoRepo.Insert(ctx, completed))
+	s.Require().NoError(taskRepo.Insert(ctx, incomplete))
+	s.Require().NoError(taskRepo.Insert(ctx, completed))
 
-	results, total, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Status: "all"})
+	results, total, err := taskRepo.QueryFiltered(ctx, repository.TaskFilter{Status: "all"})
 	s.Require().NoError(err)
 	s.Equal(2, total, "total should include both incomplete and completed")
 	s.Require().Len(results, 2)
@@ -319,21 +319,21 @@ func (s *TodoRepositorySuite) TestQueryFilteredStatusAll() {
 	s.Equal(incomplete.ID, results[1].ID, "lower priority should be second")
 }
 
-func (s *TodoRepositorySuite) TestQueryFilteredCategoryFilter() {
+func (s *TaskRepositorySuite) TestQueryFilteredCategoryFilter() {
 	s.T().Skip("rewritten in Feature 109 Loop 4 against the new category_key FK")
 }
 
-func (s *TodoRepositorySuite) TestQueryFilteredSearchMatchesTitleOrDescription() {
+func (s *TaskRepositorySuite) TestQueryFilteredSearchMatchesTitleOrDescription() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	todoRepo, _ := s.makeTodoRepo(dbPath)
+	taskRepo, _ := s.makeTaskRepo(dbPath)
 
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
 
 	// Title matches search term.
-	titleMatch := &repository.Todo{
+	titleMatch := &repository.Task{
 		ID:          uuid.New(),
 		Title:       "Fix the deployment pipeline",
 		Description: "No relevant info here",
@@ -341,7 +341,7 @@ func (s *TodoRepositorySuite) TestQueryFilteredSearchMatchesTitleOrDescription()
 		CreatedAt:   now,
 	}
 	// Description matches search term.
-	descMatch := &repository.Todo{
+	descMatch := &repository.Task{
 		ID:          uuid.New(),
 		Title:       "Server maintenance",
 		Description: "Update the deployment scripts",
@@ -349,7 +349,7 @@ func (s *TodoRepositorySuite) TestQueryFilteredSearchMatchesTitleOrDescription()
 		CreatedAt:   now.Add(time.Second),
 	}
 	// Neither matches.
-	noMatch := &repository.Todo{
+	noMatch := &repository.Task{
 		ID:          uuid.New(),
 		Title:       "Buy groceries",
 		Description: "Milk, eggs, bread",
@@ -357,12 +357,12 @@ func (s *TodoRepositorySuite) TestQueryFilteredSearchMatchesTitleOrDescription()
 		CreatedAt:   now.Add(2 * time.Second),
 	}
 
-	s.Require().NoError(todoRepo.Insert(ctx, titleMatch))
-	s.Require().NoError(todoRepo.Insert(ctx, descMatch))
-	s.Require().NoError(todoRepo.Insert(ctx, noMatch))
+	s.Require().NoError(taskRepo.Insert(ctx, titleMatch))
+	s.Require().NoError(taskRepo.Insert(ctx, descMatch))
+	s.Require().NoError(taskRepo.Insert(ctx, noMatch))
 
 	// Case-insensitive search for "DEPLOYMENT".
-	results, total, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Search: "DEPLOYMENT"})
+	results, total, err := taskRepo.QueryFiltered(ctx, repository.TaskFilter{Search: "DEPLOYMENT"})
 	s.Require().NoError(err)
 	s.Equal(2, total, "should match title and description case-insensitively")
 	s.Require().Len(results, 2)
@@ -372,39 +372,39 @@ func (s *TodoRepositorySuite) TestQueryFilteredSearchMatchesTitleOrDescription()
 	s.Equal(descMatch.ID, results[1].ID)
 }
 
-func (s *TodoRepositorySuite) TestQueryFilteredPagination() {
+func (s *TaskRepositorySuite) TestQueryFilteredPagination() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	todoRepo, _ := s.makeTodoRepo(dbPath)
+	taskRepo, _ := s.makeTaskRepo(dbPath)
 
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
 
-	// Insert 5 todos with distinct priorities for deterministic ordering.
+	// Insert 5 tasks with distinct priorities for deterministic ordering.
 	ids := make([]uuid.UUID, 5)
 	for i := 0; i < 5; i++ {
 		ids[i] = uuid.New()
-		todo := &repository.Todo{
+		task := &repository.Task{
 			ID:        ids[i],
 			Title:     "Task",
 			Priority:  5 - i, // priorities: 5, 4, 3, 2, 1
 			CreatedAt: now.Add(time.Duration(i) * time.Second),
 		}
-		s.Require().NoError(todoRepo.Insert(ctx, todo))
+		s.Require().NoError(taskRepo.Insert(ctx, task))
 	}
 
 	// Page 1: limit=2, offset=0.
-	results, total, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Limit: 2, Offset: 0})
+	results, total, err := taskRepo.QueryFiltered(ctx, repository.TaskFilter{Limit: 2, Offset: 0})
 	s.Require().NoError(err)
-	s.Equal(5, total, "total count should reflect all matching todos, not page size")
+	s.Equal(5, total, "total count should reflect all matching tasks, not page size")
 	s.Require().Len(results, 2, "should return exactly limit items")
 	// Priority DESC: 5, 4.
 	s.Equal(ids[0], results[0].ID, "first page first item should be priority 5")
 	s.Equal(ids[1], results[1].ID, "first page second item should be priority 4")
 
 	// Page 2: limit=2, offset=2.
-	results2, total2, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Limit: 2, Offset: 2})
+	results2, total2, err := taskRepo.QueryFiltered(ctx, repository.TaskFilter{Limit: 2, Offset: 2})
 	s.Require().NoError(err)
 	s.Equal(5, total2, "total count should be same regardless of offset")
 	s.Require().Len(results2, 2)
@@ -413,76 +413,76 @@ func (s *TodoRepositorySuite) TestQueryFilteredPagination() {
 	s.Equal(ids[3], results2[1].ID)
 
 	// Page 3: limit=2, offset=4 — only 1 remaining.
-	results3, total3, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Limit: 2, Offset: 4})
+	results3, total3, err := taskRepo.QueryFiltered(ctx, repository.TaskFilter{Limit: 2, Offset: 4})
 	s.Require().NoError(err)
 	s.Equal(5, total3)
 	s.Require().Len(results3, 1, "last page should have remaining items only")
 	s.Equal(ids[4], results3[0].ID)
 }
 
-func (s *TodoRepositorySuite) TestQueryFilteredTotalCountUnaffectedByLimitOffset() {
+func (s *TaskRepositorySuite) TestQueryFilteredTotalCountUnaffectedByLimitOffset() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	todoRepo, _ := s.makeTodoRepo(dbPath)
+	taskRepo, _ := s.makeTaskRepo(dbPath)
 
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
 
 	for i := 0; i < 10; i++ {
-		todo := &repository.Todo{
+		task := &repository.Task{
 			ID:        uuid.New(),
 			Title:     "Task",
 			Priority:  i,
 			CreatedAt: now.Add(time.Duration(i) * time.Second),
 		}
-		s.Require().NoError(todoRepo.Insert(ctx, todo))
+		s.Require().NoError(taskRepo.Insert(ctx, task))
 	}
 
 	// Request with small limit and large offset.
-	_, total, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Limit: 3, Offset: 0})
+	_, total, err := taskRepo.QueryFiltered(ctx, repository.TaskFilter{Limit: 3, Offset: 0})
 	s.Require().NoError(err)
 	s.Equal(10, total, "total should be 10 regardless of limit")
 
-	_, total2, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{Limit: 3, Offset: 6})
+	_, total2, err := taskRepo.QueryFiltered(ctx, repository.TaskFilter{Limit: 3, Offset: 6})
 	s.Require().NoError(err)
 	s.Equal(10, total2, "total should be 10 regardless of offset")
 }
 
-func (s *TodoRepositorySuite) TestQueryFilteredPrioritySortHigherFirst() {
+func (s *TaskRepositorySuite) TestQueryFilteredPrioritySortHigherFirst() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	todoRepo, _ := s.makeTodoRepo(dbPath)
+	taskRepo, _ := s.makeTaskRepo(dbPath)
 
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
 
-	// Create todos with priorities 1, 5, 3 — should sort as 5, 3, 1.
-	pri1 := &repository.Todo{
+	// Create tasks with priorities 1, 5, 3 — should sort as 5, 3, 1.
+	pri1 := &repository.Task{
 		ID:        uuid.New(),
 		Title:     "Priority 1",
 		Priority:  1,
 		CreatedAt: now,
 	}
-	pri5 := &repository.Todo{
+	pri5 := &repository.Task{
 		ID:        uuid.New(),
 		Title:     "Priority 5",
 		Priority:  5,
 		CreatedAt: now.Add(time.Second),
 	}
-	pri3 := &repository.Todo{
+	pri3 := &repository.Task{
 		ID:        uuid.New(),
 		Title:     "Priority 3",
 		Priority:  3,
 		CreatedAt: now.Add(2 * time.Second),
 	}
 
-	s.Require().NoError(todoRepo.Insert(ctx, pri1))
-	s.Require().NoError(todoRepo.Insert(ctx, pri5))
-	s.Require().NoError(todoRepo.Insert(ctx, pri3))
+	s.Require().NoError(taskRepo.Insert(ctx, pri1))
+	s.Require().NoError(taskRepo.Insert(ctx, pri5))
+	s.Require().NoError(taskRepo.Insert(ctx, pri3))
 
-	results, _, err := todoRepo.QueryFiltered(ctx, repository.TodoFilter{})
+	results, _, err := taskRepo.QueryFiltered(ctx, repository.TaskFilter{})
 	s.Require().NoError(err)
 	s.Require().Len(results, 3)
 
@@ -492,16 +492,16 @@ func (s *TodoRepositorySuite) TestQueryFilteredPrioritySortHigherFirst() {
 	s.Equal(pri1.ID, results[2].ID, "priority 1 should be last (lowest)")
 }
 
-func (s *TodoRepositorySuite) TestComplete() {
+func (s *TaskRepositorySuite) TestComplete() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	todoRepo, _ := s.makeTodoRepo(dbPath)
+	taskRepo, _ := s.makeTaskRepo(dbPath)
 
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
 
-	todo := &repository.Todo{
+	task := &repository.Task{
 		ID:          uuid.New(),
 		Title:       "Complete me",
 		Description: "Should be marked done",
@@ -509,31 +509,31 @@ func (s *TodoRepositorySuite) TestComplete() {
 		CreatedAt:   now,
 	}
 
-	err := todoRepo.Insert(ctx, todo)
+	err := taskRepo.Insert(ctx, task)
 	s.Require().NoError(err)
 
 	// Verify not completed initially.
-	got, err := todoRepo.QueryByID(ctx, todo.ID)
+	got, err := taskRepo.QueryByID(ctx, task.ID)
 	s.Require().NoError(err)
 	s.Nil(got.CompletedAt, "should not be completed initially")
 
-	// Complete the todo.
+	// Complete the task.
 	completedAt := now.Add(2 * time.Hour)
-	err = todoRepo.Complete(ctx, todo.ID, completedAt)
+	err = taskRepo.Complete(ctx, task.ID, completedAt)
 	s.Require().NoError(err)
 
 	// Verify completed.
-	got, err = todoRepo.QueryByID(ctx, todo.ID)
+	got, err = taskRepo.QueryByID(ctx, task.ID)
 	s.Require().NoError(err)
 	s.Require().NotNil(got.CompletedAt, "should be completed after calling Complete")
 	s.WithinDuration(completedAt, *got.CompletedAt, time.Second)
 }
 
-func (s *TodoRepositorySuite) TestEstimateFieldsRoundTrip() {
+func (s *TaskRepositorySuite) TestEstimateFieldsRoundTrip() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	todoRepo, _ := s.makeTodoRepo(dbPath)
+	taskRepo, _ := s.makeTaskRepo(dbPath)
 
 	ctx := context.Background()
 	now := time.Now().Truncate(time.Second)
@@ -541,8 +541,8 @@ func (s *TodoRepositorySuite) TestEstimateFieldsRoundTrip() {
 	userEstimate := 30
 	llmEstimate := 45
 
-	// Insert a todo with both estimate fields set.
-	todoWithEstimates := &repository.Todo{
+	// Insert a task with both estimate fields set.
+	taskWithEstimates := &repository.Task{
 		ID:                 uuid.New(),
 		Title:              "Task with estimates",
 		Description:        "Has both user and LLM estimates",
@@ -552,10 +552,10 @@ func (s *TodoRepositorySuite) TestEstimateFieldsRoundTrip() {
 		CreatedAt:          now,
 	}
 
-	err := todoRepo.Insert(ctx, todoWithEstimates)
+	err := taskRepo.Insert(ctx, taskWithEstimates)
 	s.Require().NoError(err)
 
-	got, err := todoRepo.QueryByID(ctx, todoWithEstimates.ID)
+	got, err := taskRepo.QueryByID(ctx, taskWithEstimates.ID)
 	s.Require().NoError(err)
 	s.Require().NotNil(got)
 
@@ -564,8 +564,8 @@ func (s *TodoRepositorySuite) TestEstimateFieldsRoundTrip() {
 	s.Require().NotNil(got.LLMEstimateMinutes, "LLMEstimateMinutes should round-trip as non-nil")
 	s.Equal(45, *got.LLMEstimateMinutes)
 
-	// Insert a todo with nil estimate fields.
-	todoNilEstimates := &repository.Todo{
+	// Insert a task with nil estimate fields.
+	taskNilEstimates := &repository.Task{
 		ID:          uuid.New(),
 		Title:       "Task without estimates",
 		Description: "Estimates are nil",
@@ -573,10 +573,10 @@ func (s *TodoRepositorySuite) TestEstimateFieldsRoundTrip() {
 		CreatedAt:   now,
 	}
 
-	err = todoRepo.Insert(ctx, todoNilEstimates)
+	err = taskRepo.Insert(ctx, taskNilEstimates)
 	s.Require().NoError(err)
 
-	got2, err := todoRepo.QueryByID(ctx, todoNilEstimates.ID)
+	got2, err := taskRepo.QueryByID(ctx, taskNilEstimates.ID)
 	s.Require().NoError(err)
 	s.Require().NotNil(got2)
 
@@ -584,6 +584,6 @@ func (s *TodoRepositorySuite) TestEstimateFieldsRoundTrip() {
 	s.Nil(got2.LLMEstimateMinutes, "LLMEstimateMinutes should round-trip as nil")
 }
 
-func (s *TodoRepositorySuite) TestCategoriesAssociation() {
+func (s *TaskRepositorySuite) TestCategoriesAssociation() {
 	s.T().Skip("rewritten in Feature 109 Loop 4 against the new category_key FK")
 }

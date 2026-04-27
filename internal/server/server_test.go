@@ -257,22 +257,22 @@ func (s *ServerSuite) TestEventsRouteMounted() {
 }
 
 // ---------------------------------------------------------------------------
-// Mock TodoServicer for route registration tests
+// Mock TaskServicer for route registration tests
 // ---------------------------------------------------------------------------
 
-// serverMockTodoServicer implements handler.TodoServicer with minimal stubs.
-type serverMockTodoServicer struct{}
+// serverMockTaskServicer implements handler.TaskServicer with minimal stubs.
+type serverMockTaskServicer struct{}
 
-func (m *serverMockTodoServicer) Create(_ context.Context, todo *repository.Todo) (*repository.Todo, error) {
+func (m *serverMockTaskServicer) Create(_ context.Context, task *repository.Task) (*repository.Task, error) {
 	now := time.Now()
-	todo.ID = uuid.New()
-	todo.CreatedAt = now
-	return todo, nil
+	task.ID = uuid.New()
+	task.CreatedAt = now
+	return task, nil
 }
 
-func (m *serverMockTodoServicer) Get(_ context.Context, _ uuid.UUID) (*repository.Todo, error) {
+func (m *serverMockTaskServicer) Get(_ context.Context, _ uuid.UUID) (*repository.Task, error) {
 	now := time.Now()
-	return &repository.Todo{
+	return &repository.Task{
 		ID:        uuid.New(),
 		Title:     "test task",
 		Priority:  3,
@@ -280,19 +280,19 @@ func (m *serverMockTodoServicer) Get(_ context.Context, _ uuid.UUID) (*repositor
 	}, nil
 }
 
-func (m *serverMockTodoServicer) List(_ context.Context, _ repository.TodoFilter) ([]*repository.Todo, int, error) {
-	return []*repository.Todo{}, 0, nil
+func (m *serverMockTaskServicer) List(_ context.Context, _ repository.TaskFilter) ([]*repository.Task, int, error) {
+	return []*repository.Task{}, 0, nil
 }
 
-func (m *serverMockTodoServicer) Update(_ context.Context, todo *repository.Todo) (*repository.Todo, error) {
-	return todo, nil
+func (m *serverMockTaskServicer) Update(_ context.Context, task *repository.Task) (*repository.Task, error) {
+	return task, nil
 }
 
-func (m *serverMockTodoServicer) Delete(_ context.Context, _ uuid.UUID) error {
+func (m *serverMockTaskServicer) Delete(_ context.Context, _ uuid.UUID) error {
 	return nil
 }
 
-func stubEffectiveEstimateServer(t *repository.Todo) *int {
+func stubEffectiveEstimateServer(t *repository.Task) *int {
 	return t.EstimateMinutes
 }
 
@@ -309,7 +309,7 @@ func (s *ServerSuite) TestTaskRoutesRegistered() {
 	}
 
 	srv, err := server.New(cfg, server.Deps{
-		Todos:             &serverMockTodoServicer{},
+		Todos:             &serverMockTaskServicer{},
 		EffectiveEstimate: handler.EffectiveEstimateFunc(stubEffectiveEstimateServer),
 	})
 	s.Require().NoError(err)

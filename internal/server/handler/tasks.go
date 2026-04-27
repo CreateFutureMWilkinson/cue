@@ -10,17 +10,17 @@ import (
 	"github.com/google/uuid"
 )
 
-// TodoServicer is the subset of todo.Service needed by todo handlers.
-type TodoServicer interface {
-	Create(ctx context.Context, todo *repository.Todo) (*repository.Todo, error)
-	Get(ctx context.Context, id uuid.UUID) (*repository.Todo, error)
-	List(ctx context.Context, filter repository.TodoFilter) ([]*repository.Todo, int, error)
-	Update(ctx context.Context, todo *repository.Todo) (*repository.Todo, error)
+// TaskServicer is the subset of todo.Service needed by task handlers.
+type TaskServicer interface {
+	Create(ctx context.Context, task *repository.Task) (*repository.Task, error)
+	Get(ctx context.Context, id uuid.UUID) (*repository.Task, error)
+	List(ctx context.Context, filter repository.TaskFilter) ([]*repository.Task, int, error)
+	Update(ctx context.Context, task *repository.Task) (*repository.Task, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-// EffectiveEstimateFunc computes the effective estimate for a todo.
-type EffectiveEstimateFunc func(t *repository.Todo) *int
+// EffectiveEstimateFunc computes the effective estimate for a task.
+type EffectiveEstimateFunc func(t *repository.Task) *int
 
 // taskItem is the JSON representation of a task in responses.
 type taskItem struct {
@@ -65,8 +65,8 @@ type updateTaskRequest struct {
 	CompletedAt     *string  `json:"completed_at"`
 }
 
-// todoToTaskItem converts a repository.Todo to a taskItem JSON struct.
-func todoToTaskItem(t *repository.Todo, effectiveFn EffectiveEstimateFunc) taskItem {
+// taskToItem converts a repository.Task to a taskItem JSON struct.
+func taskToItem(t *repository.Task, effectiveFn EffectiveEstimateFunc) taskItem {
 	item := taskItem{
 		ID:                       t.ID.String(),
 		Title:                    t.Title,
@@ -101,7 +101,7 @@ func todoToTaskItem(t *repository.Todo, effectiveFn EffectiveEstimateFunc) taskI
 // ListTasksHandler returns an http.HandlerFunc for GET /api/v1/tasks.
 //
 // @Summary      List tasks
-// @Description  Paginated list of todo items, filterable by status, category,
+// @Description  Paginated list of task items, filterable by status, category,
 // @Description  and free-text search across title/description.
 // @Tags         tasks
 // @Produce      json
@@ -113,11 +113,11 @@ func todoToTaskItem(t *repository.Todo, effectiveFn EffectiveEstimateFunc) taskI
 // @Success      200       {object}  handler.taskListResponse
 // @Failure      500       {object}  map[string]string
 // @Router       /api/v1/tasks [get]
-func ListTasksHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
+func ListTasksHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		limit, offset := parsePagination(r)
 
-		filter := repository.TodoFilter{
+		filter := repository.TaskFilter{
 			Status:   r.URL.Query().Get("status"),
 			Category: r.URL.Query().Get("category"),
 			Search:   r.URL.Query().Get("search"),
@@ -125,15 +125,15 @@ func ListTasksHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http.
 			Offset:   offset,
 		}
 
-		todos, total, err := svc.List(r.Context(), filter)
+		tasks, total, err := svc.List(r.Context(), filter)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, "failed to list tasks")
 			return
 		}
 
-		items := make([]taskItem, len(todos))
-		for i, t := range todos {
-			items[i] = todoToTaskItem(t, effectiveFn)
+		items := make([]taskItem, len(tasks))
+		for i, t := range tasks {
+			items[i] = taskToItem(t, effectiveFn)
 		}
 
 		writeJSON(w, http.StatusOK, taskListResponse{
@@ -157,7 +157,7 @@ func ListTasksHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http.
 // @Failure      400      {object}  map[string]string
 // @Failure      500      {object}  map[string]string
 // @Router       /api/v1/tasks [post]
-func CreateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
+func CreateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req createTaskRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -170,7 +170,7 @@ func CreateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http
 			return
 		}
 
-		todo := &repository.Todo{
+		task := &repository.Task{
 			Title:           req.Title,
 			Description:     req.Description,
 			Priority:        req.Priority,
@@ -184,7 +184,7 @@ func CreateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http
 				writeJSONError(w, http.StatusBadRequest, "invalid due_date format")
 				return
 			}
-			todo.DueDate = &t
+			task.DueDate = &t
 		}
 
 		// TODO(feat-109 Loop 7): replace with single-category FK wire format.
@@ -195,16 +195,16 @@ func CreateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http
 			for i, name := range req.Categories {
 				cats[i] = repository.Category{NameKey: name}
 			}
-			todo.Categories = cats
+			task.Categories = cats
 		}
 
-		created, err := svc.Create(r.Context(), todo)
+		created, err := svc.Create(r.Context(), task)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, "failed to create task")
 			return
 		}
 
-		writeJSON(w, http.StatusCreated, todoToTaskItem(created, effectiveFn))
+		writeJSON(w, http.StatusCreated, taskToItem(created, effectiveFn))
 	}
 }
 
@@ -218,7 +218,7 @@ func CreateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http
 // @Failure      404  {object}  map[string]string
 // @Failure      500  {object}  map[string]string
 // @Router       /api/v1/tasks/{id} [get]
-func GetTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
+func GetTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseTaskID(r)
 		if err != nil {
@@ -226,13 +226,13 @@ func GetTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http.Ha
 			return
 		}
 
-		todo, err := svc.Get(r.Context(), id)
+		task, err := svc.Get(r.Context(), id)
 		if err != nil {
 			writeNotFoundOrError(w, err)
 			return
 		}
 
-		writeJSON(w, http.StatusOK, todoToTaskItem(todo, effectiveFn))
+		writeJSON(w, http.StatusOK, taskToItem(task, effectiveFn))
 	}
 }
 
@@ -251,7 +251,7 @@ func GetTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http.Ha
 // @Failure      404      {object}  map[string]string
 // @Failure      500      {object}  map[string]string
 // @Router       /api/v1/tasks/{id} [put]
-func UpdateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
+func UpdateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseTaskID(r)
 		if err != nil {
@@ -259,7 +259,7 @@ func UpdateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http
 			return
 		}
 
-		// Fetch existing todo.
+		// Fetch existing task.
 		existing, err := svc.Get(r.Context(), id)
 		if err != nil {
 			writeNotFoundOrError(w, err)
@@ -321,7 +321,7 @@ func UpdateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http
 			return
 		}
 
-		writeJSON(w, http.StatusOK, todoToTaskItem(updated, effectiveFn))
+		writeJSON(w, http.StatusOK, taskToItem(updated, effectiveFn))
 	}
 }
 
@@ -334,7 +334,7 @@ func UpdateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http
 // @Failure      404  {object}  map[string]string
 // @Failure      500  {object}  map[string]string
 // @Router       /api/v1/tasks/{id} [delete]
-func DeleteTaskHandler(svc TodoServicer) http.HandlerFunc {
+func DeleteTaskHandler(svc TaskServicer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseTaskID(r)
 		if err != nil {

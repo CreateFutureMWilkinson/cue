@@ -14,9 +14,9 @@ import (
 
 // TodoQuerier abstracts todo query operations needed by the planner presenter.
 type TodoQuerier interface {
-	QueryFiltered(ctx context.Context, filter repository.TodoFilter) ([]*repository.Todo, int, error)
-	Insert(ctx context.Context, todo *repository.Todo) error
-	Update(ctx context.Context, todo *repository.Todo) error
+	QueryFiltered(ctx context.Context, filter repository.TaskFilter) ([]*repository.Task, int, error)
+	Insert(ctx context.Context, todo *repository.Task) error
+	Update(ctx context.Context, todo *repository.Task) error
 	Complete(ctx context.Context, id uuid.UUID, completedAt time.Time) error
 }
 
@@ -189,7 +189,7 @@ func (p *PlannerPresenter) CurrentStep() WizardStep {
 
 // StartPlanning loads incomplete todos and transitions to StepTaskSelect.
 func (p *PlannerPresenter) StartPlanning(ctx context.Context) error {
-	todos, _, err := p.todos.QueryFiltered(ctx, repository.TodoFilter{Status: "incomplete"})
+	todos, _, err := p.todos.QueryFiltered(ctx, repository.TaskFilter{Status: "incomplete"})
 	if err != nil {
 		return fmt.Errorf("loading incomplete todos: %w", err)
 	}
@@ -222,7 +222,7 @@ func (p *PlannerPresenter) SelectTask(id uuid.UUID, selected bool) {
 
 // AddTask creates a new todo via the repository and adds it to the available list.
 func (p *PlannerPresenter) AddTask(ctx context.Context, title string, priority int) error {
-	todo := &repository.Todo{
+	todo := &repository.Task{
 		ID:        uuid.New(),
 		Title:     title,
 		Priority:  priority,
@@ -585,7 +585,7 @@ func (p *PlannerPresenter) buildTaskEstimates() []planner.TaskEstimate {
 
 // Model conversion helpers
 
-func todoToRow(t *repository.Todo) TodoRow {
+func todoToRow(t *repository.Task) TodoRow {
 	return TodoRow{
 		ID:         t.ID,
 		Title:      t.Title,

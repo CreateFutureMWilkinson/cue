@@ -58,12 +58,12 @@ func (s *GosecComplianceSuite) findBareCloseCalls(filePath string) []int {
 	return bareLines
 }
 
-// TestTodoImplCloseHandled asserts that every db.Close() call in
-// todo_impl.go has its error return explicitly handled (assigned to _).
-func (s *GosecComplianceSuite) TestTodoImplCloseHandled() {
-	bareLines := s.findBareCloseCalls("todo_impl.go")
+// TestTaskImplCloseHandled asserts that every db.Close() call in
+// task_impl.go has its error return explicitly handled (assigned to _).
+func (s *GosecComplianceSuite) TestTaskImplCloseHandled() {
+	bareLines := s.findBareCloseCalls("task_impl.go")
 	s.Empty(bareLines,
-		"todo_impl.go has bare db.Close() calls (G104) on lines %v; "+
+		"task_impl.go has bare db.Close() calls (G104) on lines %v; "+
 			"use '_ = db.Close()' to explicitly discard the error", bareLines)
 }
 

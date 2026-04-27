@@ -15,61 +15,61 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// mockTodoServicer implements handler.TodoServicer for testing.
-type mockTodoServicer struct {
+// mockTaskServicer implements handler.TaskServicer for testing.
+type mockTaskServicer struct {
 	// List
-	listTodos []*repository.Todo
+	listTasks []*repository.Task
 	listTotal int
 	listErr   error
 
 	// Create
-	createResult *repository.Todo
+	createResult *repository.Task
 	createErr    error
-	createInput  *repository.Todo
+	createInput  *repository.Task
 
 	// Get
-	getResult *repository.Todo
+	getResult *repository.Task
 	getErr    error
 
 	// Update
-	updateResult *repository.Todo
+	updateResult *repository.Task
 	updateErr    error
-	updateInput  *repository.Todo
+	updateInput  *repository.Task
 
 	// Delete
 	deleteErr error
 	deleteID  uuid.UUID
 
 	// captured filter from List call
-	capturedFilter repository.TodoFilter
+	capturedFilter repository.TaskFilter
 }
 
-func (m *mockTodoServicer) Create(_ context.Context, todo *repository.Todo) (*repository.Todo, error) {
-	m.createInput = todo
+func (m *mockTaskServicer) Create(_ context.Context, task *repository.Task) (*repository.Task, error) {
+	m.createInput = task
 	return m.createResult, m.createErr
 }
 
-func (m *mockTodoServicer) Get(_ context.Context, _ uuid.UUID) (*repository.Todo, error) {
+func (m *mockTaskServicer) Get(_ context.Context, _ uuid.UUID) (*repository.Task, error) {
 	return m.getResult, m.getErr
 }
 
-func (m *mockTodoServicer) List(_ context.Context, filter repository.TodoFilter) ([]*repository.Todo, int, error) {
+func (m *mockTaskServicer) List(_ context.Context, filter repository.TaskFilter) ([]*repository.Task, int, error) {
 	m.capturedFilter = filter
-	return m.listTodos, m.listTotal, m.listErr
+	return m.listTasks, m.listTotal, m.listErr
 }
 
-func (m *mockTodoServicer) Update(_ context.Context, todo *repository.Todo) (*repository.Todo, error) {
-	m.updateInput = todo
+func (m *mockTaskServicer) Update(_ context.Context, task *repository.Task) (*repository.Task, error) {
+	m.updateInput = task
 	return m.updateResult, m.updateErr
 }
 
-func (m *mockTodoServicer) Delete(_ context.Context, id uuid.UUID) error {
+func (m *mockTaskServicer) Delete(_ context.Context, id uuid.UUID) error {
 	m.deleteID = id
 	return m.deleteErr
 }
 
 // stubEffectiveEstimate returns EstimateMinutes if set, else LLMEstimateMinutes.
-func stubEffectiveEstimate(t *repository.Todo) *int {
+func stubEffectiveEstimate(t *repository.Task) *int {
 	if t.EstimateMinutes != nil && *t.EstimateMinutes > 0 {
 		return t.EstimateMinutes
 	}
@@ -79,20 +79,20 @@ func stubEffectiveEstimate(t *repository.Todo) *int {
 	return nil
 }
 
-// TodoHandlerSuite tests the todo handler endpoints.
-type TodoHandlerSuite struct {
+// TaskHandlerSuite tests the task handler endpoints.
+type TaskHandlerSuite struct {
 	suite.Suite
 }
 
-func TestTodoHandler(t *testing.T) {
-	suite.Run(t, new(TodoHandlerSuite))
+func TestTaskHandler(t *testing.T) {
+	suite.Run(t, new(TaskHandlerSuite))
 }
 
-func (s *TodoHandlerSuite) TestListTasksHandler() {
+func (s *TaskHandlerSuite) TestListTasksHandler() {
 	now := time.Now().UTC().Truncate(time.Second)
 	llmEst := 30
 
-	todo1 := &repository.Todo{
+	task1 := &repository.Task{
 		ID:                 uuid.New(),
 		Title:              "Review PR #42",
 		Description:        "Check the new auth middleware",
@@ -102,8 +102,8 @@ func (s *TodoHandlerSuite) TestListTasksHandler() {
 		CreatedAt:          now.Add(-1 * time.Hour),
 	}
 
-	mock := &mockTodoServicer{
-		listTodos: []*repository.Todo{todo1},
+	mock := &mockTaskServicer{
+		listTasks: []*repository.Task{task1},
 		listTotal: 1,
 	}
 
@@ -132,7 +132,7 @@ func (s *TodoHandlerSuite) TestListTasksHandler() {
 
 	// Verify task shape.
 	task := tasks[0].(map[string]any)
-	s.Equal(todo1.ID.String(), task["id"])
+	s.Equal(task1.ID.String(), task["id"])
 	s.Equal("Review PR #42", task["title"])
 	s.Equal("Check the new auth middleware", task["description"])
 	s.Equal(float64(5), task["priority"])
@@ -145,9 +145,9 @@ func (s *TodoHandlerSuite) TestListTasksHandler() {
 	s.Nil(task["estimate_minutes"])
 }
 
-func (s *TodoHandlerSuite) TestListTasksHandlerEmpty() {
-	mock := &mockTodoServicer{
-		listTodos: []*repository.Todo{},
+func (s *TaskHandlerSuite) TestListTasksHandlerEmpty() {
+	mock := &mockTaskServicer{
+		listTasks: []*repository.Task{},
 		listTotal: 0,
 	}
 
@@ -170,12 +170,12 @@ func (s *TodoHandlerSuite) TestListTasksHandlerEmpty() {
 	s.Equal(float64(0), body["count"])
 }
 
-func (s *TodoHandlerSuite) TestCreateTaskHandler() {
+func (s *TaskHandlerSuite) TestCreateTaskHandler() {
 	now := time.Now().UTC().Truncate(time.Second)
 	createdID := uuid.New()
 	llmEst := 25
 
-	created := &repository.Todo{
+	created := &repository.Task{
 		ID:                 createdID,
 		Title:              "Write tests",
 		Description:        "Unit tests for auth",
@@ -184,7 +184,7 @@ func (s *TodoHandlerSuite) TestCreateTaskHandler() {
 		CreatedAt:          now,
 	}
 
-	mock := &mockTodoServicer{
+	mock := &mockTaskServicer{
 		createResult: created,
 	}
 
@@ -207,8 +207,8 @@ func (s *TodoHandlerSuite) TestCreateTaskHandler() {
 	s.Equal(float64(3), respBody["priority"])
 }
 
-func (s *TodoHandlerSuite) TestCreateTaskHandlerMissingTitle() {
-	mock := &mockTodoServicer{}
+func (s *TaskHandlerSuite) TestCreateTaskHandlerMissingTitle() {
+	mock := &mockTaskServicer{}
 
 	body := `{"description":"no title here","priority":1}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks", strings.NewReader(body))
@@ -220,12 +220,12 @@ func (s *TodoHandlerSuite) TestCreateTaskHandlerMissingTitle() {
 	s.Equal(http.StatusBadRequest, rec.Code, "expected 400 for missing title")
 }
 
-func (s *TodoHandlerSuite) TestGetTaskHandler() {
+func (s *TaskHandlerSuite) TestGetTaskHandler() {
 	now := time.Now().UTC().Truncate(time.Second)
 	taskID := uuid.New()
 	est := 45
 
-	todo := &repository.Todo{
+	task := &repository.Task{
 		ID:              taskID,
 		Title:           "Deploy v2",
 		Description:     "Production deployment",
@@ -234,8 +234,8 @@ func (s *TodoHandlerSuite) TestGetTaskHandler() {
 		CreatedAt:       now.Add(-2 * time.Hour),
 	}
 
-	mock := &mockTodoServicer{
-		getResult: todo,
+	mock := &mockTaskServicer{
+		getResult: task,
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks/"+taskID.String(), nil)
@@ -258,8 +258,8 @@ func (s *TodoHandlerSuite) TestGetTaskHandler() {
 	s.Equal(float64(45), respBody["effective_estimate_minutes"])
 }
 
-func (s *TodoHandlerSuite) TestGetTaskHandlerNotFound() {
-	mock := &mockTodoServicer{
+func (s *TaskHandlerSuite) TestGetTaskHandlerNotFound() {
+	mock := &mockTaskServicer{
 		getErr: repository.ErrNotFound,
 	}
 
@@ -273,12 +273,12 @@ func (s *TodoHandlerSuite) TestGetTaskHandlerNotFound() {
 	s.Equal(http.StatusNotFound, rec.Code, "expected 404 Not Found")
 }
 
-func (s *TodoHandlerSuite) TestUpdateTaskHandler() {
+func (s *TaskHandlerSuite) TestUpdateTaskHandler() {
 	now := time.Now().UTC().Truncate(time.Second)
 	taskID := uuid.New()
 	newEst := 60
 
-	updated := &repository.Todo{
+	updated := &repository.Task{
 		ID:              taskID,
 		Title:           "Updated title",
 		Description:     "Updated desc",
@@ -287,7 +287,7 @@ func (s *TodoHandlerSuite) TestUpdateTaskHandler() {
 		CreatedAt:       now.Add(-2 * time.Hour),
 	}
 
-	mock := &mockTodoServicer{
+	mock := &mockTaskServicer{
 		getResult:    updated, // for fetching existing
 		updateResult: updated,
 	}
@@ -313,8 +313,8 @@ func (s *TodoHandlerSuite) TestUpdateTaskHandler() {
 	s.Equal(float64(60), respBody["effective_estimate_minutes"])
 }
 
-func (s *TodoHandlerSuite) TestUpdateTaskHandlerNotFound() {
-	mock := &mockTodoServicer{
+func (s *TaskHandlerSuite) TestUpdateTaskHandlerNotFound() {
+	mock := &mockTaskServicer{
 		updateErr: repository.ErrNotFound,
 	}
 
@@ -330,8 +330,8 @@ func (s *TodoHandlerSuite) TestUpdateTaskHandlerNotFound() {
 	s.Equal(http.StatusNotFound, rec.Code, "expected 404 Not Found")
 }
 
-func (s *TodoHandlerSuite) TestDeleteTaskHandler() {
-	mock := &mockTodoServicer{}
+func (s *TaskHandlerSuite) TestDeleteTaskHandler() {
+	mock := &mockTaskServicer{}
 
 	taskID := uuid.New()
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/tasks/"+taskID.String(), nil)
@@ -344,8 +344,8 @@ func (s *TodoHandlerSuite) TestDeleteTaskHandler() {
 	s.Equal(taskID, mock.deleteID, "Delete should receive the correct task ID")
 }
 
-func (s *TodoHandlerSuite) TestDeleteTaskHandlerNotFound() {
-	mock := &mockTodoServicer{
+func (s *TaskHandlerSuite) TestDeleteTaskHandlerNotFound() {
+	mock := &mockTaskServicer{
 		deleteErr: repository.ErrNotFound,
 	}
 

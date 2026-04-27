@@ -22,7 +22,7 @@ type Deps struct {
 	Buffer handler.BufferRater
 	// Todos is the todo/task service for CRUD operations.
 	// If nil, task API endpoints are not registered.
-	Todos handler.TodoServicer
+	Todos handler.TaskServicer
 	// EffectiveEstimate computes the effective estimate for a todo.
 	// Required when Todos is non-nil.
 	EffectiveEstimate handler.EffectiveEstimateFunc

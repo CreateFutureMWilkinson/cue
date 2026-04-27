@@ -340,9 +340,9 @@ func run() error {
 	// === Phase 2: Day Planner Subsystem ===
 
 	// Create planner repositories (share the same DB path).
-	todoRepo, err := sqlite.NewSQLiteTodoRepository(cfg.Database.Path)
+	taskRepo, err := sqlite.NewSQLiteTaskRepository(cfg.Database.Path)
 	if err != nil {
-		return fmt.Errorf("creating todo repository: %w", err)
+		return fmt.Errorf("creating task repository: %w", err)
 	}
 
 	categoryRepo, err := sqlite.NewSQLiteCategoryRepository(cfg.Database.Path)
@@ -393,7 +393,7 @@ func run() error {
 
 	// Create planner presenter.
 	plannerPresenter, err := presenter.NewPlannerPresenter(
-		todoRepo, categoryRepo, calProvider, plannerEngine, taskEstimator, scheduleRepo, plannerClock,
+		taskRepo, categoryRepo, calProvider, plannerEngine, taskEstimator, scheduleRepo, plannerClock,
 	)
 	if err != nil {
 		return fmt.Errorf("creating planner presenter: %w", err)

@@ -16,43 +16,43 @@ import (
 
 // --- Mock repository ---
 
-type mockTodoRepo struct {
-	insertFn        func(ctx context.Context, t *repository.Todo) error
-	updateFn        func(ctx context.Context, t *repository.Todo) error
+type mockTaskRepo struct {
+	insertFn        func(ctx context.Context, t *repository.Task) error
+	updateFn        func(ctx context.Context, t *repository.Task) error
 	deleteFn        func(ctx context.Context, id uuid.UUID) error
-	queryByIDFn     func(ctx context.Context, id uuid.UUID) (*repository.Todo, error)
-	queryFilteredFn func(ctx context.Context, f repository.TodoFilter) ([]*repository.Todo, int, error)
+	queryByIDFn     func(ctx context.Context, id uuid.UUID) (*repository.Task, error)
+	queryFilteredFn func(ctx context.Context, f repository.TaskFilter) ([]*repository.Task, int, error)
 }
 
-func (m *mockTodoRepo) Insert(ctx context.Context, t *repository.Todo) error {
+func (m *mockTaskRepo) Insert(ctx context.Context, t *repository.Task) error {
 	if m.insertFn != nil {
 		return m.insertFn(ctx, t)
 	}
 	return nil
 }
 
-func (m *mockTodoRepo) Update(ctx context.Context, t *repository.Todo) error {
+func (m *mockTaskRepo) Update(ctx context.Context, t *repository.Task) error {
 	if m.updateFn != nil {
 		return m.updateFn(ctx, t)
 	}
 	return nil
 }
 
-func (m *mockTodoRepo) Delete(ctx context.Context, id uuid.UUID) error {
+func (m *mockTaskRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	if m.deleteFn != nil {
 		return m.deleteFn(ctx, id)
 	}
 	return nil
 }
 
-func (m *mockTodoRepo) QueryByID(ctx context.Context, id uuid.UUID) (*repository.Todo, error) {
+func (m *mockTaskRepo) QueryByID(ctx context.Context, id uuid.UUID) (*repository.Task, error) {
 	if m.queryByIDFn != nil {
 		return m.queryByIDFn(ctx, id)
 	}
 	return nil, fmt.Errorf("unexpected QueryByID call")
 }
 
-func (m *mockTodoRepo) QueryFiltered(ctx context.Context, f repository.TodoFilter) ([]*repository.Todo, int, error) {
+func (m *mockTaskRepo) QueryFiltered(ctx context.Context, f repository.TaskFilter) ([]*repository.Task, int, error) {
 	if m.queryFilteredFn != nil {
 		return m.queryFilteredFn(ctx, f)
 	}
@@ -103,17 +103,17 @@ func (e *trackingEstimator) called() bool {
 	return e.callCount > 0
 }
 
-// inMemoryTodoRepo stores todos in memory so async updates are visible.
-type inMemoryTodoRepo struct {
+// inMemoryTaskRepo stores todos in memory so async updates are visible.
+type inMemoryTaskRepo struct {
 	mu    sync.Mutex
-	store map[uuid.UUID]*repository.Todo
+	store map[uuid.UUID]*repository.Task
 }
 
-func newInMemoryTodoRepo() *inMemoryTodoRepo {
-	return &inMemoryTodoRepo{store: make(map[uuid.UUID]*repository.Todo)}
+func newInMemoryTodoRepo() *inMemoryTaskRepo {
+	return &inMemoryTaskRepo{store: make(map[uuid.UUID]*repository.Task)}
 }
 
-func (r *inMemoryTodoRepo) Insert(_ context.Context, t *repository.Todo) error {
+func (r *inMemoryTaskRepo) Insert(_ context.Context, t *repository.Task) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	cp := *t
@@ -121,7 +121,7 @@ func (r *inMemoryTodoRepo) Insert(_ context.Context, t *repository.Todo) error {
 	return nil
 }
 
-func (r *inMemoryTodoRepo) Update(_ context.Context, t *repository.Todo) error {
+func (r *inMemoryTaskRepo) Update(_ context.Context, t *repository.Task) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.store[t.ID]; !ok {
@@ -132,14 +132,14 @@ func (r *inMemoryTodoRepo) Update(_ context.Context, t *repository.Todo) error {
 	return nil
 }
 
-func (r *inMemoryTodoRepo) Delete(_ context.Context, id uuid.UUID) error {
+func (r *inMemoryTaskRepo) Delete(_ context.Context, id uuid.UUID) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.store, id)
 	return nil
 }
 
-func (r *inMemoryTodoRepo) QueryByID(_ context.Context, id uuid.UUID) (*repository.Todo, error) {
+func (r *inMemoryTaskRepo) QueryByID(_ context.Context, id uuid.UUID) (*repository.Task, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	t, ok := r.store[id]
@@ -150,7 +150,7 @@ func (r *inMemoryTodoRepo) QueryByID(_ context.Context, id uuid.UUID) (*reposito
 	return &cp, nil
 }
 
-func (r *inMemoryTodoRepo) QueryFiltered(_ context.Context, _ repository.TodoFilter) ([]*repository.Todo, int, error) {
+func (r *inMemoryTaskRepo) QueryFiltered(_ context.Context, _ repository.TaskFilter) ([]*repository.Task, int, error) {
 	return nil, 0, nil
 }
 
@@ -173,7 +173,7 @@ func (s *TodoServiceSuite) TestNewServiceNilRepo() {
 }
 
 func (s *TodoServiceSuite) TestNewServiceNilEstimator() {
-	svc, err := todo.NewService(&mockTodoRepo{}, nil)
+	svc, err := todo.NewService(&mockTaskRepo{}, nil)
 	s.Error(err)
 	s.Nil(svc)
 }
@@ -183,17 +183,17 @@ func (s *TodoServiceSuite) TestNewServiceNilEstimator() {
 func (s *TodoServiceSuite) TestCreateSetIDAndCreatedAt() {
 	ctx := context.Background()
 
-	var insertedTodo *repository.Todo
-	repo := &mockTodoRepo{
-		insertFn: func(_ context.Context, t *repository.Todo) error {
-			insertedTodo = t
+	var insertedTask *repository.Task
+	repo := &mockTaskRepo{
+		insertFn: func(_ context.Context, t *repository.Task) error {
+			insertedTask = t
 			return nil
 		},
-		queryByIDFn: func(_ context.Context, id uuid.UUID) (*repository.Todo, error) {
-			return &repository.Todo{
+		queryByIDFn: func(_ context.Context, id uuid.UUID) (*repository.Task, error) {
+			return &repository.Task{
 				ID:        id,
 				Title:     "test task",
-				CreatedAt: insertedTodo.CreatedAt,
+				CreatedAt: insertedTask.CreatedAt,
 			}, nil
 		},
 	}
@@ -201,15 +201,15 @@ func (s *TodoServiceSuite) TestCreateSetIDAndCreatedAt() {
 	svc, err := todo.NewService(repo, &mockEstimator{})
 	s.Require().NoError(err)
 
-	input := &repository.Todo{Title: "test task"}
+	input := &repository.Task{Title: "test task"}
 	result, err := svc.Create(ctx, input)
 	s.Require().NoError(err)
 
 	// ID should have been set (non-zero)
-	s.NotEqual(uuid.Nil, insertedTodo.ID, "Insert should receive a non-zero ID")
+	s.NotEqual(uuid.Nil, insertedTask.ID, "Insert should receive a non-zero ID")
 	// CreatedAt should have been set
-	s.False(insertedTodo.CreatedAt.IsZero(), "Insert should receive a non-zero CreatedAt")
-	// Result should be the re-fetched todo
+	s.False(insertedTask.CreatedAt.IsZero(), "Insert should receive a non-zero CreatedAt")
+	// Result should be the re-fetched task
 	s.NotNil(result)
 	s.Equal("test task", result.Title)
 }
@@ -219,21 +219,21 @@ func (s *TodoServiceSuite) TestCreatePreservesUserFields() {
 	dueDate := time.Now().Add(24 * time.Hour)
 	estimate := 45
 
-	var insertedTodo *repository.Todo
-	repo := &mockTodoRepo{
-		insertFn: func(_ context.Context, t *repository.Todo) error {
-			insertedTodo = t
+	var insertedTask *repository.Task
+	repo := &mockTaskRepo{
+		insertFn: func(_ context.Context, t *repository.Task) error {
+			insertedTask = t
 			return nil
 		},
-		queryByIDFn: func(_ context.Context, id uuid.UUID) (*repository.Todo, error) {
-			return insertedTodo, nil
+		queryByIDFn: func(_ context.Context, id uuid.UUID) (*repository.Task, error) {
+			return insertedTask, nil
 		},
 	}
 
 	svc, err := todo.NewService(repo, &mockEstimator{})
 	s.Require().NoError(err)
 
-	input := &repository.Todo{
+	input := &repository.Task{
 		Title:           "important task",
 		Description:     "do the thing",
 		Priority:        5,
@@ -257,10 +257,10 @@ func (s *TodoServiceSuite) TestCreatePreservesUserFields() {
 func (s *TodoServiceSuite) TestGet() {
 	ctx := context.Background()
 	id := uuid.New()
-	expected := &repository.Todo{ID: id, Title: "found"}
+	expected := &repository.Task{ID: id, Title: "found"}
 
-	repo := &mockTodoRepo{
-		queryByIDFn: func(_ context.Context, qid uuid.UUID) (*repository.Todo, error) {
+	repo := &mockTaskRepo{
+		queryByIDFn: func(_ context.Context, qid uuid.UUID) (*repository.Task, error) {
 			s.Equal(id, qid)
 			return expected, nil
 		},
@@ -278,8 +278,8 @@ func (s *TodoServiceSuite) TestGetNotFound() {
 	ctx := context.Background()
 	id := uuid.New()
 
-	repo := &mockTodoRepo{
-		queryByIDFn: func(_ context.Context, _ uuid.UUID) (*repository.Todo, error) {
+	repo := &mockTaskRepo{
+		queryByIDFn: func(_ context.Context, _ uuid.UUID) (*repository.Task, error) {
 			return nil, repository.ErrNotFound
 		},
 	}
@@ -296,14 +296,14 @@ func (s *TodoServiceSuite) TestGetNotFound() {
 
 func (s *TodoServiceSuite) TestList() {
 	ctx := context.Background()
-	expected := []*repository.Todo{
+	expected := []*repository.Task{
 		{ID: uuid.New(), Title: "one"},
 		{ID: uuid.New(), Title: "two"},
 	}
-	filter := repository.TodoFilter{Status: "incomplete", Limit: 10}
+	filter := repository.TaskFilter{Status: "incomplete", Limit: 10}
 
-	repo := &mockTodoRepo{
-		queryFilteredFn: func(_ context.Context, f repository.TodoFilter) ([]*repository.Todo, int, error) {
+	repo := &mockTaskRepo{
+		queryFilteredFn: func(_ context.Context, f repository.TaskFilter) ([]*repository.Task, int, error) {
 			s.Equal(filter, f)
 			return expected, 2, nil
 		},
@@ -323,18 +323,18 @@ func (s *TodoServiceSuite) TestList() {
 func (s *TodoServiceSuite) TestUpdate() {
 	ctx := context.Background()
 	id := uuid.New()
-	input := &repository.Todo{ID: id, Title: "updated"}
+	input := &repository.Task{ID: id, Title: "updated"}
 
 	var updateCalled bool
-	repo := &mockTodoRepo{
-		updateFn: func(_ context.Context, t *repository.Todo) error {
+	repo := &mockTaskRepo{
+		updateFn: func(_ context.Context, t *repository.Task) error {
 			updateCalled = true
 			s.Equal(id, t.ID)
 			return nil
 		},
-		queryByIDFn: func(_ context.Context, qid uuid.UUID) (*repository.Todo, error) {
+		queryByIDFn: func(_ context.Context, qid uuid.UUID) (*repository.Task, error) {
 			s.Equal(id, qid)
-			return &repository.Todo{ID: id, Title: "updated"}, nil
+			return &repository.Task{ID: id, Title: "updated"}, nil
 		},
 	}
 
@@ -354,7 +354,7 @@ func (s *TodoServiceSuite) TestDelete() {
 	id := uuid.New()
 
 	var deleteCalled bool
-	repo := &mockTodoRepo{
+	repo := &mockTaskRepo{
 		deleteFn: func(_ context.Context, did uuid.UUID) error {
 			deleteCalled = true
 			s.Equal(id, did)
@@ -375,7 +375,7 @@ func (s *TodoServiceSuite) TestDelete() {
 func (s *TodoServiceSuite) TestEffectiveEstimateUserOverridesLLM() {
 	user := 45
 	llm := 30
-	t := &repository.Todo{EstimateMinutes: &user, LLMEstimateMinutes: &llm}
+	t := &repository.Task{EstimateMinutes: &user, LLMEstimateMinutes: &llm}
 	result := todo.EffectiveEstimate(t)
 	s.Require().NotNil(result)
 	s.Equal(45, *result)
@@ -383,14 +383,14 @@ func (s *TodoServiceSuite) TestEffectiveEstimateUserOverridesLLM() {
 
 func (s *TodoServiceSuite) TestEffectiveEstimateFallsBackToLLM() {
 	llm := 30
-	t := &repository.Todo{EstimateMinutes: nil, LLMEstimateMinutes: &llm}
+	t := &repository.Task{EstimateMinutes: nil, LLMEstimateMinutes: &llm}
 	result := todo.EffectiveEstimate(t)
 	s.Require().NotNil(result)
 	s.Equal(30, *result)
 }
 
 func (s *TodoServiceSuite) TestEffectiveEstimateBothNil() {
-	t := &repository.Todo{EstimateMinutes: nil, LLMEstimateMinutes: nil}
+	t := &repository.Task{EstimateMinutes: nil, LLMEstimateMinutes: nil}
 	result := todo.EffectiveEstimate(t)
 	s.Nil(result)
 }
@@ -405,8 +405,8 @@ func (s *TodoServiceSuite) TestCreateTriggersAsyncEstimation() {
 	svc, err := todo.NewService(repo, estimator)
 	s.Require().NoError(err)
 
-	// Create a todo with no user estimate — should trigger async LLM estimation.
-	input := &repository.Todo{
+	// Create a task with no user estimate — should trigger async LLM estimation.
+	input := &repository.Task{
 		Title:       "write quarterly report",
 		Description: "compile metrics and narrative for Q2",
 	}
@@ -442,7 +442,7 @@ func (s *TodoServiceSuite) TestCreateSkipsEstimationWhenUserEstimateProvided() {
 
 	// Create a todo WITH a user estimate — should NOT trigger LLM estimation.
 	userEst := 45
-	input := &repository.Todo{
+	input := &repository.Task{
 		Title:           "plan team offsite",
 		EstimateMinutes: &userEst,
 	}
@@ -467,7 +467,7 @@ func (s *TodoServiceSuite) TestUpdateTriggersReEstimationWhenEstimateCleared() {
 	userEst := 60
 	llmEst := 55
 	id := uuid.New()
-	existing := &repository.Todo{
+	existing := &repository.Task{
 		ID:                 id,
 		Title:              "refactor auth module",
 		Description:        "extract middleware, add tests",
@@ -479,7 +479,7 @@ func (s *TodoServiceSuite) TestUpdateTriggersReEstimationWhenEstimateCleared() {
 	s.Require().NoError(err)
 
 	// Update: clear the user estimate (set to nil).
-	updateInput := &repository.Todo{
+	updateInput := &repository.Task{
 		ID:              id,
 		Title:           "refactor auth module",
 		Description:     "extract middleware, add tests",
@@ -517,7 +517,7 @@ func (s *TodoServiceSuite) TestUpdateSkipsEstimationWhenEstimateStaysNonZero() {
 	// Pre-seed a todo with a user estimate.
 	userEst := 45
 	id := uuid.New()
-	existing := &repository.Todo{
+	existing := &repository.Task{
 		ID:              id,
 		Title:           "deploy staging env",
 		EstimateMinutes: &userEst,
@@ -528,7 +528,7 @@ func (s *TodoServiceSuite) TestUpdateSkipsEstimationWhenEstimateStaysNonZero() {
 
 	// Update with estimate staying non-zero — no estimation should trigger.
 	newEst := 45
-	updateInput := &repository.Todo{
+	updateInput := &repository.Task{
 		ID:              id,
 		Title:           "deploy staging env",
 		EstimateMinutes: &newEst,

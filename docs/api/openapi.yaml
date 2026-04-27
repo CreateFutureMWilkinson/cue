@@ -1,4 +1,24 @@
-components: {}
+components:
+  schemas:
+    handler.timerResponse:
+      properties:
+        block_type:
+          type: string
+        display_time:
+          type: string
+        duration_seconds:
+          type: integer
+        elapsed_fraction:
+          type: number
+        elapsed_seconds:
+          type: integer
+        remaining_seconds:
+          type: integer
+        running:
+          type: boolean
+        task_name:
+          type: string
+      type: object
 externalDocs:
   description: WebSocket event channel reference
   url: https://git.hrafn.xyz/aether/cue/src/branch/main/docs/api/websocket.md
@@ -56,6 +76,22 @@ paths:
       summary: Readiness check
       tags:
       - health
+  /api/v1/timer:
+    get:
+      description: |-
+        Returns the live Pomodoro timer state derived from today's schedule.
+        When no schedule exists or no block is currently active, responds
+        with {"running": false} and 200 OK.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.timerResponse'
+          description: OK
+      summary: Current timer state
+      tags:
+      - timer
   /health:
     get:
       description: |-

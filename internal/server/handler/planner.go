@@ -333,6 +333,15 @@ type timerResponse struct {
 }
 
 // GetTimerHandler returns an http.HandlerFunc for GET /api/v1/timer.
+//
+// @Summary      Current timer state
+// @Description  Returns the live Pomodoro timer state derived from today's schedule.
+// @Description  When no schedule exists or no block is currently active, responds
+// @Description  with {"running": false} and 200 OK.
+// @Tags         timer
+// @Produce      json
+// @Success      200  {object}  handler.timerResponse
+// @Router       /api/v1/timer [get]
 func GetTimerHandler(store ScheduleStore, clock TimerClock) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		now := clock.Now()

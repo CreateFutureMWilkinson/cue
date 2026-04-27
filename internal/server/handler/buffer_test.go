@@ -1,9 +1,11 @@
 package handler_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +14,31 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 )
+
+// mockBufferRater implements handler.BufferRater for testing.
+type mockBufferRater struct {
+	saveRatingErr    error
+	deleteMessageErr error
+
+	// captured args
+	saveRatingID       uuid.UUID
+	saveRatingRating   int
+	saveRatingFeedback *string
+
+	deleteMessageID uuid.UUID
+}
+
+func (m *mockBufferRater) SaveRating(_ context.Context, messageID uuid.UUID, rating int, feedback *string) error {
+	m.saveRatingID = messageID
+	m.saveRatingRating = rating
+	m.saveRatingFeedback = feedback
+	return m.saveRatingErr
+}
+
+func (m *mockBufferRater) DeleteMessage(_ context.Context, messageID uuid.UUID) error {
+	m.deleteMessageID = messageID
+	return m.deleteMessageErr
+}
 
 // BufferHandlerSuite tests the buffer handler endpoints.
 type BufferHandlerSuite struct {
@@ -183,4 +210,179 @@ func (s *BufferHandlerSuite) TestGetBufferedReturns404ForUnknownID() {
 	handler.GetBufferedHandler(mock)(rec, req)
 
 	s.Equal(http.StatusNotFound, rec.Code, "expected 404 Not Found")
+}
+
+func (s *BufferHandlerSuite) TestRateBufferedSuccess() {
+	now := time.Now().UTC().Truncate(time.Second)
+	msgID := uuid.New()
+
+	msg := &repository.Message{
+		ID:              msgID,
+		Source:          "slack",
+		SourceAccount:   "T12345",
+		Channel:         "#deployments",
+		Sender:          "bob",
+		MessageID:       "slack-msg-042",
+		RawContent:      "Deploy scheduled for tonight",
+		ImportanceScore: 7.5,
+		ConfidenceScore: 0.6,
+		Reasoning:       "Deployment notice with potential impact",
+		Status:          "Buffered",
+		CreatedAt:       now.Add(-10 * time.Minute),
+		UpdatedAt:       now.Add(-9 * time.Minute),
+	}
+
+	repo := &mockMessageQuerier{
+		queryByIDMessage: msg,
+	}
+	buf := &mockBufferRater{}
+
+	body := `{"rating": 7, "feedback": "was important"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buffer/"+msgID.String()+"/rate", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", msgID.String())
+	rec := httptest.NewRecorder()
+
+	handler.RateBufferedHandler(repo, buf)(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code, "expected 200 OK")
+
+	// Verify SaveRating was called with correct args.
+	s.Equal(msgID, buf.saveRatingID, "SaveRating should receive the message ID")
+	s.Equal(7, buf.saveRatingRating, "SaveRating should receive rating 7")
+	s.Require().NotNil(buf.saveRatingFeedback, "SaveRating should receive non-nil feedback")
+	s.Equal("was important", *buf.saveRatingFeedback, "SaveRating should receive the feedback text")
+
+	// Verify response body contains the message ID.
+	var respBody map[string]any
+	err := json.NewDecoder(rec.Body).Decode(&respBody)
+	s.Require().NoError(err, "response body should be valid JSON")
+	s.Equal(msgID.String(), respBody["id"], "response should contain the message ID")
+}
+
+func (s *BufferHandlerSuite) TestRateBufferedInvalidRatingTooHigh() {
+	now := time.Now().UTC().Truncate(time.Second)
+	msgID := uuid.New()
+
+	msg := &repository.Message{
+		ID:        msgID,
+		Status:    "Buffered",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	repo := &mockMessageQuerier{
+		queryByIDMessage: msg,
+	}
+	buf := &mockBufferRater{}
+
+	body := `{"rating": 11}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buffer/"+msgID.String()+"/rate", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", msgID.String())
+	rec := httptest.NewRecorder()
+
+	handler.RateBufferedHandler(repo, buf)(rec, req)
+
+	s.Equal(http.StatusBadRequest, rec.Code, "expected 400 for rating > 10")
+}
+
+func (s *BufferHandlerSuite) TestRateBufferedInvalidRatingNegative() {
+	now := time.Now().UTC().Truncate(time.Second)
+	msgID := uuid.New()
+
+	msg := &repository.Message{
+		ID:        msgID,
+		Status:    "Buffered",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	repo := &mockMessageQuerier{
+		queryByIDMessage: msg,
+	}
+	buf := &mockBufferRater{}
+
+	body := `{"rating": -1}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buffer/"+msgID.String()+"/rate", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", msgID.String())
+	rec := httptest.NewRecorder()
+
+	handler.RateBufferedHandler(repo, buf)(rec, req)
+
+	s.Equal(http.StatusBadRequest, rec.Code, "expected 400 for rating < 0")
+}
+
+func (s *BufferHandlerSuite) TestRateBufferedMissingBody() {
+	now := time.Now().UTC().Truncate(time.Second)
+	msgID := uuid.New()
+
+	msg := &repository.Message{
+		ID:        msgID,
+		Status:    "Buffered",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+
+	repo := &mockMessageQuerier{
+		queryByIDMessage: msg,
+	}
+	buf := &mockBufferRater{}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buffer/"+msgID.String()+"/rate", nil)
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", msgID.String())
+	rec := httptest.NewRecorder()
+
+	handler.RateBufferedHandler(repo, buf)(rec, req)
+
+	s.Equal(http.StatusBadRequest, rec.Code, "expected 400 for missing body")
+}
+
+func (s *BufferHandlerSuite) TestRateBufferedNotFound() {
+	repo := &mockMessageQuerier{
+		queryByIDErr: repository.ErrNotFound,
+	}
+	buf := &mockBufferRater{}
+
+	unknownID := uuid.New()
+	body := `{"rating": 5}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buffer/"+unknownID.String()+"/rate", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", unknownID.String())
+	rec := httptest.NewRecorder()
+
+	handler.RateBufferedHandler(repo, buf)(rec, req)
+
+	s.Equal(http.StatusNotFound, rec.Code, "expected 404 Not Found")
+}
+
+func (s *BufferHandlerSuite) TestRateBufferedAlreadyResolved() {
+	now := time.Now().UTC().Truncate(time.Second)
+	resolvedAt := now.Add(-1 * time.Minute)
+	msgID := uuid.New()
+
+	msg := &repository.Message{
+		ID:         msgID,
+		Status:     "Resolved",
+		CreatedAt:  now.Add(-10 * time.Minute),
+		UpdatedAt:  now.Add(-2 * time.Minute),
+		ResolvedAt: &resolvedAt,
+	}
+
+	repo := &mockMessageQuerier{
+		queryByIDMessage: msg,
+	}
+	buf := &mockBufferRater{}
+
+	body := `{"rating": 5}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/buffer/"+msgID.String()+"/rate", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", msgID.String())
+	rec := httptest.NewRecorder()
+
+	handler.RateBufferedHandler(repo, buf)(rec, req)
+
+	s.Equal(http.StatusConflict, rec.Code, "expected 409 for already-resolved message")
 }

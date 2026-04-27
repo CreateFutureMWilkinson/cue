@@ -84,7 +84,8 @@ func (a *authAdapter) InitiatePairing(ctx context.Context, label string) (*PairS
 // PairResult. When Status == "approved", Token is populated.
 func (a *authAdapter) PollPairing(ctx context.Context, requestID uuid.UUID) (*PairResult, error) {
 	var out PairResult
-	if err := a.client.doJSON(ctx, "GET", "/api/v1/auth/pair/"+requestID.String(), nil, &out); err != nil {
+	path := "/api/v1/auth/pair/" + requestID.String()
+	if err := a.client.doJSON(ctx, "GET", path, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -92,12 +93,14 @@ func (a *authAdapter) PollPairing(ctx context.Context, requestID uuid.UUID) (*Pa
 
 // ApprovePairing issues POST /api/v1/auth/pair/{id}/approve.
 func (a *authAdapter) ApprovePairing(ctx context.Context, requestID uuid.UUID) error {
-	return a.client.doJSON(ctx, "POST", "/api/v1/auth/pair/"+requestID.String()+"/approve", nil, nil)
+	path := "/api/v1/auth/pair/" + requestID.String() + "/approve"
+	return a.client.doJSON(ctx, "POST", path, nil, nil)
 }
 
 // DenyPairing issues POST /api/v1/auth/pair/{id}/deny.
 func (a *authAdapter) DenyPairing(ctx context.Context, requestID uuid.UUID) error {
-	return a.client.doJSON(ctx, "POST", "/api/v1/auth/pair/"+requestID.String()+"/deny", nil, nil)
+	path := "/api/v1/auth/pair/" + requestID.String() + "/deny"
+	return a.client.doJSON(ctx, "POST", path, nil, nil)
 }
 
 // ListTokens issues GET /api/v1/auth/tokens and returns all known tokens.
@@ -111,10 +114,12 @@ func (a *authAdapter) ListTokens(ctx context.Context) ([]TokenInfo, error) {
 
 // UpdateTokenLabel issues PUT /api/v1/auth/tokens/{id} with the new label.
 func (a *authAdapter) UpdateTokenLabel(ctx context.Context, id uuid.UUID, label string) error {
-	return a.client.doJSON(ctx, "PUT", "/api/v1/auth/tokens/"+id.String(), labelBody{Label: label}, nil)
+	path := "/api/v1/auth/tokens/" + id.String()
+	return a.client.doJSON(ctx, "PUT", path, labelBody{Label: label}, nil)
 }
 
 // RevokeToken issues DELETE /api/v1/auth/tokens/{id}.
 func (a *authAdapter) RevokeToken(ctx context.Context, id uuid.UUID) error {
-	return a.client.doJSON(ctx, "DELETE", "/api/v1/auth/tokens/"+id.String(), nil, nil)
+	path := "/api/v1/auth/tokens/" + id.String()
+	return a.client.doJSON(ctx, "DELETE", path, nil, nil)
 }

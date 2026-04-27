@@ -168,10 +168,8 @@ func (h *Hub) subPayload(sub *Subscriber, env ActivityEnvelope, shared []byte) [
 	return custom
 }
 
-// Publish creates an ActivityEnvelope for the given data, assigns a
-// monotonically increasing sequence number, stores it in the ring
-// buffer for history replay, and broadcasts the JSON-serialized
-// envelope to all current subscribers.
+// Publish creates an ActivityEnvelope for the given ActivityData and
+// broadcasts it to all current subscribers.
 func (h *Hub) Publish(data ActivityData) ActivityEnvelope {
 	return h.publishEnvelope("activity", data)
 }
@@ -286,10 +284,8 @@ func (h *Hub) History(sinceSeq uint64) HistoryResponse {
 	}
 }
 
-// PublishAlert creates an ActivityEnvelope for the given AlertData, assigns a
-// monotonically increasing sequence number, stores it in the ring buffer for
-// history replay, and broadcasts the JSON-serialized envelope to all current
-// subscribers.
+// PublishAlert creates an ActivityEnvelope for the given AlertData and
+// broadcasts it to all current subscribers.
 func (h *Hub) PublishAlert(data AlertData) ActivityEnvelope {
 	return h.publishEnvelope("alert", data)
 }

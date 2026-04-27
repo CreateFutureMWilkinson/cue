@@ -20,6 +20,8 @@ type ActivityData struct {
 }
 
 // AlertData is the type-specific payload for alert events.
+// It represents different kinds of system alerts that can be broadcast
+// to connected clients via the activity stream.
 type AlertData struct {
 	Kind string `json:"kind"`
 }

@@ -3,19 +3,15 @@ package client
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 )
 
 // categoriesPath is the base URL path for the categories REST resource.
 // Per Feature 109 Decision 5, categories live under the /api/v1/todo/
 // bounded-context prefix alongside tasks.
 const categoriesPath = "/api/v1/todo/categories"
-
-// errCategoriesNotImplemented is the stub sentinel returned by every method
-// on the unimplemented CategoryClient. Replaced in the GREEN phase with real
-// HTTP transport logic.
-var errCategoriesNotImplemented = errors.New("not implemented")
 
 // Category mirrors the server's categoryItem DTO returned by
 // /api/v1/todo/categories routes. Per Feature 109 Decision 4:
@@ -122,35 +118,57 @@ func NewCategoryClient(c *APIClient) CategoryClient {
 	return &categoryAdapter{client: c}
 }
 
-// ListCategories — STUB (Loop 8 RED). Replaced in GREEN with
-// GET /api/v1/todo/categories returning []Category.
-func (a *categoryAdapter) ListCategories(_ context.Context) ([]Category, error) {
-	return nil, errCategoriesNotImplemented
+// ListCategories issues GET /api/v1/todo/categories and decodes the JSON
+// array of Category items returned by the server.
+func (a *categoryAdapter) ListCategories(ctx context.Context) ([]Category, error) {
+	var out []Category
+	if err := a.client.doJSON(ctx, http.MethodGet, categoriesPath, nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-// GetCategory — STUB (Loop 8 RED). Replaced in GREEN with
-// GET /api/v1/todo/categories/{name}; the path segment is URL-escaped and
-// the server normalizes any form (raw display, mixed case, canonical key).
-func (a *categoryAdapter) GetCategory(_ context.Context, _ string) (*Category, error) {
-	return nil, errCategoriesNotImplemented
+// GetCategory issues GET /api/v1/todo/categories/{name}. The name segment is
+// URL-escaped via url.PathEscape so display-form input ("Foo Bar") reaches
+// the server intact ("Foo%20Bar") for normalization. A 404 surfaces as
+// *APIError with Code == ErrCodeNotFound.
+func (a *categoryAdapter) GetCategory(ctx context.Context, name string) (*Category, error) {
+	var cat Category
+	path := categoriesPath + "/" + url.PathEscape(name)
+	if err := a.client.doJSON(ctx, http.MethodGet, path, nil, &cat); err != nil {
+		return nil, err
+	}
+	return &cat, nil
 }
 
-// CreateCategory — STUB (Loop 8 RED). Replaced in GREEN with
-// POST /api/v1/todo/categories carrying the JSON request body.
-func (a *categoryAdapter) CreateCategory(_ context.Context, _ CreateCategoryRequest) (*Category, error) {
-	return nil, errCategoriesNotImplemented
+// CreateCategory issues POST /api/v1/todo/categories with req as the JSON
+// body and decodes the created Category from the 201 response. A 409
+// (duplicate normalized key) surfaces as *APIError with Code == ErrCodeConflict.
+func (a *categoryAdapter) CreateCategory(ctx context.Context, req CreateCategoryRequest) (*Category, error) {
+	var cat Category
+	if err := a.client.doJSON(ctx, http.MethodPost, categoriesPath, req, &cat); err != nil {
+		return nil, err
+	}
+	return &cat, nil
 }
 
-// UpdateCategory — STUB (Loop 8 RED). Replaced in GREEN with
-// PUT /api/v1/todo/categories/{name}; tri-state colour encoding handled by
-// UpdateCategoryRequest.MarshalJSON.
-func (a *categoryAdapter) UpdateCategory(_ context.Context, _ string, _ UpdateCategoryRequest) (*Category, error) {
-	return nil, errCategoriesNotImplemented
+// UpdateCategory issues PUT /api/v1/todo/categories/{name} with the
+// tri-state-aware UpdateCategoryRequest body (see its MarshalJSON). The
+// name segment is URL-escaped. A 404 surfaces as *APIError with Code ==
+// ErrCodeNotFound.
+func (a *categoryAdapter) UpdateCategory(ctx context.Context, name string, req UpdateCategoryRequest) (*Category, error) {
+	var cat Category
+	path := categoriesPath + "/" + url.PathEscape(name)
+	if err := a.client.doJSON(ctx, http.MethodPut, path, req, &cat); err != nil {
+		return nil, err
+	}
+	return &cat, nil
 }
 
-// DeleteCategory — STUB (Loop 8 RED). Replaced in GREEN with
-// DELETE /api/v1/todo/categories/{name}; server responds 204 on success
-// and cascades SET NULL on dependent tasks.
-func (a *categoryAdapter) DeleteCategory(_ context.Context, _ string) error {
-	return errCategoriesNotImplemented
+// DeleteCategory issues DELETE /api/v1/todo/categories/{name}. The server
+// responds with 204 No Content on success and cascades SET NULL on dependent
+// tasks. A 404 surfaces as *APIError with Code == ErrCodeNotFound.
+func (a *categoryAdapter) DeleteCategory(ctx context.Context, name string) error {
+	path := categoriesPath + "/" + url.PathEscape(name)
+	return a.client.doJSON(ctx, http.MethodDelete, path, nil, nil)
 }

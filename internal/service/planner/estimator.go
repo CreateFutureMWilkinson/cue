@@ -2,6 +2,7 @@ package planner
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 )
 
@@ -27,6 +28,23 @@ type estimateResponse struct {
 // EstimateMinutes asks Ollama to estimate the number of minutes for a task.
 // On any failure (network, invalid JSON, zero/negative), falls back to 30 minutes.
 func (e *OllamaTaskEstimator) EstimateMinutes(ctx context.Context, title string, description string) (int, error) {
-	_ = fmt.Sprintf("placeholder %s %s", title, description)
-	return 0, fmt.Errorf("not implemented")
+	const fallback = 30
+
+	prompt := fmt.Sprintf("Estimate how many minutes this task will take. Reply with JSON only: {\"minutes\": N}\n\nTask: %s\nDescription: %s", title, description)
+
+	raw, err := e.client.Generate(ctx, prompt)
+	if err != nil {
+		return fallback, nil
+	}
+
+	var resp estimateResponse
+	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
+		return fallback, nil
+	}
+
+	if resp.Minutes <= 0 {
+		return fallback, nil
+	}
+
+	return resp.Minutes, nil
 }

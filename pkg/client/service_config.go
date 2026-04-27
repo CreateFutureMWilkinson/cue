@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/google/uuid"
 )
@@ -156,105 +157,193 @@ func NewServiceConfigClient(c *APIClient) ServiceConfigClient {
 	return &serviceConfigAdapter{client: c}
 }
 
-// --- Slack stubs ---
+// toggleRequest is the shared JSON body for POST /.../{id}/toggle requests
+// across all service types. The server accepts the same {"enabled": bool}
+// shape regardless of the service being toggled.
+type toggleRequest struct {
+	Enabled bool `json:"enabled"`
+}
 
-// ListSlackAccounts is a stub returning ErrNotImplemented.
+// --- Slack ---
+
+// ListSlackAccounts issues GET /api/v1/services/slack and decodes the
+// server's plain-array response into a slice of SlackAccount.
 func (a *serviceConfigAdapter) ListSlackAccounts(ctx context.Context) ([]SlackAccount, error) {
-	return nil, ErrNotImplemented
+	var accounts []SlackAccount
+	if err := a.client.doJSON(ctx, http.MethodGet, slackServicePath, nil, &accounts); err != nil {
+		return nil, err
+	}
+	return accounts, nil
 }
 
-// GetSlackAccount is a stub returning ErrNotImplemented.
+// GetSlackAccount issues GET /api/v1/services/slack/{id} and decodes the
+// slackAccountItem payload.
 func (a *serviceConfigAdapter) GetSlackAccount(ctx context.Context, id uuid.UUID) (*SlackAccount, error) {
-	return nil, ErrNotImplemented
+	var acct SlackAccount
+	if err := a.client.doJSON(ctx, http.MethodGet, slackServicePath+"/"+id.String(), nil, &acct); err != nil {
+		return nil, err
+	}
+	return &acct, nil
 }
 
-// CreateSlackAccount is a stub returning ErrNotImplemented.
+// CreateSlackAccount issues POST /api/v1/services/slack with req as the
+// JSON body (carrying the bot_token) and decodes the server's response
+// (which omits bot_token).
 func (a *serviceConfigAdapter) CreateSlackAccount(ctx context.Context, req CreateSlackAccountRequest) (*SlackAccount, error) {
-	return nil, ErrNotImplemented
+	var acct SlackAccount
+	if err := a.client.doJSON(ctx, http.MethodPost, slackServicePath, req, &acct); err != nil {
+		return nil, err
+	}
+	return &acct, nil
 }
 
-// UpdateSlackAccount is a stub returning ErrNotImplemented.
+// UpdateSlackAccount issues PUT /api/v1/services/slack/{id} with req as the
+// full replacement JSON body and decodes the updated slackAccountItem
+// response.
 func (a *serviceConfigAdapter) UpdateSlackAccount(ctx context.Context, id uuid.UUID, req UpdateSlackAccountRequest) (*SlackAccount, error) {
-	return nil, ErrNotImplemented
+	var acct SlackAccount
+	if err := a.client.doJSON(ctx, http.MethodPut, slackServicePath+"/"+id.String(), req, &acct); err != nil {
+		return nil, err
+	}
+	return &acct, nil
 }
 
-// DeleteSlackAccount is a stub returning ErrNotImplemented.
+// DeleteSlackAccount issues DELETE /api/v1/services/slack/{id}. The server
+// returns 204 No Content on success.
 func (a *serviceConfigAdapter) DeleteSlackAccount(ctx context.Context, id uuid.UUID) error {
-	return ErrNotImplemented
+	return a.client.doJSON(ctx, http.MethodDelete, slackServicePath+"/"+id.String(), nil, nil)
 }
 
-// ToggleSlackAccount is a stub returning ErrNotImplemented.
+// ToggleSlackAccount issues POST /api/v1/services/slack/{id}/toggle with a
+// {"enabled": enabled} body. The server's 200 response body is ignored.
 func (a *serviceConfigAdapter) ToggleSlackAccount(ctx context.Context, id uuid.UUID, enabled bool) error {
-	return ErrNotImplemented
+	return a.client.doJSON(ctx, http.MethodPost, slackServicePath+"/"+id.String()+"/toggle", toggleRequest{Enabled: enabled}, nil)
 }
 
-// --- Email stubs ---
+// --- Email ---
 
-// ListEmailAccounts is a stub returning ErrNotImplemented.
+// ListEmailAccounts issues GET /api/v1/services/email and decodes the
+// server's plain-array response into a slice of EmailAccount.
 func (a *serviceConfigAdapter) ListEmailAccounts(ctx context.Context) ([]EmailAccount, error) {
-	return nil, ErrNotImplemented
+	var accounts []EmailAccount
+	if err := a.client.doJSON(ctx, http.MethodGet, emailServicePath, nil, &accounts); err != nil {
+		return nil, err
+	}
+	return accounts, nil
 }
 
-// GetEmailAccount is a stub returning ErrNotImplemented.
+// GetEmailAccount issues GET /api/v1/services/email/{id} and decodes the
+// emailAccountItem payload.
 func (a *serviceConfigAdapter) GetEmailAccount(ctx context.Context, id uuid.UUID) (*EmailAccount, error) {
-	return nil, ErrNotImplemented
+	var acct EmailAccount
+	if err := a.client.doJSON(ctx, http.MethodGet, emailServicePath+"/"+id.String(), nil, &acct); err != nil {
+		return nil, err
+	}
+	return &acct, nil
 }
 
-// CreateEmailAccount is a stub returning ErrNotImplemented.
+// CreateEmailAccount issues POST /api/v1/services/email with req as the
+// JSON body (carrying the password) and decodes the server's response
+// (which omits password).
 func (a *serviceConfigAdapter) CreateEmailAccount(ctx context.Context, req CreateEmailAccountRequest) (*EmailAccount, error) {
-	return nil, ErrNotImplemented
+	var acct EmailAccount
+	if err := a.client.doJSON(ctx, http.MethodPost, emailServicePath, req, &acct); err != nil {
+		return nil, err
+	}
+	return &acct, nil
 }
 
-// UpdateEmailAccount is a stub returning ErrNotImplemented.
+// UpdateEmailAccount issues PUT /api/v1/services/email/{id} with req as
+// the full replacement JSON body and decodes the updated emailAccountItem
+// response.
 func (a *serviceConfigAdapter) UpdateEmailAccount(ctx context.Context, id uuid.UUID, req UpdateEmailAccountRequest) (*EmailAccount, error) {
-	return nil, ErrNotImplemented
+	var acct EmailAccount
+	if err := a.client.doJSON(ctx, http.MethodPut, emailServicePath+"/"+id.String(), req, &acct); err != nil {
+		return nil, err
+	}
+	return &acct, nil
 }
 
-// DeleteEmailAccount is a stub returning ErrNotImplemented.
+// DeleteEmailAccount issues DELETE /api/v1/services/email/{id}. The server
+// returns 204 No Content on success.
 func (a *serviceConfigAdapter) DeleteEmailAccount(ctx context.Context, id uuid.UUID) error {
-	return ErrNotImplemented
+	return a.client.doJSON(ctx, http.MethodDelete, emailServicePath+"/"+id.String(), nil, nil)
 }
 
-// ToggleEmailAccount is a stub returning ErrNotImplemented.
+// ToggleEmailAccount issues POST /api/v1/services/email/{id}/toggle with a
+// {"enabled": enabled} body. The server's 200 response body is ignored.
 func (a *serviceConfigAdapter) ToggleEmailAccount(ctx context.Context, id uuid.UUID, enabled bool) error {
-	return ErrNotImplemented
+	return a.client.doJSON(ctx, http.MethodPost, emailServicePath+"/"+id.String()+"/toggle", toggleRequest{Enabled: enabled}, nil)
 }
 
-// --- Calendar stubs ---
+// --- Calendar ---
 
-// ListCalendarAccounts is a stub returning ErrNotImplemented.
+// ListCalendarAccounts issues GET /api/v1/services/calendar and decodes
+// the server's plain-array response into a slice of CalendarAccount.
 func (a *serviceConfigAdapter) ListCalendarAccounts(ctx context.Context) ([]CalendarAccount, error) {
-	return nil, ErrNotImplemented
+	var accounts []CalendarAccount
+	if err := a.client.doJSON(ctx, http.MethodGet, calendarServicePath, nil, &accounts); err != nil {
+		return nil, err
+	}
+	return accounts, nil
 }
 
-// GetCalendarAccount is a stub returning ErrNotImplemented.
+// GetCalendarAccount issues GET /api/v1/services/calendar/{id} and decodes
+// the calendarAccountItem payload.
 func (a *serviceConfigAdapter) GetCalendarAccount(ctx context.Context, id uuid.UUID) (*CalendarAccount, error) {
-	return nil, ErrNotImplemented
+	var acct CalendarAccount
+	if err := a.client.doJSON(ctx, http.MethodGet, calendarServicePath+"/"+id.String(), nil, &acct); err != nil {
+		return nil, err
+	}
+	return &acct, nil
 }
 
-// CreateCalendarAccount is a stub returning ErrNotImplemented.
+// CreateCalendarAccount issues POST /api/v1/services/calendar with req as
+// the JSON body and decodes the server's calendarAccountItem response.
 func (a *serviceConfigAdapter) CreateCalendarAccount(ctx context.Context, req CreateCalendarAccountRequest) (*CalendarAccount, error) {
-	return nil, ErrNotImplemented
+	var acct CalendarAccount
+	if err := a.client.doJSON(ctx, http.MethodPost, calendarServicePath, req, &acct); err != nil {
+		return nil, err
+	}
+	return &acct, nil
 }
 
-// UpdateCalendarAccount is a stub returning ErrNotImplemented.
+// UpdateCalendarAccount issues PUT /api/v1/services/calendar/{id} with req
+// as the full replacement JSON body and decodes the updated
+// calendarAccountItem response.
 func (a *serviceConfigAdapter) UpdateCalendarAccount(ctx context.Context, id uuid.UUID, req UpdateCalendarAccountRequest) (*CalendarAccount, error) {
-	return nil, ErrNotImplemented
+	var acct CalendarAccount
+	if err := a.client.doJSON(ctx, http.MethodPut, calendarServicePath+"/"+id.String(), req, &acct); err != nil {
+		return nil, err
+	}
+	return &acct, nil
 }
 
-// DeleteCalendarAccount is a stub returning ErrNotImplemented.
+// DeleteCalendarAccount issues DELETE /api/v1/services/calendar/{id}. The
+// server returns 204 No Content on success.
 func (a *serviceConfigAdapter) DeleteCalendarAccount(ctx context.Context, id uuid.UUID) error {
-	return ErrNotImplemented
+	return a.client.doJSON(ctx, http.MethodDelete, calendarServicePath+"/"+id.String(), nil, nil)
 }
 
-// ToggleCalendarAccount is a stub returning ErrNotImplemented.
+// ToggleCalendarAccount issues POST /api/v1/services/calendar/{id}/toggle
+// with a {"enabled": enabled} body. The server's 200 response body is
+// ignored.
 func (a *serviceConfigAdapter) ToggleCalendarAccount(ctx context.Context, id uuid.UUID, enabled bool) error {
-	return ErrNotImplemented
+	return a.client.doJSON(ctx, http.MethodPost, calendarServicePath+"/"+id.String()+"/toggle", toggleRequest{Enabled: enabled}, nil)
 }
 
-// --- Cross-service stubs ---
+// --- Cross-service ---
 
-// ServiceStatus is a stub returning ErrNotImplemented.
+// ServiceStatus issues GET /api/v1/services/status and decodes the
+// {services, count} payload, returning just the services slice. The count
+// is implicit in len(services) for callers.
 func (a *serviceConfigAdapter) ServiceStatus(ctx context.Context) ([]ServiceStatus, error) {
-	return nil, ErrNotImplemented
+	var out struct {
+		Services []ServiceStatus `json:"services"`
+		Count    int             `json:"count"`
+	}
+	if err := a.client.doJSON(ctx, http.MethodGet, servicesStatusPath, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Services, nil
 }

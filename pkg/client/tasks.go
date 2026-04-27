@@ -2,9 +2,14 @@ package client
 
 import (
 	"context"
+	"net/http"
+	"net/url"
+	"strconv"
 
 	"github.com/google/uuid"
 )
+
+const tasksPath = "/api/v1/tasks"
 
 // Task mirrors the server's taskItem DTO returned by /api/v1/tasks routes.
 //
@@ -83,27 +88,71 @@ func NewTaskClient(c *APIClient) TaskClient {
 	return &taskAdapter{client: c}
 }
 
-// ListTasks is a stub. Replaced during the GREEN phase.
-func (a *taskAdapter) ListTasks(_ context.Context, _ TaskFilter) ([]Task, int, error) {
-	return nil, 0, ErrNotImplemented
+// ListTasks issues GET /api/v1/tasks with the provided filter encoded as
+// query parameters. Returns the tasks slice, total count, or an error.
+func (a *taskAdapter) ListTasks(ctx context.Context, filter TaskFilter) ([]Task, int, error) {
+	q := url.Values{}
+	if filter.Status != "" {
+		q.Set("status", filter.Status)
+	}
+	if filter.Category != "" {
+		q.Set("category", filter.Category)
+	}
+	if filter.Search != "" {
+		q.Set("search", filter.Search)
+	}
+	if filter.Limit > 0 {
+		q.Set("limit", strconv.Itoa(filter.Limit))
+	}
+	if filter.Offset > 0 {
+		q.Set("offset", strconv.Itoa(filter.Offset))
+	}
+
+	path := buildPath(tasksPath, q)
+
+	var out struct {
+		Tasks []Task `json:"tasks"`
+		Total int    `json:"total"`
+		Count int    `json:"count"`
+	}
+	if err := a.client.doJSON(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, 0, err
+	}
+	return out.Tasks, out.Total, nil
 }
 
-// CreateTask is a stub. Replaced during the GREEN phase.
-func (a *taskAdapter) CreateTask(_ context.Context, _ CreateTaskRequest) (*Task, error) {
-	return nil, ErrNotImplemented
+// CreateTask issues POST /api/v1/tasks with the provided request body and
+// returns the created Task decoded from the 201 response.
+func (a *taskAdapter) CreateTask(ctx context.Context, req CreateTaskRequest) (*Task, error) {
+	var task Task
+	if err := a.client.doJSON(ctx, http.MethodPost, tasksPath, req, &task); err != nil {
+		return nil, err
+	}
+	return &task, nil
 }
 
-// GetTask is a stub. Replaced during the GREEN phase.
-func (a *taskAdapter) GetTask(_ context.Context, _ uuid.UUID) (*Task, error) {
-	return nil, ErrNotImplemented
+// GetTask issues GET /api/v1/tasks/{id} and returns the decoded Task.
+func (a *taskAdapter) GetTask(ctx context.Context, id uuid.UUID) (*Task, error) {
+	var task Task
+	if err := a.client.doJSON(ctx, http.MethodGet, tasksPath+"/"+id.String(), nil, &task); err != nil {
+		return nil, err
+	}
+	return &task, nil
 }
 
-// UpdateTask is a stub. Replaced during the GREEN phase.
-func (a *taskAdapter) UpdateTask(_ context.Context, _ uuid.UUID, _ UpdateTaskRequest) (*Task, error) {
-	return nil, ErrNotImplemented
+// UpdateTask issues PUT /api/v1/tasks/{id} with the provided partial update
+// body. Nil pointer and nil slice fields are omitted from the outgoing JSON
+// via omitempty so the server only applies fields explicitly set.
+func (a *taskAdapter) UpdateTask(ctx context.Context, id uuid.UUID, req UpdateTaskRequest) (*Task, error) {
+	var task Task
+	if err := a.client.doJSON(ctx, http.MethodPut, tasksPath+"/"+id.String(), req, &task); err != nil {
+		return nil, err
+	}
+	return &task, nil
 }
 
-// DeleteTask is a stub. Replaced during the GREEN phase.
-func (a *taskAdapter) DeleteTask(_ context.Context, _ uuid.UUID) error {
-	return ErrNotImplemented
+// DeleteTask issues DELETE /api/v1/tasks/{id}. The server responds with
+// 204 No Content on success; doJSON's nil-out path skips body decoding.
+func (a *taskAdapter) DeleteTask(ctx context.Context, id uuid.UUID) error {
+	return a.client.doJSON(ctx, http.MethodDelete, tasksPath+"/"+id.String(), nil, nil)
 }

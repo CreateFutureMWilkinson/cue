@@ -233,7 +233,7 @@ func (h *Hub) History(sinceSeq uint64) HistoryResponse {
 
 	if h.ringUsed == 0 {
 		h.mu.RUnlock()
-		return HistoryResponse{}
+		return HistoryResponse{Events: []ActivityEnvelope{}}
 	}
 
 	latestSeq := h.seq
@@ -242,6 +242,7 @@ func (h *Hub) History(sinceSeq uint64) HistoryResponse {
 	if sinceSeq >= latestSeq {
 		h.mu.RUnlock()
 		return HistoryResponse{
+			Events:    []ActivityEnvelope{},
 			OldestSeq: oldestSeq,
 			LatestSeq: latestSeq,
 		}

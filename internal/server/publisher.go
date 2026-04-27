@@ -1,6 +1,10 @@
 package server
 
-import "github.com/CreateFutureMWilkinson/cue/internal/server/handler"
+import (
+	"encoding/json"
+
+	"github.com/CreateFutureMWilkinson/cue/internal/server/handler"
+)
 
 // hubPublisher is an adapter that implements handler.Publisher by wrapping
 // *Hub, allowing WebSocket handlers to subscribe/unsubscribe without
@@ -20,3 +24,10 @@ func (p *hubPublisher) Subscribe(id string) (*handler.Subscription, error) {
 }
 
 func (p *hubPublisher) Unsubscribe(id string) error { return p.hub.Unsubscribe(id) }
+
+// HistoryJSON implements handler.HistoryProvider by delegating to the
+// wrapped Hub's History method and marshaling the result to JSON.
+func (p *hubPublisher) HistoryJSON(sinceSeq uint64) ([]byte, error) {
+	resp := p.hub.History(sinceSeq)
+	return json.Marshal(resp)
+}

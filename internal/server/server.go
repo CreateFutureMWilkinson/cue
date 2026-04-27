@@ -190,11 +190,11 @@ func (s *Server) registerRoutes() {
 	}
 
 	if s.deps.Todos != nil {
-		s.mux.Handle("GET /api/v1/tasks", handler.ListTasksHandler(s.deps.Todos, s.deps.EffectiveEstimate))
-		s.mux.Handle("POST /api/v1/tasks", handler.CreateTaskHandler(s.deps.Todos, s.deps.EffectiveEstimate))
-		s.mux.Handle("GET /api/v1/tasks/{id}", handler.GetTaskHandler(s.deps.Todos, s.deps.EffectiveEstimate))
-		s.mux.Handle("PUT /api/v1/tasks/{id}", handler.UpdateTaskHandler(s.deps.Todos, s.deps.EffectiveEstimate))
-		s.mux.Handle("DELETE /api/v1/tasks/{id}", handler.DeleteTaskHandler(s.deps.Todos))
+		s.mux.Handle("GET /api/v1/todo/tasks", handler.ListTasksHandler(s.deps.Todos, s.deps.EffectiveEstimate, s.deps.Categories))
+		s.mux.Handle("POST /api/v1/todo/tasks", handler.CreateTaskHandler(s.deps.Todos, s.deps.EffectiveEstimate, s.deps.Categories))
+		s.mux.Handle("GET /api/v1/todo/tasks/{id}", handler.GetTaskHandler(s.deps.Todos, s.deps.EffectiveEstimate))
+		s.mux.Handle("PUT /api/v1/todo/tasks/{id}", handler.UpdateTaskHandler(s.deps.Todos, s.deps.EffectiveEstimate, s.deps.Categories))
+		s.mux.Handle("DELETE /api/v1/todo/tasks/{id}", handler.DeleteTaskHandler(s.deps.Todos))
 	}
 
 	if s.deps.Rules != nil {

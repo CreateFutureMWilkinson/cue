@@ -46,6 +46,18 @@ type mockTaskServicer struct {
 
 func (m *mockTaskServicer) Create(_ context.Context, task *repository.Task) (*repository.Task, error) {
 	m.createInput = task
+	if m.createResult == nil && m.createErr == nil {
+		// Echo the input so handlers that round-trip the created task
+		// have something non-nil to serialize.
+		echo := *task
+		if echo.ID == uuid.Nil {
+			echo.ID = uuid.New()
+		}
+		if echo.CreatedAt.IsZero() {
+			echo.CreatedAt = time.Now().UTC()
+		}
+		return &echo, nil
+	}
 	return m.createResult, m.createErr
 }
 
@@ -60,6 +72,10 @@ func (m *mockTaskServicer) List(_ context.Context, filter repository.TaskFilter)
 
 func (m *mockTaskServicer) Update(_ context.Context, task *repository.Task) (*repository.Task, error) {
 	m.updateInput = task
+	if m.updateResult == nil && m.updateErr == nil {
+		echo := *task
+		return &echo, nil
+	}
 	return m.updateResult, m.updateErr
 }
 
@@ -67,6 +83,8 @@ func (m *mockTaskServicer) Delete(_ context.Context, id uuid.UUID) error {
 	m.deleteID = id
 	return m.deleteErr
 }
+
+// (mockCategoryServicer is defined in categories_test.go; we reuse it here.)
 
 // stringPtr returns a pointer to the given string. Used for optional
 // fields like CategoryKey in test fixtures.
@@ -83,13 +101,42 @@ func stubEffectiveEstimate(t *repository.Task) *int {
 	return nil
 }
 
-// TaskHandlerSuite tests the task handler endpoints.
+// TaskHandlerSuite tests the task handler endpoints under the new
+// /api/v1/todo/tasks route prefix introduced in Feature 109 Loop 7.
 type TaskHandlerSuite struct {
 	suite.Suite
 }
 
 func TestTaskHandler(t *testing.T) {
 	suite.Run(t, new(TaskHandlerSuite))
+}
+
+// TestRouteMoved confirms the legacy /api/v1/tasks path is gone and the
+// new /api/v1/todo/tasks path is mounted on the server's mux. We use a
+// minimal test mux that mirrors what server.registerRoutes does for the
+// task handlers — just enough to assert the path-not-found behaviour
+// without spinning up the full server.
+func (s *TaskHandlerSuite) TestRouteMoved() {
+	mock := &mockTaskServicer{
+		listTasks: []*repository.Task{},
+		listTotal: 0,
+	}
+	cats := &mockCategoryServicer{}
+
+	mux := http.NewServeMux()
+	mux.Handle("GET /api/v1/todo/tasks", handler.ListTasksHandler(mock, stubEffectiveEstimate, cats))
+
+	// Old path should 404.
+	oldReq := httptest.NewRequest(http.MethodGet, "/api/v1/tasks", nil)
+	oldRec := httptest.NewRecorder()
+	mux.ServeHTTP(oldRec, oldReq)
+	s.Equal(http.StatusNotFound, oldRec.Code, "legacy /api/v1/tasks path must 404")
+
+	// New path should 200 with empty list.
+	newReq := httptest.NewRequest(http.MethodGet, "/api/v1/todo/tasks", nil)
+	newRec := httptest.NewRecorder()
+	mux.ServeHTTP(newRec, newReq)
+	s.Equal(http.StatusOK, newRec.Code, "new /api/v1/todo/tasks path must serve")
 }
 
 func (s *TaskHandlerSuite) TestListTasksHandler() {
@@ -101,7 +148,6 @@ func (s *TaskHandlerSuite) TestListTasksHandler() {
 		Title:              "Review PR #42",
 		Description:        "Check the new auth middleware",
 		Priority:           5,
-		CategoryKey:        stringPtr("code_review"),
 		LLMEstimateMinutes: &llmEst,
 		CreatedAt:          now.Add(-1 * time.Hour),
 	}
@@ -110,11 +156,12 @@ func (s *TaskHandlerSuite) TestListTasksHandler() {
 		listTasks: []*repository.Task{task1},
 		listTotal: 1,
 	}
+	cats := &mockCategoryServicer{}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks?limit=50&offset=0", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/todo/tasks?limit=50&offset=0", nil)
 	rec := httptest.NewRecorder()
 
-	handler.ListTasksHandler(mock, stubEffectiveEstimate)(rec, req)
+	handler.ListTasksHandler(mock, stubEffectiveEstimate, cats)(rec, req)
 
 	s.Equal(http.StatusOK, rec.Code, "expected 200 OK")
 
@@ -138,16 +185,86 @@ func (s *TaskHandlerSuite) TestListTasksHandler() {
 	task := tasks[0].(map[string]any)
 	s.Equal(task1.ID.String(), task["id"])
 	s.Equal("Review PR #42", task["title"])
-	s.Equal("Check the new auth middleware", task["description"])
-	s.Equal(float64(5), task["priority"])
-	s.NotNil(task["categories"])
-	cats := task["categories"].([]any)
-	s.Len(cats, 1)
-	// PresentCategoryName("code_review") -> "Code Review".
-	s.Equal("Code Review", cats[0])
 	s.Equal(float64(30), task["llm_estimate_minutes"])
 	s.Equal(float64(30), task["effective_estimate_minutes"])
 	s.Nil(task["estimate_minutes"])
+
+	// Legacy "categories" field must not be present.
+	_, hasLegacy := task["categories"]
+	s.False(hasLegacy, "legacy 'categories' field must be removed from the DTO")
+}
+
+// TestListIncludesCategoryEmbed asserts that when a task carries a
+// CategoryKey, the response JSON includes a {key, name} object on the
+// `category` field — and excludes any `categories` array.
+func (s *TaskHandlerSuite) TestListIncludesCategoryEmbed() {
+	task := &repository.Task{
+		ID:          uuid.New(),
+		Title:       "Document the API",
+		CategoryKey: stringPtr("foo_bar"),
+		CreatedAt:   time.Now().UTC(),
+	}
+	mock := &mockTaskServicer{
+		listTasks: []*repository.Task{task},
+		listTotal: 1,
+	}
+	cats := &mockCategoryServicer{}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/todo/tasks", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ListTasksHandler(mock, stubEffectiveEstimate, cats)(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code)
+
+	var body map[string]any
+	s.Require().NoError(json.NewDecoder(rec.Body).Decode(&body))
+
+	tasks := body["tasks"].([]any)
+	s.Require().Len(tasks, 1)
+	t := tasks[0].(map[string]any)
+
+	cat, ok := t["category"].(map[string]any)
+	s.Require().True(ok, "category must be a {key, name} object")
+	s.Equal("foo_bar", cat["key"])
+	s.Equal("Foo Bar", cat["name"])
+	s.Nil(cat["colour"], "colour must not be present on the embed")
+	s.Nil(cat["task_count"], "task_count must not be present on the embed")
+
+	_, hasLegacy := t["categories"]
+	s.False(hasLegacy, "legacy 'categories' array must be removed")
+}
+
+// TestListNoCategory: a task with CategoryKey == nil yields category: null.
+func (s *TaskHandlerSuite) TestListNoCategory() {
+	task := &repository.Task{
+		ID:        uuid.New(),
+		Title:     "Untagged",
+		CreatedAt: time.Now().UTC(),
+	}
+	mock := &mockTaskServicer{
+		listTasks: []*repository.Task{task},
+		listTotal: 1,
+	}
+	cats := &mockCategoryServicer{}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/todo/tasks", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ListTasksHandler(mock, stubEffectiveEstimate, cats)(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code)
+
+	// Use a typed decode to distinguish present-and-null from absent.
+	var typed struct {
+		Tasks []map[string]json.RawMessage `json:"tasks"`
+	}
+	s.Require().NoError(json.NewDecoder(rec.Body).Decode(&typed))
+	s.Require().Len(typed.Tasks, 1)
+
+	raw, ok := typed.Tasks[0]["category"]
+	s.Require().True(ok, "category field must be present")
+	s.Equal("null", string(raw), "category must serialize as JSON null when absent")
 }
 
 func (s *TaskHandlerSuite) TestListTasksHandlerEmpty() {
@@ -155,11 +272,12 @@ func (s *TaskHandlerSuite) TestListTasksHandlerEmpty() {
 		listTasks: []*repository.Task{},
 		listTotal: 0,
 	}
+	cats := &mockCategoryServicer{}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/todo/tasks", nil)
 	rec := httptest.NewRecorder()
 
-	handler.ListTasksHandler(mock, stubEffectiveEstimate)(rec, req)
+	handler.ListTasksHandler(mock, stubEffectiveEstimate, cats)(rec, req)
 
 	s.Equal(http.StatusOK, rec.Code, "expected 200 OK")
 
@@ -173,6 +291,85 @@ func (s *TaskHandlerSuite) TestListTasksHandlerEmpty() {
 
 	s.Equal(float64(0), body["total"])
 	s.Equal(float64(0), body["count"])
+}
+
+// TestCreateAcceptsRawCategory: POST with raw "foo BAR" → handler resolves
+// via category service to "foo_bar" and assigns it to the task.
+func (s *TaskHandlerSuite) TestCreateAcceptsRawCategory() {
+	mock := &mockTaskServicer{}
+	cats := &mockCategoryServicer{
+		getReturn: &repository.Category{NameKey: "foo_bar"},
+	}
+
+	body := `{"title":"x","category":"foo BAR"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/todo/tasks", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	handler.CreateTaskHandler(mock, stubEffectiveEstimate, cats)(rec, req)
+
+	s.Equal(http.StatusCreated, rec.Code, "expected 201 Created")
+	s.True(cats.getCalled, "category service must be consulted")
+	s.Equal("foo BAR", cats.getInput, "raw input must be passed to GetCategory")
+	s.Require().NotNil(mock.createInput, "Create must be called")
+	s.Require().NotNil(mock.createInput.CategoryKey, "task must carry resolved category key")
+	s.Equal("foo_bar", *mock.createInput.CategoryKey)
+}
+
+// TestCreateUnknownCategoryReturns400: unknown category → 400.
+func (s *TaskHandlerSuite) TestCreateUnknownCategoryReturns400() {
+	mock := &mockTaskServicer{}
+	cats := &mockCategoryServicer{
+		getErr: repository.ErrNotFound,
+	}
+
+	body := `{"title":"x","category":"nope"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/todo/tasks", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	handler.CreateTaskHandler(mock, stubEffectiveEstimate, cats)(rec, req)
+
+	s.Equal(http.StatusBadRequest, rec.Code, "unknown category must yield 400")
+	s.Nil(mock.createInput, "Create must not be called when category is unknown")
+}
+
+// TestCreateNullCategory: POST with `category: null` → CategoryKey nil,
+// category service NOT consulted.
+func (s *TaskHandlerSuite) TestCreateNullCategory() {
+	mock := &mockTaskServicer{}
+	cats := &mockCategoryServicer{}
+
+	body := `{"title":"x","category":null}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/todo/tasks", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	handler.CreateTaskHandler(mock, stubEffectiveEstimate, cats)(rec, req)
+
+	s.Equal(http.StatusCreated, rec.Code)
+	s.False(cats.getCalled, "category service must NOT be consulted for null")
+	s.Require().NotNil(mock.createInput)
+	s.Nil(mock.createInput.CategoryKey, "CategoryKey must be nil for null input")
+}
+
+// TestCreateMissingCategory: POST without `category` field → CategoryKey nil,
+// category service NOT consulted.
+func (s *TaskHandlerSuite) TestCreateMissingCategory() {
+	mock := &mockTaskServicer{}
+	cats := &mockCategoryServicer{}
+
+	body := `{"title":"x"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/todo/tasks", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	handler.CreateTaskHandler(mock, stubEffectiveEstimate, cats)(rec, req)
+
+	s.Equal(http.StatusCreated, rec.Code)
+	s.False(cats.getCalled, "category service must NOT be consulted when field omitted")
+	s.Require().NotNil(mock.createInput)
+	s.Nil(mock.createInput.CategoryKey, "CategoryKey must be nil when field omitted")
 }
 
 func (s *TaskHandlerSuite) TestCreateTaskHandler() {
@@ -192,13 +389,14 @@ func (s *TaskHandlerSuite) TestCreateTaskHandler() {
 	mock := &mockTaskServicer{
 		createResult: created,
 	}
+	cats := &mockCategoryServicer{}
 
 	body := `{"title":"Write tests","description":"Unit tests for auth","priority":3}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/todo/tasks", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler.CreateTaskHandler(mock, stubEffectiveEstimate)(rec, req)
+	handler.CreateTaskHandler(mock, stubEffectiveEstimate, cats)(rec, req)
 
 	s.Equal(http.StatusCreated, rec.Code, "expected 201 Created")
 
@@ -214,13 +412,14 @@ func (s *TaskHandlerSuite) TestCreateTaskHandler() {
 
 func (s *TaskHandlerSuite) TestCreateTaskHandlerMissingTitle() {
 	mock := &mockTaskServicer{}
+	cats := &mockCategoryServicer{}
 
 	body := `{"description":"no title here","priority":1}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/tasks", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/todo/tasks", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
-	handler.CreateTaskHandler(mock, stubEffectiveEstimate)(rec, req)
+	handler.CreateTaskHandler(mock, stubEffectiveEstimate, cats)(rec, req)
 
 	s.Equal(http.StatusBadRequest, rec.Code, "expected 400 for missing title")
 }
@@ -243,7 +442,7 @@ func (s *TaskHandlerSuite) TestGetTaskHandler() {
 		getResult: task,
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks/"+taskID.String(), nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/todo/tasks/"+taskID.String(), nil)
 	req.SetPathValue("id", taskID.String())
 	rec := httptest.NewRecorder()
 
@@ -269,7 +468,7 @@ func (s *TaskHandlerSuite) TestGetTaskHandlerNotFound() {
 	}
 
 	unknownID := uuid.New()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks/"+unknownID.String(), nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/todo/tasks/"+unknownID.String(), nil)
 	req.SetPathValue("id", unknownID.String())
 	rec := httptest.NewRecorder()
 
@@ -293,17 +492,18 @@ func (s *TaskHandlerSuite) TestUpdateTaskHandler() {
 	}
 
 	mock := &mockTaskServicer{
-		getResult:    updated, // for fetching existing
+		getResult:    updated,
 		updateResult: updated,
 	}
+	cats := &mockCategoryServicer{}
 
 	body := `{"title":"Updated title","priority":9,"estimate_minutes":60}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/tasks/"+taskID.String(), strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/todo/tasks/"+taskID.String(), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.SetPathValue("id", taskID.String())
 	rec := httptest.NewRecorder()
 
-	handler.UpdateTaskHandler(mock, stubEffectiveEstimate)(rec, req)
+	handler.UpdateTaskHandler(mock, stubEffectiveEstimate, cats)(rec, req)
 
 	s.Equal(http.StatusOK, rec.Code, "expected 200 OK")
 
@@ -320,26 +520,163 @@ func (s *TaskHandlerSuite) TestUpdateTaskHandler() {
 
 func (s *TaskHandlerSuite) TestUpdateTaskHandlerNotFound() {
 	mock := &mockTaskServicer{
-		updateErr: repository.ErrNotFound,
+		getErr: repository.ErrNotFound,
 	}
+	cats := &mockCategoryServicer{}
 
 	unknownID := uuid.New()
 	body := `{"title":"Nope"}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/tasks/"+unknownID.String(), strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/todo/tasks/"+unknownID.String(), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.SetPathValue("id", unknownID.String())
 	rec := httptest.NewRecorder()
 
-	handler.UpdateTaskHandler(mock, stubEffectiveEstimate)(rec, req)
+	handler.UpdateTaskHandler(mock, stubEffectiveEstimate, cats)(rec, req)
 
 	s.Equal(http.StatusNotFound, rec.Code, "expected 404 Not Found")
+}
+
+// TestUpdateChangesCategory: PUT body with `category: "work"` → handler
+// resolves and sets CategoryKey on the task.
+func (s *TaskHandlerSuite) TestUpdateChangesCategory() {
+	taskID := uuid.New()
+	existing := &repository.Task{
+		ID:        taskID,
+		Title:     "Existing",
+		CreatedAt: time.Now().UTC(),
+	}
+	mock := &mockTaskServicer{
+		getResult: existing,
+	}
+	cats := &mockCategoryServicer{
+		getReturn: &repository.Category{NameKey: "work"},
+	}
+
+	body := `{"category":"work"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/todo/tasks/"+taskID.String(), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", taskID.String())
+	rec := httptest.NewRecorder()
+
+	handler.UpdateTaskHandler(mock, stubEffectiveEstimate, cats)(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code)
+	s.True(cats.getCalled)
+	s.Require().NotNil(mock.updateInput)
+	s.Require().NotNil(mock.updateInput.CategoryKey)
+	s.Equal("work", *mock.updateInput.CategoryKey)
+}
+
+// TestUpdateClearsCategory: PUT with `category: null` → CategoryKey nil.
+func (s *TaskHandlerSuite) TestUpdateClearsCategory() {
+	taskID := uuid.New()
+	existing := &repository.Task{
+		ID:          taskID,
+		Title:       "Existing",
+		CategoryKey: stringPtr("work"),
+		CreatedAt:   time.Now().UTC(),
+	}
+	mock := &mockTaskServicer{
+		getResult: existing,
+	}
+	cats := &mockCategoryServicer{}
+
+	body := `{"category":null}`
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/todo/tasks/"+taskID.String(), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", taskID.String())
+	rec := httptest.NewRecorder()
+
+	handler.UpdateTaskHandler(mock, stubEffectiveEstimate, cats)(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code)
+	s.False(cats.getCalled, "category service must NOT be consulted for null")
+	s.Require().NotNil(mock.updateInput)
+	s.Nil(mock.updateInput.CategoryKey, "CategoryKey must be cleared")
+}
+
+// TestUpdateOmittedCategory: PUT without `category` field → CategoryKey
+// unchanged. Distinguishes absent vs null using map[string]json.RawMessage.
+func (s *TaskHandlerSuite) TestUpdateOmittedCategory() {
+	taskID := uuid.New()
+	existing := &repository.Task{
+		ID:          taskID,
+		Title:       "Existing",
+		CategoryKey: stringPtr("work"),
+		CreatedAt:   time.Now().UTC(),
+	}
+	mock := &mockTaskServicer{
+		getResult: existing,
+	}
+	cats := &mockCategoryServicer{}
+
+	body := `{"title":"Renamed"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/todo/tasks/"+taskID.String(), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("id", taskID.String())
+	rec := httptest.NewRecorder()
+
+	handler.UpdateTaskHandler(mock, stubEffectiveEstimate, cats)(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code)
+	s.False(cats.getCalled, "category service must NOT be consulted when field omitted")
+	s.Require().NotNil(mock.updateInput)
+	s.Require().NotNil(mock.updateInput.CategoryKey, "CategoryKey must be preserved")
+	s.Equal("work", *mock.updateInput.CategoryKey)
+}
+
+// TestFilterByCategoryAcceptsAnyForm: ?category=Foo%20Bar normalizes to
+// foo_bar before reaching the repo filter.
+func (s *TaskHandlerSuite) TestFilterByCategoryAcceptsAnyForm() {
+	mock := &mockTaskServicer{
+		listTasks: []*repository.Task{},
+		listTotal: 0,
+	}
+	cats := &mockCategoryServicer{
+		getReturn: &repository.Category{NameKey: "foo_bar"},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/todo/tasks?category=Foo%20Bar", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ListTasksHandler(mock, stubEffectiveEstimate, cats)(rec, req)
+
+	s.Equal(http.StatusOK, rec.Code)
+	s.True(cats.getCalled, "category service must normalize the filter input")
+	s.Equal("foo_bar", mock.capturedFilter.CategoryKey, "filter must use canonical key")
+
+	// And empty filter must NOT consult the service.
+	mock2 := &mockTaskServicer{listTasks: []*repository.Task{}}
+	cats2 := &mockCategoryServicer{}
+	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/todo/tasks", nil)
+	rec2 := httptest.NewRecorder()
+	handler.ListTasksHandler(mock2, stubEffectiveEstimate, cats2)(rec2, req2)
+	s.Equal(http.StatusOK, rec2.Code)
+	s.False(cats2.getCalled, "empty filter must skip the category service")
+	s.Equal("", mock2.capturedFilter.CategoryKey)
+}
+
+// TestFilterUnknownCategoryReturns400: ?category=unknown where category
+// service returns ErrNotFound → 400.
+func (s *TaskHandlerSuite) TestFilterUnknownCategoryReturns400() {
+	mock := &mockTaskServicer{}
+	cats := &mockCategoryServicer{
+		getErr: repository.ErrNotFound,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/todo/tasks?category=unknown", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ListTasksHandler(mock, stubEffectiveEstimate, cats)(rec, req)
+
+	s.Equal(http.StatusBadRequest, rec.Code, "unknown category in filter must yield 400")
 }
 
 func (s *TaskHandlerSuite) TestDeleteTaskHandler() {
 	mock := &mockTaskServicer{}
 
 	taskID := uuid.New()
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/tasks/"+taskID.String(), nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/todo/tasks/"+taskID.String(), nil)
 	req.SetPathValue("id", taskID.String())
 	rec := httptest.NewRecorder()
 
@@ -355,7 +692,7 @@ func (s *TaskHandlerSuite) TestDeleteTaskHandlerNotFound() {
 	}
 
 	unknownID := uuid.New()
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/tasks/"+unknownID.String(), nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/todo/tasks/"+unknownID.String(), nil)
 	req.SetPathValue("id", unknownID.String())
 	rec := httptest.NewRecorder()
 

@@ -22,19 +22,29 @@ type TaskServicer interface {
 // EffectiveEstimateFunc computes the effective estimate for a task.
 type EffectiveEstimateFunc func(t *repository.Task) *int
 
+// taskCategoryEmbed is the inline {key, name} representation of a task's
+// category in the task wire format. Per Feature 109 Decision 8 this carries
+// only the canonical key and its presentation name — no colour, no
+// task_count. Clients that need the full category record fetch
+// /api/v1/todo/categories/{key}.
+type taskCategoryEmbed struct {
+	Key  string `json:"key"`
+	Name string `json:"name"`
+}
+
 // taskItem is the JSON representation of a task in responses.
 type taskItem struct {
-	ID                       string   `json:"id"`
-	Title                    string   `json:"title"`
-	Description              string   `json:"description"`
-	Priority                 int      `json:"priority"`
-	DueDate                  *string  `json:"due_date,omitempty"`
-	Categories               []string `json:"categories"`
-	EstimateMinutes          *int     `json:"estimate_minutes"`
-	LLMEstimateMinutes       *int     `json:"llm_estimate_minutes"`
-	EffectiveEstimateMinutes *int     `json:"effective_estimate_minutes"`
-	CreatedAt                string   `json:"created_at"`
-	CompletedAt              *string  `json:"completed_at,omitempty"`
+	ID                       string             `json:"id"`
+	Title                    string             `json:"title"`
+	Description              string             `json:"description"`
+	Priority                 int                `json:"priority"`
+	DueDate                  *string            `json:"due_date,omitempty"`
+	Category                 *taskCategoryEmbed `json:"category"`
+	EstimateMinutes          *int               `json:"estimate_minutes"`
+	LLMEstimateMinutes       *int               `json:"llm_estimate_minutes"`
+	EffectiveEstimateMinutes *int               `json:"effective_estimate_minutes"`
+	CreatedAt                string             `json:"created_at"`
+	CompletedAt              *string            `json:"completed_at,omitempty"`
 }
 
 // taskListResponse is the JSON envelope for the task list endpoint.
@@ -44,25 +54,28 @@ type taskListResponse struct {
 	Count int        `json:"count"`
 }
 
-// createTaskRequest is the JSON body for POST /api/v1/tasks.
+// createTaskRequest is the JSON body for POST /api/v1/todo/tasks.
+//
+// Category is decoded out-of-band via the raw map[string]json.RawMessage
+// pattern so the handler can distinguish absent (leave nil) from explicit
+// null (clear). Any present non-null value is treated as a raw display
+// string and resolved through CategoryServicer.GetCategory.
 type createTaskRequest struct {
-	Title           string   `json:"title"`
-	Description     string   `json:"description"`
-	Priority        int      `json:"priority"`
-	DueDate         *string  `json:"due_date"`
-	Categories      []string `json:"categories"`
-	EstimateMinutes *int     `json:"estimate_minutes"`
+	Title           string  `json:"title"`
+	Description     string  `json:"description"`
+	Priority        int     `json:"priority"`
+	DueDate         *string `json:"due_date"`
+	EstimateMinutes *int    `json:"estimate_minutes"`
 }
 
-// updateTaskRequest is the JSON body for PUT /api/v1/tasks/{id}.
+// updateTaskRequest is the JSON body for PUT /api/v1/todo/tasks/{id}.
 type updateTaskRequest struct {
-	Title           *string  `json:"title"`
-	Description     *string  `json:"description"`
-	Priority        *int     `json:"priority"`
-	DueDate         *string  `json:"due_date"`
-	Categories      []string `json:"categories"`
-	EstimateMinutes *int     `json:"estimate_minutes"`
-	CompletedAt     *string  `json:"completed_at"`
+	Title           *string `json:"title"`
+	Description     *string `json:"description"`
+	Priority        *int    `json:"priority"`
+	DueDate         *string `json:"due_date"`
+	EstimateMinutes *int    `json:"estimate_minutes"`
+	CompletedAt     *string `json:"completed_at"`
 }
 
 // taskToItem converts a repository.Task to a taskItem JSON struct.
@@ -78,15 +91,11 @@ func taskToItem(t *repository.Task, effectiveFn EffectiveEstimateFunc) taskItem 
 		CreatedAt:                t.CreatedAt.Format(time.RFC3339),
 	}
 
-	// TODO(feat-109 Loop 7): switch to single-category embed
-	// {key, name} | null. For now emit an empty slice so existing
-	// tests (which only check presence of "categories") still see a
-	// non-nil JSON value.
-	_ = repository.PresentCategoryName // keep import once Loop 7 wires it.
-	item.Categories = []string{}
-	if t.CategoryKey != nil {
-		item.Categories = []string{repository.PresentCategoryName(*t.CategoryKey)}
-	}
+	// TODO Loop 7 GREEN: populate item.Category from t.CategoryKey via
+	// repository.PresentCategoryName. RED stub leaves the embed nil so
+	// TestListIncludesCategoryEmbed fails meaningfully.
+	_ = repository.PresentCategoryName // keep import live during RED.
+	item.Category = nil
 
 	if t.DueDate != nil {
 		s := t.DueDate.Format(time.RFC3339)
@@ -100,7 +109,7 @@ func taskToItem(t *repository.Task, effectiveFn EffectiveEstimateFunc) taskItem 
 	return item
 }
 
-// ListTasksHandler returns an http.HandlerFunc for GET /api/v1/tasks.
+// ListTasksHandler returns an http.HandlerFunc for GET /api/v1/todo/tasks.
 //
 // @Summary      List tasks
 // @Description  Paginated list of task items, filterable by status, category,
@@ -108,22 +117,26 @@ func taskToItem(t *repository.Task, effectiveFn EffectiveEstimateFunc) taskItem 
 // @Tags         tasks
 // @Produce      json
 // @Param        status    query     string  false  "open | completed"
-// @Param        category  query     string  false  "Category name"
+// @Param        category  query     string  false  "Category name (any form)"
 // @Param        search    query     string  false  "Substring match on title/description"
 // @Param        limit     query     int     false  "Page size (default 50)"
 // @Param        offset    query     int     false  "Page offset (default 0)"
 // @Success      200       {object}  handler.taskListResponse
+// @Failure      400       {object}  map[string]string
 // @Failure      500       {object}  map[string]string
-// @Router       /api/v1/tasks [get]
-func ListTasksHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
+// @Router       /api/v1/todo/tasks [get]
+func ListTasksHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc, cats CategoryServicer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		limit, offset := parsePagination(r)
 
+		// TODO Loop 7 GREEN: when ?category= is non-empty, normalize via
+		// cats.GetCategory and use the canonical NameKey for the filter;
+		// surface ErrNotFound as 400. RED stub passes the raw param
+		// straight through so TestFilterByCategoryAcceptsAnyForm and
+		// TestFilterUnknownCategoryReturns400 fail meaningfully.
+		_ = cats
 		filter := repository.TaskFilter{
-			Status: r.URL.Query().Get("status"),
-			// TODO(feat-109 Loop 7): normalize raw input via
-			// NormalizeCategoryKey before passing to the repo. For
-			// now treat the query param as already-canonical.
+			Status:      r.URL.Query().Get("status"),
 			CategoryKey: r.URL.Query().Get("category"),
 			Search:      r.URL.Query().Get("search"),
 			Limit:       limit,
@@ -149,11 +162,12 @@ func ListTasksHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http.
 	}
 }
 
-// CreateTaskHandler returns an http.HandlerFunc for POST /api/v1/tasks.
+// CreateTaskHandler returns an http.HandlerFunc for POST /api/v1/todo/tasks.
 //
 // @Summary      Create task
 // @Description  Creates a new task. Title is required. Accepts YYYY-MM-DD or
-// @Description  RFC3339 for due_date.
+// @Description  RFC3339 for due_date. The optional `category` field accepts
+// @Description  the raw display name in any form and is normalized server-side.
 // @Tags         tasks
 // @Accept       json
 // @Produce      json
@@ -161,11 +175,20 @@ func ListTasksHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http.
 // @Success      201      {object}  handler.taskItem
 // @Failure      400      {object}  map[string]string
 // @Failure      500      {object}  map[string]string
-// @Router       /api/v1/tasks [post]
-func CreateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
+// @Router       /api/v1/todo/tasks [post]
+func CreateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc, cats CategoryServicer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Decode into a raw map so we can distinguish absent vs explicit
+		// null on `category`, mirroring the pattern used by the category
+		// PUT handler in Loop 6.
+		var raw map[string]json.RawMessage
+		if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+
 		var req createTaskRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := decodeRawInto(raw, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
@@ -192,12 +215,12 @@ func CreateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http
 			task.DueDate = &t
 		}
 
-		// TODO(feat-109 Loop 7): wire single-category FK. Accept
-		// `category: string|null` per Decision 8, normalize via
-		// NormalizeCategoryKey, look up against CategoryRepository,
-		// reject unknown with 400. For now, drop the legacy multi-
-		// category input on the floor so the package compiles.
-		_ = req.Categories
+		// TODO Loop 7 GREEN: resolve raw["category"] via cats.GetCategory
+		// (absent vs explicit-null distinction; ErrNotFound → 400). RED
+		// stub leaves CategoryKey nil so TestCreateAcceptsRawCategory and
+		// TestCreateUnknownCategoryReturns400 fail meaningfully.
+		_ = cats
+		_ = raw
 		task.CategoryKey = nil
 
 		created, err := svc.Create(r.Context(), task)
@@ -210,7 +233,7 @@ func CreateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http
 	}
 }
 
-// GetTaskHandler returns an http.HandlerFunc for GET /api/v1/tasks/{id}.
+// GetTaskHandler returns an http.HandlerFunc for GET /api/v1/todo/tasks/{id}.
 //
 // @Summary      Get task by ID
 // @Tags         tasks
@@ -219,7 +242,7 @@ func CreateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http
 // @Success      200  {object}  handler.taskItem
 // @Failure      404  {object}  map[string]string
 // @Failure      500  {object}  map[string]string
-// @Router       /api/v1/tasks/{id} [get]
+// @Router       /api/v1/todo/tasks/{id} [get]
 func GetTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseTaskID(r)
@@ -238,11 +261,15 @@ func GetTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http.Ha
 	}
 }
 
-// UpdateTaskHandler returns an http.HandlerFunc for PUT /api/v1/tasks/{id}.
+// UpdateTaskHandler returns an http.HandlerFunc for PUT /api/v1/todo/tasks/{id}.
 //
 // @Summary      Update task
 // @Description  Partial update: any non-nil field in the body is applied to
-// @Description  the existing task. Unspecified fields retain their current value.
+// @Description  the existing task. Unspecified fields retain their current
+// @Description  value. The `category` field uses present/absent/null
+// @Description  semantics: absent leaves the existing value intact, null
+// @Description  clears the category, a string resolves through the category
+// @Description  service.
 // @Tags         tasks
 // @Accept       json
 // @Produce      json
@@ -252,8 +279,8 @@ func GetTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http.Ha
 // @Failure      400      {object}  map[string]string
 // @Failure      404      {object}  map[string]string
 // @Failure      500      {object}  map[string]string
-// @Router       /api/v1/tasks/{id} [put]
-func UpdateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
+// @Router       /api/v1/todo/tasks/{id} [put]
+func UpdateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc, cats CategoryServicer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseTaskID(r)
 		if err != nil {
@@ -272,9 +299,16 @@ func UpdateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http
 			return
 		}
 
-		// Decode update request.
+		// Decode into a raw map first to support absent-vs-null on
+		// `category` (Decision 8 + Loop 6 PUT pattern).
+		var raw map[string]json.RawMessage
+		if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+
 		var req updateTaskRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := decodeRawInto(raw, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
@@ -300,9 +334,6 @@ func UpdateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http
 			}
 			existing.DueDate = &t
 		}
-		// TODO(feat-109 Loop 7): wire single-category FK. See
-		// CreateTaskHandler above. For now, drop input on the floor.
-		_ = req.Categories
 		if req.CompletedAt != nil {
 			t, err := time.Parse(time.RFC3339, *req.CompletedAt)
 			if err != nil {
@@ -311,6 +342,13 @@ func UpdateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http
 			}
 			existing.CompletedAt = &t
 		}
+
+		// TODO Loop 7 GREEN: handle raw["category"] with absent/null/string
+		// semantics (resolve string via cats.GetCategory; ErrNotFound → 400).
+		// RED stub leaves CategoryKey untouched so TestUpdateChangesCategory
+		// and TestUpdateClearsCategory fail meaningfully.
+		_ = cats
+		_ = raw
 
 		updated, err := svc.Update(r.Context(), existing)
 		if err != nil {
@@ -322,7 +360,7 @@ func UpdateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http
 	}
 }
 
-// DeleteTaskHandler returns an http.HandlerFunc for DELETE /api/v1/tasks/{id}.
+// DeleteTaskHandler returns an http.HandlerFunc for DELETE /api/v1/todo/tasks/{id}.
 //
 // @Summary      Delete task
 // @Tags         tasks
@@ -330,7 +368,7 @@ func UpdateTaskHandler(svc TaskServicer, effectiveFn EffectiveEstimateFunc) http
 // @Success      204  "No Content"
 // @Failure      404  {object}  map[string]string
 // @Failure      500  {object}  map[string]string
-// @Router       /api/v1/tasks/{id} [delete]
+// @Router       /api/v1/todo/tasks/{id} [delete]
 func DeleteTaskHandler(svc TaskServicer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseTaskID(r)
@@ -359,4 +397,15 @@ func parseDueDate(s string) (time.Time, error) {
 		return t, nil
 	}
 	return time.Parse(time.RFC3339, s)
+}
+
+// decodeRawInto re-encodes a raw JSON map into a typed struct. Used by the
+// task handlers to share the absent-vs-null detection on `category` with
+// the regular field decoding logic.
+func decodeRawInto(raw map[string]json.RawMessage, v any) error {
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, v)
 }

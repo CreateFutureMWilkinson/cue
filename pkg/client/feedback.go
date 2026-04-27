@@ -2,8 +2,16 @@ package client
 
 import (
 	"context"
+	"net/http"
+	"net/url"
+	"strconv"
 
 	"github.com/google/uuid"
+)
+
+const (
+	bufferPath      = "/api/v1/buffer"
+	bufferStatsPath = "/api/v1/buffer/stats"
 )
 
 // BufferedMessage mirrors a single item in the /api/v1/buffer list response.
@@ -60,41 +68,63 @@ func NewFeedbackClient(c *APIClient) FeedbackClient {
 }
 
 // ListBuffered issues GET /api/v1/buffer with pagination. Returns the
-// decoded messages slice and total count.
+// decoded messages slice and total count. Limit and offset are only
+// emitted as query parameters when > 0.
 func (a *feedbackAdapter) ListBuffered(ctx context.Context, opts ListOptions) ([]BufferedMessage, int, error) {
-	_ = ctx
-	_ = opts
-	return nil, 0, ErrNotImplemented
+	q := url.Values{}
+	if opts.Limit > 0 {
+		q.Set("limit", strconv.Itoa(opts.Limit))
+	}
+	if opts.Offset > 0 {
+		q.Set("offset", strconv.Itoa(opts.Offset))
+	}
+
+	path := buildPath(bufferPath, q)
+
+	var out struct {
+		Messages []BufferedMessage `json:"messages"`
+		Total    int               `json:"total"`
+		Count    int               `json:"count"`
+	}
+	if err := a.client.doJSON(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, 0, err
+	}
+	return out.Messages, out.Total, nil
 }
 
 // GetBuffered issues GET /api/v1/buffer/{id} for a single buffered message.
 func (a *feedbackAdapter) GetBuffered(ctx context.Context, id uuid.UUID) (*BufferedMessage, error) {
-	_ = ctx
-	_ = id
-	return nil, ErrNotImplemented
+	var msg BufferedMessage
+	if err := a.client.doJSON(ctx, http.MethodGet, bufferPath+"/"+id.String(), nil, &msg); err != nil {
+		return nil, err
+	}
+	return &msg, nil
 }
 
 // BufferStats issues GET /api/v1/buffer/stats and returns the decoded stats.
+// The path is the literal /api/v1/buffer/stats — it must NOT be interpolated
+// through the /{id} detail route.
 func (a *feedbackAdapter) BufferStats(ctx context.Context) (*BufferStats, error) {
-	_ = ctx
-	return nil, ErrNotImplemented
+	var stats BufferStats
+	if err := a.client.doJSON(ctx, http.MethodGet, bufferStatsPath, nil, &stats); err != nil {
+		return nil, err
+	}
+	return &stats, nil
 }
 
 // RateBuffered issues POST /api/v1/buffer/{id}/rate with the given rating
 // and optional feedback. A nil feedback pointer omits the field from the
-// request body.
+// request body via json:",omitempty".
 func (a *feedbackAdapter) RateBuffered(ctx context.Context, id uuid.UUID, rating int, feedback *string) error {
-	_ = ctx
-	_ = id
-	_ = rating
-	_ = feedback
-	return ErrNotImplemented
+	body := struct {
+		Rating   int     `json:"rating"`
+		Feedback *string `json:"feedback,omitempty"`
+	}{Rating: rating, Feedback: feedback}
+	return a.client.doJSON(ctx, http.MethodPost, bufferPath+"/"+id.String()+"/rate", body, nil)
 }
 
 // DeleteBuffered issues DELETE /api/v1/buffer/{id}. The server responds
-// 204 No Content on success.
+// 204 No Content on success; doJSON's nil-out path skips body decoding.
 func (a *feedbackAdapter) DeleteBuffered(ctx context.Context, id uuid.UUID) error {
-	_ = ctx
-	_ = id
-	return ErrNotImplemented
+	return a.client.doJSON(ctx, http.MethodDelete, bufferPath+"/"+id.String(), nil, nil)
 }

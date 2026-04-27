@@ -26,6 +26,15 @@ type Deps struct {
 	// EffectiveEstimate computes the effective estimate for a todo.
 	// Required when Todos is non-nil.
 	EffectiveEstimate handler.EffectiveEstimateFunc
+	// Schedules is the schedule store for planner CRUD operations.
+	// If nil, planner API endpoints are not registered.
+	Schedules handler.ScheduleStore
+	// ScheduleGenerator generates schedule options from calendar events.
+	// Required when Schedules is non-nil.
+	ScheduleGenerator handler.ScheduleGenerator
+	// Calendar fetches calendar events for schedule generation.
+	// Required when Schedules is non-nil.
+	Calendar handler.CalendarFetcher
 	// Hub is the WebSocket event broadcaster. If nil, New creates its own hub.
 	// Inject a shared hub when you need external components (orchestrator, queue processor)
 	// to publish events to the same WebSocket clients that connect to this server.
@@ -124,6 +133,19 @@ func (s *Server) registerRoutes() {
 		s.mux.Handle("GET /api/v1/tasks/{id}", handler.GetTaskHandler(s.deps.Todos, s.deps.EffectiveEstimate))
 		s.mux.Handle("PUT /api/v1/tasks/{id}", handler.UpdateTaskHandler(s.deps.Todos, s.deps.EffectiveEstimate))
 		s.mux.Handle("DELETE /api/v1/tasks/{id}", handler.DeleteTaskHandler(s.deps.Todos))
+	}
+
+	if s.deps.Schedules != nil {
+		// Register /active routes before /{date} so ServeMux does not
+		// match "active" as a {date} parameter.
+		s.mux.Handle("GET /api/v1/planner/active", handler.ActiveDateHandler(handler.GetScheduleHandler(s.deps.Schedules)))
+		s.mux.Handle("DELETE /api/v1/planner/active", handler.ActiveDateHandler(handler.DeleteScheduleHandler(s.deps.Schedules)))
+		s.mux.Handle("GET /api/v1/planner/{date}", handler.GetScheduleHandler(s.deps.Schedules))
+		s.mux.Handle("PUT /api/v1/planner/{date}", handler.PutScheduleHandler(s.deps.Schedules))
+		s.mux.Handle("DELETE /api/v1/planner/{date}", handler.DeleteScheduleHandler(s.deps.Schedules))
+		if s.deps.ScheduleGenerator != nil && s.deps.Calendar != nil {
+			s.mux.Handle("POST /api/v1/planner/generate", handler.GenerateSchedulesHandler(s.deps.ScheduleGenerator, s.deps.Calendar))
+		}
 	}
 }
 

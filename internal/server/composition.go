@@ -17,6 +17,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository/implementation/sqlite"
 	"github.com/CreateFutureMWilkinson/cue/internal/secret"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/buffer"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/calendar"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/planner"
@@ -105,7 +106,19 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, fmt.Errorf("creating todo service: %w", err)
 	}
 
-	httpSrv, err := constructHTTPServer(cfg, msgRepo, vectorStore, hub, todoSvc)
+	scheduleRepo, err := sqlite.NewSQLiteScheduleRepository(cfg.Database.Path)
+	if err != nil {
+		return nil, fmt.Errorf("opening schedule repository: %w", err)
+	}
+
+	calProvider := calendar.CalendarProvider(calendar.NewNoopCalendarProvider())
+	plannerClock := wallClock{}
+	plannerEngine, err := planner.NewPlanner(cfg.Planner, taskEstimator, plannerClock)
+	if err != nil {
+		return nil, fmt.Errorf("creating planner engine: %w", err)
+	}
+
+	httpSrv, err := constructHTTPServer(cfg, msgRepo, vectorStore, hub, todoSvc, scheduleRepo, plannerEngine, calProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +217,7 @@ func constructServices(ctx context.Context, cfg config.Config, ruleRepo reposito
 }
 
 // constructHTTPServer builds the HTTP/WebSocket server surface with shared hub.
-func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository, vectorStore *vector.ChromemVectorStore, hub *Hub, todoSvc *todosvc.Service) (*Server, error) {
+func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository, vectorStore *vector.ChromemVectorStore, hub *Hub, todoSvc *todosvc.Service, scheduleRepo repository.ScheduleRepository, plannerEngine *planner.Planner, calProvider calendar.CalendarProvider) (*Server, error) {
 	bufSvc, err := buffer.NewBufferService(msgRepo, vectorStore)
 	if err != nil {
 		return nil, fmt.Errorf("creating buffer service: %w", err)
@@ -215,6 +228,9 @@ func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository
 		Hub:               hub,
 		Todos:             todoSvc,
 		EffectiveEstimate: todosvc.EffectiveEstimate,
+		Schedules:         scheduleRepo,
+		ScheduleGenerator: plannerEngine,
+		Calendar:          calProvider,
 	})
 }
 
@@ -384,3 +400,8 @@ func (c *Composition) Shutdown(ctx context.Context) error {
 	})
 	return c.shutdownErr
 }
+
+// wallClock implements planner.Clock using the real system clock.
+type wallClock struct{}
+
+func (wallClock) Now() time.Time { return time.Now() }

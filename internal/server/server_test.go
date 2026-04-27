@@ -18,6 +18,8 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/server"
 	"github.com/CreateFutureMWilkinson/cue/internal/server/handler"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/calendar"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/planner"
 )
 
 type ServerSuite struct {
@@ -428,6 +430,191 @@ func (s *ServerSuite) TestTaskRoutesNotRegisteredWhenNil() {
 
 			s.Equal(http.StatusNotFound, resp.StatusCode,
 				"%s %s should return 404 when Todos is nil", tc.method, tc.path)
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Mock ScheduleStore for route registration tests
+// ---------------------------------------------------------------------------
+
+type serverMockScheduleStore struct{}
+
+func (m *serverMockScheduleStore) LoadByDate(_ context.Context, date time.Time) (*repository.Schedule, error) {
+	return &repository.Schedule{
+		ID:        uuid.New(),
+		Date:      date,
+		Strategy:  "focus",
+		Blocks:    []repository.ScheduleBlock{},
+		CreatedAt: time.Now(),
+	}, nil
+}
+
+func (m *serverMockScheduleStore) Save(_ context.Context, schedule *repository.Schedule) error {
+	return nil
+}
+
+func (m *serverMockScheduleStore) Delete(_ context.Context, _ time.Time) error {
+	return nil
+}
+
+// serverMockScheduleGenerator implements handler.ScheduleGenerator with minimal stubs.
+type serverMockScheduleGenerator struct{}
+
+func (m *serverMockScheduleGenerator) GenerateSchedules(_ context.Context, _ []planner.TaskEstimate, _ []calendar.CalendarEvent, _ time.Time) (*planner.DaySchedule, *planner.DaySchedule, error) {
+	return &planner.DaySchedule{Strategy: "focus", Blocks: []planner.TimeBlock{}},
+		&planner.DaySchedule{Strategy: "recovery", Blocks: []planner.TimeBlock{}}, nil
+}
+
+func (m *serverMockScheduleGenerator) TargetDate(now time.Time) time.Time {
+	return now
+}
+
+// serverMockCalendarFetcher implements handler.CalendarFetcher with minimal stubs.
+type serverMockCalendarFetcher struct{}
+
+func (m *serverMockCalendarFetcher) FetchEvents(_ context.Context, _ time.Time) ([]calendar.CalendarEvent, error) {
+	return []calendar.CalendarEvent{}, nil
+}
+
+// ---------------------------------------------------------------------------
+// Planner route registration tests
+// ---------------------------------------------------------------------------
+
+func (s *ServerSuite) TestPlannerRoutesRegistered() {
+	cfg := config.ServerConfig{
+		Host:                "127.0.0.1",
+		Port:                0,
+		ReadTimeoutSeconds:  5,
+		WriteTimeoutSeconds: 5,
+	}
+
+	srv, err := server.New(cfg, server.Deps{
+		Schedules:         &serverMockScheduleStore{},
+		ScheduleGenerator: &serverMockScheduleGenerator{},
+		Calendar:          &serverMockCalendarFetcher{},
+	})
+	s.Require().NoError(err)
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	tests := []struct {
+		name       string
+		method     string
+		path       string
+		body       string
+		wantStatus int
+	}{
+		{
+			name:       "GET /api/v1/planner/{date} returns 200",
+			method:     http.MethodGet,
+			path:       "/api/v1/planner/2026-04-20",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "PUT /api/v1/planner/{date} returns 200",
+			method:     http.MethodPut,
+			path:       "/api/v1/planner/2026-04-20",
+			body:       `{"strategy":"focus","blocks":[]}`,
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "DELETE /api/v1/planner/{date} returns 204",
+			method:     http.MethodDelete,
+			path:       "/api/v1/planner/2026-04-20",
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "GET /api/v1/planner/active returns 200",
+			method:     http.MethodGet,
+			path:       "/api/v1/planner/active",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "DELETE /api/v1/planner/active returns 204",
+			method:     http.MethodDelete,
+			path:       "/api/v1/planner/active",
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name:       "POST /api/v1/planner/generate returns 200",
+			method:     http.MethodPost,
+			path:       "/api/v1/planner/generate",
+			body:       `{"date":"2026-04-20"}`,
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tc := range tests {
+		s.Run(tc.name, func() {
+			var bodyReader io.Reader
+			if tc.body != "" {
+				bodyReader = strings.NewReader(tc.body)
+			}
+
+			req, err := http.NewRequest(tc.method, ts.URL+tc.path, bodyReader)
+			s.Require().NoError(err)
+
+			if tc.body != "" {
+				req.Header.Set("Content-Type", "application/json")
+			}
+
+			resp, err := http.DefaultClient.Do(req)
+			s.Require().NoError(err)
+			defer resp.Body.Close()
+
+			s.NotEqual(http.StatusNotFound, resp.StatusCode,
+				"route %s %s should be registered (got 404)", tc.method, tc.path)
+			s.Equal(tc.wantStatus, resp.StatusCode,
+				"route %s %s should return %d", tc.method, tc.path, tc.wantStatus)
+		})
+	}
+}
+
+func (s *ServerSuite) TestPlannerRoutesNotRegisteredWhenNil() {
+	cfg := config.ServerConfig{
+		Host:                "127.0.0.1",
+		Port:                0,
+		ReadTimeoutSeconds:  5,
+		WriteTimeoutSeconds: 5,
+	}
+
+	// No Schedules in Deps — planner routes should not be registered.
+	srv, err := server.New(cfg)
+	s.Require().NoError(err)
+
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	paths := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/api/v1/planner/2026-04-20"},
+		{http.MethodPut, "/api/v1/planner/2026-04-20"},
+		{http.MethodDelete, "/api/v1/planner/2026-04-20"},
+		{http.MethodGet, "/api/v1/planner/active"},
+		{http.MethodDelete, "/api/v1/planner/active"},
+		{http.MethodPost, "/api/v1/planner/generate"},
+	}
+
+	for _, tc := range paths {
+		s.Run(tc.method+" "+tc.path+" returns 404", func() {
+			var bodyReader io.Reader
+			if tc.method == http.MethodPost || tc.method == http.MethodPut {
+				bodyReader = strings.NewReader(`{"strategy":"focus","blocks":[]}`)
+			}
+
+			req, err := http.NewRequest(tc.method, ts.URL+tc.path, bodyReader)
+			s.Require().NoError(err)
+
+			resp, err := http.DefaultClient.Do(req)
+			s.Require().NoError(err)
+			defer resp.Body.Close()
+
+			s.Equal(http.StatusNotFound, resp.StatusCode,
+				"%s %s should return 404 when Schedules is nil", tc.method, tc.path)
 		})
 	}
 }

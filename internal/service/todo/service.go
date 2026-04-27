@@ -63,6 +63,14 @@ func NewService(tasks TaskRepository, categories CategoryRepository, estimator T
 	return &Service{repo: tasks, categories: categories, estimator: estimator}, nil
 }
 
+// validateColour checks that colour matches #RRGGBB format if non-nil.
+func validateColour(colour *string) error {
+	if colour != nil && !colourRegex.MatchString(*colour) {
+		return fmt.Errorf("invalid colour %q (must match #RRGGBB)", *colour)
+	}
+	return nil
+}
+
 // CreateCategory normalizes rawName, validates colour, and inserts a new
 // category. The service is the only boundary that calls
 // repository.NormalizeCategoryKey before reaching the repo.
@@ -71,8 +79,8 @@ func (s *Service) CreateCategory(ctx context.Context, rawName string, colour *st
 	if err != nil {
 		return nil, fmt.Errorf("todo service: create category: %w", err)
 	}
-	if colour != nil && !colourRegex.MatchString(*colour) {
-		return nil, fmt.Errorf("todo service: create category: invalid colour %q (must match #RRGGBB)", *colour)
+	if err := validateColour(colour); err != nil {
+		return nil, fmt.Errorf("todo service: create category: %w", err)
 	}
 	cat := &repository.Category{
 		NameKey:   key,
@@ -113,8 +121,8 @@ func (s *Service) RenameCategory(ctx context.Context, oldKey, newRawName string)
 // SetCategoryColour validates colour (if non-nil) then updates it via
 // categories.UpdateColour.
 func (s *Service) SetCategoryColour(ctx context.Context, key string, colour *string) error {
-	if colour != nil && !colourRegex.MatchString(*colour) {
-		return fmt.Errorf("todo service: set category colour: invalid colour %q (must match #RRGGBB)", *colour)
+	if err := validateColour(colour); err != nil {
+		return fmt.Errorf("todo service: set category colour: %w", err)
 	}
 	return s.categories.UpdateColour(ctx, key, colour)
 }

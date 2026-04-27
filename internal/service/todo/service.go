@@ -58,7 +58,7 @@ func (s *Service) Create(ctx context.Context, todo *repository.Todo) (*repositor
 		todoID := todo.ID
 		title := todo.Title
 		description := todo.Description
-		go s.asyncEstimate(todoID, title, description)
+		go s.asyncEstimate(todoID, title, description) // #nosec G118 — intentionally outlives request
 	}
 
 	return s.repo.QueryByID(ctx, todo.ID)
@@ -98,7 +98,7 @@ func (s *Service) Update(ctx context.Context, todo *repository.Todo) (*repositor
 		todoID := todo.ID
 		title := todo.Title
 		description := todo.Description
-		go s.asyncEstimate(todoID, title, description)
+		go s.asyncEstimate(todoID, title, description) // #nosec G118 — intentionally outlives request
 	}
 
 	return s.repo.QueryByID(ctx, todo.ID)

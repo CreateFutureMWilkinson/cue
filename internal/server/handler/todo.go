@@ -3,16 +3,12 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/google/uuid"
 )
-
-// ErrNotImplemented is returned by stub handlers pending implementation.
-var ErrNotImplemented = errors.New("not implemented")
 
 // TodoServicer is the subset of todo.Service needed by todo handlers.
 type TodoServicer interface {

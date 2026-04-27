@@ -93,21 +93,21 @@ func NormalizeCategoryKey(input string) (string, error) {
 // PresentCategoryName converts a normalized category key back to a
 // human-readable display string by replacing '_' with space and
 // title-casing each word. Empty input returns empty string.
-//
-// Stub: returns empty string; replaced in Loop 1 GREEN.
 func PresentCategoryName(key string) string {
 	if key == "" {
 		return ""
 	}
 	parts := strings.Split(key, "_")
-	for i, p := range parts {
-		if p == "" {
-			continue
+	for i, part := range parts {
+		if part == "" {
+			continue // skip empty parts from multiple underscores
 		}
-		runes := []rune(p)
-		runes[0] = unicode.ToUpper(runes[0])
-		for j := 1; j < len(runes); j++ {
-			runes[j] = unicode.ToLower(runes[j])
+		runes := []rune(part)
+		if len(runes) > 0 {
+			runes[0] = unicode.ToUpper(runes[0])
+			for j := 1; j < len(runes); j++ {
+				runes[j] = unicode.ToLower(runes[j])
+			}
 		}
 		parts[i] = string(runes)
 	}

@@ -7,7 +7,7 @@ A local-first, privacy-centric ADHD-friendly productivity assistant. Cue monitor
 
 ## Status
 
-Phases 1–8 complete. Phase 9 in progress: server infrastructure + composition root (097) and message & notification REST API (098) done — `cue-server` headless binary with health endpoints, middleware stack, WebSocket-ready broadcaster, and six REST endpoints for querying/managing notifications and messages. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
+Phases 1–8 complete. Phase 9 in progress: server infrastructure (097), message & notification REST API (098), and activity event stream (099) done — `cue-server` headless binary with health endpoints, middleware stack, six REST endpoints for notifications/messages, a WebSocket upgrade at `/api/v1/websocket/events` streaming JSON-enveloped activity events (500-entry replay ring, 64-deep per-subscriber buffer with drop-oldest + per-sub drop counter, 16-connection cap, 30s/10s ping heartbeat, same-origin policy), and a REST replay endpoint at `/api/v1/events?since=<seq>`. Publisher wiring (orchestrator → hub) is the remaining work before 099A. See [docs/Roadmap.md](docs/Roadmap.md) for full implementation status.
 
 ## Supported Platforms
 

@@ -650,3 +650,38 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-9-Feature-098 (GetMessage) | RED | main | inline | inline | 45e53fe |
 | Phase-9-Feature-098 (GetMessage) | GREEN | main | inline | inline | a72e487 |
 | Phase-9-Feature-098 (wiring) | GREEN | main | inline | inline | 49e6d37 |
+| Phase-9-Feature-099 (B1 envelope JSON) | RED | go-test-designer | ~39s | 29,543 | 1864bc3 |
+| Phase-9-Feature-099 (B1 envelope JSON) | GREEN | go-implementer | ~23s | 24,657 | 0ad4b0c |
+| Phase-9-Feature-099 (B1 envelope JSON) | REFACTOR | go-refactorer | ~29s | 26,484 | a52e672 |
+| Phase-9-Feature-099 (B2 Publish seq+ring) | RED | go-test-designer | ~47s | 28,301 | 53c0811 |
+| Phase-9-Feature-099 (B2 Publish seq+ring) | GREEN | go-implementer | ~55s | 25,225 | 5e586a5 |
+| Phase-9-Feature-099 (B2 Publish seq+ring) | REFACTOR | go-refactorer | ~31s | 25,440 | 321a890 |
+| Phase-9-Feature-099 (B3 History) | RED | go-test-designer | ~81s | 33,252 | 11db967 |
+| Phase-9-Feature-099 (B3 History) | GREEN | go-implementer | ~72s | 28,926 | 2791e18 |
+| Phase-9-Feature-099 (B3 History) | REFACTOR | go-refactorer | ~58s | 32,200 | 0902c35 |
+| Phase-9-Feature-099 (B4 broadcast) | RED | go-test-designer | ~50s | 31,189 | 59a631d |
+| Phase-9-Feature-099 (B4 broadcast) | GREEN | go-implementer | ~45s | 31,225 | d50b17f |
+| Phase-9-Feature-099 (B4 broadcast) | REFACTOR | go-refactorer | ~44s | 27,878 | d251afc |
+| Phase-9-Feature-099 (B5 drop counter) | RED | go-test-designer | ~1300s | 32,443 | 58b3e6c |
+| Phase-9-Feature-099 (B5 drop counter) | GREEN | go-implementer | ~73s | 30,558 | 4e29139 |
+| Phase-9-Feature-099 (B5 drop counter) | REFACTOR | go-refactorer | ~76s | 30,653 | 76018f9 |
+| Phase-9-Feature-099 (B6 WS happy path) | RED | go-test-designer | ~109s | 36,222 | 1075937 |
+| Phase-9-Feature-099 (B6 WS happy path) | GREEN | go-implementer | ~44s | 28,908 | 516809d |
+| Phase-9-Feature-099 (B6 WS happy path) | REFACTOR | go-refactorer | ~48s | 25,534 | cb90a2e |
+| Phase-9-Feature-099 (B7 origin policy) | RED | go-test-designer | ~77s | 28,183 | 2c37e1f |
+| Phase-9-Feature-099 (B7 origin policy) | GREEN | go-implementer | ~22s | 23,285 | 1f2d555 |
+| Phase-9-Feature-099 (B8 conn cap) | RED | go-test-designer | ~271s | 28,796 | 44d2587 |
+| Phase-9-Feature-099 (B8 conn cap) | GREEN | go-implementer | ~37s | 25,501 | 931fbb6 |
+| Phase-9-Feature-099 (B8 conn cap) | REFACTOR | go-refactorer | ~41s | 25,182 | 1983176 |
+| Phase-9-Feature-099 (B9 heartbeat) | RED | go-test-designer | ~68s | 34,489 | 806a09f |
+| Phase-9-Feature-099 (B9 heartbeat) | GREEN | go-implementer | ~10400s | 55,438 | 15da681 |
+| Phase-9-Feature-099 (B9 heartbeat) | REFACTOR | go-refactorer | ~80s | 29,321 | d475852 |
+| Phase-9-Feature-099 (B10 shutdown WS) | RED | go-test-designer | ~79s | 38,718 | 4761ac2 |
+| Phase-9-Feature-099 (B10 shutdown WS) | GREEN | go-implementer | ~147s | 45,854 | 148979c |
+| Phase-9-Feature-099 (B10 shutdown WS) | REFACTOR | go-refactorer | ~86s | 31,664 | a7b3e78 |
+| Phase-9-Feature-099 (B11 events REST) | RED | go-test-designer | ~71s | 36,935 | d3a7961 |
+| Phase-9-Feature-099 (B11 events REST) | GREEN | go-implementer | ~28s | 24,209 | 01a12bb |
+| Phase-9-Feature-099 (B11 events REST) | REFACTOR | go-refactorer | ~71s | 28,927 | 2c3fd13 |
+| Phase-9-Feature-099 (B12 /events route) | RED | go-test-designer | ~69s | 30,125 | 53f08c3 |
+| Phase-9-Feature-099 (B12 /events route) | GREEN | go-implementer | ~65s | 31,979 | a355e8b |
+| Phase-9-Feature-099 (hardening) | CHORE | main | inline | inline | bb2893f, dee0aa2 |

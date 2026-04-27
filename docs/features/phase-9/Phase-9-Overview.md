@@ -24,6 +24,7 @@ Create a `cue-server` binary that runs Cue headless — no GUI, no Fyne dependen
 | 097 | [Server Infrastructure](Feature-097-Server-Infrastructure.md) | Infrastructure | Medium | 096 |
 | 098 | [Message & Notification API](Feature-098-Message-Notification-API.md) | REST | Low-Medium | 097 |
 | 099 | [Activity Event Stream](Feature-099-Activity-Event-Stream.md) | WebSocket | Medium | 097 |
+| 099A | [Server Orchestrator Wiring](Feature-099A-Server-Orchestrator-Wiring.md) | Refactor | Medium | 097, 099 |
 | 100 | [Feedback Buffer API](Feature-100-Feedback-Buffer-API.md) | REST | Low | 097 |
 | 101 | [Day Planner API](Feature-101-Day-Planner-API.md) | REST + State | High | 097 |
 | 102 | [Service Configuration API](Feature-102-Service-Configuration-API.md) | REST | Medium | 097 |
@@ -42,9 +43,11 @@ Create a `cue-server` binary that runs Cue headless — no GUI, no Fyne dependen
 099 (event stream) ───┤ can be parallel   │
 100 (buffer) ─────────┘                   │
     ↓                                     │
+099A (server orchestrator wiring) ─── unblocks 102, 104, 107
+    ↓                                     │
 103 (rules) ──────────┐                   │
 105 (settings) ───────┤ can be parallel   │
-102 (config) ─────────┘                   │
+102 (config) ─────────┘ depends on 099A   │
     ↓                                     │
 101 (planner) ────────── most complex     │
 104 (timer) ──────────── depends on 099   │

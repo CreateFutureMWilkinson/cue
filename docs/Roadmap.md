@@ -175,7 +175,8 @@ Server binary exposing REST + WebSocket APIs, then re-wire the Fyne GUI as a thi
 | 096 | Server protocol selection (ADR) | ADR | Done | — | [Feature-096](features/phase-9/Feature-096-Server-Protocol-Selection.md) |
 | 097 | Server infrastructure + composition root | Infrastructure | Done | 096 | [Feature-097](features/phase-9/Feature-097-Server-Infrastructure.md) |
 | 098 | Message & notification API | REST | Done | 097 | [Feature-098](features/phase-9/Feature-098-Message-Notification-API.md) |
-| 099 | Activity event stream | WebSocket | Planning | 097 | [Feature-099](features/phase-9/Feature-099-Activity-Event-Stream.md) |
+| 099 | Activity event stream | WebSocket | Done | 097 | [Feature-099](features/phase-9/Feature-099-Activity-Event-Stream.md) |
+| 099A | Server orchestrator wiring | Refactor | Planning | 097, 099 | [Feature-099A](features/phase-9/Feature-099A-Server-Orchestrator-Wiring.md) |
 | 100 | Feedback buffer API | REST | Planning | 097 | [Feature-100](features/phase-9/Feature-100-Feedback-Buffer-API.md) |
 | 101 | Day planner API | REST + State | Planning | 097 | [Feature-101](features/phase-9/Feature-101-Day-Planner-API.md) |
 | 102 | Service configuration API | REST | Planning | 097 | [Feature-102](features/phase-9/Feature-102-Service-Configuration-API.md) |

@@ -3,8 +3,13 @@
 **Phase:** Phase-9-Feature-102
 **Status:** Planning
 **Package:** `internal/server/handler/`
+**Depends on:** Feature 097, Feature 099A (Server Orchestrator Wiring)
 
 ---
+
+## Prerequisite
+
+This feature needs a live orchestrator reference inside `cue-server` so the account CRUD handlers can register/deregister watchers at runtime. Today the orchestrator lives in `cmd/cue/main.go`; **Feature 099A** owns relocating it into `cue-server`. 102 cannot ship until 099A lands.
 
 ## Overview
 

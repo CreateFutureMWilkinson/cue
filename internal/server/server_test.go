@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
@@ -154,4 +155,50 @@ func (s *ServerSuite) TestAddrEmptyBeforeStart() {
 	s.Require().NoError(err)
 
 	s.Empty(srv.Addr(), "Addr() should be empty before Start()")
+}
+
+// ---------------------------------------------------------------------------
+// Behavior 10: Graceful shutdown closes WebSocket connections
+// ---------------------------------------------------------------------------
+
+func (s *ServerSuite) TestServerShutdownClosesWebSockets() {
+	cfg := config.ServerConfig{
+		Host:                "127.0.0.1",
+		Port:                0,
+		ReadTimeoutSeconds:  5,
+		WriteTimeoutSeconds: 5,
+	}
+
+	srv, err := server.New(cfg)
+	s.Require().NoError(err)
+
+	// Start server in background.
+	startErr := make(chan error, 1)
+	go func() { startErr <- srv.Start() }()
+
+	// Wait for addr to be populated (server is listening).
+	s.Require().Eventually(func() bool {
+		return srv.Addr() != ""
+	}, 2*time.Second, 10*time.Millisecond, "server should bind an address")
+
+	wsURL := "ws://" + srv.Addr() + "/api/v1/websocket/events"
+
+	dialCtx, dialCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer dialCancel()
+
+	conn, _, err := websocket.Dial(dialCtx, wsURL, nil)
+	s.Require().NoError(err, "WebSocket dial should succeed")
+	defer conn.CloseNow() //nolint:errcheck
+
+	// Trigger graceful shutdown.
+	shutCtx, shutCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer shutCancel()
+	s.Require().NoError(srv.Shutdown(shutCtx))
+
+	// After shutdown, the server must have closed the WebSocket connection.
+	// A read attempt should return an error (close frame or connection reset).
+	readCtx, readCancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer readCancel()
+	_, _, readErr := conn.Read(readCtx)
+	s.Error(readErr, "reading after server shutdown should return an error")
 }

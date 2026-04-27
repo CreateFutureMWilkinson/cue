@@ -1,7 +1,7 @@
 # Feature 109: Todo Domain Restructure
 
 **Phase:** Phase-9-Feature-109
-**Status:** In Progress
+**Status:** Done
 **Depends on:** Feature 101A (Todo CRUD API), Feature 102 (Service Configuration API), Feature 106 (API Client SDK)
 **Blocks:** Feature 107 (Fyne Client Re-wire)
 **Packages:** `internal/repository/`, `internal/repository/implementation/sqlite/`, `internal/service/todo/`, `internal/server/handler/`, `internal/server/`, `pkg/client/`
@@ -344,8 +344,29 @@ After loop 9, before security checks:
 
 ## TDD Agent Stats
 
-To be filled in during Loop 9.
-
-| Loop | Phase | Agent | Duration | Tokens | Commit |
-|---|---|---|---|---|---|
-| | | | | | |
+| Loop | Phase    | Agent           | Commit    |
+|------|----------|-----------------|-----------|
+| 1    | Red      | test-designer   | `d816710` |
+| 1    | Green    | implementer     | `8fb477a` |
+| 1    | Refactor | refactorer      | `317d64a` |
+| 2    | Red      | test-designer   | `3adc648` |
+| 2    | Green    | implementer     | `8b4f3a1` |
+| 2    | Refactor | refactorer      | `0774a80` |
+| 3    | Combined | implementer     | `0e671ec` |
+| 4    | Red      | test-designer   | `1f515e5` |
+| 4    | Green    | implementer     | `3b9317e` |
+| 4    | Refactor | refactorer      | (no-op)   |
+| 5    | Red      | test-designer   | `60df1b5` |
+| 5    | Green    | implementer     | `8611caa` |
+| 5    | Refactor | refactorer      | `bafd79c` |
+| 6    | Red      | test-designer   | `01ba32c` |
+| 6    | Green    | implementer     | `f3210cc` |
+| 6    | Refactor | refactorer      | `22a92f9` |
+| 7    | Red      | test-designer   | `bd593b1` |
+| 7    | Green    | implementer     | `42a1b8e` |
+| 7    | Refactor | refactorer      | (no-op)   |
+| 8    | Red      | test-designer   | `b279f79` |
+| 8    | Green    | implementer     | `6af61c1` |
+| 8    | Fix      | direct          | `5cda984` |
+| 8    | Refactor | refactorer      | (no-op)   |
+| —    | Wiring   | direct          | `96ddab1` |

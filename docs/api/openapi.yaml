@@ -57,11 +57,31 @@ components:
         name:
           type: string
       type: object
+    handler.categoryItem:
+      properties:
+        colour:
+          type: string
+        created_at:
+          type: string
+        key:
+          type: string
+        name:
+          type: string
+        task_count:
+          type: integer
+      type: object
     handler.createCalendarRequest:
       properties:
         enabled:
           type: boolean
         ics_url:
+          type: string
+        name:
+          type: string
+      type: object
+    handler.createCategoryRequest:
+      properties:
+        colour:
           type: string
         name:
           type: string
@@ -113,11 +133,6 @@ components:
       type: object
     handler.createTaskRequest:
       properties:
-        categories:
-          items:
-            type: string
-          type: array
-          uniqueItems: false
         description:
           type: string
         due_date:
@@ -363,13 +378,17 @@ components:
         workspace_id:
           type: string
       type: object
+    handler.taskCategoryEmbed:
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+      type: object
     handler.taskItem:
       properties:
-        categories:
-          items:
-            type: string
-          type: array
-          uniqueItems: false
+        category:
+          $ref: '#/components/schemas/handler.taskCategoryEmbed'
         completed_at:
           type: string
         created_at:
@@ -429,11 +448,6 @@ components:
       type: object
     handler.updateTaskRequest:
       properties:
-        categories:
-          items:
-            type: string
-          type: array
-          uniqueItems: false
         completed_at:
           type: string
         description:
@@ -2469,10 +2483,220 @@ paths:
       summary: Service status overview
       tags:
       - services
-  /api/v1/tasks:
+  /api/v1/timer:
     get:
       description: |-
-        Paginated list of todo items, filterable by status, category,
+        Returns the live Pomodoro timer state derived from today's schedule.
+        When no schedule exists or no block is currently active, responds
+        with {"running": false} and 200 OK.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.timerResponse'
+          description: OK
+      summary: Current timer state
+      tags:
+      - timer
+  /api/v1/todo/categories:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/handler.categoryItem'
+                type: array
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: List categories
+      tags:
+      - todo-categories
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/handler.createCategoryRequest'
+                description: Category fields
+                summary: request
+        description: Category fields
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.categoryItem'
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Bad Request
+        "409":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Conflict
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Create category
+      tags:
+      - todo-categories
+  /api/v1/todo/categories/{name}:
+    delete:
+      parameters:
+      - description: Category key or display name
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Delete category
+      tags:
+      - todo-categories
+    get:
+      parameters:
+      - description: Category key or display name
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.categoryItem'
+          description: OK
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Get category
+      tags:
+      - todo-categories
+    put:
+      parameters:
+      - description: Category key or display name
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+          text/plain:
+            schema:
+              title: request
+              type: object
+        description: Partial update body
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.categoryItem'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "409":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Conflict
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Update category
+      tags:
+      - todo-categories
+  /api/v1/todo/tasks:
+    get:
+      description: |-
+        Paginated list of task items, filterable by status, category,
         and free-text search across title/description.
       parameters:
       - description: open | completed
@@ -2480,7 +2704,7 @@ paths:
         name: status
         schema:
           type: string
-      - description: Category name
+      - description: Category name (any form)
         in: query
         name: category
         schema:
@@ -2507,6 +2731,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/handler.taskListResponse'
           description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Bad Request
         "500":
           content:
             application/json:
@@ -2521,7 +2753,8 @@ paths:
     post:
       description: |-
         Creates a new task. Title is required. Accepts YYYY-MM-DD or
-        RFC3339 for due_date.
+        RFC3339 for due_date. The optional `category` field accepts
+        the raw display name in any form and is normalized server-side.
       requestBody:
         content:
           application/json:
@@ -2559,7 +2792,7 @@ paths:
       summary: Create task
       tags:
       - tasks
-  /api/v1/tasks/{id}:
+  /api/v1/todo/tasks/{id}:
     delete:
       parameters:
       - description: Task UUID
@@ -2627,7 +2860,11 @@ paths:
     put:
       description: |-
         Partial update: any non-nil field in the body is applied to
-        the existing task. Unspecified fields retain their current value.
+        the existing task. Unspecified fields retain their current
+        value. The `category` field uses present/absent/null
+        semantics: absent leaves the existing value intact, null
+        clears the category, a string resolves through the category
+        service.
       parameters:
       - description: Task UUID
         in: path
@@ -2680,22 +2917,6 @@ paths:
       summary: Update task
       tags:
       - tasks
-  /api/v1/timer:
-    get:
-      description: |-
-        Returns the live Pomodoro timer state derived from today's schedule.
-        When no schedule exists or no block is currently active, responds
-        with {"running": false} and 200 OK.
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/handler.timerResponse'
-          description: OK
-      summary: Current timer state
-      tags:
-      - timer
   /health:
     get:
       description: |-

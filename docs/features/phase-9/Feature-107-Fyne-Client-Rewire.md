@@ -85,9 +85,12 @@ The current `cmd/cue/main.go` exposes a `WatcherFactory` closure that calls `orc
 
 `SlackValidator`, `EmailValidator`, and `CalendarValidator` (in `internal/service/validation/`) talk to Slack/IMAP/HTTP directly with user-supplied credentials. They are stateless and not server-coupled. Unchanged.
 
-### 9. Categories — delivered by Feature 109
+### 9. Categories — delivered by Feature 109 (Done)
 
-The planner's todo list view groups by category (`CategoryQuerier.QueryAll`). Feature 109 (Todo Domain Restructure) delivers the server endpoint (`GET /api/v1/todo/categories`) and the SDK (`pkg/client/categories.go` with `CategoryClient`) before 107 starts. 107 only consumes them via its tasks adapter — no server-side or SDK loop is required inside 107 itself.
+Feature 109 has shipped: server endpoints under `/api/v1/todo/categories`, name-keyed model (no UUID — keys are derived from raw input by lowercasing + replacing spaces with `_`), single-FK `tasks.category_key`, and `pkg/client/categories.go` (`CategoryClient`). 107 consumes this contract directly. Specifically:
+
+- `cmd/cue/adapters/tasks.go` (loop 10 below) maps `client.Task.Category *CategoryEmbed` (single embed `{key, name}`, never a slice) onto `presenter.TodoRow`. The legacy multi-category presenter shape (`Categories []repository.Category`) is collapsed to a single-or-nil `Category *repository.Category` view-model in this loop.
+- `CategoryQuerier` adapter wraps `CategoryClient.ListCategories`. No server-side or SDK loops are required inside 107 itself — they're already done.
 
 ### 10. Planner contract simplification
 

@@ -3,10 +3,16 @@ package server
 import (
 	"context"
 	"errors"
+	"sync"
 )
 
-// ErrHubNotImplemented is returned by hub stub methods.
-var ErrHubNotImplemented = errors.New("hub: not implemented")
+// ErrUnknownSubscriber is returned when Unsubscribe is called with an
+// ID that does not correspond to an active subscriber.
+var ErrUnknownSubscriber = errors.New("hub: unknown subscriber")
+
+// subscriberBufferSize bounds each subscriber's in-flight broadcast
+// queue. Slow consumers drop messages rather than block the hub.
+const subscriberBufferSize = 16
 
 // Subscriber represents a connected WebSocket client that receives
 // broadcast events.
@@ -18,6 +24,7 @@ type Subscriber struct {
 // Hub is a central event broadcaster. It manages subscriber connections
 // and fans out events to all connected clients.
 type Hub struct {
+	mu          sync.RWMutex
 	subscribers map[string]*Subscriber
 }
 
@@ -28,28 +35,59 @@ func NewHub() *Hub {
 	}
 }
 
-// Run starts the hub's event loop. It blocks until ctx is cancelled.
+// Run blocks until ctx is cancelled. It exists so callers can manage
+// the hub lifecycle alongside other server goroutines; broadcasts are
+// dispatched synchronously from Broadcast itself.
 func (h *Hub) Run(ctx context.Context) error {
-	return ErrHubNotImplemented
+	<-ctx.Done()
+	return nil
 }
 
 // Subscribe registers a new subscriber and returns it. The caller
 // should read from Subscriber.Events to receive broadcasts.
 func (h *Hub) Subscribe(id string) (*Subscriber, error) {
-	return nil, ErrHubNotImplemented
+	sub := &Subscriber{
+		ID:     id,
+		Events: make(chan []byte, subscriberBufferSize),
+	}
+	h.mu.Lock()
+	h.subscribers[id] = sub
+	h.mu.Unlock()
+	return sub, nil
 }
 
-// Unsubscribe removes a subscriber by ID.
+// Unsubscribe removes a subscriber by ID. The subscriber's Events
+// channel is left open — it simply stops receiving broadcasts. Callers
+// that want to detect disconnection should signal it through their own
+// connection lifecycle, not by reading a closed channel.
 func (h *Hub) Unsubscribe(id string) error {
-	return ErrHubNotImplemented
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if _, ok := h.subscribers[id]; !ok {
+		return ErrUnknownSubscriber
+	}
+	delete(h.subscribers, id)
+	return nil
 }
 
-// Broadcast sends a message to all connected subscribers.
+// Broadcast sends a message to all connected subscribers. Subscribers
+// whose buffers are full silently drop the message rather than block
+// the hub.
 func (h *Hub) Broadcast(data []byte) error {
-	return ErrHubNotImplemented
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, sub := range h.subscribers {
+		select {
+		case sub.Events <- data:
+		default:
+		}
+	}
+	return nil
 }
 
 // SubscriberCount returns the number of active subscribers.
 func (h *Hub) SubscriberCount() int {
-	return 0
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.subscribers)
 }

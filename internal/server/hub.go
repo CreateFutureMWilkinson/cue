@@ -86,14 +86,26 @@ func (h *Hub) Unsubscribe(id string) error {
 // the hub.
 func (h *Hub) Broadcast(data []byte) error {
 	h.mu.RLock()
-	defer h.mu.RUnlock()
+	subs := make([]*Subscriber, 0, len(h.subscribers))
 	for _, sub := range h.subscribers {
+		subs = append(subs, sub)
+	}
+	h.mu.RUnlock()
+
+	h.fanout(subs, data)
+	return nil
+}
+
+// fanout sends data to all subscribers in the provided slice. Slow
+// consumers drop the message rather than block the hub. This helper
+// is used by both Broadcast and Publish to avoid code duplication.
+func (h *Hub) fanout(subs []*Subscriber, data []byte) {
+	for _, sub := range subs {
 		select {
 		case sub.Events <- data:
 		default:
 		}
 	}
-	return nil
 }
 
 // Publish creates an ActivityEnvelope for the given data, assigns a
@@ -118,29 +130,22 @@ func (h *Hub) Publish(data ActivityData) ActivityEnvelope {
 	}
 
 	// Serialize envelope for broadcast. On marshal failure (defensive),
-	// keep the ring entry but skip the fan-out.
+	// keep the ring entry but skip the fan-out to avoid corrupted data.
 	raw, err := json.Marshal(env)
 	if err != nil {
 		h.mu.Unlock()
 		return env
 	}
 
-	// Snapshot subscriber list under the write lock, then release before
-	// the channel sends so we don't hold the lock during fan-out.
+	// Snapshot subscriber list under the write lock, then release the
+	// lock before fan-out to avoid holding it during channel operations.
 	subs := make([]*Subscriber, 0, len(h.subscribers))
 	for _, sub := range h.subscribers {
 		subs = append(subs, sub)
 	}
 	h.mu.Unlock()
 
-	// Fan out to every subscriber. Slow consumers drop the message
-	// rather than block the hub.
-	for _, sub := range subs {
-		select {
-		case sub.Events <- raw:
-		default:
-		}
-	}
+	h.fanout(subs, raw)
 
 	return env
 }

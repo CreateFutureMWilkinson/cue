@@ -1,14 +1,28 @@
 # Feature 103: Routing Rules API
 
 **Phase:** Phase-9-Feature-103
-**Status:** Planning
-**Package:** `internal/server/handler/`
+**Status:** Done
+**Package:** `internal/server/handler/`, `internal/repository/`, `internal/service/decisionengine/`, `internal/ui/presenter/`
 
 ---
 
 ## Overview
 
-Expose CRUD operations for routing rules — the deterministic rules that evaluate messages before Ollama scoring. Rules have priority ordering and regex-based pattern matching. This is a straightforward CRUD surface with one twist: rule ordering matters.
+Expose CRUD operations for routing rules via REST API and migrate the data model from single-field matching to multi-pattern matching. Rules are deterministic filters evaluated before Ollama scoring, with priority ordering and regex-based pattern matching.
+
+### Model Migration
+
+The RoutingRule model was redesigned from single-field matching (`Source`/`Field`/`Negate`/`Pattern`) to multi-pattern matching:
+
+| Old Field | New Field(s) | Notes |
+|---|---|---|
+| `Source` | `SourceType` | Renamed for clarity |
+| `Field` + `Pattern` | `ChannelPattern`, `ContentPattern`, `MessageType` | Split into dedicated pattern fields |
+| `Negate` | (removed) | No longer needed with multi-pattern AND logic |
+| (none) | `Name` | User-friendly label |
+| (none) | `SourceAccount` | Optional FK to service config account |
+
+All set fields use AND logic — every non-empty field must match for the rule to trigger.
 
 ## Endpoints
 
@@ -16,9 +30,11 @@ Expose CRUD operations for routing rules — the deterministic rules that evalua
 
 ```
 GET /api/v1/rules
+GET /api/v1/rules?source_type=slack
+GET /api/v1/rules?source_account=<uuid>
 ```
 
-Returns all routing rules ordered by priority (ascending — lower number = higher priority).
+Returns rules ordered by priority ascending. Supports filtering by source type or source account.
 
 **Response:**
 ```json
@@ -27,37 +43,20 @@ Returns all routing rules ordered by priority (ascending — lower number = high
     {
       "id": "uuid",
       "name": "Channel Join",
-      "priority": 1,
-      "source_pattern": ".*",
-      "channel_pattern": ".*",
+      "priority": 0,
+      "source_type": "slack",
+      "channel_pattern": "",
       "content_pattern": "",
       "message_type": "channel_join",
       "action": "notified",
-      "importance_override": 9.0,
-      "confidence_override": 1.0,
       "enabled": true,
-      "created_at": "2026-04-01T00:00:00Z"
-    },
-    {
-      "id": "uuid",
-      "name": "Direct Mention",
-      "priority": 2,
-      "source_pattern": ".*",
-      "channel_pattern": ".*",
-      "content_pattern": "@username",
-      "message_type": "",
-      "action": "notified",
-      "importance_override": 8.0,
-      "confidence_override": 1.0,
-      "enabled": true,
-      "created_at": "2026-04-01T00:00:00Z"
+      "created_at": "2026-04-01T00:00:00Z",
+      "updated_at": "2026-04-01T00:00:00Z"
     }
   ],
-  "queue_depth": 15
+  "count": 1
 }
 ```
-
-`queue_depth` is included so UIs can display a warning if the Ollama queue is backing up (messages falling through to queue because no rule matched).
 
 ### Get Rule
 
@@ -75,32 +74,15 @@ POST /api/v1/rules
 ```json
 {
   "name": "Deployment Alerts",
-  "priority": 3,
-  "source_pattern": "slack",
-  "channel_pattern": "#deploy.*",
+  "source_type": "slack",
+  "channel_pattern": "deploy-.*",
   "content_pattern": "(failed|error|rollback)",
   "message_type": "",
-  "action": "notified",
-  "importance_override": 8.5,
-  "confidence_override": 1.0,
-  "enabled": true
+  "action": "notified"
 }
 ```
 
-**Validation:**
-- `name`: Required, non-empty
-- `priority`: Required, positive integer
-- `action`: Must be one of "notified", "ignored", "queue"
-- `source_pattern`, `channel_pattern`, `content_pattern`: Must be valid Go regex if non-empty
-- `importance_override`: 0.0-10.0
-- `confidence_override`: 0.0-1.0
-
-**Question: What happens when the new rule's priority conflicts with an existing rule?** Options:
-- Reject with 409 (client must choose a unique priority)
-- Auto-shift existing rules down to make room
-- Allow duplicate priorities (evaluation order within same priority is undefined)
-
-**Recommendation:** Allow duplicate priorities. The reorder endpoint handles explicit ordering. Auto-shifting is complex and surprising. Rejecting is unfriendly.
+Returns 201 with the created rule. Validation errors return 400.
 
 ### Update Rule
 
@@ -108,7 +90,25 @@ POST /api/v1/rules
 PUT /api/v1/rules/{id}
 ```
 
-Full replacement of rule fields. Same validation as create.
+Full replacement. Same body as create. Returns 200.
+
+### Patch Rule (Reorder / Toggle)
+
+```
+PATCH /api/v1/rules/{id}
+```
+
+**Request (reorder):**
+```json
+{"priority": 5}
+```
+
+**Request (toggle):**
+```json
+{"enabled": false}
+```
+
+Returns 204 No Content.
 
 ### Delete Rule
 
@@ -116,64 +116,57 @@ Full replacement of rule fields. Same validation as create.
 DELETE /api/v1/rules/{id}
 ```
 
-**Question: Should deleting a built-in rule (channel_join, @mention) be allowed?** These are the core deterministic rules from the spec. Options:
-- Prevent deletion (400 error for system rules)
-- Allow deletion (user has full control)
-- Allow disable but not delete
+Idempotent. Returns 204 No Content.
 
-**Recommendation:** Allow deletion. The user should have full control over their routing rules. The defaults can be restored by recreating them. Document the default rules clearly so users can recreate them.
+## Design Decisions
 
-### Reorder Rule
+1. **Priority conflicts**: Duplicate priorities allowed. PATCH with priority triggers `ReorderRule` which shifts adjacent rules.
+2. **Built-in rule deletion**: Allowed. Users have full control; defaults can be recreated.
+3. **Rule change propagation**: Immediate reload via `RulesPresenter.WithReloader` callback that calls `Orchestrator.ReloadRules`.
+4. **Regex safety**: Compile-time validation only. Go's RE2 guarantees linear-time matching.
+
+## Architecture
 
 ```
-POST /api/v1/rules/{id}/reorder
+HTTP Handler (rules.go)
+  → RulesManager interface
+    → RulesPresenter (implements interface)
+      → RoutingRuleRepository (persistence)
+      → reloader callback → Orchestrator.ReloadRules
 ```
 
-**Request:**
-```json
-{"priority": 5}
-```
+The `RulesPresenter` is wired in `composition.go` with a reload callback that reloads rules from the database and passes them to the orchestrator's rules engine.
 
-Updates the priority of a single rule. Does NOT shift other rules.
+## Error Handling
 
-## Design Decisions to Make
+| Error | HTTP Status |
+|---|---|
+| Invalid UUID path param | 400 |
+| Invalid JSON body | 400 |
+| Validation error (bad regex, invalid source type) | 400 |
+| Rule not found | 404 |
+| Internal error | 500 |
 
-### Regex Validation
+## Test Coverage
 
-**Question: How strictly should regex patterns be validated?**
+- **Repository model tests**: 8 tests (validation, source types, regex patterns)
+- **SQLite implementation tests**: 14 tests (CRUD, listing, filtering, seeding)
+- **Rules engine tests**: 12 tests (matching, AND logic, source account scoping, priority)
+- **Handler tests**: 20 tests (all endpoints, error cases, filtering)
+- **Presenter tests**: 12 tests (delegation, reorder, toggle, reload callback)
+- **Server wiring tests**: 2 tests (routes registered/not registered)
+- **UI acceptance tests**: 3 skipped (old form elements removed), remainder updated
 
-- **Compile-time only**: Verify the pattern compiles with `regexp.Compile()`. Accept any valid Go regex.
-- **Safety checks**: Also reject regexes that could cause catastrophic backtracking (nested quantifiers, etc.).
-- **Dry-run**: Apply the regex against a sample message to verify it works as expected.
+## Files Changed
 
-**Recommendation:** Compile-time validation only. Go's `regexp` package uses RE2, which guarantees linear-time matching — no catastrophic backtracking is possible. This is a non-issue.
-
-### Rule Change Propagation
-
-When a rule is created/updated/deleted, the in-memory `RulesEngine` needs to reload.
-
-**Question: How does a rule change in the DB propagate to the running engine?**
-
-- **Immediate reload**: Handler calls `rulesEngine.Reload()` after DB mutation.
-- **Polling**: Engine polls DB every N seconds for changes. Simpler but delayed.
-- **Event**: Handler sends event on a channel that the engine listens to.
-
-**Recommendation:** Immediate reload. The `RulesPresenter` likely already triggers this. Same pattern for the API handler.
-
-## Behaviors to Implement
-
-1. **List rules handler** — Query all rules ordered by priority, include queue depth.
-2. **Get rule handler** — By ID.
-3. **Create rule handler** — Validate, save, trigger engine reload.
-4. **Update rule handler** — Validate, save, trigger engine reload.
-5. **Delete rule handler** — Delete, trigger engine reload.
-6. **Reorder rule handler** — Update priority, trigger engine reload.
-7. **Regex validation** — Shared validation function for pattern fields.
-
-## Questions Summary
-
-1. Priority conflict handling — reject, auto-shift, or allow duplicates?
-2. Allow deletion of built-in/default rules?
-3. How to propagate rule changes to the running engine?
-4. Should there be a "test rule" endpoint that takes a sample message and shows if/how the rule would match?
-5. Should rule history/audit be tracked (who changed what, when)?
+| File | Change |
+|---|---|
+| `internal/repository/routing_rule.go` | Model migration: new struct, Validate(), interface |
+| `internal/repository/implementation/sqlite/routing_rule_impl.go` | New schema, scan, upsert, seeds, list methods |
+| `internal/service/decisionengine/rules_engine.go` | Multi-pattern AND matching, compiled channel/content patterns |
+| `internal/server/handler/rules.go` | **New** — all rule handlers + RulesManager interface |
+| `internal/ui/presenter/rules_presenter.go` | Reload callback, new list methods |
+| `internal/server/server.go` | Rules field in Deps, route registration |
+| `internal/server/composition.go` | Wire RulesPresenter with reload callback |
+| `internal/service/orchestrator/orchestrator.go` | Updated reasoning format |
+| `internal/ui/settings_view.go` | Updated form for new model fields |

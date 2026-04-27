@@ -13,6 +13,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Routing rules REST API + multi-pattern model** — Six endpoints under `/api/v1/rules/` for List (with `source_type`/`source_account` filtering), Get, Create, Update (PUT full replace), Patch (priority reorder + toggle), and Delete. Model migrated from single-field matching (`Source`/`Field`/`Negate`/`Pattern`) to multi-pattern AND logic (`SourceType`/`SourceAccount`/`ChannelPattern`/`ContentPattern`/`MessageType`). Rules engine recompiled with dual-regex support. `RulesPresenter` gains `WithReloader` callback that triggers `Orchestrator.ReloadRules` after mutations. Wired into `server.Composition` and `Deps`. (Phase-9-Feature-103)
+
 - **Service configuration REST API** — Nineteen endpoints under `/api/v1/services/` for CRUD, toggle, and status of Slack, Email, and Calendar accounts. New `ServiceManager` service layer (`internal/service/servicemanager/`) wraps repository + orchestrator watcher lifecycle + credential validation. Credentials are never exposed in API responses (masked with `***`); update requests with empty/masked credentials preserve existing stored values. Account creation validates credentials synchronously (30s timeout) via injected validators. Account deletion cascade-deletes associated messages from the messages table (`DeleteBySourceAccount` added to `MessageRepository`). Enable/disable gracefully tears down watchers. `GET /api/v1/services/status` returns all accounts with watcher registration state. `WatcherFactory` closure reuses the same watcher creation logic as startup-time DB registration. Wired into `server.Composition` and `Deps`. (Phase-9-Feature-102)
 
 - **Embedding model benchmarking** — New `--embed-model` flag for `cue-bench` replaces tag-based few-shot example selection with vector-similarity selection using a real Ollama embedding model. Benchmarks inference model + embedding model combinations to find optimal pairings for production routing accuracy. Calls `/api/embed` directly (no chromem-go dependency). Reports embedding latency (p50/p95) in both table and JSON output. (Phase-8-Feature-095)
@@ -33,6 +35,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Breaking
 
+- **RoutingRule model redesigned** — `Source`/`Field`/`Negate`/`Pattern` replaced by `SourceType`/`SourceAccount`/`ChannelPattern`/`ContentPattern`/`MessageType`/`Name`. `RoutingRuleRepository.ListRulesBySource` replaced by `ListRulesBySourceType` and `ListRulesBySourceAccount`. SQLite table schema replaced (no migration — clean replacement). (Phase-9-Feature-103)
 - **ScheduleRepository.Delete signature changed** — `Delete(ctx, id uuid.UUID)` replaced by `Delete(ctx, date time.Time)`. Callers must pass a date instead of a schedule ID. PlannerPresenter updated; will be further adapted in Feature 107. (Phase-9-Feature-101)
 - **Priority semantics reversed** — Todo priority now uses higher value = higher priority (was lower = higher). Default is 0 (lowest). Sort order in queries updated accordingly. (Phase-9-Feature-101A)
 - **EstimatePomodoros removed** — `OllamaTaskEstimator.EstimatePomodoros` replaced by `EstimateMinutes` returning integer minutes with 30-minute fallback. (Phase-9-Feature-101A)

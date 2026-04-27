@@ -16,6 +16,7 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/repository/implementation/sqlite"
 	"github.com/CreateFutureMWilkinson/cue/internal/secret"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/buffer"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/vector"
@@ -91,7 +92,7 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, err
 	}
 
-	httpSrv, err := constructHTTPServer(cfg, msgRepo, hub)
+	httpSrv, err := constructHTTPServer(cfg, msgRepo, vectorStore, hub)
 	if err != nil {
 		return nil, err
 	}
@@ -190,8 +191,12 @@ func constructServices(ctx context.Context, cfg config.Config, ruleRepo reposito
 }
 
 // constructHTTPServer builds the HTTP/WebSocket server surface with shared hub.
-func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository, hub *Hub) (*Server, error) {
-	return New(cfg.Server, Deps{Messages: msgRepo, Hub: hub})
+func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository, vectorStore *vector.ChromemVectorStore, hub *Hub) (*Server, error) {
+	bufSvc, err := buffer.NewBufferService(msgRepo, vectorStore)
+	if err != nil {
+		return nil, fmt.Errorf("creating buffer service: %w", err)
+	}
+	return New(cfg.Server, Deps{Messages: msgRepo, Buffer: bufSvc, Hub: hub})
 }
 
 // startOrchestration creates the hub, alerter, orchestrator, and queue processor,

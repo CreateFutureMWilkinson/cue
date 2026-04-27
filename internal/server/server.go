@@ -17,6 +17,9 @@ import (
 // Nil fields disable the corresponding API surface.
 type Deps struct {
 	Messages handler.MessageQuerier
+	// Buffer is the feedback buffer service for rating/dismissing buffered messages.
+	// If nil, buffer API endpoints are not registered.
+	Buffer handler.BufferRater
 	// Hub is the WebSocket event broadcaster. If nil, New creates its own hub.
 	// Inject a shared hub when you need external components (orchestrator, queue processor)
 	// to publish events to the same WebSocket clients that connect to this server.
@@ -98,6 +101,15 @@ func (s *Server) registerRoutes() {
 		s.mux.Handle("POST /api/v1/notifications/{id}/dismiss", handler.DismissNotificationHandler(s.deps.Messages))
 		s.mux.Handle("GET /api/v1/messages", handler.ListMessagesHandler(s.deps.Messages))
 		s.mux.Handle("GET /api/v1/messages/{id}", handler.GetMessageHandler(s.deps.Messages))
+
+		s.mux.Handle("GET /api/v1/buffer", handler.ListBufferedHandler(s.deps.Messages))
+		s.mux.Handle("GET /api/v1/buffer/stats", handler.BufferStatsHandler(s.deps.Messages))
+		s.mux.Handle("GET /api/v1/buffer/{id}", handler.GetBufferedHandler(s.deps.Messages))
+
+		if s.deps.Buffer != nil {
+			s.mux.Handle("POST /api/v1/buffer/{id}/rate", handler.RateBufferedHandler(s.deps.Messages, s.deps.Buffer))
+			s.mux.Handle("DELETE /api/v1/buffer/{id}", handler.DeleteBufferedHandler(s.deps.Messages, s.deps.Buffer))
+		}
 	}
 }
 

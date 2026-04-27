@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -83,17 +84,26 @@ func NewApp(onRun func(cfg BenchConfig)) *cli.Command {
 			httpClient := &http.Client{Timeout: cfg.Timeout}
 
 			var embedIndex *EmbedIndex
+			var embedLatencies []int64
 			if cfg.EmbedModel != "" {
-				idx, _, err := BuildEmbedIndex(ctx, cfg.EmbedModel, cfg.OllamaHost, pool, scored, httpClient, os.Stderr)
+				idx, latencies, err := BuildEmbedIndex(ctx, cfg.EmbedModel, cfg.OllamaHost, pool, scored, httpClient, os.Stderr)
 				if err != nil {
 					return fmt.Errorf("build embed index: %w", err)
 				}
 				embedIndex = &idx
+				embedLatencies = latencies
 			}
 
 			report, err := RunBenchmark(ctx, cfg, scored, pool, embedIndex, httpClient, os.Stderr)
 			if err != nil {
 				return fmt.Errorf("run benchmark: %w", err)
+			}
+
+			if cfg.EmbedModel != "" {
+				slices.Sort(embedLatencies)
+				report.EmbedModel = cfg.EmbedModel
+				report.EmbedP50Ms = percentile(embedLatencies, 0.5)
+				report.EmbedP95Ms = percentile(embedLatencies, 0.95)
 			}
 
 			switch cfg.Format {

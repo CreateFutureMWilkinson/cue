@@ -40,11 +40,15 @@ type Server struct {
 // It does not start listening.
 func New(cfg config.ServerConfig, deps ...Deps) (*Server, error) {
 	mux := http.NewServeMux()
-	hub := NewHub()
 
 	var d Deps
 	if len(deps) > 0 {
 		d = deps[0]
+	}
+
+	hub := d.Hub
+	if hub == nil {
+		hub = NewHub()
 	}
 
 	s := &Server{

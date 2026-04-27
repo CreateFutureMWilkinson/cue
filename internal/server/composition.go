@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -90,9 +91,9 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, err
 	}
 
-	// Construct the HTTP server surface. TODO(B10): pass the shared hub so
+	// Construct the HTTP server surface, sharing the orchestration hub so
 	// that WebSocket clients and the publisher goroutine use the same Hub.
-	httpSrv, err := New(cfg.Server, Deps{Messages: msgRepo})
+	httpSrv, err := New(cfg.Server, Deps{Messages: msgRepo, Hub: hub})
 	if err != nil {
 		return nil, fmt.Errorf("creating http server: %w", err)
 	}
@@ -334,6 +335,12 @@ func (c *Composition) Shutdown(ctx context.Context) error {
 
 		slog.Info("closing event channel")
 		close(c.EventCh)
+
+		slog.Info("shutting down HTTP server")
+		if err := c.HTTP.Shutdown(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			slog.Error("failed to shutdown HTTP", "error", err)
+			c.shutdownErr = fmt.Errorf("shutting down HTTP server: %w", err)
+		}
 
 		slog.Info("closing database")
 		if accessor, ok := c.MessageRepo.(dbAccessor); ok {

@@ -81,6 +81,11 @@ func ListMessagesHandler(repo MessageQuerier) http.HandlerFunc {
 // GetMessageHandler returns an http.HandlerFunc for GET /api/v1/messages/{id}.
 func GetMessageHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "not implemented", http.StatusNotImplemented)
+		msg, err := getMessageByPathID(repo, r)
+		if err != nil {
+			writeNotFoundOrError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, messageToDetail(msg))
 	}
 }

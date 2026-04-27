@@ -65,39 +65,56 @@ func NewAuthClient(c *APIClient) AuthClient {
 	return &authAdapter{client: c}
 }
 
+// labelBody is the JSON request body shape for endpoints that carry a label.
+type labelBody struct {
+	Label string `json:"label"`
+}
+
 // InitiatePairing issues POST /api/v1/auth/pair with the given label and
 // returns the server-issued PairSession on 202 Accepted.
 func (a *authAdapter) InitiatePairing(ctx context.Context, label string) (*PairSession, error) {
-	return nil, ErrNotImplemented
+	var out PairSession
+	if err := a.client.doJSON(ctx, "POST", "/api/v1/auth/pair", labelBody{Label: label}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // PollPairing issues GET /api/v1/auth/pair/{id} and returns the current
 // PairResult. When Status == "approved", Token is populated.
 func (a *authAdapter) PollPairing(ctx context.Context, requestID uuid.UUID) (*PairResult, error) {
-	return nil, ErrNotImplemented
+	var out PairResult
+	if err := a.client.doJSON(ctx, "GET", "/api/v1/auth/pair/"+requestID.String(), nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // ApprovePairing issues POST /api/v1/auth/pair/{id}/approve.
 func (a *authAdapter) ApprovePairing(ctx context.Context, requestID uuid.UUID) error {
-	return ErrNotImplemented
+	return a.client.doJSON(ctx, "POST", "/api/v1/auth/pair/"+requestID.String()+"/approve", nil, nil)
 }
 
 // DenyPairing issues POST /api/v1/auth/pair/{id}/deny.
 func (a *authAdapter) DenyPairing(ctx context.Context, requestID uuid.UUID) error {
-	return ErrNotImplemented
+	return a.client.doJSON(ctx, "POST", "/api/v1/auth/pair/"+requestID.String()+"/deny", nil, nil)
 }
 
 // ListTokens issues GET /api/v1/auth/tokens and returns all known tokens.
 func (a *authAdapter) ListTokens(ctx context.Context) ([]TokenInfo, error) {
-	return nil, ErrNotImplemented
+	var out []TokenInfo
+	if err := a.client.doJSON(ctx, "GET", "/api/v1/auth/tokens", nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // UpdateTokenLabel issues PUT /api/v1/auth/tokens/{id} with the new label.
 func (a *authAdapter) UpdateTokenLabel(ctx context.Context, id uuid.UUID, label string) error {
-	return ErrNotImplemented
+	return a.client.doJSON(ctx, "PUT", "/api/v1/auth/tokens/"+id.String(), labelBody{Label: label}, nil)
 }
 
 // RevokeToken issues DELETE /api/v1/auth/tokens/{id}.
 func (a *authAdapter) RevokeToken(ctx context.Context, id uuid.UUID) error {
-	return ErrNotImplemented
+	return a.client.doJSON(ctx, "DELETE", "/api/v1/auth/tokens/"+id.String(), nil, nil)
 }

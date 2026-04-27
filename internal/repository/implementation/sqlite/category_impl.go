@@ -158,6 +158,22 @@ func (r *SQLiteCategoryRepository) Delete(ctx context.Context, key string) error
 	return nil
 }
 
+// parseCategoryFields constructs a Category from the common scanned fields.
+func parseCategoryFields(nameKey string, colour sql.NullString, createdAtStr string) (*repository.Category, error) {
+	cat := &repository.Category{NameKey: nameKey}
+	if colour.Valid {
+		v := colour.String
+		cat.Colour = &v
+	}
+
+	createdAt, err := time.Parse(time.RFC3339, createdAtStr)
+	if err != nil {
+		return nil, fmt.Errorf("parse created_at: %w", err)
+	}
+	cat.CreatedAt = createdAt
+	return cat, nil
+}
+
 // scanCategoryRow scans (name_key, colour, created_at) into a Category.
 func scanCategoryRow(scanner interface {
 	Scan(dest ...any) error
@@ -171,18 +187,7 @@ func scanCategoryRow(scanner interface {
 		return nil, err
 	}
 
-	cat := &repository.Category{NameKey: nameKey}
-	if colour.Valid {
-		v := colour.String
-		cat.Colour = &v
-	}
-
-	createdAt, err := time.Parse(time.RFC3339, createdAtStr)
-	if err != nil {
-		return nil, fmt.Errorf("parse created_at: %w", err)
-	}
-	cat.CreatedAt = createdAt
-	return cat, nil
+	return parseCategoryFields(nameKey, colour, createdAtStr)
 }
 
 // GetByKey looks up a single category by its canonical key. Returns
@@ -258,16 +263,13 @@ func (r *SQLiteCategoryRepository) queryAllWithCounts(ctx context.Context) ([]*r
 		if err := rows.Scan(&nameKey, &colour, &createdAtStr, &taskCount); err != nil {
 			return nil, fmt.Errorf("scan category with count: %w", err)
 		}
-		createdAt, err := time.Parse(time.RFC3339, createdAtStr)
+
+		cat, err := parseCategoryFields(nameKey, colour, createdAtStr)
 		if err != nil {
-			return nil, fmt.Errorf("parse created_at: %w", err)
+			return nil, fmt.Errorf("parse category fields: %w", err)
 		}
-		cat := repository.Category{NameKey: nameKey, CreatedAt: createdAt}
-		if colour.Valid {
-			v := colour.String
-			cat.Colour = &v
-		}
-		out = append(out, &repository.CategoryWithCount{Category: cat, TaskCount: taskCount})
+
+		out = append(out, &repository.CategoryWithCount{Category: *cat, TaskCount: taskCount})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate categories with counts: %w", err)

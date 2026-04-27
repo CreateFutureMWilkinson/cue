@@ -158,10 +158,12 @@ func (a *activityAdapter) readLoop(conn *websocket.Conn) {
 		if err != nil {
 			return
 		}
+
 		var env EventEnvelope
 		if err := json.Unmarshal(data, &env); err != nil {
-			continue
+			continue // skip malformed frames
 		}
+
 		a.lastSeq.Store(env.Seq)
 		select {
 		case a.events <- env:

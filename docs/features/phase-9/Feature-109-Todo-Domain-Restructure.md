@@ -1,23 +1,24 @@
 # Feature 109: Todo Domain Restructure
 
 **Phase:** Phase-9-Feature-109
-**Status:** Planning
+**Status:** In Progress
 **Depends on:** Feature 101A (Todo CRUD API), Feature 102 (Service Configuration API), Feature 106 (API Client SDK)
 **Blocks:** Feature 107 (Fyne Client Re-wire)
-**Packages:** `internal/repository/`, `internal/repository/implementation/sqlite/`, `internal/server/handler/`, `internal/server/`, `pkg/client/`
+**Packages:** `internal/repository/`, `internal/repository/implementation/sqlite/`, `internal/service/todo/`, `internal/server/handler/`, `internal/server/`, `pkg/client/`
 
 ---
 
 ## Overview
 
-Promote categories from string-tags-on-tasks to first-class entities with their own CRUD, and namespace todo-related routes under `/api/v1/todo/`. The change exists primarily to give 107's todo list view a stable, query-able category surface (filter dropdown, colour badges, rename without touching every task) and to clean up the route hierarchy before any external consumer locks onto the current paths.
+Restructure the todo domain so the Fyne client (Feature 107) lands on a stable, query-able shape:
 
-After 109 ships:
-- `POST/GET/PUT/DELETE /api/v1/tasks` → `/api/v1/todo/tasks` (paths renamed, no compat shim).
-- New `GET/POST /api/v1/todo/categories`, `GET/PUT/DELETE /api/v1/todo/categories/{id}`.
-- Tasks reference categories by UUID on writes; responses embed both ids and names for convenience.
-- Categories carry `id`, `name`, `colour` (nullable hex), `created_at`, plus a derived `task_count` on list responses.
-- `pkg/client/` reflects the path move and adds a sibling `CategoryClient`.
+- Promote categories to first-class resources with their own CRUD.
+- Each task carries **at most one** category (single FK column, no join table).
+- Categories are **name-keyed** with a normalized lowercase form — no UUIDs.
+- Rename the internal `Todo` type → `Task` everywhere; the bounded-context package stays `internal/service/todo/` and becomes the single owner of both tasks and categories.
+- Group tasks + categories under a `/api/v1/todo/` URL prefix.
+
+There are no live deployments and no external SDK consumers. The schema is rebuilt cleanly with the new shape; old paths are removed in the same commit they're replaced. No migration shim, no v1.1 transition.
 
 ---
 
@@ -25,169 +26,289 @@ After 109 ships:
 
 ### 1. No migration, no compat shim
 
-There are no live deployments and no external SDK consumers. All current code paths are internal to this repo and unreleased. The DB schema is rebuilt cleanly with the new shape; old paths are removed in the same commit they're replaced. No `v1.1`, no transitional period, no rename-detection migration.
+All changes ship in a clean schema. Old `/api/v1/tasks` paths return 404 once 109 is merged. The `categories` column on the legacy `todos` table is removed entirely; the table is renamed to `tasks` with a new `category_key` FK column.
 
-### 2. Reference scheme — ID on write, ID + name embed on read
+### 2. One category per task
 
-Tasks reference categories by UUID. Wire format:
+Tasks reference at most one category via a nullable FK. No join table.
 
-**Write side** (POST/PUT body) — only ids:
-```json
-{
-  "title": "Write the report",
-  "category_ids": ["1f2c…", "9a0d…"]
-}
+```sql
+ALTER TABLE tasks ADD COLUMN category_key TEXT NULL
+    REFERENCES categories(name_key)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL;
 ```
 
-**Read side** (GET response) — both ids and a flat embed:
-```json
-{
-  "id": "…",
-  "title": "Write the report",
-  "category_ids": ["1f2c…", "9a0d…"],
-  "categories": [
-    {"id": "1f2c…", "name": "work",   "colour": "#3aa"},
-    {"id": "9a0d…", "name": "urgent", "colour": "#c44"}
-  ]
-}
-```
+`ON DELETE SET NULL`: deleting a category leaves the task in place, uncategorized.
+`ON UPDATE CASCADE`: renaming a category propagates the new key to all tagged tasks in one statement.
 
-Unknown `category_ids` on write → 400. Renames affect zero rows in the tasks table; the embed picks up the new name on the next GET.
+### 3. Categories are name-keyed (no UUID)
 
-### 3. Category schema
+Primary key is the **normalized name**. Lookups, FKs, and routes all use the key. Presentation form is **derived programmatically** from the key — no `display_name` column.
 
-| Field | Type | Notes |
-|---|---|---|
-| `id` | UUID | server-generated |
-| `name` | string | unique case-insensitive; max 64 chars; non-empty |
-| `colour` | `*string` (UK spelling) | nullable hex `#RRGGBB`; validation rejects malformed values |
-| `created_at` | RFC3339 | server-set |
-| `task_count` | int | derived; **response-only**, never accepted on writes |
+#### Normalization (`NormalizeCategoryKey`)
 
-Rejected fields: `description` (overkill), `updated_at` (renames are rare; not worth the column).
+Input → key:
 
-### 4. SDK package layout — sibling clients
+1. Trim leading/trailing whitespace.
+2. Reject if input contains an underscore (`_`). Error: `"underscores not allowed — use spaces"`.
+3. Reject if empty after trim, longer than 64 chars, or contains anything other than ASCII letters, digits, or whitespace.
+4. Lowercase.
+5. Collapse runs of whitespace, replace each space run with a single `_`.
 
-`pkg/client/categories.go` adds `CategoryClient` as a sibling to `TaskClient`, matching the existing flat shape (`MessagesClient`, `RulesClient`, etc.). No umbrella `TodoClient` — the URL grouping is a server concern, not a client one.
+| Input | Key |
+|---|---|
+| `FOOBAR` | `foobar` |
+| `foo bar` | `foo_bar` |
+| `foo BAR` | `foo_bar` |
+| `  Foo   Bar  ` | `foo_bar` |
+| `foo_bar` | rejected (contains `_`) |
+| `foo!` | rejected (non-alphanumeric, non-space) |
+| `""` | rejected (empty) |
+| 65-char string | rejected (too long) |
 
-### 5. Server handler layout
+#### Presentation (`PresentCategoryName`)
 
-- Existing `internal/server/handler/todo.go` renamed → `internal/server/handler/todo_tasks.go`.
-- New `internal/server/handler/todo_categories.go`.
-- Route mounting in `internal/server/server.go` groups under a `/api/v1/todo/` prefix block.
+Key → display: replace `_` with space, title-case each word.
 
-### 6. DELETE category cascade
+| Key | Display |
+|---|---|
+| `foobar` | `Foobar` |
+| `foo_bar` | `Foo Bar` |
+| `api_docs` | `Api Docs` |
 
-Deleting a category removes its rows from the `todo_categories` join table. Tasks remain unchanged otherwise — they simply lose that category tag. No cascade-to-tasks, no soft-delete.
+Title-casing is mechanical — acronym info is lost, accepted.
 
-### 7. Name uniqueness
+Both functions live in `internal/repository/category.go` and are pure / table-tested.
 
-Case-insensitive uniqueness enforced at the DB level (UNIQUE INDEX on `LOWER(name)`). Create/rename returning a duplicate yields `409 Conflict` with `{"error": "category name already exists"}`.
-
----
-
-## Schema
-
-### `categories` table
+### 4. Schema
 
 ```sql
 CREATE TABLE categories (
-    id         TEXT PRIMARY KEY,           -- UUID
-    name       TEXT NOT NULL,
-    colour     TEXT,                        -- nullable hex string '#RRGGBB'
-    created_at TEXT NOT NULL                -- RFC3339
+    name_key   TEXT PRIMARY KEY,   -- lowercase, _ for spaces
+    colour     TEXT,                -- nullable hex '#RRGGBB'
+    created_at TEXT NOT NULL        -- RFC3339
 );
-CREATE UNIQUE INDEX categories_name_lower ON categories (LOWER(name));
+
+CREATE TABLE tasks (
+    -- existing todo columns, renamed table only
+    id                   TEXT PRIMARY KEY,
+    title                TEXT NOT NULL,
+    description          TEXT NOT NULL DEFAULT '',
+    priority             INTEGER NOT NULL DEFAULT 0,
+    due_date             TEXT,
+    estimate_minutes     INTEGER,
+    llm_estimate_minutes INTEGER,
+    created_at           TEXT NOT NULL,
+    completed_at         TEXT,
+    -- new
+    category_key         TEXT REFERENCES categories(name_key)
+                              ON UPDATE CASCADE
+                              ON DELETE SET NULL
+);
+CREATE INDEX tasks_category_key ON tasks (category_key);
 ```
 
-### `todo_categories` join table
+The legacy string-typed `todos.categories` column is removed entirely.
 
-```sql
-CREATE TABLE todo_categories (
-    todo_id     TEXT NOT NULL REFERENCES todos(id)      ON DELETE CASCADE,
-    category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-    PRIMARY KEY (todo_id, category_id)
-);
-CREATE INDEX todo_categories_category_id ON todo_categories (category_id);
-```
+### 5. URL grouping — `/api/v1/todo/`
 
-The previous string-typed `todo.categories` column is removed entirely — clean break, per Decision 1.
+Tasks and categories share the `/api/v1/todo/` prefix. The grouping reflects the bounded context (`internal/service/todo/`), even though resources internally type as `Task` and `Category`.
 
----
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/todo/categories` | List with `task_count` |
+| `POST` | `/api/v1/todo/categories` | Create from raw input |
+| `GET` | `/api/v1/todo/categories/{name}` | Lookup by any form |
+| `PUT` | `/api/v1/todo/categories/{name}` | Update display name and/or colour |
+| `DELETE` | `/api/v1/todo/categories/{name}` | Remove (cascades SET NULL on tasks) |
+| `GET` | `/api/v1/todo/tasks` | List, optional `?category=` filter |
+| `POST` | `/api/v1/todo/tasks` | Create |
+| `GET` | `/api/v1/todo/tasks/{id}` | Lookup |
+| `PUT` | `/api/v1/todo/tasks/{id}` | Update |
+| `DELETE` | `/api/v1/todo/tasks/{id}` | Remove |
 
-## Wire Format
+`{name}` accepts any case/spacing form; the handler normalizes before lookup.
 
-### Category endpoints
+### 6. Rename `Todo` → `Task`
 
-| Method | Path | Body | Response |
-|---|---|---|---|
-| GET | `/api/v1/todo/categories` | — | `[{id, name, colour, created_at, task_count}]` |
-| POST | `/api/v1/todo/categories` | `{name, colour?}` | `{id, name, colour, created_at, task_count: 0}` |
-| GET | `/api/v1/todo/categories/{id}` | — | `{id, name, colour, created_at, task_count}` |
-| PUT | `/api/v1/todo/categories/{id}` | `{name, colour?}` | `{id, name, colour, created_at, task_count}` |
-| DELETE | `/api/v1/todo/categories/{id}` | — | `204 No Content` |
-
-### Task endpoints
-
-Paths renamed:
+The bounded-context package keeps the name `internal/service/todo/`. Resources within it name themselves: `Task`, `Category`. So the call sites read `todo.Service.CreateTask(...)`, `todo.Service.RenameCategory(...)`.
 
 | Old | New |
 |---|---|
-| `GET /api/v1/tasks` | `GET /api/v1/todo/tasks` |
-| `POST /api/v1/tasks` | `POST /api/v1/todo/tasks` |
-| `GET /api/v1/tasks/{id}` | `GET /api/v1/todo/tasks/{id}` |
-| `PUT /api/v1/tasks/{id}` | `PUT /api/v1/todo/tasks/{id}` |
-| `DELETE /api/v1/tasks/{id}` | `DELETE /api/v1/todo/tasks/{id}` |
+| `repository.Todo` | `repository.Task` |
+| `repository.TodoRepository` | `repository.TaskRepository` |
+| `repository.TodoFilter` | `repository.TaskFilter` |
+| `internal/repository/todo.go` | `internal/repository/task.go` |
+| `internal/repository/implementation/sqlite/todo_impl.go` | `.../sqlite/task_impl.go` |
+| `internal/server/handler/todo.go` | `internal/server/handler/tasks.go` |
+| `todos` table | `tasks` table |
 
-DTO changes:
+`internal/service/todo/` package name is preserved.
 
-- Write requests: `categories: []string` removed; replaced by `category_ids: []uuid`.
-- Read responses: gain `category_ids: []uuid` (canonical) and `categories: [{id, name}]` (convenience embed; **no** colour to keep payloads lean — fetch the categories endpoint for full detail).
-- Filter query: `?category=<name>` becomes `?category_id=<uuid>`. Multiple ids supported via repeated parameters.
+### 7. `todo.Service` owns categories
+
+The existing `Service` is extended to inject a `CategoryRepository` alongside the task repo, and to expose category operations. Handlers stay thin; the service is the **single place** that turns raw input through `NormalizeCategoryKey` before hitting the repo. Repos deal only in canonical keys.
+
+```go
+type Service struct {
+    tasks      TaskRepository
+    categories CategoryRepository
+    estimator  TimeEstimator
+}
+
+func NewService(tasks TaskRepository, categories CategoryRepository, estimator TimeEstimator) (*Service, error)
+
+// Categories
+func (s *Service) CreateCategory(ctx context.Context, rawName string, colour *string) (*repository.Category, error)
+func (s *Service) RenameCategory(ctx context.Context, oldKey, newRawName string) (*repository.Category, error)
+func (s *Service) SetCategoryColour(ctx context.Context, key string, colour *string) error
+func (s *Service) DeleteCategory(ctx context.Context, key string) error
+func (s *Service) GetCategory(ctx context.Context, rawNameOrKey string) (*repository.Category, error)
+func (s *Service) ListCategories(ctx context.Context, withCounts bool) ([]*repository.CategoryWithCount, error)
+
+// Tasks (existing CRUD; signatures retitled Todo→Task)
+```
+
+`GetCategory` accepts any form — it normalizes before lookup.
+
+### 8. Wire format
+
+#### Categories
+
+| Direction | Field | Example |
+|---|---|---|
+| Write (POST/PUT body) | `name`, `colour?` | `{"name": "foo BAR", "colour": "#3aa"}` |
+| Read (single) | `{key, name, colour, created_at, task_count}` | `{"key":"foo_bar","name":"Foo Bar","colour":"#3aa","created_at":"...","task_count":4}` |
+| Read (list) | array of single | — |
+| Path param | accepts any form | `GET /api/v1/todo/categories/Foo%20Bar` ≡ `.../foo_bar` |
+
+#### Tasks
+
+| Direction | Field | Example |
+|---|---|---|
+| Write | `category` (string or null) | `{"title":"x","category":"foo BAR"}` |
+| Read | `category` (object or null) | `{"id":"…","category":{"key":"foo_bar","name":"Foo Bar"}}` |
+| Filter | `?category=` (any form) | `?category=Foo%20Bar` ≡ `?category=foo_bar` |
+
+`category` on read embeds `{key, name}` only — no colour, no `task_count`. Clients fetch `/api/v1/todo/categories/{key}` for full detail. Unknown category on write → `400`.
+
+### 9. Validation
+
+- **Category name** — per `NormalizeCategoryKey` rules (Decision 3).
+- **Colour** — nullable; if present, must match `^#[0-9A-Fa-f]{6}$`. Validation in handler before service.
+- **Duplicate key on create** — `409 Conflict` (`"category key already exists"`). Translated from sqlite `UNIQUE` violation in the repo layer.
+- **Rename to existing key** — `409 Conflict`.
+- **Rename with same key** (case-only diff is impossible by design — keys are already lowercase) — no-op when input normalizes to the same existing key; PUT returns the existing row unchanged.
+
+### 10. Repository interfaces
+
+```go
+// internal/repository/category.go
+type Category struct {
+    NameKey   string  // PK; lowercase, _ for spaces
+    Colour    *string // nullable hex '#RRGGBB'
+    CreatedAt time.Time
+}
+
+type CategoryWithCount struct {
+    Category
+    TaskCount int
+}
+
+type CategoryRepository interface {
+    Insert(ctx context.Context, c *Category) error
+    Rename(ctx context.Context, oldKey, newKey string) error
+    UpdateColour(ctx context.Context, key string, colour *string) error
+    Delete(ctx context.Context, key string) error
+    GetByKey(ctx context.Context, key string) (*Category, error)
+    QueryAll(ctx context.Context, withCounts bool) ([]*CategoryWithCount, error)
+}
+
+// Pure normalization helpers
+func NormalizeCategoryKey(input string) (string, error)
+func PresentCategoryName(key string) string
+```
+
+```go
+// internal/repository/task.go (renamed from todo.go)
+type Task struct {
+    ID                 uuid.UUID
+    Title              string
+    Description        string
+    Priority           int
+    DueDate            *time.Time
+    CategoryKey        *string  // FK to categories.name_key; nullable
+    EstimateMinutes    *int
+    LLMEstimateMinutes *int
+    CreatedAt          time.Time
+    CompletedAt        *time.Time
+}
+
+type TaskFilter struct {
+    Status      string
+    CategoryKey string  // empty = no filter
+    Search      string
+    Limit       int
+    Offset      int
+}
+
+type TaskRepository interface {
+    Insert(ctx context.Context, t *Task) error
+    Update(ctx context.Context, t *Task) error
+    Delete(ctx context.Context, id uuid.UUID) error
+    QueryByID(ctx context.Context, id uuid.UUID) (*Task, error)
+    QueryFiltered(ctx context.Context, filter TaskFilter) ([]*Task, int, error)
+    Complete(ctx context.Context, id uuid.UUID, completedAt time.Time) error
+}
+```
 
 ---
 
-## TDD Sequence
+## TDD Loop Plan
 
-RED → GREEN → REFACTOR per loop, three commits each, `just fmt` last step before each commit.
+Per `CLAUDE.md` §13: each loop = RED (test-designer) → GREEN (implementer) → REFACTOR (refactorer), three commits, `just fmt` last before each commit. Agent teams used throughout.
 
 | # | Loop | Scope |
 |---|---|---|
-| 1 | Repository: `Category` model + repo | `repository.Category` gains `id`, `colour`, `created_at`; `categoryRepo` exposes `Insert`, `Update`, `Delete`, `GetByID`, `QueryAll(WithCounts bool)`. SQLite schema rewritten per §"Schema". |
-| 2 | Repository: `todo_categories` join + Todo refactor | `repository.Todo.Categories` field type changes from `[]Category` (name-keyed) to `[]uuid.UUID` (canonical) plus a `CategoriesEmbed []Category` (read-only, populated on Get/Query). Todo repo updated to read/write the join table. |
-| 3 | Server: `GET /api/v1/todo/categories` | List handler with `task_count` aggregation. |
-| 4 | Server: `POST /api/v1/todo/categories` | Create with case-insensitive uniqueness; 409 on duplicate. |
-| 5 | Server: `GET/PUT/DELETE /api/v1/todo/categories/{id}` | Single CRUD; PUT updates name + colour; DELETE cascades through join table only. |
-| 6 | Server: route move `/api/v1/tasks` → `/api/v1/todo/tasks` | Path constants + route table updates; old paths fully removed. |
-| 7 | Server: Task DTO change | Drop `categories: []string`; add `category_ids: []uuid` on write, embed `categories: [{id, name}]` on read. Filter switches to `?category_id=<uuid>`. Reject unknown ids with 400. |
-| 8 | Client SDK: `pkg/client/categories.go` | `CategoryClient` interface + concrete adapter; httptest-driven tests mirroring the existing SDK style. |
-| 9 | Client SDK: `pkg/client/tasks.go` path + DTO update | Path constants → `/api/v1/todo/tasks`; `Task` DTO replaces `Categories []string` with `CategoryIDs []uuid` + `Categories []CategoryEmbed`; filter uses `CategoryID uuid.UUID` instead of `Category string`. Test fixtures updated. |
-| 10 | OpenAPI / docs regen | Swagger annotations on new handlers; regenerate `docs/api/` per Feature 106A's pipeline; update README API examples. |
+| 1 | Category model + normalization | `repository.Category` reshape; `NormalizeCategoryKey` + `PresentCategoryName` pure functions with table tests covering all rules from Decision 3. |
+| 2 | SQLite categories repo | New `categories` table; `CategoryRepository` impl with `Insert/Rename/UpdateColour/Delete/GetByKey/QueryAll`. UNIQUE-violation translation to `repository.ErrDuplicate`. Tests use `s.T().TempDir()`. |
+| 3 | Rename Todo → Task | Sweep across repo, sqlite, service, handler, tests. Table `todos` → `tasks`. No behavioural change in this loop. |
+| 4 | Task `category_key` FK | Add `Task.CategoryKey *string`; SQLite column with FK + cascade rules; repo Insert/Update read/write the column; `TaskFilter.CategoryKey` filters via `WHERE category_key = ?`. |
+| 5 | `todo.Service` category methods | Inject `CategoryRepository`; implement `CreateCategory/RenameCategory/SetCategoryColour/DeleteCategory/GetCategory/ListCategories`. Service is the only place that calls `NormalizeCategoryKey`. |
+| 6 | Categories HTTP handler | New `internal/server/handler/categories.go` mounted at `/api/v1/todo/categories`. Validates colour, surfaces 409 on duplicate, 404 on unknown key, 400 on bad input. |
+| 7 | Tasks routes + DTO update | Move `/api/v1/tasks` → `/api/v1/todo/tasks`. DTO: write accepts `category: string\|null`, server normalizes; read returns `category: {key,name}\|null`. Filter `?category=` accepts any form. Reject unknown category on write with 400. Old paths fully removed. |
+| 8 | Client SDK | New `pkg/client/categories.go` with `CategoryClient`. Update `pkg/client/tasks.go`: paths → `/api/v1/todo/tasks`, `Task` DTO uses `Category *CategoryEmbed` and a `CategoryInput string` for writes; filter uses `CategoryKey string`. httptest-driven tests. |
+| 9 | OpenAPI regen + docs | Swagger annotations on new handlers; regen `docs/api/` per Feature 106A pipeline; update CHANGELOG (Breaking), README, agent-log, Roadmap row → Done; update 107 doc to reflect dependency satisfaction. |
 
-10 loops, ~5–6 working days.
+9 loops total, ~5 working days.
 
 ---
 
 ## Wiring Verification
 
-After loop 10:
+After loop 9, before security checks:
 
-1. `grep -rn "/api/v1/tasks" internal/ pkg/ cmd/ docs/` — only matches in CHANGELOG/migration notes; no live code or routes.
-2. `grep -rn "Categories \[\]string" pkg/client internal/server/handler` — empty.
-3. `grep -rn ErrNotImplemented internal/server pkg/client` (non-test) — empty.
-4. `cmd/cue-server` boots cleanly against a fresh SQLite file; `GET /api/v1/todo/categories` returns `[]`; creating a category and a task tagged with its id round-trips correctly.
-5. `just test`, `just test-ui`, `just security`, `just vulncheck` all green.
+1. `grep -rn "/api/v1/tasks" internal/ pkg/ cmd/` — only matches in CHANGELOG/migration notes.
+2. `grep -rn "Categories \[\]string\|Categories \[\]Category" pkg/client internal/server/handler internal/repository` — empty.
+3. `grep -rn "ErrNotImplemented" internal/server pkg/client internal/repository` (non-test) — empty.
+4. `grep -rn "QueryByName" internal/` — empty.
+5. `grep -rn "TodoRepository\|TodoFilter\|repository\.Todo\b" internal/ pkg/ cmd/` — empty (only the package name `service/todo/` remains).
+6. `cmd/cue-server` boots against fresh SQLite: `GET /api/v1/todo/categories` → `[]`; `POST /api/v1/todo/categories` with `{"name":"foo BAR"}` → `{key:"foo_bar",name:"Foo Bar",...}`; `POST /api/v1/todo/tasks` with `{"category":"foo bar"}` round-trips correctly.
+7. `just test && just test-ui && just security && just vulncheck` all green.
 
 ---
 
 ## Acceptance Criteria
 
-- Categories are CRUD-able as standalone resources with the schema in Decision 3.
-- Tasks reference categories by UUID; renames don't touch the tasks table.
-- Task list responses include enough category data (id + name) to render UI without a follow-up call.
-- Old `/api/v1/tasks` paths return 404 (no shim).
+- Categories CRUD-able as standalone resources with the schema in Decision 4.
+- Each task references at most one category via a nullable FK; deleting a category sets dependent task FKs to NULL.
+- Category renames cascade through `tasks.category_key` via `ON UPDATE CASCADE`.
+- Wire format follows Decision 8: write accepts raw input, read returns the derived display name.
+- All routes live under `/api/v1/todo/`; old `/api/v1/tasks` paths return 404.
 - `pkg/client/` exposes `CategoryClient` and an updated `TaskClient`.
 - OpenAPI documentation regenerated and accurate.
+- All existing tests pass (after rename adjustments) and new tests achieve ≥80% coverage on new code.
 
 ---
 
@@ -195,31 +316,36 @@ After loop 10:
 
 107's adapter layer benefits directly:
 
-- Loops 10 + 11 in 107's plan (server categories endpoint + client SDK) **disappear** — 109 delivers them. 107 shrinks from 16 to 14 loops.
-- 107's `cmd/cue/adapters/tasks.go` (loop 12 in current 107 plan) targets the new DTO: maps `Task.CategoryIDs` ↔ `repository.Todo.Categories []uuid.UUID`, and consumes the `categories` embed for UI rendering.
-- 107's `CategoryQuerier` adapter is straightforward: wraps `CategoryClient.ListCategories`, translates `client.Category` → `repository.Category`.
+- 107's loops adding server categories endpoint + client SDK **disappear** — 109 delivers them.
+- 107's `cmd/cue/adapters/tasks.go` consumes `client.Task.Category` (single `*CategoryEmbed`) for UI rendering — simpler than the planned multi-category embed.
+- 107's `CategoryQuerier` adapter wraps `CategoryClient.ListCategories`.
 
-107's design doc must be updated to depend on 109. Roadmap row updated to reflect the new dependency.
+107's design doc must be updated to depend on the shipped 109 contract during loop 9.
 
 ---
 
 ## Risk Areas
 
-1. **Filter parameter rename.** `?category=<name>` → `?category_id=<uuid>` is a breaking query change. Any UAT tests, scripts, or notebooks hitting the old query parameter must be updated. Caught by the existing test suite during loop 7.
-
-2. **Embed payload size.** Tasks with many categories grow proportionally. Realistic ceiling is 5–10 categories per task; payload growth is bounded and acceptable. If a future use case pushes this further, the embed becomes opt-in via a query flag — out of scope for 109.
-
-3. **Colour validation.** Hex format only (`#RRGGBB`). Rejecting malformed values at create/update time is cheap; doing it in the repo would catch drift but is overkill for now. Validation lives in the handler layer.
-
-4. **Case-insensitive uniqueness on rename.** Renaming "Work" → "WORK" must succeed (same row). `LOWER(name)` index treats them as the same key; the UPDATE statement must scope the uniqueness check to "any row other than this one." Standard pattern but worth a regression test in loop 5.
-
-5. **Nothing else.** With no migration and no live consumers, the failure modes are bounded to the test suite.
+1. **Rename sweep (Loop 3).** Must touch many files in lockstep. Mitigation: dedicated loop, no behavioural change, full `just test` between RED and GREEN.
+2. **Path-param normalization.** `GET /api/v1/todo/categories/Foo%20Bar` must decode + normalize. Tested in Loop 6 RED with mixed-case + URL-encoded variants.
+3. **Cascade semantics.** `ON DELETE SET NULL` and `ON UPDATE CASCADE` rely on `PRAGMA foreign_keys = ON`. The sqlite implementation already enables foreign keys per existing repo init; verified in Loop 2 RED.
+4. **Underscore rejection.** Users typing `foo_bar` see 400. UI clarifies via the error message; `pkg/client` surfaces it as a typed validation error.
 
 ---
 
 ## Estimate
 
-- New code: ~600 LOC (handler + repo + tests for categories) + ~150 LOC SDK + ~80 LOC docs annotations.
-- Removed/changed: ~200 LOC of string-categories handling across handler, repo, and tests.
-- Net: ~+650 LOC, mostly tests and DTO translation.
-- Loops: 10, ~5–6 working days.
+- New code: ~500 LOC (handler + repo + service for categories) + ~150 LOC SDK + ~80 LOC docs annotations.
+- Removed/changed: ~250 LOC of string-categories handling + Todo→Task rename diff.
+- Net: ~+500 LOC, mostly tests and DTO translation.
+- Loops: 9, ~5 working days.
+
+---
+
+## TDD Agent Stats
+
+To be filled in during Loop 9.
+
+| Loop | Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|---|
+| | | | | | |

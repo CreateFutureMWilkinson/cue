@@ -179,3 +179,10 @@ func writeNotFoundOrError(w http.ResponseWriter, err error) {
 	}
 	writeJSONError(w, http.StatusInternalServerError, "internal error")
 }
+
+// ResolveNotificationHandler returns an http.HandlerFunc for POST /api/v1/notifications/{id}/resolve.
+func ResolveNotificationHandler(repo MessageQuerier) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "not implemented", http.StatusNotImplemented)
+	}
+}

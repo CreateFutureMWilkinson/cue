@@ -19,6 +19,8 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/service/buffer"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
+	"github.com/CreateFutureMWilkinson/cue/internal/service/planner"
+	todosvc "github.com/CreateFutureMWilkinson/cue/internal/service/todo"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/vector"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
 )
@@ -92,7 +94,18 @@ func NewComposition(ctx context.Context, cfg config.Config) (*Composition, error
 		return nil, err
 	}
 
-	httpSrv, err := constructHTTPServer(cfg, msgRepo, vectorStore, hub)
+	todoRepo, err := sqlite.NewSQLiteTodoRepository(cfg.Database.Path)
+	if err != nil {
+		return nil, fmt.Errorf("opening todo repository: %w", err)
+	}
+
+	taskEstimator := planner.NewOllamaTaskEstimator(ollamaClient)
+	todoSvc, err := todosvc.NewService(todoRepo, taskEstimator)
+	if err != nil {
+		return nil, fmt.Errorf("creating todo service: %w", err)
+	}
+
+	httpSrv, err := constructHTTPServer(cfg, msgRepo, vectorStore, hub, todoSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -191,12 +204,18 @@ func constructServices(ctx context.Context, cfg config.Config, ruleRepo reposito
 }
 
 // constructHTTPServer builds the HTTP/WebSocket server surface with shared hub.
-func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository, vectorStore *vector.ChromemVectorStore, hub *Hub) (*Server, error) {
+func constructHTTPServer(cfg config.Config, msgRepo repository.MessageRepository, vectorStore *vector.ChromemVectorStore, hub *Hub, todoSvc *todosvc.Service) (*Server, error) {
 	bufSvc, err := buffer.NewBufferService(msgRepo, vectorStore)
 	if err != nil {
 		return nil, fmt.Errorf("creating buffer service: %w", err)
 	}
-	return New(cfg.Server, Deps{Messages: msgRepo, Buffer: bufSvc, Hub: hub})
+	return New(cfg.Server, Deps{
+		Messages:          msgRepo,
+		Buffer:            bufSvc,
+		Hub:               hub,
+		Todos:             todoSvc,
+		EffectiveEstimate: todosvc.EffectiveEstimate,
+	})
 }
 
 // startOrchestration creates the hub, alerter, orchestrator, and queue processor,

@@ -65,13 +65,7 @@ func (ps *PairingStore) Create(label string) *PairingRequest {
 	}
 	ps.requests[req.ID] = req
 
-	return &PairingRequest{
-		ID:        req.ID,
-		Label:     req.Label,
-		Code:      req.Code,
-		ExpiresAt: req.ExpiresAt,
-		Status:    req.Status,
-	}
+	return ps.copyRequest(req)
 }
 
 // Get retrieves a pairing request by ID. It lazily marks expired requests.
@@ -85,18 +79,9 @@ func (ps *PairingStore) Get(id uuid.UUID) (*PairingRequest, bool) {
 		return nil, false
 	}
 
-	if req.Status == "pending" && time.Now().After(req.ExpiresAt) {
-		req.Status = "expired"
-	}
+	ps.checkAndMarkExpired(req)
 
-	return &PairingRequest{
-		ID:        req.ID,
-		Label:     req.Label,
-		Code:      req.Code,
-		ExpiresAt: req.ExpiresAt,
-		Status:    req.Status,
-		Token:     req.Token,
-	}, true
+	return ps.copyRequest(req), true
 }
 
 // Approve marks a pairing request as approved and stores the bearer token.
@@ -109,13 +94,8 @@ func (ps *PairingStore) Approve(id uuid.UUID, token string) error {
 		return ErrPairingNotFound
 	}
 
-	if req.Status != "pending" {
-		return ErrPairingResolved
-	}
-
-	if time.Now().After(req.ExpiresAt) {
-		req.Status = "expired"
-		return ErrPairingExpired
+	if err := ps.validatePendingRequest(req); err != nil {
+		return err
 	}
 
 	req.Status = "approved"
@@ -133,6 +113,25 @@ func (ps *PairingStore) Deny(id uuid.UUID) error {
 		return ErrPairingNotFound
 	}
 
+	if err := ps.validatePendingRequest(req); err != nil {
+		return err
+	}
+
+	req.Status = "denied"
+	return nil
+}
+
+// checkAndMarkExpired marks a request as expired if it has passed its expiry time.
+// This method is not thread-safe and must be called while holding the mutex.
+func (ps *PairingStore) checkAndMarkExpired(req *PairingRequest) {
+	if req.Status == "pending" && time.Now().After(req.ExpiresAt) {
+		req.Status = "expired"
+	}
+}
+
+// validatePendingRequest checks if a request can be modified (pending and not expired).
+// This method is not thread-safe and must be called while holding the mutex.
+func (ps *PairingStore) validatePendingRequest(req *PairingRequest) error {
 	if req.Status != "pending" {
 		return ErrPairingResolved
 	}
@@ -142,6 +141,18 @@ func (ps *PairingStore) Deny(id uuid.UUID) error {
 		return ErrPairingExpired
 	}
 
-	req.Status = "denied"
 	return nil
+}
+
+// copyRequest creates a deep copy of a pairing request.
+// This method is not thread-safe and must be called while holding the mutex.
+func (ps *PairingStore) copyRequest(req *PairingRequest) *PairingRequest {
+	return &PairingRequest{
+		ID:        req.ID,
+		Label:     req.Label,
+		Code:      req.Code,
+		ExpiresAt: req.ExpiresAt,
+		Status:    req.Status,
+		Token:     req.Token,
+	}
 }

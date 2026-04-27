@@ -41,6 +41,51 @@ type PairingRequest struct {
 	Token     string
 }
 
+// Helper functions for common handler patterns
+
+// parseIDFromPath extracts and parses a UUID from the "id" path value.
+func parseIDFromPath(r *http.Request) (uuid.UUID, error) {
+	return uuid.Parse(r.PathValue("id"))
+}
+
+// broadcastPairingEvent broadcasts a pairing-related event, ignoring errors.
+func broadcastPairingEvent(hub EventBroadcaster, eventType string, requestID uuid.UUID, status string) {
+	event, _ := json.Marshal(map[string]any{
+		"event": eventType,
+		"data": map[string]any{
+			"request_id": requestID.String(),
+			"status":     status,
+		},
+	})
+	_ = hub.Broadcast(event)
+}
+
+// generateBearerToken creates a 64-character hex-encoded random token.
+func generateBearerToken() (plaintext, hash string, err error) {
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", "", err
+	}
+	plaintext = hex.EncodeToString(tokenBytes)
+
+	hashBytes := sha256.Sum256([]byte(plaintext))
+	hash = hex.EncodeToString(hashBytes[:])
+
+	return plaintext, hash, nil
+}
+
+// persistAuthToken creates and stores an auth token with the given hash.
+func persistAuthToken(ctx context.Context, tokenRepo AuthTokenCreator, tokenHash string) error {
+	authToken := &repository.AuthToken{
+		ID:        uuid.New(),
+		Label:     "paired",
+		TokenHash: tokenHash,
+		CreatedAt: time.Now(),
+		LastSeen:  time.Now(),
+	}
+	return tokenRepo.Create(ctx, authToken)
+}
+
 // InitiatePairingHandler returns a handler for POST /api/v1/auth/pair.
 // It creates a new pairing request and broadcasts a pairing_request event.
 func InitiatePairingHandler(store PairingStorer, hub EventBroadcaster) http.Handler {
@@ -64,9 +109,7 @@ func InitiatePairingHandler(store PairingStorer, hub EventBroadcaster) http.Hand
 		})
 		_ = hub.Broadcast(event)
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusAccepted)
-		_ = json.NewEncoder(w).Encode(map[string]any{
+		writeJSON(w, http.StatusAccepted, map[string]any{
 			"request_id": req.ID.String(),
 			"code":       req.Code,
 		})
@@ -77,15 +120,15 @@ func InitiatePairingHandler(store PairingStorer, hub EventBroadcaster) http.Hand
 // It returns the current status of a pairing request.
 func PollPairingHandler(store PairingStorer) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id, err := uuid.Parse(r.PathValue("id"))
+		id, err := parseIDFromPath(r)
 		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+			writeJSONError(w, http.StatusBadRequest, "invalid id")
 			return
 		}
 
 		req, ok := store.Get(id)
 		if !ok {
-			http.Error(w, "not found", http.StatusNotFound)
+			writeJSONError(w, http.StatusNotFound, "not found")
 			return
 		}
 
@@ -97,8 +140,7 @@ func PollPairingHandler(store PairingStorer) http.Handler {
 			Token:  req.Token,
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
+		writeJSON(w, http.StatusOK, resp)
 	})
 }
 
@@ -106,55 +148,30 @@ func PollPairingHandler(store PairingStorer) http.Handler {
 // It generates a token, persists it, approves the pairing request, and broadcasts.
 func ApprovePairingHandler(store PairingStorer, tokenRepo AuthTokenCreator, hub EventBroadcaster) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id, err := uuid.Parse(r.PathValue("id"))
+		id, err := parseIDFromPath(r)
 		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+			writeJSONError(w, http.StatusBadRequest, "invalid id")
 			return
 		}
 
-		// Generate 32 random bytes, hex-encode to 64-char plaintext token.
-		tokenBytes := make([]byte, 32)
-		if _, err := rand.Read(tokenBytes); err != nil {
-			http.Error(w, "token generation failed", http.StatusInternalServerError)
-			return
-		}
-		plaintext := hex.EncodeToString(tokenBytes)
-
-		// SHA-256 hash for storage.
-		hashBytes := sha256.Sum256([]byte(plaintext))
-		tokenHash := hex.EncodeToString(hashBytes[:])
-
-		// Persist the hashed token.
-		authToken := &repository.AuthToken{
-			ID:        uuid.New(),
-			Label:     "paired",
-			TokenHash: tokenHash,
-			CreatedAt: time.Now(),
-			LastSeen:  time.Now(),
-		}
-		if err := tokenRepo.Create(r.Context(), authToken); err != nil {
-			http.Error(w, "token persistence failed", http.StatusInternalServerError)
+		plaintext, tokenHash, err := generateBearerToken()
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "token generation failed")
 			return
 		}
 
-		// Approve the pairing request with the plaintext token.
+		if err := persistAuthToken(r.Context(), tokenRepo, tokenHash); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "token persistence failed")
+			return
+		}
+
 		if err := store.Approve(id, plaintext); err != nil {
-			http.Error(w, err.Error(), http.StatusConflict)
+			writeJSONError(w, http.StatusConflict, err.Error())
 			return
 		}
 
-		// Broadcast pairing_resolved event.
-		event, _ := json.Marshal(map[string]any{
-			"event": "pairing_resolved",
-			"data": map[string]any{
-				"request_id": id.String(),
-				"status":     "approved",
-			},
-		})
-		_ = hub.Broadcast(event)
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "approved"})
+		broadcastPairingEvent(hub, "pairing_resolved", id, "approved")
+		writeJSON(w, http.StatusOK, map[string]string{"status": "approved"})
 	})
 }
 
@@ -162,28 +179,18 @@ func ApprovePairingHandler(store PairingStorer, tokenRepo AuthTokenCreator, hub 
 // It denies the pairing request and broadcasts a pairing_resolved event.
 func DenyPairingHandler(store PairingStorer, hub EventBroadcaster) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id, err := uuid.Parse(r.PathValue("id"))
+		id, err := parseIDFromPath(r)
 		if err != nil {
-			http.Error(w, "invalid id", http.StatusBadRequest)
+			writeJSONError(w, http.StatusBadRequest, "invalid id")
 			return
 		}
 
 		if err := store.Deny(id); err != nil {
-			http.Error(w, err.Error(), http.StatusConflict)
+			writeJSONError(w, http.StatusConflict, err.Error())
 			return
 		}
 
-		// Broadcast pairing_resolved event.
-		event, _ := json.Marshal(map[string]any{
-			"event": "pairing_resolved",
-			"data": map[string]any{
-				"request_id": id.String(),
-				"status":     "denied",
-			},
-		})
-		_ = hub.Broadcast(event)
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "denied"})
+		broadcastPairingEvent(hub, "pairing_resolved", id, "denied")
+		writeJSON(w, http.StatusOK, map[string]string{"status": "denied"})
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 )
 
 // ErrUnknownSubscriber is returned when Unsubscribe is called with an
@@ -13,6 +14,10 @@ var ErrUnknownSubscriber = errors.New("hub: unknown subscriber")
 // subscriberBufferSize bounds each subscriber's in-flight broadcast
 // queue. Slow consumers drop messages rather than block the hub.
 const subscriberBufferSize = 16
+
+// ringCapacity is the fixed size of the internal ring buffer that
+// retains recent ActivityEnvelopes for history replay.
+const ringCapacity = 500
 
 // Subscriber represents a connected WebSocket client that receives
 // broadcast events.
@@ -26,12 +31,17 @@ type Subscriber struct {
 type Hub struct {
 	mu          sync.RWMutex
 	subscribers map[string]*Subscriber
+	seq         uint64
+	ring        []ActivityEnvelope
+	ringPos     int
+	ringLen     int
 }
 
 // NewHub creates a Hub ready to accept subscribers.
 func NewHub() *Hub {
 	return &Hub{
 		subscribers: make(map[string]*Subscriber),
+		ring:        make([]ActivityEnvelope, ringCapacity),
 	}
 }
 
@@ -88,7 +98,24 @@ func (h *Hub) Broadcast(data []byte) error {
 // Publish creates an ActivityEnvelope for the given data, assigns a
 // monotonically increasing sequence number, and stores it internally.
 func (h *Hub) Publish(data ActivityData) ActivityEnvelope {
-	return ActivityEnvelope{}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.seq++
+	env := ActivityEnvelope{
+		Seq:       h.seq,
+		Type:      "activity",
+		Timestamp: time.Now().UTC(),
+		Data:      data,
+	}
+
+	h.ring[h.ringPos] = env
+	h.ringPos = (h.ringPos + 1) % ringCapacity
+	if h.ringLen < ringCapacity {
+		h.ringLen++
+	}
+
+	return env
 }
 
 // SubscriberCount returns the number of active subscribers.

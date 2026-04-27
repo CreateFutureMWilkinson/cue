@@ -148,7 +148,29 @@ func RateBufferedHandler(repo MessageQuerier, buf BufferRater) http.HandlerFunc 
 // DeleteBufferedHandler returns an http.HandlerFunc for DELETE /api/v1/buffer/{id}.
 func DeleteBufferedHandler(repo MessageQuerier, buf BufferRater) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeJSONError(w, http.StatusNotImplemented, "not implemented")
+		msg, err := getMessageByPathID(repo, r)
+		if err != nil {
+			writeNotFoundOrError(w, err)
+			return
+		}
+
+		if msg.Status != "Buffered" {
+			writeJSONError(w, http.StatusConflict, "already resolved")
+			return
+		}
+
+		if err := buf.DeleteMessage(r.Context(), msg.ID); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to delete message")
+			return
+		}
+
+		updated, err := repo.QueryByID(r.Context(), msg.ID)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to fetch updated message")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, messageToDetail(updated))
 	}
 }
 

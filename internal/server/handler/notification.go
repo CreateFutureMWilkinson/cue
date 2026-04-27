@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -107,9 +108,74 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
 }
 
+// messageDetail is the JSON representation of a full message.
+type messageDetail struct {
+	ID              string  `json:"id"`
+	Source          string  `json:"source"`
+	SourceAccount   string  `json:"source_account"`
+	Channel         string  `json:"channel"`
+	Sender          string  `json:"sender"`
+	MessageID       string  `json:"message_id"`
+	Content         string  `json:"content"`
+	ImportanceScore float64 `json:"importance_score"`
+	ConfidenceScore float64 `json:"confidence_score"`
+	Reasoning       string  `json:"reasoning"`
+	Status          string  `json:"status"`
+	CreatedAt       string  `json:"created_at"`
+	UpdatedAt       string  `json:"updated_at"`
+	ResolvedAt      *string `json:"resolved_at,omitempty"`
+}
+
+func messageToDetail(m *repository.Message) messageDetail {
+	d := messageDetail{
+		ID:              m.ID.String(),
+		Source:          m.Source,
+		SourceAccount:   m.SourceAccount,
+		Channel:         m.Channel,
+		Sender:          m.Sender,
+		MessageID:       m.MessageID,
+		Content:         m.RawContent,
+		ImportanceScore: m.ImportanceScore,
+		ConfidenceScore: m.ConfidenceScore,
+		Reasoning:       m.Reasoning,
+		Status:          m.Status,
+		CreatedAt:       m.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:       m.UpdatedAt.Format(time.RFC3339),
+	}
+	if m.ResolvedAt != nil {
+		s := m.ResolvedAt.Format(time.RFC3339)
+		d.ResolvedAt = &s
+	}
+	return d
+}
+
 // GetNotificationHandler returns an http.HandlerFunc for GET /api/v1/notifications/{id}.
 func GetNotificationHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "not implemented", http.StatusNotImplemented)
+		msg, err := getMessageByPathID(repo, r)
+		if err != nil {
+			writeNotFoundOrError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, messageToDetail(msg))
 	}
+}
+
+// getMessageByPathID extracts the {id} path param and queries the repo.
+func getMessageByPathID(repo MessageQuerier, r *http.Request) (*repository.Message, error) {
+	idStr := r.PathValue("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return nil, repository.ErrNotFound
+	}
+	return repo.QueryByID(r.Context(), id)
+}
+
+// writeNotFoundOrError writes 404 for ErrNotFound, 500 otherwise.
+func writeNotFoundOrError(w http.ResponseWriter, err error) {
+	if errors.Is(err, repository.ErrNotFound) {
+		writeJSONError(w, http.StatusNotFound, "not found")
+		return
+	}
+	writeJSONError(w, http.StatusInternalServerError, "internal error")
 }

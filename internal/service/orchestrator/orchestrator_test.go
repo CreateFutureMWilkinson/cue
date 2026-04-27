@@ -121,6 +121,10 @@ func (r *mockRepo) DistinctChannels(_ context.Context, source, sourceAccount str
 	return r.channels[key], nil
 }
 
+func (r *mockRepo) QueryFiltered(_ context.Context, _ repository.MessageFilter) ([]*repository.Message, int, error) {
+	return nil, 0, nil
+}
+
 func (r *mockRepo) insertedCount() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()

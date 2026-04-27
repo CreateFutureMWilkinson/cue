@@ -32,12 +32,24 @@ type Message struct {
 	ResolvedAt      *time.Time // nullable
 }
 
+// MessageFilter specifies optional criteria for filtering messages.
+// Zero-value fields are ignored (treated as "no filter").
+type MessageFilter struct {
+	Status  string     // optional: filter by status
+	Source  string     // optional: filter by source ("slack", "email")
+	Channel string     // optional: filter by channel name
+	Since   *time.Time // optional: only messages created after this time
+	Limit   int        // page size (default 50, max 200)
+	Offset  int        // pagination offset
+}
+
 // MessageRepository defines the contract for message persistence.
 type MessageRepository interface {
 	Insert(ctx context.Context, msg *Message) error
 	Update(ctx context.Context, msg *Message) error
 	QueryByID(ctx context.Context, id uuid.UUID) (*Message, error)
 	QueryByStatus(ctx context.Context, status string) ([]*Message, error)
+	QueryFiltered(ctx context.Context, filter MessageFilter) ([]*Message, int, error)
 	QueryAll(ctx context.Context) ([]*Message, error)
 	QueryOldestToNewest(ctx context.Context, limit int) ([]*Message, error)
 	CountBySource(ctx context.Context, source string) (int, error)

@@ -155,6 +155,10 @@ func (m *mockMsgRepo) DistinctChannels(_ context.Context, _, _ string) ([]string
 	return nil, nil
 }
 
+func (m *mockMsgRepo) QueryFiltered(_ context.Context, _ repository.MessageFilter) ([]*repository.Message, int, error) {
+	return nil, 0, nil
+}
+
 // mockScorer implements decisionengine.Scorer for testing.
 type mockScorer struct {
 	result *decisionengine.ScorerResult

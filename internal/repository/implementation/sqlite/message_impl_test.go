@@ -934,6 +934,40 @@ func (s *MessageRepoSuite) TestDistinctChannelsReturnsEmptyForNoMatches() {
 	s.Empty(channels, "should return empty result when no messages match")
 }
 
+// --- Feature: QueryFiltered ---
+
+func (s *MessageRepoSuite) TestQueryFilteredByStatus() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	// Insert 2 Notified messages and 1 Ignored message.
+	msg1 := makeTestMessage("slack", "Notified", now)
+	s.Require().NoError(repo.Insert(ctx, msg1))
+
+	msg2 := makeTestMessage("slack", "Notified", now.Add(time.Second))
+	s.Require().NoError(repo.Insert(ctx, msg2))
+
+	msg3 := makeTestMessage("email", "Ignored", now.Add(2*time.Second))
+	s.Require().NoError(repo.Insert(ctx, msg3))
+
+	results, total, err := repo.QueryFiltered(ctx, repository.MessageFilter{
+		Status: "Notified",
+		Limit:  50,
+	})
+	s.Require().NoError(err)
+	s.Equal(2, total, "total count should reflect matching messages before pagination")
+	s.Require().Len(results, 2, "should return exactly 2 Notified messages")
+
+	for _, r := range results {
+		s.Equal("Notified", r.Status, "all returned messages should have status Notified")
+	}
+}
+
 func (s *MessageRepoSuite) TestScoringModelAndExamplesUsedRoundTrip() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")

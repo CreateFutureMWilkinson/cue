@@ -268,6 +268,7 @@ func (r *SQLiteMessageRepository) QueryByID(ctx context.Context, id uuid.UUID) (
 
 // QueryByStatus returns all messages with the given status.
 func (r *SQLiteMessageRepository) QueryByStatus(ctx context.Context, status string) ([]*repository.Message, error) {
+	// TODO: Update function to use new QueryFiltered function
 	rows, err := r.db.QueryContext(ctx, querySelectByStatus, status)
 	if err != nil {
 		return nil, fmt.Errorf("query by status: %w", err)
@@ -359,6 +360,12 @@ func (r *SQLiteMessageRepository) DistinctChannels(ctx context.Context, source, 
 		return nil, fmt.Errorf("iterate channels: %w", err)
 	}
 	return channels, nil
+}
+
+// QueryFiltered returns messages matching the given filter criteria, plus the total count
+// of matching messages (before limit/offset) for pagination.
+func (r *SQLiteMessageRepository) QueryFiltered(ctx context.Context, filter repository.MessageFilter) ([]*repository.Message, int, error) {
+	return nil, 0, repository.ErrNotImplemented
 }
 
 // evictOldestIfNeeded performs FIFO eviction for the given source if at capacity.

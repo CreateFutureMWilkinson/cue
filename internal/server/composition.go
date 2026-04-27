@@ -302,8 +302,14 @@ func registerWatchersFromDB(ctx context.Context, orch *orchestrator.Orchestrator
 	}
 }
 
-// Shutdown performs an ordered shutdown of all composition components.
-// It is safe to call multiple times; only the first call executes the shutdown sequence.
+// Shutdown performs an ordered shutdown of all composition components:
+// 1. Stop orchestrator (waits for in-flight polls)
+// 2. Stop queue processor
+// 3. Close event channel (stops hub publisher goroutine)
+// 4. Close shared database connection
+//
+// Shutdown is idempotent and logs progress. The first call executes the sequence;
+// subsequent calls return the cached result immediately.
 func (c *Composition) Shutdown(ctx context.Context) error {
 	c.shutdownOnce.Do(func() {
 		slog.Info("shutdown initiated")
@@ -320,7 +326,9 @@ func (c *Composition) Shutdown(ctx context.Context) error {
 		slog.Info("closing database")
 		if accessor, ok := c.MessageRepo.(dbAccessor); ok {
 			if err := accessor.DB().Close(); err != nil {
+				slog.Error("failed to close database", "error", err)
 				c.shutdownErr = fmt.Errorf("closing database: %w", err)
+				return
 			}
 		}
 

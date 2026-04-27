@@ -403,7 +403,9 @@ func (r *SQLiteMessageRepository) QueryFiltered(ctx context.Context, filter repo
 
 	selectQuery := "SELECT " + messageColumnsStr + " FROM messages " + where +
 		" ORDER BY created_at DESC LIMIT ? OFFSET ?"
-	selectArgs := append(args, limit, filter.Offset)
+	selectArgs := make([]any, len(args), len(args)+2)
+	copy(selectArgs, args)
+	selectArgs = append(selectArgs, limit, filter.Offset)
 
 	rows, err := r.db.QueryContext(ctx, selectQuery, selectArgs...)
 	if err != nil {

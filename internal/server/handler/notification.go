@@ -207,6 +207,17 @@ func ResolveNotificationHandler(repo MessageQuerier) http.HandlerFunc {
 // DismissNotificationHandler returns an http.HandlerFunc for POST /api/v1/notifications/{id}/dismiss.
 func DismissNotificationHandler(repo MessageQuerier) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "not implemented", http.StatusNotImplemented)
+		msg, err := getMessageByPathID(repo, r)
+		if err != nil {
+			writeNotFoundOrError(w, err)
+			return
+		}
+		msg.Status = "Ignored"
+		msg.UpdatedAt = time.Now().UTC()
+		if err := repo.Update(r.Context(), msg); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, "failed to update")
+			return
+		}
+		writeJSON(w, http.StatusOK, messageToDetail(msg))
 	}
 }

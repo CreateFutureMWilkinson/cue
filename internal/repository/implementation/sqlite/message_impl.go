@@ -268,13 +268,11 @@ func (r *SQLiteMessageRepository) QueryByID(ctx context.Context, id uuid.UUID) (
 
 // QueryByStatus returns all messages with the given status.
 func (r *SQLiteMessageRepository) QueryByStatus(ctx context.Context, status string) ([]*repository.Message, error) {
-	// TODO: Update function to use new QueryFiltered function
-	rows, err := r.db.QueryContext(ctx, querySelectByStatus, status)
-	if err != nil {
-		return nil, fmt.Errorf("query by status: %w", err)
+	filter := repository.MessageFilter{
+		Status: status,
 	}
-	defer rows.Close()
-	return scanMessages(rows)
+	msg, _, err := r.QueryFiltered(ctx, filter)
+	return msg, err
 }
 
 // QueryAll returns all messages in the database.

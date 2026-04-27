@@ -2,11 +2,13 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -43,10 +45,71 @@ func writeAuthError(w http.ResponseWriter, message string) {
 	})
 }
 
+// isExemptPath returns true for routes that bypass authentication.
+func isExemptPath(path string) bool {
+	switch path {
+	case "/health", "/health/ready", "/api/v1/health", "/api/v1/health/ready":
+		return true
+	}
+	if strings.HasPrefix(path, "/api/v1/auth/pair") {
+		return true
+	}
+	return false
+}
+
+// tryAutoIssueFirstClient checks whether zero active tokens exist and, if so,
+// generates and persists a new token, writing the TOKEN_ISSUED response.
+// Returns true if the auto-issue flow was triggered (response already written).
+func tryAutoIssueFirstClient(w http.ResponseWriter, ctx context.Context, repo AuthTokenLookup) bool {
+	count, err := repo.CountActive(ctx)
+	if err != nil || count > 0 {
+		return false
+	}
+
+	// Generate 32 random bytes → 64 hex chars.
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		writeAuthError(w, "internal error generating token")
+		return true
+	}
+	plaintext := hex.EncodeToString(raw)
+
+	hash := sha256.Sum256([]byte(plaintext))
+	hexHash := hex.EncodeToString(hash[:])
+
+	now := time.Now()
+	token := &repository.AuthToken{
+		ID:        uuid.New(),
+		TokenHash: hexHash,
+		Label:     "",
+		CreatedAt: now,
+		LastSeen:  now,
+	}
+	if err := repo.Create(ctx, token); err != nil {
+		writeAuthError(w, "internal error storing token")
+		return true
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusUnauthorized)
+	json.NewEncoder(w).Encode(map[string]any{
+		"error": map[string]any{
+			"code":    "TOKEN_ISSUED",
+			"message": "First client — token auto-issued",
+		},
+		"token": plaintext,
+	})
+	return true
+}
+
 // AuthMiddleware returns HTTP middleware that validates Bearer tokens against
 // the given AuthTokenLookup repository. When authEnabled is false the middleware
 // passes all requests through without checking credentials.
 func AuthMiddleware(repo AuthTokenLookup, authEnabled bool) func(http.Handler) http.Handler {
+	// Last-seen throttle state: tokenHash → last time we fired UpdateLastSeen.
+	var lastSeenMu sync.Mutex
+	lastSeenMap := make(map[string]time.Time)
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !authEnabled {
@@ -54,8 +117,17 @@ func AuthMiddleware(repo AuthTokenLookup, authEnabled bool) func(http.Handler) h
 				return
 			}
 
+			// Exempt routes bypass authentication entirely.
+			if isExemptPath(r.URL.Path) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
+				if tryAutoIssueFirstClient(w, r.Context(), repo) {
+					return
+				}
 				writeAuthError(w, "missing Authorization header")
 				return
 			}
@@ -72,6 +144,9 @@ func AuthMiddleware(repo AuthTokenLookup, authEnabled bool) func(http.Handler) h
 
 			token, err := repo.LookupByHash(r.Context(), hexHash)
 			if err != nil {
+				if tryAutoIssueFirstClient(w, r.Context(), repo) {
+					return
+				}
 				writeAuthError(w, "invalid token")
 				return
 			}
@@ -81,8 +156,18 @@ func AuthMiddleware(repo AuthTokenLookup, authEnabled bool) func(http.Handler) h
 				return
 			}
 
-			// Fire and forget — update last seen timestamp.
-			go repo.UpdateLastSeen(r.Context(), token.ID, time.Now())
+			// Throttled last-seen update: at most once per minute per token.
+			lastSeenMu.Lock()
+			lastUpdate, exists := lastSeenMap[hexHash]
+			shouldUpdate := !exists || time.Since(lastUpdate) >= time.Minute
+			if shouldUpdate {
+				lastSeenMap[hexHash] = time.Now()
+			}
+			lastSeenMu.Unlock()
+
+			if shouldUpdate {
+				go repo.UpdateLastSeen(context.Background(), token.ID, time.Now())
+			}
 
 			next.ServeHTTP(w, r)
 		})

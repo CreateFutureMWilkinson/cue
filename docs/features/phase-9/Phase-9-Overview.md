@@ -31,8 +31,9 @@ Create a `cue-server` binary that runs Cue headless — no GUI, no Fyne dependen
 | 103 | [Routing Rules API](Feature-103-Routing-Rules-API.md) | REST | Low | 097 |
 | 104 | [Timer API](Feature-104-Timer-API.md) | REST + WS | Medium | 097, 099 |
 | 105 | ~~Settings API~~ (removed — redundant with 102) | — | — | — |
-| 106 | [API Client SDK](Feature-106-API-Client-SDK.md) | Client | High | 096-104 |
-| 106A | [AsyncAPI Documentation](Feature-106A-AsyncAPI-Documentation.md) | Documentation | Low | 097-104 |
+| 108 | [TOFU Pairing](Feature-108-TOFU-Pairing.md) | Auth | Medium | 097, 099 |
+| 106 | [API Client SDK](Feature-106-API-Client-SDK.md) | Client | High | 096-104, 108 |
+| 106A | [AsyncAPI Documentation](Feature-106A-AsyncAPI-Documentation.md) | Documentation | Low | 097-104, 108 |
 | 107 | [Fyne Client Re-wire](Feature-107-Fyne-Client-Rewire.md) | Client | High | 106 |
 
 ## Suggested Implementation Order
@@ -52,7 +53,9 @@ Create a `cue-server` binary that runs Cue headless — no GUI, no Fyne dependen
 101 (planner) ────────── most complex     │
 104 (timer) ──────────── depends on 099   │
     ↓                                     │
-106 (client SDK) ─────── depends on all   │
+108 (TOFU pairing) ───── depends on 097, 099
+    ↓                                     │
+106 (client SDK) ─────── depends on all + 108
 106A (AsyncAPI docs) ──── can parallel 106 │
 107 (Fyne re-wire) ───── depends on 106   │
 ```

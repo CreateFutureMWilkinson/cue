@@ -2,14 +2,14 @@
 
 **Phase:** Phase-9-Feature-107
 **Status:** Planning
-**Depends on:** Feature 106 (API Client SDK), Features 096-105 (server APIs)
+**Depends on:** Feature 106 (API Client SDK), Feature 108 (TOFU pairing), Features 096-104 (server APIs)
 **Package:** `cmd/cue/`
 
 ---
 
 ## Overview
 
-Re-wire the Fyne GUI application (`cmd/cue/main.go`) from a monolithic binary that directly creates repositories, services, and presenters into a thin client that connects to `cue-server` and passes HTTP/WebSocket-backed adapters (from Feature 106's `internal/client/` package) to the existing presenters.
+Re-wire the Fyne GUI application (`cmd/cue/main.go`) from a monolithic binary that directly creates repositories, services, and presenters into a thin client that connects to `cue-server` and passes HTTP/WebSocket-backed adapters (from Feature 106's `pkg/client/` package) to the existing presenters.
 
 All UI code (`internal/ui/`) is preserved unchanged. The presenters already depend on interfaces — this feature swaps the concrete implementations from direct SQLite/service access to HTTP/WS adapters. The presenter constructors, view code, character animations, and acceptance tests remain untouched.
 
@@ -121,7 +121,7 @@ The `ActivityAdapter` from Feature 106 handles reconnection internally. The `Act
 ## Imports Added to cmd/cue
 
 ```go
-"github.com/CreateFutureMWilkinson/cue/internal/client"
+"github.com/CreateFutureMWilkinson/cue/pkg/client"
 ```
 
 ## TDD Behaviors

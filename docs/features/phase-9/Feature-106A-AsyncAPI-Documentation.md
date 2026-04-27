@@ -2,7 +2,7 @@
 
 **Phase:** Phase-9-Feature-106A
 **Status:** Planning
-**Depends on:** Features 097-105 (server APIs)
+**Depends on:** Features 097-104 (server APIs), Feature 108 (TOFU pairing)
 **Artifacts:** `docs/api/asyncapi.yaml`
 
 ---
@@ -41,15 +41,15 @@ Phase 9 Overview (section 5 — Documentation) identified the need for a machine
 | Service Config (Calendar) | `GET/POST /api/v1/services/calendar`, `GET/PUT/DELETE .../calendar/{id}`, `POST .../toggle` | 102 |
 | Service Status | `GET /api/v1/services/status` | 102 |
 | Routing Rules | `GET/POST /api/v1/rules`, `GET/PUT/DELETE /api/v1/rules/{id}`, `POST .../reorder` | 103 |
-| Timer | `GET /api/v1/timer`, `POST .../start`, `POST .../stop`, `POST .../skip` | 104 |
-| Settings | `GET/PATCH /api/v1/settings`, `GET/PUT .../notification-volume`, `GET/PUT .../timer-volume` | 105 |
+| Timer | `GET /api/v1/timer` | 104 |
+| Auth | `POST /api/v1/auth/pair`, `GET /api/v1/auth/pair/{id}`, `POST .../approve`, `POST .../deny`, `GET /api/v1/auth/tokens`, `PUT/DELETE .../tokens/{id}`, `POST /api/v1/auth/logout` | 108 |
 | Events (REST replay) | `GET /api/v1/events?since={seq}` | 099 |
 
 #### WebSocket Channels (pub/sub)
 
 | Channel | Direction | Message Types | Source Feature |
 |---------|-----------|---------------|----------------|
-| `/api/v1/websocket/events` | server-to-client | `activity`, `notification`, `timer_tick`, `timer_block_complete` | 099, 104 |
+| `/api/v1/websocket/events` | server-to-client | `activity`, `notification`, `alert`, `timer_tick`, `timer_block_complete`, `pairing_request`, `pairing_resolved` | 099, 104, 108 |
 
 ### Schemas to Define
 
@@ -64,7 +64,8 @@ Reusable JSON Schema components for all request/response payloads:
 - `ServiceStatus` — watcher registration state
 - `RoutingRule` / `RuleCreateRequest` — routing rule models
 - `TimerState` — timer status model
-- `Settings` / `VolumeLevel` — settings models
+- `TokenInfo` — auth token metadata (id, label, created, last_seen, revoked)
+- `PairingRequest` / `PairingResult` — TOFU pairing flow models
 - `EventEnvelope` — WebSocket event wrapper (`seq`, `type`, `timestamp`, `data`, `dropped_since_last`)
 - `ActivityEvent` / `NotificationEvent` / `TimerTickEvent` — event payload types
 - `PaginatedResponse` — generic pagination wrapper (`items`, `total`, `offset`, `limit`)

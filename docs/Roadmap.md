@@ -184,6 +184,7 @@ Server binary exposing REST + WebSocket APIs, then re-wire the Fyne GUI as a thi
 | 103  | Routing rules API                        | REST           | Done     | 097        | [Feature-103](features/phase-9/Feature-103-Routing-Rules-API.md)            |
 | 104  | Timer API                                | REST + WS      | Done     | 097, 099   | [Feature-104](features/phase-9/Feature-104-Timer-API.md)                    |
 | 105  | ~~Settings API~~                         | REST           | Removed  | 097        | Redundant — per-account poll intervals covered by Feature 102               |
-| 106  | API client SDK                           | Client         | Planning | 096-104    | [Feature-106](features/phase-9/Feature-106-API-Client-SDK.md)               |
-| 106A | AsyncAPI documentation                   | Client Docs    | Planning | 096-104    | [Feature-106A](features/phase-9/Feature-106A-AsyncAPI-Documentation.md)     |
+| 108  | TOFU pairing authentication              | Auth           | Planning | 097, 099   | [Feature-108](features/phase-9/Feature-108-TOFU-Pairing.md)                 |
+| 106  | API client SDK                           | Client         | Planning | 096-104, 108 | [Feature-106](features/phase-9/Feature-106-API-Client-SDK.md)             |
+| 106A | AsyncAPI documentation                   | Client Docs    | Planning | 097-104, 108 | [Feature-106A](features/phase-9/Feature-106A-AsyncAPI-Documentation.md)   |
 | 107  | Fyne client re-wire                      | Client         | Planning | 106        | [Feature-107](features/phase-9/Feature-107-Fyne-Client-Rewire.md)           |

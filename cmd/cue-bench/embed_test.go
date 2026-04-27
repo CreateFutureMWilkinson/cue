@@ -49,6 +49,14 @@ func (s *EmbedSuite) TestCosineSimilarity_ZeroMagnitudeVector() {
 	s.Equal(0.0, CosineSimilarity(zero, zero), "both zero")
 }
 
+func (s *EmbedSuite) TestCosineSimilarity_MismatchedLengths() {
+	a := []float32{1.0, 2.0, 3.0}
+	b := []float32{1.0, 2.0}
+
+	s.Equal(0.0, CosineSimilarity(a, b), "first vector longer")
+	s.Equal(0.0, CosineSimilarity(b, a), "second vector longer")
+}
+
 // embedText tests
 
 func (s *EmbedSuite) TestEmbedText_Success() {

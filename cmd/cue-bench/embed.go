@@ -11,14 +11,20 @@ import (
 )
 
 // CosineSimilarity computes cosine similarity between two vectors.
-// Returns 0 for zero-magnitude vectors.
+// Returns 0 for zero-magnitude vectors or mismatched lengths.
 func CosineSimilarity(a, b []float32) float64 {
+	if len(a) != len(b) {
+		return 0
+	}
+
 	var dot, magA, magB float64
 	for i := range a {
-		dot += float64(a[i]) * float64(b[i])
-		magA += float64(a[i]) * float64(a[i])
-		magB += float64(b[i]) * float64(b[i])
+		aVal, bVal := float64(a[i]), float64(b[i])
+		dot += aVal * bVal
+		magA += aVal * aVal
+		magB += bVal * bVal
 	}
+
 	magA = math.Sqrt(magA)
 	magB = math.Sqrt(magB)
 	if magA == 0 || magB == 0 {
@@ -47,10 +53,7 @@ func embedText(ctx context.Context, model, text, host string, httpClient *http.C
 	start := time.Now()
 	resp, err := httpClient.Do(req)
 	elapsed := time.Since(start)
-	latencyMs := elapsed.Milliseconds()
-	if latencyMs == 0 && elapsed > 0 {
-		latencyMs = 1
-	}
+	latencyMs := max(elapsed.Milliseconds(), 1)
 	if err != nil {
 		return nil, 0, fmt.Errorf("embed request: %w", err)
 	}

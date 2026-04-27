@@ -44,6 +44,24 @@ components:
         source_account:
           type: string
       type: object
+    handler.createTaskRequest:
+      properties:
+        categories:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        description:
+          type: string
+        due_date:
+          type: string
+        estimate_minutes:
+          type: integer
+        priority:
+          type: integer
+        title:
+          type: string
+      type: object
     handler.listResponse:
       properties:
         notifications:
@@ -146,6 +164,46 @@ components:
         rating:
           type: integer
       type: object
+    handler.taskItem:
+      properties:
+        categories:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        completed_at:
+          type: string
+        created_at:
+          type: string
+        description:
+          type: string
+        due_date:
+          type: string
+        effective_estimate_minutes:
+          type: integer
+        estimate_minutes:
+          type: integer
+        id:
+          type: string
+        llm_estimate_minutes:
+          type: integer
+        priority:
+          type: integer
+        title:
+          type: string
+      type: object
+    handler.taskListResponse:
+      properties:
+        count:
+          type: integer
+        tasks:
+          items:
+            $ref: '#/components/schemas/handler.taskItem'
+          type: array
+          uniqueItems: false
+        total:
+          type: integer
+      type: object
     handler.timerResponse:
       properties:
         block_type:
@@ -163,6 +221,26 @@ components:
         running:
           type: boolean
         task_name:
+          type: string
+      type: object
+    handler.updateTaskRequest:
+      properties:
+        categories:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        completed_at:
+          type: string
+        description:
+          type: string
+        due_date:
+          type: string
+        estimate_minutes:
+          type: integer
+        priority:
+          type: integer
+        title:
           type: string
       type: object
 externalDocs:
@@ -711,6 +789,217 @@ paths:
       summary: Resolve a notification
       tags:
       - notifications
+  /api/v1/tasks:
+    get:
+      description: |-
+        Paginated list of todo items, filterable by status, category,
+        and free-text search across title/description.
+      parameters:
+      - description: open | completed
+        in: query
+        name: status
+        schema:
+          type: string
+      - description: Category name
+        in: query
+        name: category
+        schema:
+          type: string
+      - description: Substring match on title/description
+        in: query
+        name: search
+        schema:
+          type: string
+      - description: Page size (default 50)
+        in: query
+        name: limit
+        schema:
+          type: integer
+      - description: Page offset (default 0)
+        in: query
+        name: offset
+        schema:
+          type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.taskListResponse'
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: List tasks
+      tags:
+      - tasks
+    post:
+      description: |-
+        Creates a new task. Title is required. Accepts YYYY-MM-DD or
+        RFC3339 for due_date.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/handler.createTaskRequest'
+                description: Task fields
+                summary: request
+        description: Task fields
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.taskItem'
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Bad Request
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Create task
+      tags:
+      - tasks
+  /api/v1/tasks/{id}:
+    delete:
+      parameters:
+      - description: Task UUID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Delete task
+      tags:
+      - tasks
+    get:
+      parameters:
+      - description: Task UUID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.taskItem'
+          description: OK
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Get task by ID
+      tags:
+      - tasks
+    put:
+      description: |-
+        Partial update: any non-nil field in the body is applied to
+        the existing task. Unspecified fields retain their current value.
+      parameters:
+      - description: Task UUID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/handler.updateTaskRequest'
+                description: Fields to update
+                summary: request
+        description: Fields to update
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/handler.taskItem'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+          description: Internal Server Error
+      summary: Update task
+      tags:
+      - tasks
   /api/v1/timer:
     get:
       description: |-

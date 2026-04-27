@@ -98,6 +98,20 @@ func todoToTaskItem(t *repository.Todo, effectiveFn EffectiveEstimateFunc) taskI
 }
 
 // ListTasksHandler returns an http.HandlerFunc for GET /api/v1/tasks.
+//
+// @Summary      List tasks
+// @Description  Paginated list of todo items, filterable by status, category,
+// @Description  and free-text search across title/description.
+// @Tags         tasks
+// @Produce      json
+// @Param        status    query     string  false  "open | completed"
+// @Param        category  query     string  false  "Category name"
+// @Param        search    query     string  false  "Substring match on title/description"
+// @Param        limit     query     int     false  "Page size (default 50)"
+// @Param        offset    query     int     false  "Page offset (default 0)"
+// @Success      200       {object}  handler.taskListResponse
+// @Failure      500       {object}  map[string]string
+// @Router       /api/v1/tasks [get]
 func ListTasksHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		limit, offset := parsePagination(r)
@@ -130,6 +144,18 @@ func ListTasksHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http.
 }
 
 // CreateTaskHandler returns an http.HandlerFunc for POST /api/v1/tasks.
+//
+// @Summary      Create task
+// @Description  Creates a new task. Title is required. Accepts YYYY-MM-DD or
+// @Description  RFC3339 for due_date.
+// @Tags         tasks
+// @Accept       json
+// @Produce      json
+// @Param        request  body      handler.createTaskRequest  true  "Task fields"
+// @Success      201      {object}  handler.taskItem
+// @Failure      400      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/tasks [post]
 func CreateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req createTaskRequest
@@ -180,6 +206,15 @@ func CreateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http
 }
 
 // GetTaskHandler returns an http.HandlerFunc for GET /api/v1/tasks/{id}.
+//
+// @Summary      Get task by ID
+// @Tags         tasks
+// @Produce      json
+// @Param        id   path      string  true  "Task UUID"
+// @Success      200  {object}  handler.taskItem
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/tasks/{id} [get]
 func GetTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseTaskID(r)
@@ -199,6 +234,20 @@ func GetTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http.Ha
 }
 
 // UpdateTaskHandler returns an http.HandlerFunc for PUT /api/v1/tasks/{id}.
+//
+// @Summary      Update task
+// @Description  Partial update: any non-nil field in the body is applied to
+// @Description  the existing task. Unspecified fields retain their current value.
+// @Tags         tasks
+// @Accept       json
+// @Produce      json
+// @Param        id       path      string                     true  "Task UUID"
+// @Param        request  body      handler.updateTaskRequest  true  "Fields to update"
+// @Success      200      {object}  handler.taskItem
+// @Failure      400      {object}  map[string]string
+// @Failure      404      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /api/v1/tasks/{id} [put]
 func UpdateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseTaskID(r)
@@ -273,6 +322,14 @@ func UpdateTaskHandler(svc TodoServicer, effectiveFn EffectiveEstimateFunc) http
 }
 
 // DeleteTaskHandler returns an http.HandlerFunc for DELETE /api/v1/tasks/{id}.
+//
+// @Summary      Delete task
+// @Tags         tasks
+// @Param        id   path      string  true  "Task UUID"
+// @Success      204  "No Content"
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /api/v1/tasks/{id} [delete]
 func DeleteTaskHandler(svc TodoServicer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := parseTaskID(r)

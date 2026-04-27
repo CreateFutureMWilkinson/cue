@@ -287,6 +287,62 @@ func (m *ServiceManager) CreateCalendarAccount(ctx context.Context, acct *reposi
 	return &result, nil
 }
 
+// DeleteSlackAccount removes a Slack account and its associated resources:
+// watcher, cascade-deleted messages, and the account record itself.
+func (m *ServiceManager) DeleteSlackAccount(ctx context.Context, id uuid.UUID) error {
+	acct, err := m.repo.GetSlackAccount(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	m.watchers.RemoveWatcher("slack:" + acct.WorkspaceID)
+
+	if _, err := m.messageDeleter.DeleteBySourceAccount(ctx, "slack", acct.WorkspaceID); err != nil {
+		return fmt.Errorf("delete slack account: delete messages: %w", err)
+	}
+
+	if err := m.repo.DeleteSlackAccount(ctx, id); err != nil {
+		return fmt.Errorf("delete slack account: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteEmailAccount removes an Email account and its associated resources:
+// watcher, cascade-deleted messages, and the account record itself.
+func (m *ServiceManager) DeleteEmailAccount(ctx context.Context, id uuid.UUID) error {
+	acct, err := m.repo.GetEmailAccount(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	m.watchers.RemoveWatcher("email:" + acct.Username)
+
+	if _, err := m.messageDeleter.DeleteBySourceAccount(ctx, "email", acct.Username); err != nil {
+		return fmt.Errorf("delete email account: delete messages: %w", err)
+	}
+
+	if err := m.repo.DeleteEmailAccount(ctx, id); err != nil {
+		return fmt.Errorf("delete email account: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteCalendarAccount removes a Calendar account. Calendar accounts have no
+// associated watchers or messages, so only the account record is deleted.
+func (m *ServiceManager) DeleteCalendarAccount(ctx context.Context, id uuid.UUID) error {
+	if _, err := m.repo.GetCalendarAccount(ctx, id); err != nil {
+		return err
+	}
+
+	if err := m.repo.DeleteCalendarAccount(ctx, id); err != nil {
+		return fmt.Errorf("delete calendar account: %w", err)
+	}
+
+	return nil
+}
+
 // UpdateSlackAccount fetches the existing account, merges non-zero fields from the input,
 // preserves credentials when empty or masked, validates, upserts, and re-registers the watcher.
 // Returns the updated account with credentials masked.

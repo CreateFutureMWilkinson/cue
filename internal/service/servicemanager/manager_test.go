@@ -38,6 +38,13 @@ type mockRepo struct {
 
 	upsertCalendarAccount *repository.CalendarAccount
 	upsertCalendarErr     error
+
+	deletedSlackID    uuid.UUID
+	deleteSlackErr    error
+	deletedEmailID    uuid.UUID
+	deleteEmailErr    error
+	deletedCalendarID uuid.UUID
+	deleteCalendarErr error
 }
 
 func (m *mockRepo) ListSlackAccounts(_ context.Context) ([]*repository.SlackAccount, error) {
@@ -53,8 +60,9 @@ func (m *mockRepo) UpsertSlackAccount(_ context.Context, acct *repository.SlackA
 	return m.upsertSlackErr
 }
 
-func (m *mockRepo) DeleteSlackAccount(_ context.Context, _ uuid.UUID) error {
-	return nil
+func (m *mockRepo) DeleteSlackAccount(_ context.Context, id uuid.UUID) error {
+	m.deletedSlackID = id
+	return m.deleteSlackErr
 }
 
 func (m *mockRepo) ListEmailAccounts(_ context.Context) ([]*repository.EmailAccount, error) {
@@ -70,8 +78,9 @@ func (m *mockRepo) UpsertEmailAccount(_ context.Context, acct *repository.EmailA
 	return m.upsertEmailErr
 }
 
-func (m *mockRepo) DeleteEmailAccount(_ context.Context, _ uuid.UUID) error {
-	return nil
+func (m *mockRepo) DeleteEmailAccount(_ context.Context, id uuid.UUID) error {
+	m.deletedEmailID = id
+	return m.deleteEmailErr
 }
 
 func (m *mockRepo) ListCalendarAccounts(_ context.Context) ([]*repository.CalendarAccount, error) {
@@ -87,8 +96,9 @@ func (m *mockRepo) UpsertCalendarAccount(_ context.Context, acct *repository.Cal
 	return m.upsertCalendarErr
 }
 
-func (m *mockRepo) DeleteCalendarAccount(_ context.Context, _ uuid.UUID) error {
-	return nil
+func (m *mockRepo) DeleteCalendarAccount(_ context.Context, id uuid.UUID) error {
+	m.deletedCalendarID = id
+	return m.deleteCalendarErr
 }
 
 type mockWatchers struct {
@@ -105,10 +115,17 @@ func (m *mockWatchers) ListWatcherNames() []string {
 	return nil
 }
 
-type mockMessageDeleter struct{}
+type mockMessageDeleter struct {
+	deletedSource        string
+	deletedSourceAccount string
+	deleteCount          int64
+	deleteErr            error
+}
 
-func (m *mockMessageDeleter) DeleteBySourceAccount(_ context.Context, _, _ string) (int64, error) {
-	return 0, nil
+func (m *mockMessageDeleter) DeleteBySourceAccount(_ context.Context, source, sourceAccount string) (int64, error) {
+	m.deletedSource = source
+	m.deletedSourceAccount = sourceAccount
+	return m.deleteCount, m.deleteErr
 }
 
 type trackingFactory struct {
@@ -1205,4 +1222,196 @@ func (s *ServiceManagerSuite) TestUpdateCalendarAccount_NotFound() {
 	})
 	s.ErrorIs(err, repoErr)
 	s.Nil(got)
+}
+
+// --- DeleteSlackAccount ---
+
+func (s *ServiceManagerSuite) TestDeleteSlackAccount_Success() {
+	acctID := uuid.New()
+	existing := &repository.SlackAccount{
+		ID:                  acctID,
+		Enabled:             true,
+		Token:               "xoxp-real-token",
+		WorkspaceID:         "T001",
+		Username:            "testuser",
+		PollIntervalSeconds: 60,
+	}
+	repo := &mockRepo{getSlackAccount: existing}
+	watchers := &mockWatchers{}
+	deleter := &mockMessageDeleter{deleteCount: 5}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, stubFactory, deleter)
+	s.Require().NoError(err)
+
+	err = mgr.DeleteSlackAccount(context.Background(), acctID)
+	s.NoError(err)
+
+	// Watcher removed with correct name
+	s.Contains(watchers.removedNames, "slack:T001")
+
+	// Messages deleted for the correct source account
+	s.Equal("slack", deleter.deletedSource)
+	s.Equal("T001", deleter.deletedSourceAccount)
+
+	// Account deleted from repo with correct ID
+	s.Equal(acctID, repo.deletedSlackID)
+}
+
+func (s *ServiceManagerSuite) TestDeleteSlackAccount_NotFound() {
+	repoErr := errors.New("not found")
+	repo := &mockRepo{getSlackErr: repoErr}
+	watchers := &mockWatchers{}
+	deleter := &mockMessageDeleter{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, stubFactory, deleter)
+	s.Require().NoError(err)
+
+	err = mgr.DeleteSlackAccount(context.Background(), uuid.New())
+	s.ErrorIs(err, repoErr)
+
+	// No watcher removal or message deletion should have occurred
+	s.Empty(watchers.removedNames)
+	s.Empty(deleter.deletedSource)
+	s.Equal(uuid.Nil, repo.deletedSlackID)
+}
+
+func (s *ServiceManagerSuite) TestDeleteSlackAccount_MessageDeleteError() {
+	acctID := uuid.New()
+	existing := &repository.SlackAccount{
+		ID:          acctID,
+		Token:       "xoxp-token",
+		WorkspaceID: "T001",
+	}
+	deleteErr := errors.New("message delete failed")
+	repo := &mockRepo{getSlackAccount: existing}
+	watchers := &mockWatchers{}
+	deleter := &mockMessageDeleter{deleteErr: deleteErr}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, stubFactory, deleter)
+	s.Require().NoError(err)
+
+	err = mgr.DeleteSlackAccount(context.Background(), acctID)
+	s.ErrorIs(err, deleteErr)
+
+	// Watcher was removed (happens before message delete)
+	s.Contains(watchers.removedNames, "slack:T001")
+
+	// Account should NOT have been deleted from repo
+	s.Equal(uuid.Nil, repo.deletedSlackID)
+}
+
+func (s *ServiceManagerSuite) TestDeleteSlackAccount_RepoDeleteError() {
+	acctID := uuid.New()
+	existing := &repository.SlackAccount{
+		ID:          acctID,
+		Token:       "xoxp-token",
+		WorkspaceID: "T001",
+	}
+	repoDeleteErr := errors.New("repo delete failed")
+	repo := &mockRepo{getSlackAccount: existing, deleteSlackErr: repoDeleteErr}
+	watchers := &mockWatchers{}
+	deleter := &mockMessageDeleter{deleteCount: 3}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, stubFactory, deleter)
+	s.Require().NoError(err)
+
+	err = mgr.DeleteSlackAccount(context.Background(), acctID)
+	s.ErrorIs(err, repoDeleteErr)
+
+	// Watcher removed and messages deleted before the repo delete error
+	s.Contains(watchers.removedNames, "slack:T001")
+	s.Equal("slack", deleter.deletedSource)
+	s.Equal(acctID, repo.deletedSlackID)
+}
+
+// --- DeleteEmailAccount ---
+
+func (s *ServiceManagerSuite) TestDeleteEmailAccount_Success() {
+	acctID := uuid.New()
+	existing := &repository.EmailAccount{
+		ID:                  acctID,
+		Enabled:             true,
+		IMAPHost:            "imap.example.com",
+		IMAPPort:            993,
+		Username:            "user@example.com",
+		Password:            "secret",
+		PollIntervalSeconds: 600,
+	}
+	repo := &mockRepo{getEmailAccount: existing}
+	watchers := &mockWatchers{}
+	deleter := &mockMessageDeleter{deleteCount: 10}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, stubFactory, deleter)
+	s.Require().NoError(err)
+
+	err = mgr.DeleteEmailAccount(context.Background(), acctID)
+	s.NoError(err)
+
+	// Watcher removed with correct name
+	s.Contains(watchers.removedNames, "email:user@example.com")
+
+	// Messages deleted for the correct source account
+	s.Equal("email", deleter.deletedSource)
+	s.Equal("user@example.com", deleter.deletedSourceAccount)
+
+	// Account deleted from repo with correct ID
+	s.Equal(acctID, repo.deletedEmailID)
+}
+
+func (s *ServiceManagerSuite) TestDeleteEmailAccount_NotFound() {
+	repoErr := errors.New("not found")
+	repo := &mockRepo{getEmailErr: repoErr}
+	watchers := &mockWatchers{}
+	deleter := &mockMessageDeleter{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, stubFactory, deleter)
+	s.Require().NoError(err)
+
+	err = mgr.DeleteEmailAccount(context.Background(), uuid.New())
+	s.ErrorIs(err, repoErr)
+
+	// No watcher removal or message deletion should have occurred
+	s.Empty(watchers.removedNames)
+	s.Empty(deleter.deletedSource)
+	s.Equal(uuid.Nil, repo.deletedEmailID)
+}
+
+// --- DeleteCalendarAccount ---
+
+func (s *ServiceManagerSuite) TestDeleteCalendarAccount_Success() {
+	acctID := uuid.New()
+	existing := &repository.CalendarAccount{
+		ID:                  acctID,
+		Enabled:             true,
+		Name:                "personal-cal",
+		ICSURL:              "https://cal.example.com/a.ics",
+		PollIntervalSeconds: 600,
+	}
+	repo := &mockRepo{getCalendarAccount: existing}
+	watchers := &mockWatchers{}
+	deleter := &mockMessageDeleter{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, stubFactory, deleter)
+	s.Require().NoError(err)
+
+	err = mgr.DeleteCalendarAccount(context.Background(), acctID)
+	s.NoError(err)
+
+	// No watcher removal (calendar has no watchers)
+	s.Empty(watchers.removedNames)
+
+	// No message deletion (calendar doesn't produce messages)
+	s.Empty(deleter.deletedSource)
+
+	// Account deleted from repo with correct ID
+	s.Equal(acctID, repo.deletedCalendarID)
+}
+
+func (s *ServiceManagerSuite) TestDeleteCalendarAccount_NotFound() {
+	repoErr := errors.New("not found")
+	repo := &mockRepo{getCalendarErr: repoErr}
+	watchers := &mockWatchers{}
+	deleter := &mockMessageDeleter{}
+	mgr, err := servicemanager.NewServiceManager(repo, watchers, stubFactory, deleter)
+	s.Require().NoError(err)
+
+	err = mgr.DeleteCalendarAccount(context.Background(), uuid.New())
+	s.ErrorIs(err, repoErr)
+
+	// No deletion should have occurred
+	s.Empty(watchers.removedNames)
+	s.Equal(uuid.Nil, repo.deletedCalendarID)
 }

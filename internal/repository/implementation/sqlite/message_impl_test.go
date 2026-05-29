@@ -58,6 +58,27 @@ func (s *MessageRepoSuite) TestCreateDatabase() {
 	s.Require().NoError(statErr, "database file should exist on disk")
 }
 
+func (s *MessageRepoSuite) TestInsertPersistsSubjectAndWebURL() {
+	tmpDir := s.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+	repo, err := sqlite.NewSQLiteMessageRepository(dbPath, 100)
+	s.Require().NoError(err)
+
+	ctx := context.Background()
+	now := time.Now().Truncate(time.Second)
+
+	msg := makeTestMessage("email", "Notified", now)
+	msg.Subject = "Quarterly review"
+	msg.WebURL = "https://mail.example.com/u/0/inbox"
+
+	s.Require().NoError(repo.Insert(ctx, msg))
+
+	got, err := repo.QueryByID(ctx, msg.ID)
+	s.Require().NoError(err)
+	s.Equal("Quarterly review", got.Subject, "Subject must round-trip via SQLite")
+	s.Equal("https://mail.example.com/u/0/inbox", got.WebURL, "WebURL must round-trip via SQLite")
+}
+
 func (s *MessageRepoSuite) TestInsertAndQueryByID() {
 	tmpDir := s.T().TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")

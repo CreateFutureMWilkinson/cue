@@ -910,3 +910,11 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-9-Feature-110 (Phase B Bootstrap) | GREEN | main | inline | inline | 5ba925d |
 | Phase-9-Feature-110 (Phase C integration) | TEST | main | inline | inline | eb26286 |
 | Phase-9-Feature-110 (wiring + coverage) | REFACTOR | main | inline | inline | 8a65c38 |
+| Phase-9-Feature-114 (UI test pre-loop + scaffold) | RED | main | inline | inline | 3dd245d |
+| Phase-9-Feature-114 (B1 alert source) | TEST | main | inline | inline | 55a012f |
+| Phase-9-Feature-114 (B2 drop NOTIFIED sniffing) | RED | main | inline | inline | 874bc86 |
+| Phase-9-Feature-114 (B2 drop NOTIFIED sniffing) | GREEN | main | inline | inline | d8b4610 |
+| Phase-9-Feature-114 (B3 heartbeat filter) | RED | main | inline | inline | 68a1445 |
+| Phase-9-Feature-114 (B3 heartbeat filter) | GREEN | main | inline | inline | eef627c |
+| Phase-9-Feature-114 (B4 adapter alert source) | TEST+GREEN | main | inline | inline | 8295d96 |
+| Phase-9-Feature-114 (B5+B6 main wiring) | GREEN | main | inline | inline | 2a1e056 |

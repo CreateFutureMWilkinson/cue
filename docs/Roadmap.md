@@ -193,3 +193,4 @@ Server binary exposing REST + WebSocket APIs, then re-wire the Fyne GUI as a thi
 | 111  | Sidecar supervisor                       | Process Mgmt   | Planning | 107, 110           | [Feature-111](features/phase-9/Feature-111-Sidecar-Supervisor.md)           |
 | 112  | UI single-instance lock                  | Process Mgmt   | Planning | 107                | [Feature-112](features/phase-9/Feature-112-UI-Single-Instance-Lock.md)      |
 | 113  | Client layer simplification              | Refactor       | Planning | 107                | [Feature-113](features/phase-9/Feature-113-Client-Layer-Simplification.md)  |
+| 114  | Character animation wiring               | Refactor       | Done     | 099, 107           | [Feature-114](features/phase-9/Feature-114-Character-Animation-Wiring.md)   |

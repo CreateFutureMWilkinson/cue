@@ -1,7 +1,7 @@
 # Feature 114: Character Animation Wiring
 
 **Phase:** Phase-9-Feature-114
-**Status:** Planning
+**Status:** Complete
 **Depends on:** Feature 099 (Activity Event Stream), Feature 107 (Fyne Client Re-wire)
 **Blocks:** —
 **Packages:** `internal/ui/presenter/`, `internal/ui/character/`, `internal/ui/character/fairy/`, `cmd/cue/adapters/`, `cmd/cue/main.go`
@@ -175,8 +175,13 @@ Coverage gate: ≥ 80%.
 
 ## TDD Agent Stats
 
-(To be filled in during implementation — one row per RED/GREEN/REFACTOR phase.)
-
 | Implementation Phase | TDD Phase | Agent | Duration | Tokens | Commit |
 |---|---|---|---|---|---|
-| | | | | | |
+| Phase-9-Feature-114 (UI test pre-loop + scaffold) | RED | main | inline | inline | 3dd245d |
+| Phase-9-Feature-114 (B1 alert source) | TEST | main | inline | inline | 55a012f |
+| Phase-9-Feature-114 (B2 drop NOTIFIED sniffing) | RED | main | inline | inline | 874bc86 |
+| Phase-9-Feature-114 (B2 drop NOTIFIED sniffing) | GREEN | main | inline | inline | d8b4610 |
+| Phase-9-Feature-114 (B3 heartbeat filter) | RED | main | inline | inline | 68a1445 |
+| Phase-9-Feature-114 (B3 heartbeat filter) | GREEN | main | inline | inline | eef627c |
+| Phase-9-Feature-114 (B4 adapter alert source) | TEST+GREEN | main | inline | inline | 8295d96 |
+| Phase-9-Feature-114 (B5+B6 main wiring) | GREEN | main | inline | inline | 2a1e056 |

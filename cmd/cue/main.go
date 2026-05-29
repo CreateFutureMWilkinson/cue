@@ -409,6 +409,12 @@ func runUIWithSDK(ctx context.Context, cfg *config.Config, api *client.APIClient
 		char, _ = character.Create(character.NoneCharacterName)
 	}
 
+	// Kick off the startup animation as soon as the character exists.
+	// The startup animator chains to StateIdle on completion (see
+	// fairy.NewStartupAnimator), which is how the resting breathing
+	// animation first appears.
+	char.TransitionTo(character.StateStarting)
+
 	charPresenter, err := presenter.NewCharacterPresenter(char, activityAdapter.Subscribe(), activityAdapter.SubscribeAlertSource(), 5*time.Second)
 	if err != nil {
 		return fmt.Errorf("creating character presenter: %w", err)
@@ -422,9 +428,6 @@ func runUIWithSDK(ctx context.Context, cfg *config.Config, api *client.APIClient
 	// Fyne wiring. fyneApp + event loop are owned by the caller
 	// (runUI), which is currently driving bootWin.ShowAndRun().
 	viewRouter := ui.NewCenterViewRouter()
-	fyneApp.Lifecycle().SetOnStarted(func() {
-		char.TransitionTo(character.StateStarting)
-	})
 
 	mainWindow := ui.NewMainWindow(fyneApp, cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, serviceSettingsPresenter, rulesPresenter, cfg.Ollama, char.Widget(), viewRouter, plannerPresenter, timerPresenter, plannerPresenter, nil)
 
@@ -482,12 +485,12 @@ func runUIWithSDK(ctx context.Context, cfg *config.Config, api *client.APIClient
 			timerLoop.Stop()
 		}
 		const shutdownTimeout = 5 * time.Second
+		const charShutdownCeiling = 2 * time.Second
 		if err := shutdown.RunCleanup(shutdownTimeout, func() error {
-			type shutdownable interface{ Shutdown() <-chan struct{} }
-			if s, ok := char.(shutdownable); ok {
-				<-s.Shutdown()
-			} else {
-				char.Close()
+			select {
+			case <-char.Shutdown():
+			case <-time.After(charShutdownCeiling):
+				log.Printf("warning: character shutdown exceeded %s — proceeding", charShutdownCeiling)
 			}
 			return nil
 		}, func() error {

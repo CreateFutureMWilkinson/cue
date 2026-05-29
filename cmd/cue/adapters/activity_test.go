@@ -185,6 +185,30 @@ func (s *ActivityAdapterSuite) TestDroppedSinceLastEmitsSyntheticSystemEvent() {
 	s.Equal(presenter.ActivityEvent{Source: "slack", Message: "after gap"}, second)
 }
 
+// AC: alert envelopes route to the alert sink with their Kind decoded.
+func (s *ActivityAdapterSuite) TestAlertEnvelopeRoutesToAlertSink() {
+	fc := newFakeActivityClient(4)
+	a := adapters.NewActivityAdapter(fc)
+	alerts := a.SubscribeAlerts()
+
+	a.Start(context.Background())
+	defer a.Close() //nolint:errcheck
+
+	fc.events <- client.EventEnvelope{
+		Seq:  1,
+		Type: "alert",
+		Data: json.RawMessage(`{"kind":"notification"}`),
+	}
+
+	select {
+	case ev, ok := <-alerts:
+		s.Require().True(ok)
+		s.Equal("notification", ev.Kind)
+	case <-time.After(time.Second):
+		s.FailNow("timed out waiting for alert event")
+	}
+}
+
 // AC: non-activity envelope types are ignored (no panic, no synthetic
 // event, no fan-out).
 func (s *ActivityAdapterSuite) TestNonActivityTypesAreIgnored() {

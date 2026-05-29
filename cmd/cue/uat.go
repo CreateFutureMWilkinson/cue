@@ -62,10 +62,12 @@ func runUAT() error {
 		char, _ = character.Create(character.NoneCharacterName)
 	}
 
-	// Create activity presenter for the activity log drawer.
+	// Create activity presenter for the activity log drawer. UAT is
+	// service-free so we feed it a channel that nothing writes to.
 	activityCh := make(chan presenter.ActivityEvent, 100)
+	_ = activityCh
 	activityPresenter, err := presenter.NewActivityPresenter(
-		&channelActivitySource{ch: activityCh}, 500,
+		uatActivitySource{ch: activityCh}, 500,
 	)
 	if err != nil {
 		return fmt.Errorf("creating activity presenter: %w", err)
@@ -143,3 +145,12 @@ func runUAT() error {
 
 	return nil
 }
+
+// uatActivitySource is a no-op presenter.ActivitySource — UAT does
+// not push real activity events; the channel exists only to satisfy
+// the presenter contract.
+type uatActivitySource struct {
+	ch <-chan presenter.ActivityEvent
+}
+
+func (s uatActivitySource) Events() <-chan presenter.ActivityEvent { return s.ch }

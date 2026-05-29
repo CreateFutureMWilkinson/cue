@@ -21,10 +21,20 @@ import (
 // does not drop in lockstep with the other consumer.
 const activityEventBufferSize = 32
 
-// envelopeTypeActivity is the EventEnvelope.Type value the server
-// uses for activity log events. Other envelope types (alerts, timer
-// ticks, etc.) are ignored by the activity adapter.
-const envelopeTypeActivity = "activity"
+// EventEnvelope.Type values the server emits. The activity adapter
+// dispatches "activity" envelopes to ActivitySource subscribers and
+// "alert" envelopes to AlertSink subscribers; other types are ignored.
+const (
+	envelopeTypeActivity = "activity"
+	envelopeTypeAlert    = "alert"
+)
+
+// AlertEvent is the decoded payload of an "alert" envelope. Kind is
+// the server's AlertData.Kind string ("notification", etc.). The
+// cue ui action consumes these to play local audio.
+type AlertEvent struct {
+	Kind string
+}
 
 // systemEventSource labels synthetic events the adapter emits when the
 // server reports it dropped envelopes for this client.
@@ -44,10 +54,11 @@ const systemEventSource = "system"
 type ActivityAdapter struct {
 	src client.ActivityClient
 
-	mu      sync.Mutex
-	sinks   []chan presenter.ActivityEvent
-	started bool
-	stopped bool
+	mu         sync.Mutex
+	sinks      []chan presenter.ActivityEvent
+	alertSinks []chan AlertEvent
+	started    bool
+	stopped    bool
 }
 
 // NewActivityAdapter constructs an adapter wrapping the given SDK
@@ -70,6 +81,18 @@ func (a *ActivityAdapter) Subscribe() presenter.ActivitySource {
 	ch := make(chan presenter.ActivityEvent, activityEventBufferSize)
 	a.sinks = append(a.sinks, ch)
 	return chanActivitySource{ch: ch}
+}
+
+// SubscribeAlerts returns a fresh channel of AlertEvents. The cue ui
+// action wires this to its alert service so server-published "alert"
+// envelopes trigger local audio playback. Same fan-out semantics as
+// Subscribe: non-blocking sends, slow consumers drop.
+func (a *ActivityAdapter) SubscribeAlerts() <-chan AlertEvent {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	ch := make(chan AlertEvent, activityEventBufferSize)
+	a.alertSinks = append(a.alertSinks, ch)
+	return ch
 }
 
 // Start launches the adapter's read goroutine. It must be called
@@ -127,8 +150,15 @@ func (a *ActivityAdapter) dispatch(env client.EventEnvelope) {
 			Message: fmt.Sprintf("%d events dropped", env.DroppedSinceLast),
 		})
 	}
-	if ev, ok := decodeActivityEvent(env); ok {
-		a.fanOut(ev)
+	switch env.Type {
+	case envelopeTypeActivity:
+		if ev, ok := decodeActivityEvent(env); ok {
+			a.fanOut(ev)
+		}
+	case envelopeTypeAlert:
+		if ev, ok := decodeAlertEvent(env); ok {
+			a.fanOutAlert(ev)
+		}
 	}
 }
 
@@ -145,13 +175,29 @@ func (a *ActivityAdapter) fanOut(ev presenter.ActivityEvent) {
 	}
 }
 
+func (a *ActivityAdapter) fanOutAlert(ev AlertEvent) {
+	a.mu.Lock()
+	sinks := append([]chan AlertEvent(nil), a.alertSinks...)
+	a.mu.Unlock()
+	for _, s := range sinks {
+		select {
+		case s <- ev:
+		default:
+		}
+	}
+}
+
 func (a *ActivityAdapter) closeSinks() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	for _, s := range a.sinks {
 		close(s)
 	}
+	for _, s := range a.alertSinks {
+		close(s)
+	}
 	a.sinks = nil
+	a.alertSinks = nil
 }
 
 // activityPayload mirrors the server's ActivityData JSON shape.
@@ -159,6 +205,22 @@ type activityPayload struct {
 	Source  string `json:"source"`
 	Message string `json:"message"`
 	IsError bool   `json:"is_error"`
+}
+
+// alertPayload mirrors the server's AlertData JSON shape.
+type alertPayload struct {
+	Kind string `json:"kind"`
+}
+
+func decodeAlertEvent(env client.EventEnvelope) (AlertEvent, bool) {
+	if env.Type != envelopeTypeAlert {
+		return AlertEvent{}, false
+	}
+	var d alertPayload
+	if err := json.Unmarshal(env.Data, &d); err != nil {
+		return AlertEvent{}, false
+	}
+	return AlertEvent{Kind: d.Kind}, true
 }
 
 func decodeActivityEvent(env client.EventEnvelope) (presenter.ActivityEvent, bool) {

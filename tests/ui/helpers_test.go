@@ -147,9 +147,15 @@ func (m *mockActivitySource) Events() <-chan presenter.ActivityEvent {
 // watcher state changes — it only needs the constructor to accept it).
 type mockWatcherToggler struct{}
 
-func (m *mockWatcherToggler) SetSlackEnabled(_ context.Context, _ uuid.UUID, _ bool) error { return nil }
-func (m *mockWatcherToggler) SetEmailEnabled(_ context.Context, _ uuid.UUID, _ bool) error { return nil }
-func (m *mockWatcherToggler) SetCalendarEnabled(_ context.Context, _ uuid.UUID, _ bool) error { return nil }
+func (m *mockWatcherToggler) SetSlackEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
+	return nil
+}
+func (m *mockWatcherToggler) SetEmailEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
+	return nil
+}
+func (m *mockWatcherToggler) SetCalendarEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
+	return nil
+}
 
 // stubPlannerTimerVM satisfies both PlannerViewModel and TimerViewModel.
 type stubPlannerTimerVM struct {

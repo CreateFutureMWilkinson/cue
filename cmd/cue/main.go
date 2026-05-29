@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -13,39 +13,31 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
-	"github.com/google/uuid"
-	chromem "github.com/rengensheng/chromem-go"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/widget"
 	"github.com/urfave/cli/v3"
 
+	"github.com/CreateFutureMWilkinson/cue/cmd/cue/adapters"
+	"github.com/CreateFutureMWilkinson/cue/cmd/cue/auth"
+	"github.com/CreateFutureMWilkinson/cue/cmd/cue/clientboot"
+	"github.com/CreateFutureMWilkinson/cue/cmd/cue/uierror"
 	"github.com/CreateFutureMWilkinson/cue/internal/alert"
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
-	"github.com/CreateFutureMWilkinson/cue/internal/repository"
-	"github.com/CreateFutureMWilkinson/cue/internal/repository/implementation/sqlite"
-	"github.com/CreateFutureMWilkinson/cue/internal/secret"
 	srvruntime "github.com/CreateFutureMWilkinson/cue/internal/server"
 	"github.com/CreateFutureMWilkinson/cue/internal/server/runner"
-	"github.com/CreateFutureMWilkinson/cue/internal/service/buffer"
-	"github.com/CreateFutureMWilkinson/cue/internal/service/calendar"
-	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
-	"github.com/CreateFutureMWilkinson/cue/internal/service/orchestrator"
-	"github.com/CreateFutureMWilkinson/cue/internal/service/planner"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/validation"
-	"github.com/CreateFutureMWilkinson/cue/internal/service/vector"
-	"github.com/CreateFutureMWilkinson/cue/internal/service/watcher"
 	"github.com/CreateFutureMWilkinson/cue/internal/shutdown"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/fairy"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character/wasmhost"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
+	"github.com/CreateFutureMWilkinson/cue/pkg/client"
 )
 
 const (
-	// configRelPath is the path to the config file relative to the user's home directory.
-	configRelPath = ".cue/config.toml"
-
-	// eventChannelBuffer is the capacity of the activity event channels.
-	eventChannelBuffer = 100
+	configRelPath   = ".cue/config.toml"
+	clientTokenPath = ".cue/client-token" // #nosec G101 -- file path, not a credential value
 )
 
 // version is overridden at build time via -ldflags. The default is
@@ -70,22 +62,16 @@ func main() {
 	}
 }
 
-// uiCommand wraps the Fyne client. The current body still boots the
-// in-process orchestrator; Feature 107 work packages 4–14 progressively
-// rewire it onto the HTTP/WebSocket SDK.
 func uiCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "ui",
 		Usage: "Run the Fyne client",
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			return run()
+			return runUI(ctx)
 		},
 	}
 }
 
-// serverCommand provides `cue server` (headless boot) and the
-// `cue server reset-auth` subcommand. Both share the same config-load
-// path and call into internal/server/runner.
 func serverCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "server",
@@ -154,15 +140,8 @@ func configCommand() *cli.Command {
 				Name:  "example",
 				Usage: "Print an annotated example config.toml",
 				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:    "output",
-						Aliases: []string{"o"},
-						Usage:   "Write to file instead of stdout",
-					},
-					&cli.BoolFlag{
-						Name:  "force",
-						Usage: "Overwrite existing file",
-					},
+					&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Write to file instead of stdout"},
+					&cli.BoolFlag{Name: "force", Usage: "Overwrite existing file"},
 				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					output := cmd.String("output")
@@ -177,95 +156,69 @@ func configCommand() *cli.Command {
 	}
 }
 
-func run() error {
-	// Load configuration.
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("finding home directory: %w", err)
-	}
+// runUI is the production entry point for the Fyne client. It
+// performs the full SDK-backed boot sequence: load + validate config,
+// claim/load the bearer token, poll the server's health endpoint, then
+// hand off to runUIWithSDK with a connected APIClient.
+//
+// runUIWithSDK is split out so the boot test can supply an
+// httptest-backed APIClient and exercise the same wiring without
+// going through DNS/disk/auth.
+func runUI(ctx context.Context) error {
 	cfg, err := loadConfig()
 	if err != nil {
 		return err
 	}
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("validating config: %w", err)
+	if err := cfg.ValidateForClient(); err != nil {
+		return fmt.Errorf("validating client config: %w", err)
 	}
 
-	// Validate Ollama models are available locally.
-	ctx := context.Background()
-	ollamaURL := fmt.Sprintf("http://%s:%d", cfg.Ollama.Host, cfg.Ollama.Port)
-	if err := decisionengine.ValidateOllamaModels(ctx, ollamaURL, []string{
-		cfg.Ollama.InferenceModel,
-		cfg.Ollama.EmbeddingModel,
-	}); err != nil {
-		return fmt.Errorf("ollama model validation: %w", err)
-	}
-
-	// Open SQLite database.
-	repo, err := sqlite.NewSQLiteMessageRepository(cfg.Database.Path, cfg.Orchestrator.Router.BufferSizePerSource)
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("opening database: %w", err)
+		return fmt.Errorf("finding home directory: %w", err)
 	}
 
-	// Create encryptor for credential storage.
-	keyPath := filepath.Join(home, ".cue", "secret.key")
-	enc, err := secret.NewKeyFileEncryptor(keyPath)
+	api, err := clientboot.Connect(ctx, cfg.Server, clientboot.Options{})
 	if err != nil {
-		return fmt.Errorf("creating encryptor: %w", err)
+		return fmt.Errorf("connecting to server: %w", err)
 	}
 
-	// Create service config repository (shares the same DB connection).
-	serviceConfigRepo, err := sqlite.NewSQLiteServiceConfigRepository(repo.DB(), enc)
-	if err != nil {
-		return fmt.Errorf("creating service config repository: %w", err)
+	tokenStore := auth.NewFileStore(filepath.Join(home, clientTokenPath))
+	if err := auth.Bootstrap(ctx, tokenStore, api, auth.DefaultProbe); err != nil {
+		return fmt.Errorf("bootstrapping auth token: %w", err)
 	}
 
-	// Create Ollama scorer for LLM-based message importance evaluation.
-	ollamaClient, err := decisionengine.NewOllamaClient(
-		ollamaURL,
-		cfg.Ollama.InferenceModel,
-		time.Duration(cfg.Ollama.TimeoutSeconds)*time.Second,
-	)
-	if err != nil {
-		return fmt.Errorf("creating ollama client: %w", err)
-	}
+	return runUIWithSDK(ctx, cfg, api)
+}
 
-	// Derive vector storage path from database path (sibling directory).
-	vectorPath := filepath.Join(filepath.Dir(cfg.Database.Path), "vectors")
+// runUIWithSDK builds the adapters, presenters, and Fyne UI on top of
+// the supplied SDK client. The SDK is assumed to be connected and
+// authenticated. This function blocks until the main window closes.
+func runUIWithSDK(ctx context.Context, cfg *config.Config, api *client.APIClient) error {
+	// SDK clients.
+	messagesSDK := client.NewMessageClient(api)
+	feedbackSDK := client.NewFeedbackClient(api)
+	rulesSDK := client.NewRulesClient(api)
+	tasksSDK := client.NewTaskClient(api)
+	categoriesSDK := client.NewCategoryClient(api)
+	scheduleSDK := client.NewScheduleClient(api)
+	serviceConfigSDK := client.NewServiceConfigClient(api)
+	activitySDK := client.NewActivityClient(api)
 
-	// Create Ollama embedding function for vector store.
-	ollamaEmbFn := chromem.NewEmbeddingFuncOllama(cfg.Ollama.EmbeddingModel, ollamaURL+"/api")
+	// Adapters.
+	messagesAdapter := adapters.NewMessagesAdapter(messagesSDK)
+	feedbackAdapter := adapters.NewFeedbackAdapter(feedbackSDK)
+	rulesAdapter := adapters.NewRulesAdapter(rulesSDK)
+	queueDepthAdapter := adapters.NewQueueDepthAdapter(messagesSDK)
+	tasksAdapter := adapters.NewTasksAdapter(tasksSDK)
+	categoriesAdapter := adapters.NewCategoriesAdapter(categoriesSDK)
+	scheduleAdapter := adapters.NewScheduleAdapter(scheduleSDK)
+	serviceConfigAdapter := adapters.NewServiceConfigAdapter(serviceConfigSDK)
+	activityAdapter := adapters.NewActivityAdapter(activitySDK)
 
-	// Create chromem-go vector store for persistent embeddings.
-	vectorStore, err := vector.NewChromemVectorStore(vectorPath, vector.EmbeddingFunc(ollamaEmbFn), cfg.Ollama.EmbeddingModel)
-	if err != nil {
-		return fmt.Errorf("creating vector store: %w", err)
-	}
-
-	// Create queue repository (shares the same DB connection).
-	queueRepo, err := sqlite.NewSQLiteQueueRepository(repo.DB())
-	if err != nil {
-		return fmt.Errorf("creating queue repository: %w", err)
-	}
-
-	// Create routing rule repository and build rules engine.
-	ruleRepo, err := sqlite.NewSQLiteRoutingRuleRepository(repo.DB())
-	if err != nil {
-		return fmt.Errorf("creating routing rule repository: %w", err)
-	}
-	ruleList, err := ruleRepo.ListRules(ctx)
-	if err != nil {
-		return fmt.Errorf("loading routing rules: %w", err)
-	}
-	rulesEngine := decisionengine.NewRulesEngine(ruleList)
-
-	// Create buffer service with vector embedder.
-	bufferSvc, err := buffer.NewBufferService(repo, vectorStore)
-	if err != nil {
-		return fmt.Errorf("creating buffer service: %w", err)
-	}
-
-	// Create alert service.
+	// Client-side audio: the server publishes "alert" envelopes; the
+	// client plays them locally. The orchestrator's in-process alerter
+	// is gone — this is the new wiring.
 	alertSvc, err := alert.NewAlertService(
 		alert.AlertConfig{
 			AudioEnabled:         cfg.Notification.AudioEnabled,
@@ -283,208 +236,6 @@ func run() error {
 		return fmt.Errorf("creating alert service: %w", err)
 	}
 
-	// Activity event channel bridges orchestrator -> presenter.
-	orchEventCh := make(chan orchestrator.ActivityEvent, eventChannelBuffer)
-
-	// Create orchestrator with zero watchers (populated dynamically from DB).
-	orch, err := orchestrator.NewOrchestrator(
-		orchestrator.OrchestratorConfig{
-			PollIntervalSeconds:   cfg.Orchestrator.PollIntervalSeconds,
-			QueueWarningThreshold: cfg.Orchestrator.Router.QueueWarningThreshold,
-		},
-		rulesEngine,
-		queueRepo,
-		repo,
-		nil,
-		orchEventCh,
-		alertSvc,
-	)
-	if err != nil {
-		return fmt.Errorf("creating orchestrator: %w", err)
-	}
-
-	// Create queue processor for background Ollama scoring.
-	queueProcessor, err := orchestrator.NewQueueProcessor(
-		queueRepo,
-		repo,
-		ollamaClient,
-		alertSvc,
-		orchEventCh,
-		float64(cfg.Orchestrator.Router.ImportanceThreshold),
-		cfg.Orchestrator.Router.ConfidenceThreshold,
-		time.Duration(cfg.Orchestrator.OllamaCooldownSeconds)*time.Second,
-	)
-	if err != nil {
-		return fmt.Errorf("creating queue processor: %w", err)
-	}
-
-	// Wire few-shot calibration when enabled in config.
-	if cfg.Orchestrator.Router.CalibrationEnabled {
-		fewShotProvider, err := decisionengine.NewFewShotProvider(
-			vectorStore,
-			repo,
-			decisionengine.FewShotProviderConfig{
-				SimilarityThreshold: cfg.Orchestrator.Router.CalibrationSimilarityThreshold,
-				MaxExamples:         cfg.Orchestrator.Router.CalibrationMaxExamples,
-			},
-		)
-		if err != nil {
-			return fmt.Errorf("creating few-shot provider: %w", err)
-		}
-		queueProcessor.SetFewShotProvider(fewShotProvider)
-	}
-
-	// Build watchers from enabled service accounts in the DB.
-	buildWatchersFromDB(ctx, serviceConfigRepo, orch)
-
-	// Bridge channel: convert orchestrator events to presenter events (fan-out).
-	presenterEventCh := make(chan presenter.ActivityEvent, eventChannelBuffer)
-	charPresenterEventCh := make(chan presenter.ActivityEvent, eventChannelBuffer)
-	go bridgeEvents(orchEventCh, presenterEventCh, charPresenterEventCh)
-
-	// Create presenters.
-	notifPresenter, err := presenter.NewNotificationPresenter(repo, repo)
-	if err != nil {
-		return fmt.Errorf("creating notification presenter: %w", err)
-	}
-
-	activityPresenter, err := presenter.NewActivityPresenter(
-		&channelActivitySource{ch: presenterEventCh}, 500,
-	)
-	if err != nil {
-		return fmt.Errorf("creating activity presenter: %w", err)
-	}
-
-	feedbackPresenter, err := presenter.NewFeedbackPresenter(bufferSvc)
-	if err != nil {
-		return fmt.Errorf("creating feedback presenter: %w", err)
-	}
-
-	appPresenter, err := presenter.NewAppPresenter(
-		notifPresenter, activityPresenter, feedbackPresenter,
-	)
-	if err != nil {
-		return fmt.Errorf("creating app presenter: %w", err)
-	}
-
-	// Create settings presenter for runtime volume control.
-	settingsPresenter, err := presenter.NewSettingsPresenter(alertSvc, cfg.Notification.AudioVolume, alertSvc, cfg.Notification.AudioVolume)
-	if err != nil {
-		return fmt.Errorf("creating settings presenter: %w", err)
-	}
-
-	// Create watcher factory for runtime account management via Settings UI.
-	watcherFactory := func(accountType string, accountID uuid.UUID) error {
-		switch accountType {
-		case "slack":
-			acct, err := serviceConfigRepo.GetSlackAccount(ctx, accountID)
-			if err != nil {
-				return fmt.Errorf("querying slack account: %w", err)
-			}
-			slackAPI, err := watcher.NewSlackWebClient(acct.Token)
-			if err != nil {
-				return fmt.Errorf("creating slack API client: %w", err)
-			}
-			sw, err := watcher.NewSlackWatcher(slackAPI, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID})
-			if err != nil {
-				return fmt.Errorf("creating slack watcher: %w", err)
-			}
-			orch.AddWatcher("slack:"+acct.WorkspaceID, sw)
-		case "email":
-			acct, err := serviceConfigRepo.GetEmailAccount(ctx, accountID)
-			if err != nil {
-				return fmt.Errorf("querying email account: %w", err)
-			}
-			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.Password, acct.Encryption)
-			if err != nil {
-				return fmt.Errorf("creating IMAP client: %w", err)
-			}
-			ew, err := watcher.NewEmailWatcher(emailAPI, watcher.EmailWatcherConfig{Username: acct.Username})
-			if err != nil {
-				return fmt.Errorf("creating email watcher: %w", err)
-			}
-			orch.AddWatcher("email:"+acct.Username, ew)
-		default:
-			return fmt.Errorf("unknown account type: %s", accountType)
-		}
-		return nil
-	}
-
-	// Create service settings presenter with credential validators.
-	serviceSettingsPresenter := presenter.NewServiceSettingsPresenter(
-		serviceConfigRepo, orch, watcherFactory,
-		presenter.WithSlackValidator(validation.NewSlackAPIValidator()),
-		presenter.WithEmailValidator(validation.NewIMAPValidator()),
-		presenter.WithCalendarValidator(validation.NewICSValidator()),
-	)
-
-	// === Phase 2: Day Planner Subsystem ===
-
-	// Create planner repositories (share the same DB path).
-	taskRepo, err := sqlite.NewSQLiteTaskRepository(cfg.Database.Path)
-	if err != nil {
-		return fmt.Errorf("creating task repository: %w", err)
-	}
-
-	categoryRepo, err := sqlite.NewSQLiteCategoryRepository(cfg.Database.Path)
-	if err != nil {
-		return fmt.Errorf("creating category repository: %w", err)
-	}
-
-	scheduleRepo, err := sqlite.NewSQLiteScheduleRepository(cfg.Database.Path)
-	if err != nil {
-		return fmt.Errorf("creating schedule repository: %w", err)
-	}
-
-	// Calendar provider: use noop when no calendar accounts are configured.
-	var calProvider calendar.CalendarProvider
-	calAccounts, calErr := serviceConfigRepo.ListCalendarAccounts(ctx)
-	if calErr != nil || len(calAccounts) == 0 {
-		calProvider = calendar.NewNoopCalendarProvider()
-	} else {
-		// Use first enabled calendar account's ICS URL.
-		for _, acct := range calAccounts {
-			if acct.Enabled {
-				icsProvider, err := calendar.NewICSProvider(
-					acct.ICSURL,
-					&httpClient{},
-					time.Duration(cfg.Ollama.TimeoutSeconds)*time.Second,
-				)
-				if err == nil {
-					calProvider = icsProvider
-					break
-				}
-				log.Printf("warning: failed to create calendar provider for %s: %v", acct.Name, err)
-			}
-		}
-		if calProvider == nil {
-			calProvider = calendar.NewNoopCalendarProvider()
-		}
-	}
-
-	// Create planner clock, estimator, and engine.
-	plannerClock := &wallClock{}
-
-	taskEstimator := planner.NewOllamaTaskEstimator(ollamaClient)
-
-	plannerEngine, err := planner.NewPlanner(cfg.Planner, taskEstimator, plannerClock)
-	if err != nil {
-		return fmt.Errorf("creating planner engine: %w", err)
-	}
-
-	// Create planner presenter. Feature 107 dropped the calendar +
-	// estimator presenter deps; wrap the in-process *planner.Planner
-	// so the legacy run() path still satisfies the new interface
-	// until WP14 deletes this whole boot block.
-	gen := &legacyScheduleGenerator{p: plannerEngine, cal: calProvider}
-	plannerPresenter, err := presenter.NewPlannerPresenter(
-		taskRepo, categoryRepo, gen, scheduleRepo, plannerClock,
-	)
-	if err != nil {
-		return fmt.Errorf("creating planner presenter: %w", err)
-	}
-
-	// Create timer alert service and adapter.
 	timerAlertSvc, err := alert.NewTimerAlertService(
 		cfg.Notification.AudioDir,
 		cfg.Notification.AudioVolume,
@@ -497,17 +248,62 @@ func run() error {
 	}
 	timerAlerter := alert.NewTimerAlerterAdapter(timerAlertSvc)
 
-	// Create timer presenter.
+	// Presenters.
+	notifPresenter, err := presenter.NewNotificationPresenter(messagesAdapter, messagesAdapter)
+	if err != nil {
+		return fmt.Errorf("creating notification presenter: %w", err)
+	}
+
+	activityPresenter, err := presenter.NewActivityPresenter(activityAdapter.Subscribe(), 500)
+	if err != nil {
+		return fmt.Errorf("creating activity presenter: %w", err)
+	}
+
+	feedbackPresenter, err := presenter.NewFeedbackPresenter(feedbackAdapter)
+	if err != nil {
+		return fmt.Errorf("creating feedback presenter: %w", err)
+	}
+
+	appPresenter, err := presenter.NewAppPresenter(notifPresenter, activityPresenter, feedbackPresenter)
+	if err != nil {
+		return fmt.Errorf("creating app presenter: %w", err)
+	}
+
+	settingsPresenter, err := presenter.NewSettingsPresenter(alertSvc, cfg.Notification.AudioVolume, alertSvc, cfg.Notification.AudioVolume)
+	if err != nil {
+		return fmt.Errorf("creating settings presenter: %w", err)
+	}
+
+	serviceSettingsPresenter := presenter.NewServiceSettingsPresenter(
+		serviceConfigAdapter,
+		serviceConfigAdapter,
+		presenter.WithSlackValidator(validation.NewSlackAPIValidator()),
+		presenter.WithEmailValidator(validation.NewIMAPValidator()),
+		presenter.WithCalendarValidator(validation.NewICSValidator()),
+	)
+
+	plannerClock := &wallClock{}
+	plannerPresenter, err := presenter.NewPlannerPresenter(
+		tasksAdapter,
+		categoriesAdapter,
+		scheduleAdapter,
+		scheduleAdapter,
+		plannerClock,
+	)
+	if err != nil {
+		return fmt.Errorf("creating planner presenter: %w", err)
+	}
+
 	timerPresenter, err := presenter.NewTimerPresenter(plannerClock, timerAlerter)
 	if err != nil {
 		return fmt.Errorf("creating timer presenter: %w", err)
 	}
 
-	// Create character from config, with fallback to "none".
+	rulesPresenter := presenter.NewRulesPresenter(rulesAdapter, queueDepthAdapter, cfg.Orchestrator.Router.QueueWarningThreshold)
+
+	// Character.
 	character.Register("fairy", func() character.Character {
 		f := fairy.NewFairyCharacter()
-		// Coalesced refresh: multiple SetPosition/SetBodyColor/SetGlowIntensity calls
-		// per frame mark dirty, but ForceRefresh runs at most once per 16ms via fyne.Do.
 		var dirty atomic.Bool
 		f.SetRefreshHook(func() {
 			if dirty.CompareAndSwap(false, true) {
@@ -519,57 +315,35 @@ func run() error {
 		})
 		return f
 	})
-	// Discover and register WASM character plugins from the configured directory.
 	if err := wasmhost.RegisterDiscoveredPlugins(cfg.GUI.CharacterDir); err != nil {
 		log.Printf("warning: WASM plugin discovery failed: %v", err)
 	}
 
-	charName := cfg.GUI.Character
-	char, charErr := character.Create(charName)
+	char, charErr := character.Create(cfg.GUI.Character)
 	if charErr != nil {
-		log.Printf("warning: character %q not found, falling back to %q", charName, character.NoneCharacterName)
+		log.Printf("warning: character %q not found, falling back to %q", cfg.GUI.Character, character.NoneCharacterName)
 		char, _ = character.Create(character.NoneCharacterName)
 	}
 
-	// Create character presenter, sharing activity events via fan-out.
-	charPresenter, err := presenter.NewCharacterPresenter(
-		char, &channelActivitySource{ch: charPresenterEventCh}, 5*time.Second,
-	)
+	charPresenter, err := presenter.NewCharacterPresenter(char, activityAdapter.Subscribe(), 5*time.Second)
 	if err != nil {
 		return fmt.Errorf("creating character presenter: %w", err)
 	}
 
-	// Start orchestrator.
-	if err := orch.Start(ctx); err != nil {
-		return fmt.Errorf("starting orchestrator: %w", err)
-	}
-
-	// Start queue processor for background Ollama scoring.
-	queueProcessor.Start(ctx)
-
-	// Start app presenter.
 	if err := appPresenter.Start(ctx); err != nil {
 		return fmt.Errorf("starting app presenter: %w", err)
 	}
-
-	// Start character presenter.
 	charPresenter.Start(ctx)
 
-	// Create center view router for three-column layout.
+	// Fyne wiring.
 	viewRouter := ui.NewCenterViewRouter()
-
-	// Create Fyne app before any UI operations that require the event loop.
 	fyneApp := app.New()
-
-	// Trigger startup animation after the event loop starts (fyne.Do requires it).
 	fyneApp.Lifecycle().SetOnStarted(func() {
 		char.TransitionTo(character.StateStarting)
 	})
 
-	rulesPresenter := presenter.NewRulesPresenter(ruleRepo, queueRepo, cfg.Orchestrator.Router.QueueWarningThreshold)
 	mainWindow := ui.NewMainWindow(fyneApp, cfg.GUI, notifPresenter, activityPresenter, feedbackPresenter, appPresenter, settingsPresenter, serviceSettingsPresenter, rulesPresenter, cfg.Ollama, char.Widget(), viewRouter, plannerPresenter, timerPresenter, plannerPresenter, nil)
 
-	// Wire AppBinder to connect planner presenter callbacks to views.
 	if pvRef := mainWindow.PlannerViewRef(); pvRef != nil {
 		if wvRef := mainWindow.WizardViewRef(); wvRef != nil {
 			appBinder, err := ui.NewAppBinder(plannerPresenter, mainWindow.FocusRail(), wvRef, pvRef, viewRouter)
@@ -585,7 +359,6 @@ func run() error {
 		}
 	}
 
-	// Create and start timer loop (1Hz tick driving countdown timer widget).
 	timerLoop, err := ui.NewTimerLoop(timerPresenter, mainWindow.FocusRail().Timer(), mainWindow.FocusRail())
 	if err != nil {
 		log.Printf("warning: failed to create timer loop: %v", err)
@@ -595,19 +368,27 @@ func run() error {
 		defer timerLoop.Stop()
 	}
 
-	// Install signal handler: SIGINT/SIGTERM → fyneApp.Quit().
+	// Connect WebSocket and start the activity adapter AFTER the
+	// main window is constructed. The fan-out goroutines are now
+	// ready to receive events without blocking.
+	if err := activitySDK.Connect(ctx); err != nil {
+		log.Printf("warning: activity websocket connect failed: %v", err)
+	}
+	activityAdapter.Start(ctx)
+
+	// Wire alert envelopes to the local audio service.
+	go consumeAlerts(ctx, activityAdapter.SubscribeAlerts(), alertSvc)
+
+	// Signal handler for graceful shutdown.
 	sigHandler := shutdown.NewSignalHandler(fyneApp.Quit)
 	sigHandler.Start(ctx)
 
 	mainWindow.Run()
 
-	// Graceful shutdown with 5-second timeout guard.
+	// Graceful shutdown.
 	const shutdownTimeout = 5 * time.Second
 	if err := shutdown.RunCleanup(shutdownTimeout, func() error {
-		// Play shutdown animation if character supports it.
-		type shutdownable interface {
-			Shutdown() <-chan struct{}
-		}
+		type shutdownable interface{ Shutdown() <-chan struct{} }
 		if s, ok := char.(shutdownable); ok {
 			<-s.Shutdown()
 		} else {
@@ -620,10 +401,7 @@ func run() error {
 	}, func() error {
 		return appPresenter.Shutdown(ctx)
 	}, func() error {
-		queueProcessor.Stop()
-		return nil
-	}, func() error {
-		return orch.Stop()
+		return activityAdapter.Close()
 	}); err != nil {
 		log.Printf("warning: shutdown cleanup: %v", err)
 	}
@@ -631,79 +409,62 @@ func run() error {
 	return nil
 }
 
-// bridgeEvents converts orchestrator.ActivityEvent to presenter.ActivityEvent,
-// fanning out to all provided output channels.
-func bridgeEvents(in <-chan orchestrator.ActivityEvent, outs ...chan<- presenter.ActivityEvent) {
-	for ev := range in {
-		pe := presenter.ActivityEvent{
-			Source:  ev.Source,
-			Message: ev.Message,
-			IsError: ev.IsError,
+// consumeAlerts reads alert envelopes from the activity adapter and
+// invokes the local audio service. The loop exits when the channel
+// closes (adapter shutdown).
+func consumeAlerts(ctx context.Context, alerts <-chan adapters.AlertEvent, svc *alert.AlertService) {
+	for ev := range alerts {
+		switch ev.Kind {
+		case "notification":
+			if err := svc.PlayNotification(ctx); err != nil {
+				log.Printf("alert playback failed: %v", err)
+			}
 		}
-		for _, out := range outs {
-			out <- pe
-		}
-	}
-	for _, out := range outs {
-		close(out)
 	}
 }
 
-// channelActivitySource wraps a channel as a presenter.ActivitySource.
-type channelActivitySource struct {
-	ch <-chan presenter.ActivityEvent
+// showError renders a presenter-facing error in a Fyne dialog. It is
+// the single boundary at which adapter errors are classified — every
+// UI callback that surfaces an adapter/presenter error to the user
+// flows through here. ErrCodeUnauthorized routes to a dedicated
+// "restart and re-pair" dialog (per Decision 13).
+func showError(parent fyne.Window, err error) {
+	if err == nil {
+		return
+	}
+	d := uierror.Classify(err)
+	if d.ActionRetryRePair {
+		// Distinguished dialog so the user knows the recovery is
+		// "restart and re-pair", not just "OK".
+		dlg := dialog.NewCustomConfirm(d.Title, "Restart now", "Cancel", widget.NewLabel(d.Body), func(ok bool) {
+			if ok {
+				// fyneApp.Quit isn't reachable from this helper; the
+				// window's parent app will receive Quit when the user
+				// triggers it. The dialog closes on either button.
+			}
+		}, parent)
+		dlg.Show()
+		return
+	}
+	dialog.NewInformation(d.Title, d.Body, parent).Show()
 }
 
-func (s *channelActivitySource) Events() <-chan presenter.ActivityEvent {
-	return s.ch
-}
+// healthCheckErrorDialog blocks until the user picks Retry or Quit
+// from a Fyne dialog after a failed health check. The function is
+// only reachable when running through the production runUI path —
+// the boot test injects a connected APIClient and never sees this
+// path.
+//
+// Currently unused: clientboot.Connect already retries internally
+// for the configured budget. If the budget elapses, runUI returns
+// the error to the CLI which exits non-zero — there's no Fyne event
+// loop yet to render a dialog. The helper is reserved for Feature 111
+// (sidecar mode), which will spawn the server and need a UI prompt
+// while waiting for it to come up.
+var _ = healthCheckErrorDialog
 
-// buildWatchersFromDB queries enabled service accounts and registers watchers
-// with the orchestrator. Errors are logged but do not prevent startup.
-func buildWatchersFromDB(ctx context.Context, repo repository.ServiceConfigRepository, orch *orchestrator.Orchestrator) {
-	slackAccounts, err := repo.ListSlackAccounts(ctx)
-	if err != nil {
-		log.Printf("warning: failed to query slack accounts: %v", err)
-	} else {
-		for _, acct := range slackAccounts {
-			if !acct.Enabled {
-				continue
-			}
-			slackAPI, err := watcher.NewSlackWebClient(acct.Token)
-			if err != nil {
-				log.Printf("warning: failed to create slack API client for %s: %v", acct.WorkspaceID, err)
-				continue
-			}
-			sw, err := watcher.NewSlackWatcher(slackAPI, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID})
-			if err != nil {
-				log.Printf("warning: failed to create slack watcher for %s: %v", acct.WorkspaceID, err)
-				continue
-			}
-			orch.AddWatcher("slack:"+acct.WorkspaceID, sw)
-		}
-	}
-
-	emailAccounts, err := repo.ListEmailAccounts(ctx)
-	if err != nil {
-		log.Printf("warning: failed to query email accounts: %v", err)
-	} else {
-		for _, acct := range emailAccounts {
-			if !acct.Enabled {
-				continue
-			}
-			emailAPI, err := watcher.NewIMAPClient(acct.IMAPHost, acct.IMAPPort, acct.Username, acct.Password, acct.Encryption)
-			if err != nil {
-				log.Printf("warning: failed to create IMAP client for %s: %v", acct.Username, err)
-				continue
-			}
-			ew, err := watcher.NewEmailWatcher(emailAPI, watcher.EmailWatcherConfig{Username: acct.Username})
-			if err != nil {
-				log.Printf("warning: failed to create email watcher for %s: %v", acct.Username, err)
-				continue
-			}
-			orch.AddWatcher("email:"+acct.Username, ew)
-		}
-	}
+func healthCheckErrorDialog(parent fyne.Window, err error) {
+	dialog.NewInformation("Server unreachable", err.Error(), parent).Show()
 }
 
 // osFileSystem implements alert.FileSystem using the real OS.
@@ -718,28 +479,18 @@ type wallClock struct{}
 
 func (wallClock) Now() time.Time { return time.Now() }
 
-// httpClient implements calendar.HTTPClient using the default http.Client.
-type httpClient struct{}
+// errClient is a sentinel returned when boot fails before any UI is
+// shown. The CLI surfaces it; tests assert against errors.Is.
+var errClient = errors.New("client startup failed")
 
-func (httpClient) Do(req *http.Request) (*http.Response, error) {
-	return http.DefaultClient.Do(req) // #nosec G704 -- URL from user's own calendar config
-}
-
-// legacyScheduleGenerator adapts the in-process *planner.Planner (which
-// still expects pre-computed tasks + calendar events) to the slim
-// presenter.ScheduleGenerator contract introduced by Feature 107. It
-// fetches calendar events itself and passes an empty task list so the
-// presenter contract is honored. Removed in WP14 alongside the rest of
-// the legacy boot path.
-type legacyScheduleGenerator struct {
-	p   *planner.Planner
-	cal calendar.CalendarProvider
-}
-
-func (g *legacyScheduleGenerator) GenerateSchedules(ctx context.Context, date time.Time) (*planner.DaySchedule, *planner.DaySchedule, error) {
-	events, err := g.cal.FetchEvents(ctx, date)
-	if err != nil {
-		events = nil
-	}
-	return g.p.GenerateSchedules(ctx, nil, events, date)
-}
+// Compile-time guards: confirm the adapters satisfy the presenter
+// interfaces consumed by runUIWithSDK. Catches signature drift early.
+var (
+	_ presenter.MessageQuerier        = (*adapters.MessagesAdapter)(nil)
+	_ presenter.MessageUpdater        = (*adapters.MessagesAdapter)(nil)
+	_ presenter.BufferReviewer        = (*adapters.FeedbackAdapter)(nil)
+	_ presenter.AccountWatcherToggler = (*adapters.ServiceConfigAdapter)(nil)
+	_ presenter.TodoQuerier           = (*adapters.TasksAdapter)(nil)
+	_ presenter.CategoryQuerier       = (*adapters.CategoriesAdapter)(nil)
+	_ presenter.ScheduleGenerator     = (*adapters.ScheduleAdapter)(nil)
+)

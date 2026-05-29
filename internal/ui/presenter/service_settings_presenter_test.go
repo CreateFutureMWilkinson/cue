@@ -352,6 +352,73 @@ func (s *ServiceSettingsSuite) TestEditSlackAccount() {
 	s.Empty(mgr.removeCalls())
 }
 
+// TestEditEmailAccount_BlankPasswordSkipsValidator confirms that editing
+// an email account with a blank password (the "leave blank to keep
+// existing" UX from Feature-115) does NOT run the IMAP credential
+// validator with the empty password — that would always fail. The
+// server-side merge fills in the existing password before re-validating
+// against the merged result, so client-side validation here would be
+// both wrong (validates the wrong password) and user-hostile (rejects a
+// legitimate edit).
+func (s *ServiceSettingsSuite) TestEditEmailAccount_BlankPasswordSkipsValidator() {
+	acct := validEmailAccount()
+	acct.Password = ""
+	acct.Username = "renamed@example.com"
+
+	var validatorCalled bool
+	validator := &mockEmailValidator{
+		validateFn: func(ctx context.Context, host string, port int, username, password, encryption string) error {
+			validatorCalled = true
+			return fmt.Errorf("password must not be empty")
+		},
+	}
+	var upserted *repository.EmailAccount
+	repo := &mockServiceConfigRepo{
+		upsertEmailFn: func(ctx context.Context, a *repository.EmailAccount) error {
+			upserted = a
+			return nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, presenter.WithEmailValidator(validator))
+	err := p.EditEmailAccount(context.Background(), acct, "old@example.com")
+
+	s.Require().NoError(err, "blank password on edit must not trigger validator failure")
+	s.False(validatorCalled, "validator must be skipped when password is blank on edit")
+	s.NotNil(upserted)
+	s.Empty(upserted.Password, "presenter must forward blank password verbatim; server preserves existing value")
+}
+
+// TestEditSlackAccount_BlankTokenSkipsValidator mirrors the email case
+// for Slack: a blank token on edit means "keep existing" and the
+// presenter must not run the Slack validator against the empty string.
+func (s *ServiceSettingsSuite) TestEditSlackAccount_BlankTokenSkipsValidator() {
+	acct := validSlackAccount()
+	acct.Token = ""
+	acct.FriendlyName = "Renamed"
+
+	var validatorCalled bool
+	validator := &mockSlackValidator{
+		validateFn: func(ctx context.Context, token string) error {
+			validatorCalled = true
+			return fmt.Errorf("token must not be empty")
+		},
+	}
+	repo := &mockServiceConfigRepo{
+		upsertSlackFn: func(ctx context.Context, a *repository.SlackAccount) error {
+			return nil
+		},
+	}
+	mgr := &mockWatcherManager{}
+
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, presenter.WithSlackValidator(validator))
+	err := p.EditSlackAccount(context.Background(), acct, "T00001")
+
+	s.Require().NoError(err, "blank token on edit must not trigger validator failure")
+	s.False(validatorCalled, "validator must be skipped when token is blank on edit")
+}
+
 func (s *ServiceSettingsSuite) TestEditEmailAccount() {
 	acct := validEmailAccount()
 	acct.Username = "new@gmail.com"

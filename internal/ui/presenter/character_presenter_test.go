@@ -152,6 +152,58 @@ func (s *CharacterPresenterSuite) TestStateDecay() {
 	s.Equal(character.StateIdle, char.CurrentState())
 }
 
+// mockAlertSource feeds AlertEvents to a CharacterPresenter under test.
+type mockAlertSource struct {
+	ch chan presenter.AlertEvent
+}
+
+func newMockAlertSource() *mockAlertSource {
+	return &mockAlertSource{ch: make(chan presenter.AlertEvent, 1)}
+}
+
+func (m *mockAlertSource) Events() <-chan presenter.AlertEvent { return m.ch }
+
+func (s *CharacterPresenterSuite) TestAlertEventDrivesNotifying() {
+	char := newMockCharacter()
+	source := newMockActivitySource()
+	alerts := newMockAlertSource()
+
+	cp, err := presenter.NewCharacterPresenter(char, source, alerts, 500*time.Millisecond)
+	s.Require().NoError(err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cp.Start(ctx)
+	defer cp.Stop()
+
+	alerts.ch <- presenter.AlertEvent{Kind: "notification"}
+	time.Sleep(50 * time.Millisecond)
+
+	s.Equal(character.StateNotifying, char.CurrentState())
+}
+
+func (s *CharacterPresenterSuite) TestAlertEventResetsDecayTimer() {
+	char := newMockCharacter()
+	source := newMockActivitySource()
+	alerts := newMockAlertSource()
+
+	cp, err := presenter.NewCharacterPresenter(char, source, alerts, 50*time.Millisecond)
+	s.Require().NoError(err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cp.Start(ctx)
+	defer cp.Stop()
+
+	alerts.ch <- presenter.AlertEvent{Kind: "notification"}
+	time.Sleep(20 * time.Millisecond)
+	s.Equal(character.StateNotifying, char.CurrentState())
+
+	time.Sleep(80 * time.Millisecond)
+	s.Equal(character.StateIdle, char.CurrentState(),
+		"decay timer must fire after alert event")
+}
+
 func (s *CharacterPresenterSuite) TestStartStop() {
 	char := newMockCharacter()
 	source := newMockActivitySource()

@@ -94,6 +94,7 @@ func BuildNotificationCards(messages []*repository.Message, now time.Time) []Not
 			CreatedAt:       msg.CreatedAt,
 			MessagePreview:  buildMessagePreview(msg),
 			RelativeTime:    formatRelativeTime(msg.CreatedAt, now),
+			WebURL:          msg.WebURL,
 		}
 
 		card.CardColor, card.BadgeColor = colorTier(msg.ImportanceScore)

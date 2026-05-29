@@ -920,3 +920,9 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-9-Feature-114 (B5+B6 main wiring) | GREEN | main | inline | inline | 2a1e056 |
 | Phase-9-Feature-115 (UI tests for Edit buttons) | RED | main | inline | inline | cac281d |
 | Phase-9-Feature-115 (Slack/Email/Calendar edit wiring) | GREEN | main | inline | inline | 0cda1e1 |
+| Phase-9-Feature-115A (server handler DTOs) | RED | main | inline | inline | dc57999 |
+| Phase-9-Feature-115A (server handler DTOs) | GREEN | main | inline | inline | a6c5322 |
+| Phase-9-Feature-115A (SDK DTOs) | RED | main | inline | inline | 4a1b91d |
+| Phase-9-Feature-115A (SDK DTOs) | GREEN | main | inline | inline | 716dbe8 |
+| Phase-9-Feature-115A (adapter mapping) | RED | main | inline | inline | 9eec6b9 |
+| Phase-9-Feature-115A (adapter mapping) | GREEN | main | inline | inline | 9ae0769 |

@@ -195,3 +195,4 @@ Server binary exposing REST + WebSocket APIs, then re-wire the Fyne GUI as a thi
 | 113  | Client layer simplification              | Refactor       | Planning | 107                | [Feature-113](features/phase-9/Feature-113-Client-Layer-Simplification.md)  |
 | 114  | Character animation wiring               | Refactor       | Done     | 099, 107           | [Feature-114](features/phase-9/Feature-114-Character-Animation-Wiring.md)   |
 | 115  | Settings: Edit buttons for accounts      | UX             | Done     | 107                | [Feature-115](features/phase-9/Feature-115-Account-Edit-Buttons.md)         |
+| 115A | Service-config field round-trip (hotfix) | Bugfix         | Done     | 115                | [Feature-115A](features/phase-9/Feature-115A-Service-Config-Field-Roundtrip.md) |

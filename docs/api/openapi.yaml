@@ -56,6 +56,8 @@ components:
           type: string
         name:
           type: string
+        poll_interval_seconds:
+          type: integer
       type: object
     handler.categoryItem:
       properties:
@@ -78,6 +80,8 @@ components:
           type: string
         name:
           type: string
+        poll_interval_seconds:
+          type: integer
       type: object
     handler.createCategoryRequest:
       properties:
@@ -100,7 +104,11 @@ components:
           type: string
         password:
           type: string
+        poll_interval_seconds:
+          type: integer
         username:
+          type: string
+        web_url:
           type: string
       type: object
     handler.createRuleRequest:
@@ -127,6 +135,12 @@ components:
         enabled:
           type: boolean
         name:
+          type: string
+        poll_interval_seconds:
+          type: integer
+        username:
+          type: string
+        web_url:
           type: string
         workspace_id:
           type: string
@@ -160,7 +174,11 @@ components:
           type: integer
         name:
           type: string
+        poll_interval_seconds:
+          type: integer
         username:
+          type: string
+        web_url:
           type: string
       type: object
     handler.generateOptionItem:
@@ -374,6 +392,12 @@ components:
         id:
           type: string
         name:
+          type: string
+        poll_interval_seconds:
+          type: integer
+        username:
+          type: string
+        web_url:
           type: string
         workspace_id:
           type: string

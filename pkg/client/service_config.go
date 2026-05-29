@@ -21,11 +21,14 @@ const (
 // /api/v1/services/slack routes. The bot_token is NEVER returned on
 // responses — only accepted on create/update request bodies.
 type SlackAccount struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	WorkspaceID string    `json:"workspace_id"`
-	Enabled     bool      `json:"enabled"`
-	CreatedAt   string    `json:"created_at"`
+	ID                  uuid.UUID `json:"id"`
+	Name                string    `json:"name"`
+	WorkspaceID         string    `json:"workspace_id"`
+	Username            string    `json:"username"`
+	WebURL              string    `json:"web_url"`
+	PollIntervalSeconds int       `json:"poll_interval_seconds"`
+	Enabled             bool      `json:"enabled"`
+	CreatedAt           string    `json:"created_at"`
 }
 
 // CreateSlackAccountRequest is the POST body for creating a Slack account via
@@ -33,10 +36,13 @@ type SlackAccount struct {
 // from the response DTO; the server stores it and references it from the
 // watcher registration.
 type CreateSlackAccountRequest struct {
-	Name        string `json:"name"`
-	BotToken    string `json:"bot_token"`
-	WorkspaceID string `json:"workspace_id"`
-	Enabled     bool   `json:"enabled"`
+	Name                string `json:"name"`
+	BotToken            string `json:"bot_token"`
+	WorkspaceID         string `json:"workspace_id"`
+	Username            string `json:"username"`
+	WebURL              string `json:"web_url"`
+	PollIntervalSeconds int    `json:"poll_interval_seconds"`
+	Enabled             bool   `json:"enabled"`
 }
 
 // UpdateSlackAccountRequest is the PUT body for full replacement via
@@ -48,27 +54,31 @@ type UpdateSlackAccountRequest = CreateSlackAccountRequest
 // /api/v1/services/email routes. The password is NEVER returned on
 // responses — only accepted on create/update request bodies.
 type EmailAccount struct {
-	ID         uuid.UUID `json:"id"`
-	Name       string    `json:"name"`
-	IMAPHost   string    `json:"imap_host"`
-	IMAPPort   int       `json:"imap_port"`
-	Username   string    `json:"username"`
-	Encryption string    `json:"encryption"`
-	Enabled    bool      `json:"enabled"`
-	CreatedAt  string    `json:"created_at"`
+	ID                  uuid.UUID `json:"id"`
+	Name                string    `json:"name"`
+	IMAPHost            string    `json:"imap_host"`
+	IMAPPort            int       `json:"imap_port"`
+	Username            string    `json:"username"`
+	Encryption          string    `json:"encryption"`
+	WebURL              string    `json:"web_url"`
+	PollIntervalSeconds int       `json:"poll_interval_seconds"`
+	Enabled             bool      `json:"enabled"`
+	CreatedAt           string    `json:"created_at"`
 }
 
 // CreateEmailAccountRequest is the POST body for creating an Email account
 // via POST /api/v1/services/email. The password is carried here but omitted
 // from the response DTO.
 type CreateEmailAccountRequest struct {
-	Name       string `json:"name"`
-	IMAPHost   string `json:"imap_host"`
-	IMAPPort   int    `json:"imap_port"`
-	Username   string `json:"username"`
-	Password   string `json:"password"`
-	Encryption string `json:"encryption"`
-	Enabled    bool   `json:"enabled"`
+	Name                string `json:"name"`
+	IMAPHost            string `json:"imap_host"`
+	IMAPPort            int    `json:"imap_port"`
+	Username            string `json:"username"`
+	Password            string `json:"password"`
+	Encryption          string `json:"encryption"`
+	WebURL              string `json:"web_url"`
+	PollIntervalSeconds int    `json:"poll_interval_seconds"`
+	Enabled             bool   `json:"enabled"`
 }
 
 // UpdateEmailAccountRequest is the PUT body for full replacement via
@@ -79,19 +89,21 @@ type UpdateEmailAccountRequest = CreateEmailAccountRequest
 // CalendarAccount mirrors the server's calendarAccountItem DTO returned by
 // /api/v1/services/calendar routes.
 type CalendarAccount struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	ICSURL    string    `json:"ics_url"`
-	Enabled   bool      `json:"enabled"`
-	CreatedAt string    `json:"created_at"`
+	ID                  uuid.UUID `json:"id"`
+	Name                string    `json:"name"`
+	ICSURL              string    `json:"ics_url"`
+	PollIntervalSeconds int       `json:"poll_interval_seconds"`
+	Enabled             bool      `json:"enabled"`
+	CreatedAt           string    `json:"created_at"`
 }
 
 // CreateCalendarAccountRequest is the POST body for creating a Calendar
 // account via POST /api/v1/services/calendar.
 type CreateCalendarAccountRequest struct {
-	Name    string `json:"name"`
-	ICSURL  string `json:"ics_url"`
-	Enabled bool   `json:"enabled"`
+	Name                string `json:"name"`
+	ICSURL              string `json:"ics_url"`
+	PollIntervalSeconds int    `json:"poll_interval_seconds"`
+	Enabled             bool   `json:"enabled"`
 }
 
 // UpdateCalendarAccountRequest is the PUT body for full replacement via

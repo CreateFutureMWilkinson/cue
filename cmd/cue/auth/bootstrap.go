@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/CreateFutureMWilkinson/cue/pkg/client"
 )
@@ -36,5 +38,46 @@ var DefaultProbe Probe = func(ctx context.Context, sdk *client.APIClient) error 
 //   - ErrTokenStoreUnwritable: disk error writing the auto-issued token
 //     (the wrapped message includes the orphaned token for recovery).
 func Bootstrap(ctx context.Context, store TokenStore, sdk *client.APIClient, probe Probe) error {
-	return ErrNotImplemented
+	token, err := store.Load(ctx)
+	if err == nil {
+		sdk.SetToken(token)
+		return nil
+	}
+	if !errors.Is(err, ErrNoToken) {
+		// Refuse to probe on any other Load error: a transient
+		// permission failure must not silently re-pair against a
+		// server that has already issued us a token.
+		return fmt.Errorf("%w: %w", ErrTokenStoreUnreadable, err)
+	}
+
+	// No token on disk: drive the SDK's transparent auto-issue path.
+	probeErr := probe(ctx, sdk)
+	if probeErr != nil {
+		var apiErr *client.APIError
+		if errors.As(probeErr, &apiErr) && apiErr.Code == client.ErrCodeUnauthorized {
+			return fmt.Errorf("%w: %w", ErrPairingRequired, probeErr)
+		}
+		if errors.As(probeErr, &apiErr) {
+			// Some other API-level error — surface as-is.
+			return probeErr
+		}
+		return fmt.Errorf("%w: %w", ErrServerUnreachable, probeErr)
+	}
+
+	newToken := sdk.Token()
+	if newToken == "" {
+		// Server-bug guard: probe returned 2xx without the SDK's
+		// TOKEN_ISSUED auto-retry having installed a token. This
+		// would mean the server accepted an unauthenticated request
+		// without issuing a token — a contract violation.
+		return errors.New("probe succeeded without auto-issue: server accepted request but did not issue a token")
+	}
+
+	if saveErr := store.Save(ctx, newToken); saveErr != nil {
+		// Include the orphaned token in the error so the user can
+		// recover it manually if disk persistence has failed. This
+		// is a deliberate trade-off documented on the package.
+		return fmt.Errorf("%w: failed to persist auto-issued token %q: %w", ErrTokenStoreUnwritable, newToken, saveErr)
+	}
+	return nil
 }

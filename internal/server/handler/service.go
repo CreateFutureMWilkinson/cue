@@ -38,55 +38,67 @@ type ServiceManager interface {
 // --- JSON response types ---
 
 type slackAccountItem struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	WorkspaceID string `json:"workspace_id"`
-	Enabled     bool   `json:"enabled"`
-	CreatedAt   string `json:"created_at"`
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	WorkspaceID         string `json:"workspace_id"`
+	Username            string `json:"username"`
+	WebURL              string `json:"web_url"`
+	PollIntervalSeconds int    `json:"poll_interval_seconds"`
+	Enabled             bool   `json:"enabled"`
+	CreatedAt           string `json:"created_at"`
 }
 
 type emailAccountItem struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	IMAPHost   string `json:"imap_host"`
-	IMAPPort   int    `json:"imap_port"`
-	Username   string `json:"username"`
-	Encryption string `json:"encryption"`
-	Enabled    bool   `json:"enabled"`
-	CreatedAt  string `json:"created_at"`
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	IMAPHost            string `json:"imap_host"`
+	IMAPPort            int    `json:"imap_port"`
+	Username            string `json:"username"`
+	Encryption          string `json:"encryption"`
+	WebURL              string `json:"web_url"`
+	PollIntervalSeconds int    `json:"poll_interval_seconds"`
+	Enabled             bool   `json:"enabled"`
+	CreatedAt           string `json:"created_at"`
 }
 
 type calendarAccountItem struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	ICSURL    string `json:"ics_url"`
-	Enabled   bool   `json:"enabled"`
-	CreatedAt string `json:"created_at"`
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	ICSURL              string `json:"ics_url"`
+	PollIntervalSeconds int    `json:"poll_interval_seconds"`
+	Enabled             bool   `json:"enabled"`
+	CreatedAt           string `json:"created_at"`
 }
 
 // --- JSON request types ---
 
 type createSlackRequest struct {
-	Name        string `json:"name"`
-	BotToken    string `json:"bot_token"`
-	WorkspaceID string `json:"workspace_id"`
-	Enabled     bool   `json:"enabled"`
+	Name                string `json:"name"`
+	BotToken            string `json:"bot_token"`
+	WorkspaceID         string `json:"workspace_id"`
+	Username            string `json:"username"`
+	WebURL              string `json:"web_url"`
+	PollIntervalSeconds int    `json:"poll_interval_seconds"`
+	Enabled             bool   `json:"enabled"`
 }
 
 type createEmailRequest struct {
-	Name       string `json:"name"`
-	IMAPHost   string `json:"imap_host"`
-	IMAPPort   int    `json:"imap_port"`
-	Username   string `json:"username"`
-	Password   string `json:"password"`
-	Encryption string `json:"encryption"`
-	Enabled    bool   `json:"enabled"`
+	Name                string `json:"name"`
+	IMAPHost            string `json:"imap_host"`
+	IMAPPort            int    `json:"imap_port"`
+	Username            string `json:"username"`
+	Password            string `json:"password"`
+	Encryption          string `json:"encryption"`
+	WebURL              string `json:"web_url"`
+	PollIntervalSeconds int    `json:"poll_interval_seconds"`
+	Enabled             bool   `json:"enabled"`
 }
 
 type createCalendarRequest struct {
-	Name    string `json:"name"`
-	ICSURL  string `json:"ics_url"`
-	Enabled bool   `json:"enabled"`
+	Name                string `json:"name"`
+	ICSURL              string `json:"ics_url"`
+	PollIntervalSeconds int    `json:"poll_interval_seconds"`
+	Enabled             bool   `json:"enabled"`
 }
 
 type toggleRequest struct {
@@ -105,34 +117,40 @@ type serviceStatusItem struct {
 
 func slackToItem(a *repository.SlackAccount) slackAccountItem {
 	return slackAccountItem{
-		ID:          a.ID.String(),
-		Name:        a.FriendlyName,
-		WorkspaceID: a.WorkspaceID,
-		Enabled:     a.Enabled,
-		CreatedAt:   a.CreatedAt.Format(time.RFC3339),
+		ID:                  a.ID.String(),
+		Name:                a.FriendlyName,
+		WorkspaceID:         a.WorkspaceID,
+		Username:            a.Username,
+		WebURL:              a.WebURL,
+		PollIntervalSeconds: a.PollIntervalSeconds,
+		Enabled:             a.Enabled,
+		CreatedAt:           a.CreatedAt.Format(time.RFC3339),
 	}
 }
 
 func emailToItem(a *repository.EmailAccount) emailAccountItem {
 	return emailAccountItem{
-		ID:         a.ID.String(),
-		Name:       a.FriendlyName,
-		IMAPHost:   a.IMAPHost,
-		IMAPPort:   a.IMAPPort,
-		Username:   a.Username,
-		Encryption: a.Encryption,
-		Enabled:    a.Enabled,
-		CreatedAt:  a.CreatedAt.Format(time.RFC3339),
+		ID:                  a.ID.String(),
+		Name:                a.FriendlyName,
+		IMAPHost:            a.IMAPHost,
+		IMAPPort:            a.IMAPPort,
+		Username:            a.Username,
+		Encryption:          a.Encryption,
+		WebURL:              a.WebURL,
+		PollIntervalSeconds: a.PollIntervalSeconds,
+		Enabled:             a.Enabled,
+		CreatedAt:           a.CreatedAt.Format(time.RFC3339),
 	}
 }
 
 func calendarToItem(a *repository.CalendarAccount) calendarAccountItem {
 	return calendarAccountItem{
-		ID:        a.ID.String(),
-		Name:      a.Name,
-		ICSURL:    a.ICSURL,
-		Enabled:   a.Enabled,
-		CreatedAt: a.CreatedAt.Format(time.RFC3339),
+		ID:                  a.ID.String(),
+		Name:                a.Name,
+		ICSURL:              a.ICSURL,
+		PollIntervalSeconds: a.PollIntervalSeconds,
+		Enabled:             a.Enabled,
+		CreatedAt:           a.CreatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -236,10 +254,13 @@ func CreateSlackAccountHandler(svc ServiceManager) http.HandlerFunc {
 		}
 
 		acct := &repository.SlackAccount{
-			FriendlyName: req.Name,
-			Token:        req.BotToken,
-			WorkspaceID:  req.WorkspaceID,
-			Enabled:      req.Enabled,
+			FriendlyName:        req.Name,
+			Token:               req.BotToken,
+			WorkspaceID:         req.WorkspaceID,
+			Username:            req.Username,
+			WebURL:              req.WebURL,
+			PollIntervalSeconds: req.PollIntervalSeconds,
+			Enabled:             req.Enabled,
 		}
 
 		created, err := svc.CreateSlackAccount(r.Context(), acct)
@@ -280,10 +301,13 @@ func UpdateSlackAccountHandler(svc ServiceManager) http.HandlerFunc {
 		}
 
 		acct := &repository.SlackAccount{
-			FriendlyName: req.Name,
-			Token:        req.BotToken,
-			WorkspaceID:  req.WorkspaceID,
-			Enabled:      req.Enabled,
+			FriendlyName:        req.Name,
+			Token:               req.BotToken,
+			WorkspaceID:         req.WorkspaceID,
+			Username:            req.Username,
+			WebURL:              req.WebURL,
+			PollIntervalSeconds: req.PollIntervalSeconds,
+			Enabled:             req.Enabled,
 		}
 
 		updated, err := svc.UpdateSlackAccount(r.Context(), id, acct)
@@ -437,13 +461,15 @@ func CreateEmailAccountHandler(svc ServiceManager) http.HandlerFunc {
 		}
 
 		acct := &repository.EmailAccount{
-			FriendlyName: req.Name,
-			IMAPHost:     req.IMAPHost,
-			IMAPPort:     req.IMAPPort,
-			Username:     req.Username,
-			Password:     req.Password,
-			Encryption:   req.Encryption,
-			Enabled:      req.Enabled,
+			FriendlyName:        req.Name,
+			IMAPHost:            req.IMAPHost,
+			IMAPPort:            req.IMAPPort,
+			Username:            req.Username,
+			Password:            req.Password,
+			Encryption:          req.Encryption,
+			WebURL:              req.WebURL,
+			PollIntervalSeconds: req.PollIntervalSeconds,
+			Enabled:             req.Enabled,
 		}
 
 		created, err := svc.CreateEmailAccount(r.Context(), acct)
@@ -484,13 +510,15 @@ func UpdateEmailAccountHandler(svc ServiceManager) http.HandlerFunc {
 		}
 
 		acct := &repository.EmailAccount{
-			FriendlyName: req.Name,
-			IMAPHost:     req.IMAPHost,
-			IMAPPort:     req.IMAPPort,
-			Username:     req.Username,
-			Password:     req.Password,
-			Encryption:   req.Encryption,
-			Enabled:      req.Enabled,
+			FriendlyName:        req.Name,
+			IMAPHost:            req.IMAPHost,
+			IMAPPort:            req.IMAPPort,
+			Username:            req.Username,
+			Password:            req.Password,
+			Encryption:          req.Encryption,
+			WebURL:              req.WebURL,
+			PollIntervalSeconds: req.PollIntervalSeconds,
+			Enabled:             req.Enabled,
 		}
 
 		updated, err := svc.UpdateEmailAccount(r.Context(), id, acct)
@@ -644,9 +672,10 @@ func CreateCalendarAccountHandler(svc ServiceManager) http.HandlerFunc {
 		}
 
 		acct := &repository.CalendarAccount{
-			Name:    req.Name,
-			ICSURL:  req.ICSURL,
-			Enabled: req.Enabled,
+			Name:                req.Name,
+			ICSURL:              req.ICSURL,
+			PollIntervalSeconds: req.PollIntervalSeconds,
+			Enabled:             req.Enabled,
 		}
 
 		created, err := svc.CreateCalendarAccount(r.Context(), acct)
@@ -687,9 +716,10 @@ func UpdateCalendarAccountHandler(svc ServiceManager) http.HandlerFunc {
 		}
 
 		acct := &repository.CalendarAccount{
-			Name:    req.Name,
-			ICSURL:  req.ICSURL,
-			Enabled: req.Enabled,
+			Name:                req.Name,
+			ICSURL:              req.ICSURL,
+			PollIntervalSeconds: req.PollIntervalSeconds,
+			Enabled:             req.Enabled,
 		}
 
 		updated, err := svc.UpdateCalendarAccount(r.Context(), id, acct)

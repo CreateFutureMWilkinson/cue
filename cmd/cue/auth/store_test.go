@@ -142,3 +142,51 @@ func (s *FileStoreSuite) TestDeleteAbsentIsNoop() {
 	store := auth.NewFileStore(s.pathInTempDir())
 	s.Require().NoError(store.Delete(context.Background()))
 }
+
+// A6c: Delete returns a wrapped error when os.Remove fails for a
+// reason other than "file does not exist". Pointing at a non-empty
+// directory triggers a non-IsNotExist error from os.Remove.
+func (s *FileStoreSuite) TestDeleteWrapsNonNotExistErrors() {
+	dir := s.T().TempDir()
+	// Make `dir` itself the target. A non-empty directory cannot be
+	// removed via os.Remove on Linux, producing ENOTEMPTY which is
+	// not os.ErrNotExist.
+	s.Require().NoError(os.WriteFile(filepath.Join(dir, "child"), []byte("x"), 0o600))
+
+	store := auth.NewFileStore(dir)
+	err := store.Delete(context.Background())
+	s.Require().Error(err)
+	s.False(errors.Is(err, os.ErrNotExist))
+}
+
+// A4b: Save returns a wrapped error when the temp file cannot be
+// created (e.g., parent directory does not exist). Exercises the
+// OpenFile failure branch separately from the read-only directory
+// path used in TestSaveFailurePreservesPreviousToken.
+func (s *FileStoreSuite) TestSaveReturnsErrorWhenParentDirMissing() {
+	missing := filepath.Join(s.T().TempDir(), "no-such-dir", "client-token")
+	store := auth.NewFileStore(missing)
+	err := store.Save(context.Background(), "T")
+	s.Require().Error(err)
+	_, statErr := os.Stat(missing)
+	s.True(os.IsNotExist(statErr))
+}
+
+// A4c: Save returns a wrapped error when the rename step fails. We
+// trigger this by pointing the FileStore at a non-empty directory,
+// so the temp file (<dir>.tmp) is created successfully but the
+// rename onto the directory fails with EISDIR/ENOTDIR.
+func (s *FileStoreSuite) TestSaveReturnsErrorWhenRenameFails() {
+	dir := s.T().TempDir()
+	target := filepath.Join(dir, "target-dir")
+	s.Require().NoError(os.Mkdir(target, 0o700))
+	s.Require().NoError(os.WriteFile(filepath.Join(target, "child"), []byte("x"), 0o600))
+
+	store := auth.NewFileStore(target)
+	err := store.Save(context.Background(), "T")
+	s.Require().Error(err)
+
+	// The temp file is cleaned up after a failed rename.
+	_, statErr := os.Stat(target + ".tmp")
+	s.True(os.IsNotExist(statErr), "temp file must not linger after a failed rename")
+}

@@ -71,8 +71,10 @@ func (f *FileStore) Save(ctx context.Context, token string) error {
 	tmp := f.path + ".tmp"
 
 	// Open with O_TRUNC so a stale .tmp from a crashed prior save
-	// does not corrupt the new write.
-	file, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	// does not corrupt the new write. The path is supplied by the
+	// constructor caller (cmd/cue resolves to ~/.cue/client-token);
+	// no untrusted input flows in.
+	file, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) // #nosec G304 -- caller-controlled path under ~/.cue
 	if err != nil {
 		return fmt.Errorf("create temp token file in %s: %w", dir, err)
 	}

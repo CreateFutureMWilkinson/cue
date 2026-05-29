@@ -22,11 +22,6 @@ import (
 	"errors"
 )
 
-// ErrNotImplemented is the sentinel returned by stubbed-out functions
-// while behaviors are being implemented in TDD micro-loops. It must
-// not appear in production paths once the feature is complete.
-var ErrNotImplemented = errors.New("not implemented")
-
 // ErrNoToken is returned by TokenStore.Load when no token file is
 // present on disk. This is the only Load error that triggers
 // Bootstrap's auto-issue probe path; any other error short-circuits

@@ -35,6 +35,14 @@ the user to re-enter them.
   `var buildSlackListContent func() ...` so the closure captures the
   variables before assignment, exactly mirroring the existing Add Account
   pattern. No new mutable state.
+- **Credentials are not prefilled and are optional on edit.** The Slack
+  token and Email password fields stay blank when the form opens in edit
+  mode (placeholder reads `"... (leave blank to keep existing)"`). Saving
+  with the field blank reuses `existing.Token` / `existing.Password`;
+  saving with a new value overwrites the stored credential. Add mode still
+  requires the credential. This avoids both showing the stored secret
+  back to the user and forcing the user to re-enter a credential they
+  haven't changed.
 - **Presenter Edit methods were already present.** `EditSlackAccount`,
   `EditEmailAccount`, and `EditCalendarAccount` existed on
   `ServiceSettingsPresenter` (each calls `Upsert*Account` on the repo and

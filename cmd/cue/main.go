@@ -22,6 +22,8 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/internal/repository/implementation/sqlite"
 	"github.com/CreateFutureMWilkinson/cue/internal/secret"
+	srvruntime "github.com/CreateFutureMWilkinson/cue/internal/server"
+	"github.com/CreateFutureMWilkinson/cue/internal/server/runner"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/buffer"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/calendar"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/decisionengine"
@@ -46,14 +48,19 @@ const (
 	eventChannelBuffer = 100
 )
 
+// version is overridden at build time via -ldflags. The default is
+// reported by `cue version` when the binary was built without an
+// explicit version stamp.
+var version = "dev"
+
 func main() {
 	app := &cli.Command{
 		Name:  "cue",
 		Usage: "ADHD-friendly productivity assistant",
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			return run()
-		},
 		Commands: []*cli.Command{
+			uiCommand(),
+			serverCommand(),
+			versionCommand(),
 			configCommand(),
 			uatCommand(),
 		},
@@ -61,6 +68,81 @@ func main() {
 	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatalf("cue: %v", err)
 	}
+}
+
+// uiCommand wraps the Fyne client. The current body still boots the
+// in-process orchestrator; Feature 107 work packages 4–14 progressively
+// rewire it onto the HTTP/WebSocket SDK.
+func uiCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "ui",
+		Usage: "Run the Fyne client",
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			return run()
+		},
+	}
+}
+
+// serverCommand provides `cue server` (headless boot) and the
+// `cue server reset-auth` subcommand. Both share the same config-load
+// path and call into internal/server/runner.
+func serverCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "server",
+		Usage: "Run the headless HTTP/WebSocket server",
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			cfg, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			if err := cfg.ValidateForServer(); err != nil {
+				return fmt.Errorf("validating config: %w", err)
+			}
+			return runner.Run(ctx, *cfg)
+		},
+		Commands: []*cli.Command{
+			{
+				Name:  "reset-auth",
+				Usage: "Wipe all auth tokens; next client connect re-pairs",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					cfg, err := loadConfig()
+					if err != nil {
+						return err
+					}
+					if err := srvruntime.ResetAuth(cfg.Database.Path); err != nil {
+						return fmt.Errorf("reset-auth: %w", err)
+					}
+					fmt.Println("All auth tokens deleted. The next client to connect will be auto-issued a token.")
+					return nil
+				},
+			},
+		},
+	}
+}
+
+func versionCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "version",
+		Usage: "Print the cue version and exit",
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			fmt.Println(version)
+			return nil
+		},
+	}
+}
+
+// loadConfig reads ~/.cue/config.toml. Validation (client vs server) is
+// the caller's responsibility.
+func loadConfig() (*config.Config, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("finding home directory: %w", err)
+	}
+	cfg, err := config.Load(filepath.Join(home, configRelPath))
+	if err != nil {
+		return nil, fmt.Errorf("loading config: %w", err)
+	}
+	return cfg, nil
 }
 
 func configCommand() *cli.Command {
@@ -101,10 +183,9 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("finding home directory: %w", err)
 	}
-	cfgPath := filepath.Join(home, configRelPath)
-	cfg, err := config.Load(cfgPath)
+	cfg, err := loadConfig()
 	if err != nil {
-		return fmt.Errorf("loading config: %w", err)
+		return err
 	}
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("validating config: %w", err)

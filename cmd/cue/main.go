@@ -409,7 +409,7 @@ func runUIWithSDK(ctx context.Context, cfg *config.Config, api *client.APIClient
 		char, _ = character.Create(character.NoneCharacterName)
 	}
 
-	charPresenter, err := presenter.NewCharacterPresenter(char, activityAdapter.Subscribe(), 5*time.Second)
+	charPresenter, err := presenter.NewCharacterPresenter(char, activityAdapter.Subscribe(), activityAdapter.SubscribeAlertSource(), 5*time.Second)
 	if err != nil {
 		return fmt.Errorf("creating character presenter: %w", err)
 	}

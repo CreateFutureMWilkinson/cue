@@ -34,6 +34,19 @@ type ActivitySource interface {
 	Events() <-chan ActivityEvent
 }
 
+// AlertEvent is the presenter-facing shape of an "alert" envelope
+// emitted by the server when a message is routed to NOTIFIED. Kind
+// mirrors the server's AlertData.Kind ("notification", etc.).
+type AlertEvent struct {
+	Kind string
+}
+
+// AlertSource is a stream of alert envelopes consumed by
+// CharacterPresenter to drive StateNotifying transitions.
+type AlertSource interface {
+	Events() <-chan AlertEvent
+}
+
 // VolumeController abstracts audio volume control for the application.
 // Implementations should handle the actual audio system integration.
 type VolumeController interface {

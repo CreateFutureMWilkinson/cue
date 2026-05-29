@@ -43,6 +43,13 @@ func (m *mockCharacter) Widget() fyne.CanvasObject { return nil }
 
 func (m *mockCharacter) Close() {}
 
+func (m *mockCharacter) Shutdown() <-chan struct{} {
+	m.TransitionTo(character.StateShuttingDown)
+	done := make(chan struct{})
+	close(done)
+	return done
+}
+
 func (m *mockCharacter) recordedStates() []character.CharacterState {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -63,7 +70,7 @@ func (s *CharacterPresenterSuite) TestWorkingEvent() {
 	char := newMockCharacter()
 	source := newMockActivitySource()
 
-	cp, err := presenter.NewCharacterPresenter(char, source, 500*time.Millisecond)
+	cp, err := presenter.NewCharacterPresenter(char, source, nil, 500*time.Millisecond)
 	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -84,7 +91,7 @@ func (s *CharacterPresenterSuite) TestNotifyingEvent() {
 	char := newMockCharacter()
 	source := newMockActivitySource()
 
-	cp, err := presenter.NewCharacterPresenter(char, source, 500*time.Millisecond)
+	cp, err := presenter.NewCharacterPresenter(char, source, nil, 500*time.Millisecond)
 	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -104,7 +111,7 @@ func (s *CharacterPresenterSuite) TestErrorEvent() {
 	char := newMockCharacter()
 	source := newMockActivitySource()
 
-	cp, err := presenter.NewCharacterPresenter(char, source, 500*time.Millisecond)
+	cp, err := presenter.NewCharacterPresenter(char, source, nil, 500*time.Millisecond)
 	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -125,7 +132,7 @@ func (s *CharacterPresenterSuite) TestStateDecay() {
 	source := newMockActivitySource()
 
 	decayDuration := 50 * time.Millisecond
-	cp, err := presenter.NewCharacterPresenter(char, source, decayDuration)
+	cp, err := presenter.NewCharacterPresenter(char, source, nil, decayDuration)
 	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -149,7 +156,7 @@ func (s *CharacterPresenterSuite) TestStartStop() {
 	char := newMockCharacter()
 	source := newMockActivitySource()
 
-	cp, err := presenter.NewCharacterPresenter(char, source, 500*time.Millisecond)
+	cp, err := presenter.NewCharacterPresenter(char, source, nil, 500*time.Millisecond)
 	s.Require().NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())

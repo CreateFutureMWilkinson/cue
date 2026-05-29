@@ -19,6 +19,11 @@ type Character interface {
 	CurrentState() CharacterState
 	Widget() fyne.CanvasObject
 	Close()
+	// Shutdown transitions the character to StateShuttingDown and
+	// returns a channel that closes when any shutdown animation
+	// completes. Implementations that have no shutdown animation
+	// return a pre-closed channel.
+	Shutdown() <-chan struct{}
 }
 
 // CharacterFactory is a constructor function that creates a Character.

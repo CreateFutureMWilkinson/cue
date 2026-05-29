@@ -54,11 +54,12 @@ const systemEventSource = "system"
 type ActivityAdapter struct {
 	src client.ActivityClient
 
-	mu         sync.Mutex
-	sinks      []chan presenter.ActivityEvent
-	alertSinks []chan AlertEvent
-	started    bool
-	stopped    bool
+	mu                  sync.Mutex
+	sinks               []chan presenter.ActivityEvent
+	alertSinks          []chan AlertEvent
+	presenterAlertSinks []chan presenter.AlertEvent
+	started             bool
+	stopped             bool
 }
 
 // NewActivityAdapter constructs an adapter wrapping the given SDK
@@ -93,6 +94,17 @@ func (a *ActivityAdapter) SubscribeAlerts() <-chan AlertEvent {
 	ch := make(chan AlertEvent, activityEventBufferSize)
 	a.alertSinks = append(a.alertSinks, ch)
 	return ch
+}
+
+// SubscribeAlertSource returns a presenter.AlertSource fed by the same
+// fan-out as SubscribeAlerts. CharacterPresenter consumes this to drive
+// StateNotifying when the server publishes an alert envelope.
+func (a *ActivityAdapter) SubscribeAlertSource() presenter.AlertSource {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	ch := make(chan presenter.AlertEvent, activityEventBufferSize)
+	a.presenterAlertSinks = append(a.presenterAlertSinks, ch)
+	return chanAlertSource{ch: ch}
 }
 
 // Start launches the adapter's read goroutine. It must be called
@@ -178,10 +190,18 @@ func (a *ActivityAdapter) fanOut(ev presenter.ActivityEvent) {
 func (a *ActivityAdapter) fanOutAlert(ev AlertEvent) {
 	a.mu.Lock()
 	sinks := append([]chan AlertEvent(nil), a.alertSinks...)
+	pSinks := append([]chan presenter.AlertEvent(nil), a.presenterAlertSinks...)
 	a.mu.Unlock()
 	for _, s := range sinks {
 		select {
 		case s <- ev:
+		default:
+		}
+	}
+	pEv := presenter.AlertEvent{Kind: ev.Kind}
+	for _, s := range pSinks {
+		select {
+		case s <- pEv:
 		default:
 		}
 	}
@@ -196,8 +216,12 @@ func (a *ActivityAdapter) closeSinks() {
 	for _, s := range a.alertSinks {
 		close(s)
 	}
+	for _, s := range a.presenterAlertSinks {
+		close(s)
+	}
 	a.sinks = nil
 	a.alertSinks = nil
+	a.presenterAlertSinks = nil
 }
 
 // activityPayload mirrors the server's ActivityData JSON shape.
@@ -245,3 +269,11 @@ type chanActivitySource struct {
 }
 
 func (s chanActivitySource) Events() <-chan presenter.ActivityEvent { return s.ch }
+
+// chanAlertSource adapts a receive-only channel into a
+// presenter.AlertSource.
+type chanAlertSource struct {
+	ch <-chan presenter.AlertEvent
+}
+
+func (s chanAlertSource) Events() <-chan presenter.AlertEvent { return s.ch }

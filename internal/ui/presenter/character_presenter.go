@@ -13,10 +13,12 @@ const (
 	notifiedKeyword = "NOTIFIED"
 )
 
-// CharacterPresenter maps activity events to character state transitions.
+// CharacterPresenter maps activity and alert events to character state
+// transitions.
 type CharacterPresenter struct {
 	char          character.Character
 	source        ActivitySource
+	alertSource   AlertSource
 	decayDuration time.Duration
 
 	cancel context.CancelFunc
@@ -26,18 +28,26 @@ type CharacterPresenter struct {
 	decayTimer *time.Timer
 }
 
-// NewCharacterPresenter creates a new CharacterPresenter.
-func NewCharacterPresenter(char character.Character, source ActivitySource, decayDuration time.Duration) (*CharacterPresenter, error) {
+// NewCharacterPresenter creates a new CharacterPresenter. alertSource may
+// be nil during transitional wiring; alert handling is a no-op when nil.
+func NewCharacterPresenter(char character.Character, source ActivitySource, alertSource AlertSource, decayDuration time.Duration) (*CharacterPresenter, error) {
 	return &CharacterPresenter{
 		char:          char,
 		source:        source,
+		alertSource:   alertSource,
 		decayDuration: decayDuration,
 	}, nil
 }
 
-// Start begins consuming activity events and mapping them to character states.
+// Start begins consuming events and mapping them to character states.
 func (p *CharacterPresenter) Start(ctx context.Context) {
 	ctx, p.cancel = context.WithCancel(ctx)
+
+	var alertCh <-chan AlertEvent
+	if p.alertSource != nil {
+		alertCh = p.alertSource.Events()
+	}
+
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
@@ -45,6 +55,9 @@ func (p *CharacterPresenter) Start(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
+			case <-alertCh:
+				p.char.TransitionTo(character.StateNotifying)
+				p.resetDecayTimer()
 			case event := <-p.source.Events():
 				state := p.mapEventToState(event)
 				p.char.TransitionTo(state)

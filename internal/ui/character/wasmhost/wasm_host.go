@@ -210,6 +210,17 @@ func (h *WASMCharacterHost) Widget() fyne.CanvasObject {
 	return h.canvas.Widget()
 }
 
+// Shutdown asks the plugin to transition to StateShuttingDown and
+// returns a pre-closed channel. The plugin ABI has no completion
+// signal yet, so the host cannot wait for the animation to finish;
+// callers should treat shutdown as fire-and-forget.
+func (h *WASMCharacterHost) Shutdown() <-chan struct{} {
+	h.TransitionTo(character.StateShuttingDown)
+	done := make(chan struct{})
+	close(done)
+	return done
+}
+
 // Close shuts down the WASM runtime and releases resources.
 func (h *WASMCharacterHost) Close() {
 	h.mu.Lock()

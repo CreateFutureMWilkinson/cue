@@ -33,3 +33,12 @@ func (c *NoOpCharacter) Widget() fyne.CanvasObject {
 
 // Close is a no-op for the NoOpCharacter.
 func (c *NoOpCharacter) Close() {}
+
+// Shutdown transitions to StateShuttingDown and returns a pre-closed
+// channel — the noop character has no animation to drain.
+func (c *NoOpCharacter) Shutdown() <-chan struct{} {
+	c.TransitionTo(StateShuttingDown)
+	done := make(chan struct{})
+	close(done)
+	return done
+}

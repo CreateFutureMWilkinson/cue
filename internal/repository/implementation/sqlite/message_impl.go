@@ -50,7 +50,7 @@ const (
 )
 
 const messageColumnsStr = "id, source, source_account, channel, sender, message_id, message_type, source_cursor, " +
-	"raw_content, importance_score, confidence_score, status, reasoning, " +
+	"subject, raw_content, web_url, importance_score, confidence_score, status, reasoning, " +
 	"user_rating, user_feedback, vector_id, scoring_model, examples_used, created_at, updated_at, resolved_at"
 
 // SQLiteMessageRepository implements repository.MessageRepository using SQLite.
@@ -115,6 +115,20 @@ func NewSQLiteMessageRepository(dbPath string, maxMessagesPerSource int) (*SQLit
 		return nil, fmt.Errorf("migrate examples_used column: %w", err)
 	}
 
+	// Migration: add subject column (idempotent).
+	_, err = db.Exec("ALTER TABLE messages ADD COLUMN subject TEXT NOT NULL DEFAULT ''")
+	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+		_ = db.Close()
+		return nil, fmt.Errorf("migrate subject column: %w", err)
+	}
+
+	// Migration: add web_url column (idempotent).
+	_, err = db.Exec("ALTER TABLE messages ADD COLUMN web_url TEXT NOT NULL DEFAULT ''")
+	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+		_ = db.Close()
+		return nil, fmt.Errorf("migrate web_url column: %w", err)
+	}
+
 	return &SQLiteMessageRepository{db: db, maxMessagesPerSource: maxMessagesPerSource}, nil
 }
 
@@ -141,10 +155,10 @@ func (r *SQLiteMessageRepository) Insert(ctx context.Context, msg *repository.Me
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO messages (
 			id, source, source_account, channel, sender, message_id, message_type, source_cursor,
-			raw_content, importance_score, confidence_score, status, reasoning,
+			subject, raw_content, web_url, importance_score, confidence_score, status, reasoning,
 			user_rating, user_feedback, vector_id, scoring_model, examples_used,
 			created_at, updated_at, resolved_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(message_id) DO UPDATE SET
 			id = excluded.id,
 			source = excluded.source,
@@ -153,7 +167,9 @@ func (r *SQLiteMessageRepository) Insert(ctx context.Context, msg *repository.Me
 			sender = excluded.sender,
 			message_type = excluded.message_type,
 			source_cursor = excluded.source_cursor,
+			subject = excluded.subject,
 			raw_content = excluded.raw_content,
+			web_url = excluded.web_url,
 			importance_score = excluded.importance_score,
 			confidence_score = excluded.confidence_score,
 			status = excluded.status,
@@ -175,7 +191,9 @@ func (r *SQLiteMessageRepository) Insert(ctx context.Context, msg *repository.Me
 		msg.MessageID,
 		msg.MessageType,
 		msg.SourceCursor,
+		msg.Subject,
 		msg.RawContent,
+		msg.WebURL,
 		msg.ImportanceScore,
 		msg.ConfidenceScore,
 		msg.Status,
@@ -207,7 +225,9 @@ func (r *SQLiteMessageRepository) Update(ctx context.Context, msg *repository.Me
 			message_id = ?,
 			message_type = ?,
 			source_cursor = ?,
+			subject = ?,
 			raw_content = ?,
+			web_url = ?,
 			importance_score = ?,
 			confidence_score = ?,
 			status = ?,
@@ -228,7 +248,9 @@ func (r *SQLiteMessageRepository) Update(ctx context.Context, msg *repository.Me
 		msg.MessageID,
 		msg.MessageType,
 		msg.SourceCursor,
+		msg.Subject,
 		msg.RawContent,
+		msg.WebURL,
 		msg.ImportanceScore,
 		msg.ConfidenceScore,
 		msg.Status,
@@ -493,7 +515,9 @@ func scanMessage(rows *sql.Rows) (*repository.Message, error) {
 		&msg.MessageID,
 		&msg.MessageType,
 		&msg.SourceCursor,
+		&msg.Subject,
 		&msg.RawContent,
+		&msg.WebURL,
 		&msg.ImportanceScore,
 		&msg.ConfidenceScore,
 		&msg.Status,

@@ -386,7 +386,7 @@ func registerWatchersFromDB(ctx context.Context, orch *orchestrator.Orchestrator
 				slog.Warn("failed to create slack API client", "source", "slack", "account_id", acct.WorkspaceID, "error", err)
 				continue
 			}
-			sw, err := watcher.NewSlackWatcher(slackAPI, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID})
+			sw, err := watcher.NewSlackWatcher(slackAPI, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID, WebURL: acct.WebURL})
 			if err != nil {
 				slog.Warn("failed to create slack watcher", "source", "slack", "account_id", acct.WorkspaceID, "error", err)
 				continue
@@ -408,7 +408,7 @@ func registerWatchersFromDB(ctx context.Context, orch *orchestrator.Orchestrator
 				slog.Warn("failed to create IMAP client", "source", "email", "account_id", acct.Username, "error", err)
 				continue
 			}
-			ew, err := watcher.NewEmailWatcher(emailAPI, watcher.EmailWatcherConfig{Username: acct.Username})
+			ew, err := watcher.NewEmailWatcher(emailAPI, watcher.EmailWatcherConfig{Username: acct.Username, WebURL: acct.WebURL})
 			if err != nil {
 				slog.Warn("failed to create email watcher", "source", "email", "account_id", acct.Username, "error", err)
 				continue
@@ -433,7 +433,7 @@ func createWatcherFactory(orch *orchestrator.Orchestrator, repo repository.Servi
 			if err != nil {
 				return fmt.Errorf("creating slack API client: %w", err)
 			}
-			sw, err := watcher.NewSlackWatcher(slackAPI, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID})
+			sw, err := watcher.NewSlackWatcher(slackAPI, watcher.SlackWatcherConfig{WorkspaceID: acct.WorkspaceID, WebURL: acct.WebURL})
 			if err != nil {
 				return fmt.Errorf("creating slack watcher: %w", err)
 			}
@@ -447,7 +447,7 @@ func createWatcherFactory(orch *orchestrator.Orchestrator, repo repository.Servi
 			if err != nil {
 				return fmt.Errorf("creating IMAP client: %w", err)
 			}
-			ew, err := watcher.NewEmailWatcher(emailAPI, watcher.EmailWatcherConfig{Username: acct.Username})
+			ew, err := watcher.NewEmailWatcher(emailAPI, watcher.EmailWatcherConfig{Username: acct.Username, WebURL: acct.WebURL})
 			if err != nil {
 				return fmt.Errorf("creating email watcher: %w", err)
 			}

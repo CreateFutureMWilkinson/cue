@@ -12,6 +12,7 @@ import (
 // SlackWatcherConfig holds the configuration needed by SlackWatcher.
 type SlackWatcherConfig struct {
 	WorkspaceID string
+	WebURL      string // Account-level URL stamped onto each message for UI deep-linking.
 }
 
 // Constants for Slack message types and status values
@@ -51,6 +52,7 @@ type SlackAPI interface {
 type SlackWatcher struct {
 	api           SlackAPI
 	workspaceID   string
+	webURL        string
 	knownChannels map[string]bool
 	lastTimestamp map[string]string
 }
@@ -67,6 +69,7 @@ func NewSlackWatcher(api SlackAPI, cfg SlackWatcherConfig) (*SlackWatcher, error
 	return &SlackWatcher{
 		api:           api,
 		workspaceID:   cfg.WorkspaceID,
+		webURL:        cfg.WebURL,
 		knownChannels: make(map[string]bool),
 		lastTimestamp: make(map[string]string),
 	}, nil
@@ -143,6 +146,7 @@ func (w *SlackWatcher) convertSlackMessage(ctx context.Context, slackMsg SlackMe
 		MessageType:   MessageTypeMsg,
 		SourceCursor:  slackMsg.Timestamp,
 		RawContent:    content,
+		WebURL:        w.webURL,
 		Status:        StatusPending,
 		CreatedAt:     time.Now(),
 	}
@@ -202,6 +206,7 @@ func (w *SlackWatcher) createChannelJoinMessage(channel SlackChannel) *repositor
 		MessageID:     channel.ID,
 		MessageType:   MessageTypeJoin,
 		RawContent:    fmt.Sprintf("Joined channel %s", channel.Name),
+		WebURL:        w.webURL,
 		Status:        StatusPending,
 		CreatedAt:     time.Now(),
 	}

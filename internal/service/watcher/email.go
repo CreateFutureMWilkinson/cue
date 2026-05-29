@@ -13,6 +13,7 @@ import (
 // EmailWatcherConfig holds the configuration needed by EmailWatcher.
 type EmailWatcherConfig struct {
 	Username string
+	WebURL   string // Account-level URL stamped onto each message for UI deep-linking.
 }
 
 const (
@@ -41,6 +42,7 @@ type EmailAPI interface {
 type EmailWatcher struct {
 	api      EmailAPI
 	username string
+	webURL   string
 	lastUID  uint32
 }
 
@@ -55,6 +57,7 @@ func NewEmailWatcher(api EmailAPI, cfg EmailWatcherConfig) (*EmailWatcher, error
 	return &EmailWatcher{
 		api:      api,
 		username: cfg.Username,
+		webURL:   cfg.WebURL,
 	}, nil
 }
 
@@ -100,6 +103,7 @@ func (w *EmailWatcher) convertEmailMessage(email EmailMessage) *repository.Messa
 		SourceCursor:  strconv.FormatUint(uint64(email.UID), 10),
 		Subject:       email.Subject,
 		RawContent:    content,
+		WebURL:        w.webURL,
 		Status:        StatusPending,
 		CreatedAt:     time.Now(),
 	}

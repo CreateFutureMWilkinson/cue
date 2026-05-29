@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"log/slog"
+	"net/url"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
@@ -8,6 +11,25 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
+
+// openWebURL returns a callback that opens the given URL in the user's default
+// browser via the Fyne application. Empty URLs are ignored so a notification
+// card without a deep link is a no-op rather than an error.
+func openWebURL(app fyne.App) func(string) {
+	return func(raw string) {
+		if raw == "" {
+			return
+		}
+		u, err := url.Parse(raw)
+		if err != nil {
+			slog.Warn("notification web_url parse failed", "url", raw, "error", err)
+			return
+		}
+		if err := app.OpenURL(u); err != nil {
+			slog.Warn("notification OpenURL failed", "url", raw, "error", err)
+		}
+	}
+}
 
 const (
 	// outerSplitOffset positions the focus rail at ~10% width.
@@ -140,6 +162,7 @@ func NewMainWindow(
 		notifPane = rightPanelOverride
 	} else if np != nil {
 		notifPanel = NewNotificationPanel(np, win)
+		notifPanel.SetOnNotificationClick(openWebURL(fyneApp))
 		notifPane = notifPanel.Container()
 	} else {
 		notifPane = widget.NewLabel("")

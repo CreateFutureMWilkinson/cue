@@ -97,6 +97,48 @@ func (s *MessagesAdapterSuite) TestRoundTrip() {
 	s.Equal(1, resolveCalls)
 }
 
+// AC: QueryByStatus surfaces Subject and WebURL on the repository.Message
+// so downstream presenters can render trimmed notification cards.
+func (s *MessagesAdapterSuite) TestQueryByStatusCarriesSubjectAndWebURL() {
+	id := uuid.New()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/messages", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		body := map[string]any{
+			"messages": []any{
+				map[string]any{
+					"id":               id.String(),
+					"source":           "email",
+					"source_account":   "user@example.com",
+					"sender":           "boss@example.com",
+					"channel":          "INBOX",
+					"subject":          "Q4 deadline",
+					"content":          "",
+					"web_url":          "https://mail.example.com/u/0/inbox",
+					"importance_score": 8.0,
+					"confidence_score": 0.9,
+					"status":           "Notified",
+					"created_at":       "2026-04-27T09:00:00Z",
+				},
+			},
+			"total": 1,
+		}
+		s.Require().NoError(json.NewEncoder(w).Encode(body))
+	})
+
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	mc := client.NewMessageClient(client.New(ts.URL))
+	a := adapters.NewMessagesAdapter(mc)
+
+	msgs, err := a.QueryByStatus(context.Background(), "Notified")
+	s.Require().NoError(err)
+	s.Require().Len(msgs, 1)
+	s.Equal("Q4 deadline", msgs[0].Subject)
+	s.Equal("https://mail.example.com/u/0/inbox", msgs[0].WebURL)
+}
+
 // AC: Update with an unsupported status surfaces a clear error so the
 // caller cannot accidentally fall through to a no-op.
 func (s *MessagesAdapterSuite) TestUpdateRejectsNonTerminalStatus() {

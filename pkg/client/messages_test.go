@@ -281,6 +281,43 @@ func (s *MessageSuite) TestListNotificationsDecodesResponse() {
 	s.Equal("2026-04-01T12:00:00Z", n.CreatedAt)
 }
 
+// TestListNotificationsDecodesSubjectAndWebURL verifies the SDK surfaces
+// the trimmed-notification fields the UI uses to render cards and click
+// through to the source.
+func (s *MessageSuite) TestListNotificationsDecodesSubjectAndWebURL() {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"notifications": []map[string]any{
+				{
+					"id":               testMessageID.String(),
+					"source":           "email",
+					"source_account":   "user@example.com",
+					"sender":           "boss@example.com",
+					"channel":          "INBOX",
+					"subject":          "Q4 deadline",
+					"content":          "",
+					"web_url":          "https://mail.example.com/u/0/inbox",
+					"importance_score": 8.0,
+					"confidence_score": 0.9,
+					"created_at":       "2026-04-01T12:00:00Z",
+				},
+			},
+			"total": 1,
+		})
+	}))
+	defer ts.Close()
+
+	mc := client.NewMessageClient(client.New(ts.URL))
+	notifs, _, err := mc.ListNotifications(context.Background(), client.ListOptions{})
+	s.Require().NoError(err)
+	s.Require().Len(notifs, 1)
+
+	s.Equal("Q4 deadline", notifs[0].Subject, "SDK must decode the subject field")
+	s.Equal("https://mail.example.com/u/0/inbox", notifs[0].WebURL, "SDK must decode the web_url field")
+}
+
 // TestGetNotificationReturnsDetail verifies that GetNotification issues
 // GET /api/v1/notifications/{id} and decodes the same MessageDetail shape
 // as GetMessage.

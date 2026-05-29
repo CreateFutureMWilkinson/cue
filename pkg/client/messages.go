@@ -25,7 +25,9 @@ type Message struct {
 	SourceAccount   string    `json:"source_account"`
 	Sender          string    `json:"sender"`
 	Channel         string    `json:"channel"`
+	Subject         string    `json:"subject"`
 	Content         string    `json:"content"`
+	WebURL          string    `json:"web_url"`
 	ImportanceScore float64   `json:"importance_score"`
 	ConfidenceScore float64   `json:"confidence_score"`
 	Status          string    `json:"status"`
@@ -41,7 +43,9 @@ type NotificationSummary struct {
 	SourceAccount   string    `json:"source_account"`
 	Sender          string    `json:"sender"`
 	Channel         string    `json:"channel"`
+	Subject         string    `json:"subject"`
 	Content         string    `json:"content"`
+	WebURL          string    `json:"web_url"`
 	ImportanceScore float64   `json:"importance_score"`
 	ConfidenceScore float64   `json:"confidence_score"`
 	CreatedAt       string    `json:"created_at"`

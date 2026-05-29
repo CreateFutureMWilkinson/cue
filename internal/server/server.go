@@ -102,15 +102,10 @@ func New(cfg config.ServerConfig, deps ...Deps) (*Server, error) {
 
 	pub := newHubPublisher(hub)
 	wsManager := handler.NewManager(pub)
-
-	// Set up WebSocket token validation when auth is enabled.
-	if cfg.AuthEnabled && d.AuthTokens != nil {
-		wsManager.SetTokenValidator(func(token string) bool {
-			h := hashToken(token)
-			t, err := d.AuthTokens.LookupByHash(context.Background(), h)
-			return err == nil && !t.Revoked
-		})
-	}
+	// WebSocket auth is handled by the global AuthMiddleware via the
+	// Authorization header on the upgrade request — the same path as
+	// the rest of the HTTP API. The handler-level TokenValidator is
+	// retained for tests but no longer wired in production.
 
 	var ps *pairingStoreAdapter
 	if cfg.AuthEnabled {

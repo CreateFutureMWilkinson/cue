@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -64,7 +65,9 @@ func (s *ActivitySuite) TestConnectEstablishesWebSocket() {
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.Equal("/api/v1/websocket/events", r.URL.Path)
-		sawToken.Store(r.URL.Query().Get("token"))
+		if h := r.Header.Get("Authorization"); h != "" {
+			sawToken.Store(strings.TrimPrefix(h, "Bearer "))
+		}
 
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {

@@ -3,6 +3,7 @@ package servicemanager
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -195,6 +196,10 @@ func (m *ServiceManager) CreateSlackAccount(ctx context.Context, acct *repositor
 		}
 	}
 
+	now := time.Now().UTC()
+	acct.CreatedAt = now
+	acct.UpdatedAt = now
+
 	if err := m.repo.UpsertSlackAccount(ctx, acct); err != nil {
 		return nil, fmt.Errorf("create slack account: %w", err)
 	}
@@ -238,6 +243,10 @@ func (m *ServiceManager) CreateEmailAccount(ctx context.Context, acct *repositor
 		}
 	}
 
+	now := time.Now().UTC()
+	acct.CreatedAt = now
+	acct.UpdatedAt = now
+
 	if err := m.repo.UpsertEmailAccount(ctx, acct); err != nil {
 		return nil, fmt.Errorf("create email account: %w", err)
 	}
@@ -274,6 +283,10 @@ func (m *ServiceManager) CreateCalendarAccount(ctx context.Context, acct *reposi
 			return nil, fmt.Errorf("create calendar account: validation failed: %w", err)
 		}
 	}
+
+	now := time.Now().UTC()
+	acct.CreatedAt = now
+	acct.UpdatedAt = now
 
 	if err := m.repo.UpsertCalendarAccount(ctx, acct); err != nil {
 		return nil, fmt.Errorf("create calendar account: %w", err)
@@ -530,6 +543,8 @@ func (m *ServiceManager) UpdateSlackAccount(ctx context.Context, id uuid.UUID, a
 		}
 	}
 
+	merged.UpdatedAt = time.Now().UTC()
+
 	if err := m.repo.UpsertSlackAccount(ctx, &merged); err != nil {
 		return nil, err
 	}
@@ -607,6 +622,8 @@ func (m *ServiceManager) UpdateEmailAccount(ctx context.Context, id uuid.UUID, a
 		}
 	}
 
+	merged.UpdatedAt = time.Now().UTC()
+
 	if err := m.repo.UpsertEmailAccount(ctx, &merged); err != nil {
 		return nil, err
 	}
@@ -657,6 +674,8 @@ func (m *ServiceManager) UpdateCalendarAccount(ctx context.Context, id uuid.UUID
 			return nil, fmt.Errorf("update calendar account: validation failed: %w", err)
 		}
 	}
+
+	merged.UpdatedAt = time.Now().UTC()
 
 	if err := m.repo.UpsertCalendarAccount(ctx, &merged); err != nil {
 		return nil, err

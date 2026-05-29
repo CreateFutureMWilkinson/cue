@@ -124,13 +124,14 @@ func (a *activityAdapter) Connect(ctx context.Context) error {
 		return ErrClosed
 	}
 
-	wsURL, err := buildWebSocketURL(a.client.baseURL, a.client.token)
+	wsURL, err := buildWebSocketURL(a.client.baseURL)
 	if err != nil {
 		a.mu.Unlock()
 		return fmt.Errorf("build websocket url: %w", err)
 	}
 
-	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	dialOpts := dialOptionsForToken(a.client.token)
+	conn, _, err := websocket.Dial(ctx, wsURL, dialOpts)
 	if err != nil {
 		a.mu.Unlock()
 		return fmt.Errorf("websocket dial: %w", err)
@@ -178,7 +179,7 @@ func (a *activityAdapter) manageConnection(ctx context.Context, wsURL string, in
 			return
 		}
 
-		newConn, _, err := websocket.Dial(ctx, wsURL, nil)
+		newConn, _, err := websocket.Dial(ctx, wsURL, dialOptionsForToken(a.client.token))
 		if err != nil {
 			// Double the backoff, capped at backoffMax.
 			backoff *= 2
@@ -270,9 +271,12 @@ func (a *activityAdapter) readLoop(ctx context.Context, conn *websocket.Conn) {
 	}
 }
 
-// buildWebSocketURL converts an http(s) base URL into a ws(s) URL for the
-// event stream endpoint, appending the token as a query parameter when set.
-func buildWebSocketURL(baseURL, token string) (string, error) {
+// buildWebSocketURL converts an http(s) base URL into a ws(s) URL for
+// the event stream endpoint. Authentication is carried in the
+// Authorization header on the upgrade request (see dialOptionsForToken),
+// matching the rest of the HTTP API rather than the legacy ?token= query
+// param.
+func buildWebSocketURL(baseURL string) (string, error) {
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return "", err
@@ -288,10 +292,18 @@ func buildWebSocketURL(baseURL, token string) (string, error) {
 		return "", fmt.Errorf("unsupported scheme: %s", u.Scheme)
 	}
 	u.Path = "/api/v1/websocket/events"
-	q := u.Query()
-	if token != "" {
-		q.Set("token", token)
-	}
-	u.RawQuery = q.Encode()
+	u.RawQuery = ""
 	return u.String(), nil
+}
+
+// dialOptionsForToken returns websocket.DialOptions carrying the Bearer
+// token on the upgrade request's Authorization header. Returns nil when
+// the token is empty so unauthenticated dials still work in tests.
+func dialOptionsForToken(token string) *websocket.DialOptions {
+	if token == "" {
+		return nil
+	}
+	return &websocket.DialOptions{
+		HTTPHeader: http.Header{"Authorization": []string{"Bearer " + token}},
+	}
 }

@@ -265,3 +265,12 @@ func (m *MainWindow) Run() {
 func (m *MainWindow) Show() {
 	m.window.Show()
 }
+
+// SetCloseIntercept registers a callback that runs when the user closes
+// the main window. Fyne treats the boot window as the master, so the
+// app does not quit by default when the main window is closed; the
+// caller installs an intercept that calls fyneApp.Quit to drive
+// shutdown.
+func (m *MainWindow) SetCloseIntercept(fn func()) {
+	m.window.SetCloseIntercept(fn)
+}

@@ -50,21 +50,24 @@ func (s *ServiceConfigSuite) TestListSlackAccountsReturnsArray() {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode([]map[string]any{
-			{
-				"id":           testSlackAccountID.String(),
-				"name":         "Primary workspace",
-				"workspace_id": "T12345",
-				"enabled":      true,
-				"created_at":   "2026-04-20T10:00:00Z",
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"accounts": []map[string]any{
+				{
+					"id":           testSlackAccountID.String(),
+					"name":         "Primary workspace",
+					"workspace_id": "T12345",
+					"enabled":      true,
+					"created_at":   "2026-04-20T10:00:00Z",
+				},
+				{
+					"id":           secondID.String(),
+					"name":         "Side gig",
+					"workspace_id": "T67890",
+					"enabled":      false,
+					"created_at":   "2026-04-21T11:00:00Z",
+				},
 			},
-			{
-				"id":           secondID.String(),
-				"name":         "Side gig",
-				"workspace_id": "T67890",
-				"enabled":      false,
-				"created_at":   "2026-04-21T11:00:00Z",
-			},
+			"count": 2,
 		})
 	}))
 	defer ts.Close()
@@ -359,17 +362,20 @@ func (s *ServiceConfigSuite) TestListEmailAccountsReturnsArray() {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode([]map[string]any{
-			{
-				"id":         testEmailAccountID.String(),
-				"name":       "Work inbox",
-				"imap_host":  "mail.example.com",
-				"imap_port":  993,
-				"username":   "me@example.com",
-				"encryption": "tls",
-				"enabled":    true,
-				"created_at": "2026-04-20T10:00:00Z",
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"accounts": []map[string]any{
+				{
+					"id":         testEmailAccountID.String(),
+					"name":       "Work inbox",
+					"imap_host":  "mail.example.com",
+					"imap_port":  993,
+					"username":   "me@example.com",
+					"encryption": "tls",
+					"enabled":    true,
+					"created_at": "2026-04-20T10:00:00Z",
+				},
 			},
+			"count": 1,
 		})
 	}))
 	defer ts.Close()

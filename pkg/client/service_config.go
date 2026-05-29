@@ -170,13 +170,21 @@ func servicePath(basePath string, id uuid.UUID) string {
 	return basePath + "/" + id.String()
 }
 
-// doServiceList performs a GET request to list all accounts for a service type.
+// doServiceList performs a GET request to list all accounts for a service
+// type. The server wraps list responses as {"accounts": [...], "count": N}
+// (see internal/server/handler/service.go); the count field is unused by
+// the SDK.
 func doServiceList[T any](ctx context.Context, client *APIClient, basePath string) ([]T, error) {
-	var accounts []T
-	if err := client.doJSON(ctx, http.MethodGet, basePath, nil, &accounts); err != nil {
+	var resp struct {
+		Accounts []T `json:"accounts"`
+	}
+	if err := client.doJSON(ctx, http.MethodGet, basePath, nil, &resp); err != nil {
 		return nil, err
 	}
-	return accounts, nil
+	if resp.Accounts == nil {
+		return []T{}, nil
+	}
+	return resp.Accounts, nil
 }
 
 // doServiceGet performs a GET request to retrieve a single account by ID.

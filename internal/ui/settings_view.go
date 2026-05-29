@@ -82,7 +82,6 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 			encryption = "ssl_tls"
 		}
 		acct := &repository.EmailAccount{
-			ID:                  uuid.New(),
 			Enabled:             true,
 			FriendlyName:        friendlyNameEntry.Text,
 			WebURL:              webURLEntry.Text,
@@ -158,7 +157,6 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 			return
 		}
 		acct := &repository.SlackAccount{
-			ID:                  uuid.New(),
 			Enabled:             true,
 			FriendlyName:        friendlyNameEntry.Text,
 			WebURL:              webURLEntry.Text,
@@ -243,7 +241,6 @@ func createCalendarAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved 
 			return
 		}
 		acct := &repository.CalendarAccount{
-			ID:                  uuid.New(),
 			Enabled:             true,
 			Name:                nameEntry.Text,
 			ICSURL:              urlEntry.Text,

@@ -463,13 +463,14 @@ func runUIWithSDK(ctx context.Context, cfg *config.Config, api *client.APIClient
 	go consumeAlerts(ctx, activityAdapter.SubscribeAlerts(), alertSvc)
 
 	// Signal handler for graceful shutdown.
-	sigHandler := shutdown.NewSignalHandler(fyneApp.Quit)
+	sigHandler := shutdown.NewSignalHandler(func() { fyne.Do(fyneApp.Quit) })
 	sigHandler.Start(ctx)
 
 	// Show the real window and hide the boot screen. The shared
 	// event loop (driven by bootWin.ShowAndRun in runUI) continues
 	// to dispatch events for the main window.
 	mainWindow.Show()
+	mainWindow.SetCloseIntercept(fyneApp.Quit)
 	bootWin.Hide()
 
 	// Register graceful shutdown to fire when the user closes the

@@ -40,14 +40,17 @@ func (s *ServiceConfigAdapterSuite) TestSlackRoundTrip() {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.Method {
 		case http.MethodGet:
-			s.Require().NoError(json.NewEncoder(w).Encode([]any{
-				map[string]any{
-					"id":           id.String(),
-					"name":         "Test Workspace",
-					"workspace_id": "T123",
-					"enabled":      true,
-					"created_at":   "2026-04-27T08:00:00Z",
+			s.Require().NoError(json.NewEncoder(w).Encode(map[string]any{
+				"accounts": []any{
+					map[string]any{
+						"id":           id.String(),
+						"name":         "Test Workspace",
+						"workspace_id": "T123",
+						"enabled":      true,
+						"created_at":   "2026-04-27T08:00:00Z",
+					},
 				},
+				"count": 1,
 			}))
 		case http.MethodPost:
 			s.Require().NoError(json.NewDecoder(r.Body).Decode(&lastCreate))
@@ -155,17 +158,20 @@ func (s *ServiceConfigAdapterSuite) TestEmailMinimalRoundTrip() {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.Method {
 		case http.MethodGet:
-			s.Require().NoError(json.NewEncoder(w).Encode([]any{
-				map[string]any{
-					"id":         id.String(),
-					"name":       "Personal",
-					"imap_host":  "imap.example.com",
-					"imap_port":  993,
-					"username":   "alice@example.com",
-					"encryption": "tls",
-					"enabled":    true,
-					"created_at": "2026-04-27T08:00:00Z",
+			s.Require().NoError(json.NewEncoder(w).Encode(map[string]any{
+				"accounts": []any{
+					map[string]any{
+						"id":         id.String(),
+						"name":       "Personal",
+						"imap_host":  "imap.example.com",
+						"imap_port":  993,
+						"username":   "alice@example.com",
+						"encryption": "tls",
+						"enabled":    true,
+						"created_at": "2026-04-27T08:00:00Z",
+					},
 				},
+				"count": 1,
 			}))
 		case http.MethodPost:
 			s.Require().NoError(json.NewDecoder(r.Body).Decode(&lastCreate))

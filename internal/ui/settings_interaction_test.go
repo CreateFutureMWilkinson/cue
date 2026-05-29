@@ -36,9 +36,8 @@ func (s *SettingsInteractionSuite) SetupTest() {
 	s.sp = sp
 
 	repo := &stubServiceConfigRepo{}
-	mgr := &stubWatcherRemover{}
-	factory := func(_ string, _ uuid.UUID) error { return nil }
-	ssp := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	mgr := &stubWatcherToggler{}
+	ssp := presenter.NewServiceSettingsPresenter(repo, mgr)
 
 	s.sv = ui.NewSettingsView(sp, ssp, nil, config.OllamaConfig{
 		Host:           "localhost",
@@ -208,7 +207,7 @@ func (s *SettingsInteractionSuite) TestSettingsViewContainsDoneButton() {
 func (s *SettingsInteractionSuite) TestDoneButtonCallsOnClose() {
 	closeCalled := false
 	sv := ui.NewSettingsView(s.sp,
-		presenter.NewServiceSettingsPresenter(&stubServiceConfigRepo{}, &stubWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil }),
+		presenter.NewServiceSettingsPresenter(&stubServiceConfigRepo{}, &stubWatcherToggler{}),
 		nil,
 		config.OllamaConfig{},
 		func() { closeCalled = true },
@@ -561,9 +560,8 @@ func (s *SettingsInteractionSuite) TestSlackTabShowsEmptyStateWhenNoAccounts() {
 func (s *SettingsInteractionSuite) TestEmailFormSavesMappedEncryptionValue() {
 	// Create a fresh settings view with a capturing repo
 	repo := &stubServiceConfigRepo{}
-	mgr := &stubWatcherRemover{}
-	factory := func(_ string, _ uuid.UUID) error { return nil }
-	ssp := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	mgr := &stubWatcherToggler{}
+	ssp := presenter.NewServiceSettingsPresenter(repo, mgr)
 	vc := &stubVolumeController{}
 	sp, _ := presenter.NewSettingsPresenter(vc, 50, &stubVolumeController{}, 50)
 	sv := ui.NewSettingsView(sp, ssp, nil, config.OllamaConfig{}, func() {})
@@ -692,9 +690,8 @@ func (s *SettingsInteractionSuite) TestSlackAccountListRendersDeleteButton() {
 			},
 		},
 	}
-	mgr := &stubWatcherRemover{}
-	factory := func(_ string, _ uuid.UUID) error { return nil }
-	ssp := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	mgr := &stubWatcherToggler{}
+	ssp := presenter.NewServiceSettingsPresenter(repo, mgr)
 	vc := &stubVolumeController{}
 	sp, _ := presenter.NewSettingsPresenter(vc, 50, &stubVolumeController{}, 50)
 	sv := ui.NewSettingsView(sp, ssp, nil, config.OllamaConfig{}, func() {})

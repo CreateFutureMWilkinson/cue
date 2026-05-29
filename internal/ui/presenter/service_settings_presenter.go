@@ -16,13 +16,23 @@ const (
 	DefaultCalendarPollInterval = 600
 )
 
-// WatcherRemover is the minimal interface the presenter needs for managing watchers.
-type WatcherRemover interface {
-	RemoveWatcher(name string)
+// AccountWatcherToggler toggles the server-side watcher associated
+// with a service account. Per Feature 107 Decision 7 (revised), this
+// replaces the legacy WatcherRemover interface and WatcherFactory
+// closure: starting a watcher is SetXEnabled(ctx, id, true) and
+// stopping one is SetXEnabled(ctx, id, false). The single-method-per-
+// type shape mirrors the SDK's ServiceConfigClient and avoids the
+// runtime account-type switch the legacy factory required.
+//
+// SetCalendarEnabled is included for symmetry with the SDK shape;
+// today's presenter only calls SetSlackEnabled and SetEmailEnabled
+// because calendar accounts are fetched on demand by the planner
+// rather than driven by a long-running watcher.
+type AccountWatcherToggler interface {
+	SetSlackEnabled(ctx context.Context, id uuid.UUID, enabled bool) error
+	SetEmailEnabled(ctx context.Context, id uuid.UUID, enabled bool) error
+	SetCalendarEnabled(ctx context.Context, id uuid.UUID, enabled bool) error
 }
-
-// WatcherFactory creates and registers a watcher for the given account type and ID.
-type WatcherFactory func(accountType string, accountID uuid.UUID) error
 
 // SlackValidator validates Slack credentials before saving.
 type SlackValidator interface {
@@ -66,19 +76,17 @@ func WithCalendarValidator(v CalendarValidator) ServiceSettingsOption {
 // ServiceSettingsPresenter mediates between the UI and the service config repository.
 type ServiceSettingsPresenter struct {
 	repo              repository.ServiceConfigRepository
-	mgr               WatcherRemover
-	factory           WatcherFactory
+	toggler           AccountWatcherToggler
 	slackValidator    SlackValidator
 	emailValidator    EmailValidator
 	calendarValidator CalendarValidator
 }
 
 // NewServiceSettingsPresenter constructs a ServiceSettingsPresenter.
-func NewServiceSettingsPresenter(repo repository.ServiceConfigRepository, mgr WatcherRemover, factory WatcherFactory, opts ...ServiceSettingsOption) *ServiceSettingsPresenter {
+func NewServiceSettingsPresenter(repo repository.ServiceConfigRepository, toggler AccountWatcherToggler, opts ...ServiceSettingsOption) *ServiceSettingsPresenter {
 	p := &ServiceSettingsPresenter{
 		repo:    repo,
-		mgr:     mgr,
-		factory: factory,
+		toggler: toggler,
 	}
 	for _, opt := range opts {
 		opt(p)
@@ -112,8 +120,8 @@ func (p *ServiceSettingsPresenter) SaveSlackAccount(ctx context.Context, acct *r
 	if err := p.repo.UpsertSlackAccount(ctx, acct); err != nil {
 		return fmt.Errorf("saving slack account: %w", err)
 	}
-	if err := p.factory("slack", acct.ID); err != nil {
-		return fmt.Errorf("creating slack watcher: %w", err)
+	if err := p.toggler.SetSlackEnabled(ctx, acct.ID, true); err != nil {
+		return fmt.Errorf("starting slack watcher: %w", err)
 	}
 	return nil
 }
@@ -134,14 +142,18 @@ func (p *ServiceSettingsPresenter) SaveEmailAccount(ctx context.Context, acct *r
 	if err := p.repo.UpsertEmailAccount(ctx, acct); err != nil {
 		return fmt.Errorf("saving email account: %w", err)
 	}
-	if err := p.factory("email", acct.ID); err != nil {
-		return fmt.Errorf("creating email watcher: %w", err)
+	if err := p.toggler.SetEmailEnabled(ctx, acct.ID, true); err != nil {
+		return fmt.Errorf("starting email watcher: %w", err)
 	}
 	return nil
 }
 
-// EditSlackAccount persists changes, removes the old watcher, and starts a new one.
+// EditSlackAccount persists changes and re-asserts the watcher state.
+// oldWorkspaceID is retained on the signature for callers that pre-date
+// the SDK-keyed toggle; the value is no longer needed because the
+// server toggle is keyed by acct.ID.
 func (p *ServiceSettingsPresenter) EditSlackAccount(ctx context.Context, acct *repository.SlackAccount, oldWorkspaceID string) error {
+	_ = oldWorkspaceID
 	if p.slackValidator != nil {
 		if err := p.slackValidator.ValidateSlack(ctx, acct.Token); err != nil {
 			return fmt.Errorf("slack credential validation failed: %w", err)
@@ -150,9 +162,8 @@ func (p *ServiceSettingsPresenter) EditSlackAccount(ctx context.Context, acct *r
 	if err := p.repo.UpsertSlackAccount(ctx, acct); err != nil {
 		return fmt.Errorf("updating slack account: %w", err)
 	}
-	p.mgr.RemoveWatcher(slackWatcherName(oldWorkspaceID))
-	if err := p.factory("slack", acct.ID); err != nil {
-		return fmt.Errorf("creating slack watcher: %w", err)
+	if err := p.toggler.SetSlackEnabled(ctx, acct.ID, true); err != nil {
+		return fmt.Errorf("restarting slack watcher: %w", err)
 	}
 	return nil
 }
@@ -167,33 +178,32 @@ func (p *ServiceSettingsPresenter) EditEmailAccount(ctx context.Context, acct *r
 	if err := p.repo.UpsertEmailAccount(ctx, acct); err != nil {
 		return fmt.Errorf("updating email account: %w", err)
 	}
-	p.mgr.RemoveWatcher(emailWatcherName(oldUsername))
-	if err := p.factory("email", acct.ID); err != nil {
-		return fmt.Errorf("creating email watcher: %w", err)
+	_ = oldUsername // legacy parameter; the server toggle is keyed by acct.ID now
+	if err := p.toggler.SetEmailEnabled(ctx, acct.ID, true); err != nil {
+		return fmt.Errorf("restarting email watcher: %w", err)
 	}
 	return nil
 }
 
-// DeleteSlackAccount removes the watcher and deletes the account from the repository.
+// DeleteSlackAccount stops the watcher (if running) and deletes the
+// account from the repository. The legacy GetSlackAccount lookup is
+// gone — the toggle and delete endpoints both 404 cleanly on unknown
+// IDs, so a separate existence check is redundant.
 func (p *ServiceSettingsPresenter) DeleteSlackAccount(ctx context.Context, id uuid.UUID) error {
-	acct, err := p.repo.GetSlackAccount(ctx, id)
-	if err != nil {
-		return fmt.Errorf("getting slack account for delete: %w", err)
+	if err := p.toggler.SetSlackEnabled(ctx, id, false); err != nil {
+		return fmt.Errorf("stopping slack watcher: %w", err)
 	}
-	p.mgr.RemoveWatcher(slackWatcherName(acct.WorkspaceID))
 	if err := p.repo.DeleteSlackAccount(ctx, id); err != nil {
 		return fmt.Errorf("deleting slack account: %w", err)
 	}
 	return nil
 }
 
-// DeleteEmailAccount removes the watcher and deletes the account from the repository.
+// DeleteEmailAccount stops the watcher and deletes the account.
 func (p *ServiceSettingsPresenter) DeleteEmailAccount(ctx context.Context, id uuid.UUID) error {
-	acct, err := p.repo.GetEmailAccount(ctx, id)
-	if err != nil {
-		return fmt.Errorf("getting email account for delete: %w", err)
+	if err := p.toggler.SetEmailEnabled(ctx, id, false); err != nil {
+		return fmt.Errorf("stopping email watcher: %w", err)
 	}
-	p.mgr.RemoveWatcher(emailWatcherName(acct.Username))
 	if err := p.repo.DeleteEmailAccount(ctx, id); err != nil {
 		return fmt.Errorf("deleting email account: %w", err)
 	}
@@ -210,12 +220,8 @@ func (p *ServiceSettingsPresenter) ToggleSlackAccount(ctx context.Context, id uu
 	if err := p.repo.UpsertSlackAccount(ctx, acct); err != nil {
 		return fmt.Errorf("updating slack account: %w", err)
 	}
-	if enabled {
-		if err := p.factory("slack", acct.ID); err != nil {
-			return fmt.Errorf("creating slack watcher: %w", err)
-		}
-	} else {
-		p.mgr.RemoveWatcher(slackWatcherName(acct.WorkspaceID))
+	if err := p.toggler.SetSlackEnabled(ctx, acct.ID, enabled); err != nil {
+		return fmt.Errorf("toggling slack watcher: %w", err)
 	}
 	return nil
 }
@@ -230,12 +236,8 @@ func (p *ServiceSettingsPresenter) ToggleEmailAccount(ctx context.Context, id uu
 	if err := p.repo.UpsertEmailAccount(ctx, acct); err != nil {
 		return fmt.Errorf("updating email account: %w", err)
 	}
-	if enabled {
-		if err := p.factory("email", acct.ID); err != nil {
-			return fmt.Errorf("creating email watcher: %w", err)
-		}
-	} else {
-		p.mgr.RemoveWatcher(emailWatcherName(acct.Username))
+	if err := p.toggler.SetEmailEnabled(ctx, acct.ID, enabled); err != nil {
+		return fmt.Errorf("toggling email watcher: %w", err)
 	}
 	return nil
 }
@@ -298,9 +300,6 @@ func (p *ServiceSettingsPresenter) ToggleCalendarAccount(ctx context.Context, id
 	}
 	return nil
 }
-
-func slackWatcherName(workspaceID string) string { return "slack:" + workspaceID }
-func emailWatcherName(username string) string    { return "email:" + username }
 
 func validateSlackAccount(acct *repository.SlackAccount) error {
 	if acct.Token == "" {

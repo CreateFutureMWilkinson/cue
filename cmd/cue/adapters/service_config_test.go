@@ -136,10 +136,10 @@ func (s *ServiceConfigAdapterSuite) TestSlackRoundTrip() {
 	s.Require().NoError(a.DeleteSlackAccount(ctx, id))
 	s.Equal(1, deleteCalls)
 
-	// RemoveWatcher routes "slack:T123" → ToggleSlackAccount(id, false).
-	a.RemoveWatcher("slack:T123")
+	// SetSlackEnabled(false) routes to ToggleSlackAccount.
+	s.Require().NoError(a.SetSlackEnabled(ctx, id, false))
 	s.Require().NotNil(lastToggle)
-	s.False(*lastToggle, "RemoveWatcher must call toggle with enabled=false")
+	s.False(*lastToggle, "SetSlackEnabled(false) must call toggle with enabled=false")
 }
 
 // AC: Email list/upsert(create)/delete and RemoveWatcher routing on
@@ -220,17 +220,30 @@ func (s *ServiceConfigAdapterSuite) TestEmailMinimalRoundTrip() {
 	s.Require().NoError(a.UpsertEmailAccount(ctx, fresh))
 	s.Equal("s3cret", lastCreate.Password)
 
-	// RemoveWatcher matches by username.
-	a.RemoveWatcher("email:alice@example.com")
+	// SetEmailEnabled(false) routes to ToggleEmailAccount.
+	s.Require().NoError(a.SetEmailEnabled(ctx, id, false))
 	s.True(sawToggle)
 	s.False(toggleEnabled)
 }
 
-// AC: an unknown watcher name is a silent no-op rather than a panic.
-func (s *ServiceConfigAdapterSuite) TestRemoveWatcherUnknownIsNoop() {
+// AC: SetCalendarEnabled is wired even though the presenter doesn't
+// currently consume it — the SDK and interface symmetry call for it.
+func (s *ServiceConfigAdapterSuite) TestSetCalendarEnabledRoutesToToggle() {
+	id := uuid.New()
+	var sawToggle bool
+	var enabled bool
+
 	mux := http.NewServeMux()
-	// No handlers registered: any request would 404, but the adapter
-	// should never reach a network call for an unparseable name.
+	mux.HandleFunc("/api/v1/services/calendar/"+id.String()+"/toggle", func(w http.ResponseWriter, r *http.Request) {
+		s.Equal(http.MethodPost, r.Method)
+		var req struct {
+			Enabled bool `json:"enabled"`
+		}
+		s.Require().NoError(json.NewDecoder(r.Body).Decode(&req))
+		sawToggle = true
+		enabled = req.Enabled
+		w.WriteHeader(http.StatusNoContent)
+	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
 
@@ -238,9 +251,7 @@ func (s *ServiceConfigAdapterSuite) TestRemoveWatcherUnknownIsNoop() {
 	api.SetToken("test-token")
 	a := adapters.NewServiceConfigAdapter(client.NewServiceConfigClient(api))
 
-	// Empty name, missing colon, empty key — all swallowed.
-	a.RemoveWatcher("")
-	a.RemoveWatcher("malformed")
-	a.RemoveWatcher("slack:")
-	// No assertion needed: the test passes as long as we don't panic.
+	s.Require().NoError(a.SetCalendarEnabled(context.Background(), id, true))
+	s.True(sawToggle)
+	s.True(enabled)
 }

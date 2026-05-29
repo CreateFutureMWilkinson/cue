@@ -61,9 +61,17 @@ func (s *stubServiceConfigRepo) DeleteCalendarAccount(_ context.Context, _ uuid.
 	return nil
 }
 
-type stubWatcherRemover struct{}
+type stubWatcherToggler struct{}
 
-func (s *stubWatcherRemover) RemoveWatcher(_ string) {}
+func (s *stubWatcherToggler) SetSlackEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
+	return nil
+}
+func (s *stubWatcherToggler) SetEmailEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
+	return nil
+}
+func (s *stubWatcherToggler) SetCalendarEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
+	return nil
+}
 
 // --- SettingsViewSuite ---
 
@@ -85,9 +93,8 @@ func (s *SettingsViewSuite) SetupTest() {
 	s.sp = sp
 
 	repo := &stubServiceConfigRepo{}
-	mgr := &stubWatcherRemover{}
-	factory := func(_ string, _ uuid.UUID) error { return nil }
-	s.ssp = presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	mgr := &stubWatcherToggler{}
+	s.ssp = presenter.NewServiceSettingsPresenter(repo, mgr)
 
 	s.ollamaCfg = config.OllamaConfig{}
 }

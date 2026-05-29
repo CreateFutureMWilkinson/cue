@@ -142,10 +142,14 @@ func (m *mockActivitySource) Events() <-chan presenter.ActivityEvent {
 	return m.ch
 }
 
-// mockWatcherRemover satisfies presenter.WatcherRemover.
-type mockWatcherRemover struct{}
+// mockWatcherToggler satisfies presenter.AccountWatcherToggler with
+// no-op Set methods (the UI acceptance suite does not assert on
+// watcher state changes — it only needs the constructor to accept it).
+type mockWatcherToggler struct{}
 
-func (m *mockWatcherRemover) RemoveWatcher(_ string) {}
+func (m *mockWatcherToggler) SetSlackEnabled(_ context.Context, _ uuid.UUID, _ bool) error { return nil }
+func (m *mockWatcherToggler) SetEmailEnabled(_ context.Context, _ uuid.UUID, _ bool) error { return nil }
+func (m *mockWatcherToggler) SetCalendarEnabled(_ context.Context, _ uuid.UUID, _ bool) error { return nil }
 
 // stubPlannerTimerVM satisfies both PlannerViewModel and TimerViewModel.
 type stubPlannerTimerVM struct {
@@ -416,7 +420,7 @@ func newMainWindowWithWizard(fyneApp fyne.App, router *ui.CenterViewRouter, wiza
 func newSettingsView() *ui.SettingsView {
 	vc := &mockVolumeController{}
 	sp, _ := presenter.NewSettingsPresenter(vc, 50, &mockVolumeController{}, 50)
-	ssp := presenter.NewServiceSettingsPresenter(&mockServiceConfigRepo{}, &mockWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil })
+	ssp := presenter.NewServiceSettingsPresenter(&mockServiceConfigRepo{}, &mockWatcherToggler{})
 	return ui.NewSettingsView(sp, ssp, nil, defaultOllamaConfig(), func() {})
 }
 
@@ -424,7 +428,7 @@ func newSettingsView() *ui.SettingsView {
 func newSettingsViewWithRepo(repo *mockServiceConfigRepo, opts ...presenter.ServiceSettingsOption) *ui.SettingsView {
 	vc := &mockVolumeController{}
 	sp, _ := presenter.NewSettingsPresenter(vc, 50, &mockVolumeController{}, 50)
-	ssp := presenter.NewServiceSettingsPresenter(repo, &mockWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil }, opts...)
+	ssp := presenter.NewServiceSettingsPresenter(repo, &mockWatcherToggler{}, opts...)
 	return ui.NewSettingsView(sp, ssp, nil, defaultOllamaConfig(), func() {})
 }
 
@@ -432,7 +436,7 @@ func newSettingsViewWithRepo(repo *mockServiceConfigRepo, opts ...presenter.Serv
 func newSettingsViewWithRules(ruleRepo *mockRoutingRuleRepo, queueRepo *mockQueueRepo, warnAt int) *ui.SettingsView {
 	vc := &mockVolumeController{}
 	sp, _ := presenter.NewSettingsPresenter(vc, 50, &mockVolumeController{}, 50)
-	ssp := presenter.NewServiceSettingsPresenter(&mockServiceConfigRepo{}, &mockWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil })
+	ssp := presenter.NewServiceSettingsPresenter(&mockServiceConfigRepo{}, &mockWatcherToggler{})
 	rp := presenter.NewRulesPresenter(ruleRepo, queueRepo, warnAt)
 	return ui.NewSettingsView(sp, ssp, rp, defaultOllamaConfig(), func() {})
 }

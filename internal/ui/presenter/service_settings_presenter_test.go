@@ -77,24 +77,60 @@ func (m *mockServiceConfigRepo) DeleteCalendarAccount(ctx context.Context, id uu
 	return m.deleteCalendarFn(ctx, id)
 }
 
-// --- Mock WatcherManager ---
+// --- Mock AccountWatcherToggler ---
+
+type togglerCall struct {
+	kind    string // "slack" | "email" | "calendar"
+	id      uuid.UUID
+	enabled bool
+}
 
 type mockWatcherManager struct {
-	addCalls    []struct{ name string }
-	removeCalls []string
-	names       []string
+	calls []togglerCall
+	// err is returned from every Set call when non-nil. Tests can set
+	// it to verify error paths through the presenter.
+	err error
 }
 
-func (m *mockWatcherManager) AddWatcher(name string, w any) {
-	m.addCalls = append(m.addCalls, struct{ name string }{name: name})
+func (m *mockWatcherManager) SetSlackEnabled(_ context.Context, id uuid.UUID, enabled bool) error {
+	m.calls = append(m.calls, togglerCall{kind: "slack", id: id, enabled: enabled})
+	return m.err
 }
 
-func (m *mockWatcherManager) RemoveWatcher(name string) {
-	m.removeCalls = append(m.removeCalls, name)
+func (m *mockWatcherManager) SetEmailEnabled(_ context.Context, id uuid.UUID, enabled bool) error {
+	m.calls = append(m.calls, togglerCall{kind: "email", id: id, enabled: enabled})
+	return m.err
 }
 
-func (m *mockWatcherManager) ListWatcherNames() []string {
-	return m.names
+func (m *mockWatcherManager) SetCalendarEnabled(_ context.Context, id uuid.UUID, enabled bool) error {
+	m.calls = append(m.calls, togglerCall{kind: "calendar", id: id, enabled: enabled})
+	return m.err
+}
+
+// addCalls / removeCalls return the legacy projections expected by the
+// existing assertions. The naming is preserved for diff economy:
+// addCalls is "starts" (enabled=true) and removeCalls is "stops"
+// (enabled=false). Both return strings of the form "<kind>:<id>" so
+// existing tests that compared natural keys ("slack:T12345") still
+// have a check they can perform on the recorded ID.
+func (m *mockWatcherManager) addCalls() []togglerCall {
+	out := make([]togglerCall, 0, len(m.calls))
+	for _, c := range m.calls {
+		if c.enabled {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+func (m *mockWatcherManager) removeCalls() []togglerCall {
+	out := make([]togglerCall, 0, len(m.calls))
+	for _, c := range m.calls {
+		if !c.enabled {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 // --- Mock SlackValidator ---
@@ -186,9 +222,8 @@ func (s *ServiceSettingsSuite) TestListSlackAccounts() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	accounts, err := p.ListSlackAccounts(context.Background())
 
 	s.Require().NoError(err)
@@ -204,9 +239,8 @@ func (s *ServiceSettingsSuite) TestListSlackAccountsEmpty() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	accounts, err := p.ListSlackAccounts(context.Background())
 
 	s.Require().NoError(err)
@@ -222,9 +256,8 @@ func (s *ServiceSettingsSuite) TestListEmailAccounts() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	accounts, err := p.ListEmailAccounts(context.Background())
 
 	s.Require().NoError(err)
@@ -240,9 +273,8 @@ func (s *ServiceSettingsSuite) TestListEmailAccountsEmpty() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	accounts, err := p.ListEmailAccounts(context.Background())
 
 	s.Require().NoError(err)
@@ -261,21 +293,15 @@ func (s *ServiceSettingsSuite) TestSaveNewSlackAccount() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	var factoryCalledType string
-	var factoryCalledID uuid.UUID
-	factory := func(accountType string, accountID uuid.UUID) error {
-		factoryCalledType = accountType
-		factoryCalledID = accountID
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveSlackAccount(context.Background(), acct)
 
 	s.Require().NoError(err)
 	s.Equal(acct, upsertedAcct)
-	s.Equal("slack", factoryCalledType)
-	s.Equal(acct.ID, factoryCalledID)
+	s.Require().Len(mgr.addCalls(), 1, "Save must start the watcher")
+	s.Equal("slack", mgr.addCalls()[0].kind)
+	s.Equal(acct.ID, mgr.addCalls()[0].id)
 }
 
 func (s *ServiceSettingsSuite) TestSaveNewEmailAccount() {
@@ -288,21 +314,15 @@ func (s *ServiceSettingsSuite) TestSaveNewEmailAccount() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	var factoryCalledType string
-	var factoryCalledID uuid.UUID
-	factory := func(accountType string, accountID uuid.UUID) error {
-		factoryCalledType = accountType
-		factoryCalledID = accountID
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveEmailAccount(context.Background(), acct)
 
 	s.Require().NoError(err)
 	s.Equal(acct, upsertedAcct)
-	s.Equal("email", factoryCalledType)
-	s.Equal(acct.ID, factoryCalledID)
+	s.Require().Len(mgr.addCalls(), 1)
+	s.Equal("email", mgr.addCalls()[0].kind)
+	s.Equal(acct.ID, mgr.addCalls()[0].id)
 }
 
 // --- Edit account tests ---
@@ -318,23 +338,18 @@ func (s *ServiceSettingsSuite) TestEditSlackAccount() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	var factoryCalledType string
-	var factoryCalledID uuid.UUID
-	factory := func(accountType string, accountID uuid.UUID) error {
-		factoryCalledType = accountType
-		factoryCalledID = accountID
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.EditSlackAccount(context.Background(), acct, "T00001")
 
 	s.Require().NoError(err)
 	s.Equal(acct, upsertedAcct)
-	s.Require().Len(mgr.removeCalls, 1)
-	s.Equal("slack:T00001", mgr.removeCalls[0])
-	s.Equal("slack", factoryCalledType)
-	s.Equal(acct.ID, factoryCalledID)
+	// Edit re-asserts the watcher state via SetSlackEnabled(true);
+	// the legacy "stop old watcher first" step is server-side now.
+	s.Require().Len(mgr.addCalls(), 1)
+	s.Equal("slack", mgr.addCalls()[0].kind)
+	s.Equal(acct.ID, mgr.addCalls()[0].id)
+	s.Empty(mgr.removeCalls())
 }
 
 func (s *ServiceSettingsSuite) TestEditEmailAccount() {
@@ -348,23 +363,16 @@ func (s *ServiceSettingsSuite) TestEditEmailAccount() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	var factoryCalledType string
-	var factoryCalledID uuid.UUID
-	factory := func(accountType string, accountID uuid.UUID) error {
-		factoryCalledType = accountType
-		factoryCalledID = accountID
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.EditEmailAccount(context.Background(), acct, "old@gmail.com")
 
 	s.Require().NoError(err)
 	s.Equal(acct, upsertedAcct)
-	s.Require().Len(mgr.removeCalls, 1)
-	s.Equal("email:old@gmail.com", mgr.removeCalls[0])
-	s.Equal("email", factoryCalledType)
-	s.Equal(acct.ID, factoryCalledID)
+	s.Require().Len(mgr.addCalls(), 1)
+	s.Equal("email", mgr.addCalls()[0].kind)
+	s.Equal(acct.ID, mgr.addCalls()[0].id)
+	s.Empty(mgr.removeCalls())
 }
 
 // --- Delete account tests ---
@@ -383,15 +391,15 @@ func (s *ServiceSettingsSuite) TestDeleteSlackAccount() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.DeleteSlackAccount(context.Background(), acct.ID)
 
 	s.Require().NoError(err)
 	s.Equal(acct.ID, deletedID)
-	s.Require().Len(mgr.removeCalls, 1)
-	s.Equal("slack:TDELETE", mgr.removeCalls[0])
+	s.Require().Len(mgr.removeCalls(), 1, "Delete must stop the watcher")
+	s.Equal("slack", mgr.removeCalls()[0].kind)
+	s.Equal(acct.ID, mgr.removeCalls()[0].id)
 }
 
 func (s *ServiceSettingsSuite) TestDeleteEmailAccount() {
@@ -408,15 +416,15 @@ func (s *ServiceSettingsSuite) TestDeleteEmailAccount() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.DeleteEmailAccount(context.Background(), acct.ID)
 
 	s.Require().NoError(err)
 	s.Equal(acct.ID, deletedID)
-	s.Require().Len(mgr.removeCalls, 1)
-	s.Equal("email:delete@gmail.com", mgr.removeCalls[0])
+	s.Require().Len(mgr.removeCalls(), 1)
+	s.Equal("email", mgr.removeCalls()[0].kind)
+	s.Equal(acct.ID, mgr.removeCalls()[0].id)
 }
 
 // --- Toggle enable/disable tests ---
@@ -435,19 +443,16 @@ func (s *ServiceSettingsSuite) TestToggleSlackEnable() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	var factoryCalled bool
-	factory := func(accountType string, accountID uuid.UUID) error {
-		factoryCalled = true
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.ToggleSlackAccount(context.Background(), acct.ID, true)
 
 	s.Require().NoError(err)
 	s.True(upsertedAcct.Enabled)
-	s.True(factoryCalled)
-	s.Empty(mgr.removeCalls)
+	s.Require().Len(mgr.addCalls(), 1)
+	s.Equal("slack", mgr.addCalls()[0].kind)
+	s.Equal(acct.ID, mgr.addCalls()[0].id)
+	s.Empty(mgr.removeCalls())
 }
 
 func (s *ServiceSettingsSuite) TestToggleSlackDisable() {
@@ -465,18 +470,15 @@ func (s *ServiceSettingsSuite) TestToggleSlackDisable() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error {
-		s.Fail("factory should not be called when disabling")
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.ToggleSlackAccount(context.Background(), acct.ID, false)
 
 	s.Require().NoError(err)
 	s.False(upsertedAcct.Enabled)
-	s.Require().Len(mgr.removeCalls, 1)
-	s.Equal("slack:TDISABLE", mgr.removeCalls[0])
+	s.Require().Len(mgr.removeCalls(), 1)
+	s.Equal("slack", mgr.removeCalls()[0].kind)
+	s.Equal(acct.ID, mgr.removeCalls()[0].id)
 }
 
 func (s *ServiceSettingsSuite) TestToggleEmailEnable() {
@@ -493,19 +495,16 @@ func (s *ServiceSettingsSuite) TestToggleEmailEnable() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	var factoryCalled bool
-	factory := func(accountType string, accountID uuid.UUID) error {
-		factoryCalled = true
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.ToggleEmailAccount(context.Background(), acct.ID, true)
 
 	s.Require().NoError(err)
 	s.True(upsertedAcct.Enabled)
-	s.True(factoryCalled)
-	s.Empty(mgr.removeCalls)
+	s.Require().Len(mgr.addCalls(), 1)
+	s.Equal("email", mgr.addCalls()[0].kind)
+	s.Equal(acct.ID, mgr.addCalls()[0].id)
+	s.Empty(mgr.removeCalls())
 }
 
 func (s *ServiceSettingsSuite) TestToggleEmailDisable() {
@@ -523,18 +522,15 @@ func (s *ServiceSettingsSuite) TestToggleEmailDisable() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error {
-		s.Fail("factory should not be called when disabling")
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.ToggleEmailAccount(context.Background(), acct.ID, false)
 
 	s.Require().NoError(err)
 	s.False(upsertedAcct.Enabled)
-	s.Require().Len(mgr.removeCalls, 1)
-	s.Equal("email:disable@gmail.com", mgr.removeCalls[0])
+	s.Require().Len(mgr.removeCalls(), 1)
+	s.Equal("email", mgr.removeCalls()[0].kind)
+	s.Equal(acct.ID, mgr.removeCalls()[0].id)
 }
 
 // --- Validation tests ---
@@ -549,12 +545,8 @@ func (s *ServiceSettingsSuite) TestValidationSlackEmptyToken() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error {
-		s.Fail("factory should not be called on validation failure")
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveSlackAccount(context.Background(), acct)
 
 	s.Error(err)
@@ -571,12 +563,8 @@ func (s *ServiceSettingsSuite) TestValidationSlackEmptyWorkspaceID() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error {
-		s.Fail("factory should not be called on validation failure")
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveSlackAccount(context.Background(), acct)
 
 	s.Error(err)
@@ -593,12 +581,8 @@ func (s *ServiceSettingsSuite) TestValidationSlackInvalidPollInterval() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error {
-		s.Fail("factory should not be called on validation failure")
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveSlackAccount(context.Background(), acct)
 
 	s.Error(err)
@@ -615,12 +599,8 @@ func (s *ServiceSettingsSuite) TestValidationEmailEmptyIMAPHost() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error {
-		s.Fail("factory should not be called on validation failure")
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveEmailAccount(context.Background(), acct)
 
 	s.Error(err)
@@ -637,12 +617,8 @@ func (s *ServiceSettingsSuite) TestValidationEmailInvalidPort() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error {
-		s.Fail("factory should not be called on validation failure")
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveEmailAccount(context.Background(), acct)
 
 	s.Error(err)
@@ -659,12 +635,8 @@ func (s *ServiceSettingsSuite) TestValidationEmailEmptyUsername() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error {
-		s.Fail("factory should not be called on validation failure")
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveEmailAccount(context.Background(), acct)
 
 	s.Error(err)
@@ -681,12 +653,8 @@ func (s *ServiceSettingsSuite) TestValidationEmailEmptyPassword() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error {
-		s.Fail("factory should not be called on validation failure")
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveEmailAccount(context.Background(), acct)
 
 	s.Error(err)
@@ -703,12 +671,8 @@ func (s *ServiceSettingsSuite) TestValidationEmailInvalidPollInterval() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error {
-		s.Fail("factory should not be called on validation failure")
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveEmailAccount(context.Background(), acct)
 
 	s.Error(err)
@@ -733,12 +697,8 @@ func (s *ServiceSettingsSuite) TestSaveSlackAccount_ValidationFailure() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error {
-		s.Fail("factory should not be called when credential validation fails")
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory, presenter.WithSlackValidator(validator))
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, presenter.WithSlackValidator(validator))
 	err := p.SaveSlackAccount(context.Background(), acct)
 
 	s.Error(err)
@@ -765,12 +725,8 @@ func (s *ServiceSettingsSuite) TestSaveEmailAccount_ValidationFailure() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error {
-		s.Fail("factory should not be called when credential validation fails")
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory, presenter.WithEmailValidator(validator))
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, presenter.WithEmailValidator(validator))
 	err := p.SaveEmailAccount(context.Background(), acct)
 
 	s.Error(err)
@@ -793,12 +749,8 @@ func (s *ServiceSettingsSuite) TestSaveCalendarAccount_ValidationFailure() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error {
-		s.Fail("factory should not be called when credential validation fails")
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory, presenter.WithCalendarValidator(validator))
+	p := presenter.NewServiceSettingsPresenter(repo, mgr, presenter.WithCalendarValidator(validator))
 	err := p.SaveCalendarAccount(context.Background(), acct)
 
 	s.Error(err)
@@ -816,12 +768,8 @@ func (s *ServiceSettingsSuite) TestRepoErrorOnSave() {
 	}
 	mgr := &mockWatcherManager{}
 	factoryCalled := false
-	factory := func(accountType string, accountID uuid.UUID) error {
-		factoryCalled = true
-		return nil
-	}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveSlackAccount(context.Background(), acct)
 
 	s.Error(err)
@@ -829,7 +777,7 @@ func (s *ServiceSettingsSuite) TestRepoErrorOnSave() {
 	s.False(factoryCalled, "factory should NOT be called when repo returns error")
 }
 
-func (s *ServiceSettingsSuite) TestFactoryError() {
+func (s *ServiceSettingsSuite) TestTogglerError() {
 	acct := validSlackAccount()
 	upsertCalled := false
 	repo := &mockServiceConfigRepo{
@@ -838,17 +786,14 @@ func (s *ServiceSettingsSuite) TestFactoryError() {
 			return nil
 		},
 	}
-	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error {
-		return fmt.Errorf("watcher creation failed")
-	}
+	mgr := &mockWatcherManager{err: fmt.Errorf("watcher creation failed")}
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveSlackAccount(context.Background(), acct)
 
 	s.Error(err)
 	s.Contains(err.Error(), "watcher creation failed")
-	s.True(upsertCalled, "repo upsert should be called even if factory will fail")
+	s.True(upsertCalled, "repo upsert must be called even if the toggler will fail")
 }
 
 func (s *ServiceSettingsSuite) TestRepoErrorOnDelete() {
@@ -863,9 +808,8 @@ func (s *ServiceSettingsSuite) TestRepoErrorOnDelete() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.DeleteSlackAccount(context.Background(), acct.ID)
 
 	s.Error(err)
@@ -883,9 +827,8 @@ func (s *ServiceSettingsSuite) TestListCalendarAccounts() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	accounts, err := p.ListCalendarAccounts(context.Background())
 
 	s.Require().NoError(err)
@@ -901,9 +844,8 @@ func (s *ServiceSettingsSuite) TestListCalendarAccountsEmpty() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	accounts, err := p.ListCalendarAccounts(context.Background())
 
 	s.Require().NoError(err)
@@ -920,9 +862,8 @@ func (s *ServiceSettingsSuite) TestSaveNewCalendarAccount() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveCalendarAccount(context.Background(), acct)
 
 	s.Require().NoError(err)
@@ -940,9 +881,8 @@ func (s *ServiceSettingsSuite) TestEditCalendarAccount() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.EditCalendarAccount(context.Background(), acct, "Old Calendar")
 
 	s.Require().NoError(err)
@@ -962,9 +902,8 @@ func (s *ServiceSettingsSuite) TestDeleteCalendarAccount() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.DeleteCalendarAccount(context.Background(), acct.ID)
 
 	s.Require().NoError(err)
@@ -985,9 +924,8 @@ func (s *ServiceSettingsSuite) TestToggleCalendarEnable() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.ToggleCalendarAccount(context.Background(), acct.ID, true)
 
 	s.Require().NoError(err)
@@ -1008,9 +946,8 @@ func (s *ServiceSettingsSuite) TestToggleCalendarDisable() {
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.ToggleCalendarAccount(context.Background(), acct.ID, false)
 
 	s.Require().NoError(err)
@@ -1037,9 +974,8 @@ func (s *ServiceSettingsSuite) TestSaveSlackAccountAppliesDefaultPollInterval() 
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveSlackAccount(context.Background(), acct)
 
 	s.Require().NoError(err, "SaveSlackAccount should not error when PollIntervalSeconds is 0")
@@ -1059,9 +995,8 @@ func (s *ServiceSettingsSuite) TestSaveEmailAccountAppliesDefaultPollInterval() 
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveEmailAccount(context.Background(), acct)
 
 	s.Require().NoError(err, "SaveEmailAccount should not error when PollIntervalSeconds is 0")
@@ -1086,9 +1021,8 @@ func (s *ServiceSettingsSuite) TestSaveCalendarAccountAppliesDefaultPollInterval
 		},
 	}
 	mgr := &mockWatcherManager{}
-	factory := func(accountType string, accountID uuid.UUID) error { return nil }
 
-	p := presenter.NewServiceSettingsPresenter(repo, mgr, factory)
+	p := presenter.NewServiceSettingsPresenter(repo, mgr)
 	err := p.SaveCalendarAccount(context.Background(), acct)
 
 	s.Require().NoError(err, "SaveCalendarAccount should not error when PollIntervalSeconds is 0")

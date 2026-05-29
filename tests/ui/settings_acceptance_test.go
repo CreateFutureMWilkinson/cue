@@ -120,7 +120,7 @@ func (s *SettingsAcceptanceSuite) TestDoneButtonCallsOnClose() {
 	closeCalled := false
 	vc := &mockVolumeController{}
 	sp, _ := presenter.NewSettingsPresenter(vc, 50, &mockVolumeController{}, 50)
-	ssp := presenter.NewServiceSettingsPresenter(&mockServiceConfigRepo{}, &mockWatcherRemover{}, func(_ string, _ uuid.UUID) error { return nil })
+	ssp := presenter.NewServiceSettingsPresenter(&mockServiceConfigRepo{}, &mockWatcherToggler{})
 	sv := ui.NewSettingsView(sp, ssp, nil, defaultOllamaConfig(), func() { closeCalled = true })
 	root := sv.Container()
 

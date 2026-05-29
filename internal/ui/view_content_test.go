@@ -100,7 +100,7 @@ func (s *ViewContentSuite) TestSettingsViewWithPresentersContainsTabs() {
 
 	// Create a ServiceSettingsPresenter with nil deps — we only need the
 	// pointer to be non-nil so the window constructs a SettingsView.
-	ssp := presenter.NewServiceSettingsPresenter(nil, nil, nil)
+	ssp := presenter.NewServiceSettingsPresenter(nil, nil)
 
 	cfg := config.GUIConfig{
 		WindowWidth:  1200,

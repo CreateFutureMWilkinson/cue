@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 
@@ -203,57 +202,31 @@ func (a *ServiceConfigAdapter) DeleteCalendarAccount(ctx context.Context, id uui
 	return nil
 }
 
-// === presenter.WatcherRemover ===
+// === presenter.AccountWatcherToggler ===
 //
-// Per Feature 107 Decision 7, "removing a watcher" client-side is
-// equivalent to toggling the corresponding service account off. The
-// presenter passes a name string of the form "slack:<workspace_id>" or
-// "email:<username>"; this adapter parses the prefix, locates the
-// account by its natural key, and calls the matching Toggle endpoint
-// with enabled=false.
-//
-// A name that does not match any current account is silently dropped:
-// the presenter tolerates a "no such watcher" no-op (the server is the
-// source of truth, and a stale local name on a fast user click should
-// not surface as an error toast).
-func (a *ServiceConfigAdapter) RemoveWatcher(name string) {
-	prefix, key, ok := splitWatcherName(name)
-	if !ok {
-		return
+// Per Feature 107 Decision 7 (revised), the presenter sets watcher
+// state by account UUID + boolean. Each Set method delegates to the
+// SDK's Toggle endpoint for the matching account type.
+
+func (a *ServiceConfigAdapter) SetSlackEnabled(ctx context.Context, id uuid.UUID, enabled bool) error {
+	if err := a.client.ToggleSlackAccount(ctx, id, enabled); err != nil {
+		return fmt.Errorf("toggle slack account %s enabled=%t: %w", id, enabled, err)
 	}
-	ctx := context.Background()
-	switch prefix {
-	case "slack":
-		accts, err := a.client.ListSlackAccounts(ctx)
-		if err != nil {
-			return
-		}
-		for _, acct := range accts {
-			if acct.WorkspaceID == key {
-				_ = a.client.ToggleSlackAccount(ctx, acct.ID, false)
-				return
-			}
-		}
-	case "email":
-		accts, err := a.client.ListEmailAccounts(ctx)
-		if err != nil {
-			return
-		}
-		for _, acct := range accts {
-			if acct.Username == key {
-				_ = a.client.ToggleEmailAccount(ctx, acct.ID, false)
-				return
-			}
-		}
-	}
+	return nil
 }
 
-func splitWatcherName(name string) (prefix, key string, ok bool) {
-	idx := strings.IndexByte(name, ':')
-	if idx <= 0 || idx == len(name)-1 {
-		return "", "", false
+func (a *ServiceConfigAdapter) SetEmailEnabled(ctx context.Context, id uuid.UUID, enabled bool) error {
+	if err := a.client.ToggleEmailAccount(ctx, id, enabled); err != nil {
+		return fmt.Errorf("toggle email account %s enabled=%t: %w", id, enabled, err)
 	}
-	return name[:idx], name[idx+1:], true
+	return nil
+}
+
+func (a *ServiceConfigAdapter) SetCalendarEnabled(ctx context.Context, id uuid.UUID, enabled bool) error {
+	if err := a.client.ToggleCalendarAccount(ctx, id, enabled); err != nil {
+		return fmt.Errorf("toggle calendar account %s enabled=%t: %w", id, enabled, err)
+	}
+	return nil
 }
 
 func slackDTOToRepo(d client.SlackAccount) *repository.SlackAccount {

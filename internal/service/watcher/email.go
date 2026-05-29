@@ -98,6 +98,7 @@ func (w *EmailWatcher) convertEmailMessage(email EmailMessage) *repository.Messa
 		MessageID:     email.MessageID,
 		MessageType:   MessageTypeMsg,
 		SourceCursor:  strconv.FormatUint(uint64(email.UID), 10),
+		Subject:       email.Subject,
 		RawContent:    content,
 		Status:        StatusPending,
 		CreatedAt:     time.Now(),

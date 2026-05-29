@@ -53,18 +53,24 @@ func (s *ServiceConfigSuite) TestListSlackAccountsReturnsArray() {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"accounts": []map[string]any{
 				{
-					"id":           testSlackAccountID.String(),
-					"name":         "Primary workspace",
-					"workspace_id": "T12345",
-					"enabled":      true,
-					"created_at":   "2026-04-20T10:00:00Z",
+					"id":                    testSlackAccountID.String(),
+					"name":                  "Primary workspace",
+					"workspace_id":          "T12345",
+					"username":              "alice",
+					"web_url":               "https://slack.example.com",
+					"poll_interval_seconds": 600,
+					"enabled":               true,
+					"created_at":            "2026-04-20T10:00:00Z",
 				},
 				{
-					"id":           secondID.String(),
-					"name":         "Side gig",
-					"workspace_id": "T67890",
-					"enabled":      false,
-					"created_at":   "2026-04-21T11:00:00Z",
+					"id":                    secondID.String(),
+					"name":                  "Side gig",
+					"workspace_id":          "T67890",
+					"username":              "",
+					"web_url":               "",
+					"poll_interval_seconds": 0,
+					"enabled":               false,
+					"created_at":            "2026-04-21T11:00:00Z",
 				},
 			},
 			"count": 2,
@@ -80,6 +86,9 @@ func (s *ServiceConfigSuite) TestListSlackAccountsReturnsArray() {
 	s.Equal(testSlackAccountID, accounts[0].ID)
 	s.Equal("Primary workspace", accounts[0].Name)
 	s.Equal("T12345", accounts[0].WorkspaceID)
+	s.Equal("alice", accounts[0].Username)
+	s.Equal("https://slack.example.com", accounts[0].WebURL)
+	s.Equal(600, accounts[0].PollIntervalSeconds)
 	s.True(accounts[0].Enabled)
 	s.Equal("2026-04-20T10:00:00Z", accounts[0].CreatedAt)
 
@@ -135,6 +144,9 @@ func (s *ServiceConfigSuite) TestCreateSlackAccountPostsBodyWithToken() {
 		s.Contains(body, "name")
 		s.Contains(body, "bot_token")
 		s.Contains(body, "workspace_id")
+		s.Contains(body, "username")
+		s.Contains(body, "web_url")
+		s.Contains(body, "poll_interval_seconds")
 		s.Contains(body, "enabled")
 
 		var name string
@@ -149,6 +161,18 @@ func (s *ServiceConfigSuite) TestCreateSlackAccountPostsBodyWithToken() {
 		s.Require().NoError(json.Unmarshal(body["workspace_id"], &workspaceID))
 		s.Equal("TNEW", workspaceID)
 
+		var username string
+		s.Require().NoError(json.Unmarshal(body["username"], &username))
+		s.Equal("alice", username)
+
+		var webURL string
+		s.Require().NoError(json.Unmarshal(body["web_url"], &webURL))
+		s.Equal("https://slack.example.com", webURL)
+
+		var pollInterval int
+		s.Require().NoError(json.Unmarshal(body["poll_interval_seconds"], &pollInterval))
+		s.Equal(600, pollInterval)
+
 		var enabled bool
 		s.Require().NoError(json.Unmarshal(body["enabled"], &enabled))
 		s.True(enabled)
@@ -156,27 +180,36 @@ func (s *ServiceConfigSuite) TestCreateSlackAccountPostsBodyWithToken() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"id":           testSlackAccountID.String(),
-			"name":         "New workspace",
-			"workspace_id": "TNEW",
-			"enabled":      true,
-			"created_at":   "2026-04-24T12:00:00Z",
+			"id":                    testSlackAccountID.String(),
+			"name":                  "New workspace",
+			"workspace_id":          "TNEW",
+			"username":              "alice",
+			"web_url":               "https://slack.example.com",
+			"poll_interval_seconds": 600,
+			"enabled":               true,
+			"created_at":            "2026-04-24T12:00:00Z",
 		})
 	}))
 	defer ts.Close()
 
 	sc := client.NewServiceConfigClient(client.New(ts.URL))
 	acct, err := sc.CreateSlackAccount(context.Background(), client.CreateSlackAccountRequest{
-		Name:        "New workspace",
-		BotToken:    "xoxb-secret",
-		WorkspaceID: "TNEW",
-		Enabled:     true,
+		Name:                "New workspace",
+		BotToken:            "xoxb-secret",
+		WorkspaceID:         "TNEW",
+		Username:            "alice",
+		WebURL:              "https://slack.example.com",
+		PollIntervalSeconds: 600,
+		Enabled:             true,
 	})
 	s.Require().NoError(err)
 	s.Require().NotNil(acct)
 	s.Equal(testSlackAccountID, acct.ID)
 	s.Equal("New workspace", acct.Name)
 	s.Equal("TNEW", acct.WorkspaceID)
+	s.Equal("alice", acct.Username)
+	s.Equal("https://slack.example.com", acct.WebURL)
+	s.Equal(600, acct.PollIntervalSeconds)
 	s.True(acct.Enabled)
 	s.Equal("2026-04-24T12:00:00Z", acct.CreatedAt)
 }
@@ -306,6 +339,8 @@ func (s *ServiceConfigSuite) TestCreateEmailAccountPostsWithPassword() {
 		s.Contains(body, "username")
 		s.Contains(body, "password")
 		s.Contains(body, "encryption")
+		s.Contains(body, "web_url")
+		s.Contains(body, "poll_interval_seconds")
 		s.Contains(body, "enabled")
 
 		var password string
@@ -316,30 +351,42 @@ func (s *ServiceConfigSuite) TestCreateEmailAccountPostsWithPassword() {
 		s.Require().NoError(json.Unmarshal(body["imap_port"], &port))
 		s.Equal(993, port)
 
+		var webURL string
+		s.Require().NoError(json.Unmarshal(body["web_url"], &webURL))
+		s.Equal("https://mail.google.com", webURL)
+
+		var pollInterval int
+		s.Require().NoError(json.Unmarshal(body["poll_interval_seconds"], &pollInterval))
+		s.Equal(600, pollInterval)
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"id":         testEmailAccountID.String(),
-			"name":       "Primary inbox",
-			"imap_host":  "imap.gmail.com",
-			"imap_port":  993,
-			"username":   "user@gmail.com",
-			"encryption": "tls",
-			"enabled":    true,
-			"created_at": "2026-04-24T12:00:00Z",
+			"id":                    testEmailAccountID.String(),
+			"name":                  "Primary inbox",
+			"imap_host":             "imap.gmail.com",
+			"imap_port":             993,
+			"username":              "user@gmail.com",
+			"encryption":            "tls",
+			"web_url":               "https://mail.google.com",
+			"poll_interval_seconds": 600,
+			"enabled":               true,
+			"created_at":            "2026-04-24T12:00:00Z",
 		})
 	}))
 	defer ts.Close()
 
 	sc := client.NewServiceConfigClient(client.New(ts.URL))
 	acct, err := sc.CreateEmailAccount(context.Background(), client.CreateEmailAccountRequest{
-		Name:       "Primary inbox",
-		IMAPHost:   "imap.gmail.com",
-		IMAPPort:   993,
-		Username:   "user@gmail.com",
-		Password:   "app-specific-pw",
-		Encryption: "tls",
-		Enabled:    true,
+		Name:                "Primary inbox",
+		IMAPHost:            "imap.gmail.com",
+		IMAPPort:            993,
+		Username:            "user@gmail.com",
+		Password:            "app-specific-pw",
+		Encryption:          "tls",
+		WebURL:              "https://mail.google.com",
+		PollIntervalSeconds: 600,
+		Enabled:             true,
 	})
 	s.Require().NoError(err)
 	s.Require().NotNil(acct)
@@ -349,6 +396,8 @@ func (s *ServiceConfigSuite) TestCreateEmailAccountPostsWithPassword() {
 	s.Equal(993, acct.IMAPPort)
 	s.Equal("user@gmail.com", acct.Username)
 	s.Equal("tls", acct.Encryption)
+	s.Equal("https://mail.google.com", acct.WebURL)
+	s.Equal(600, acct.PollIntervalSeconds)
 	s.True(acct.Enabled)
 	s.Equal("2026-04-24T12:00:00Z", acct.CreatedAt)
 }
@@ -410,35 +459,43 @@ func (s *ServiceConfigSuite) TestCreateCalendarAccountPostsICSURL() {
 
 		s.Contains(body, "name")
 		s.Contains(body, "ics_url")
+		s.Contains(body, "poll_interval_seconds")
 		s.Contains(body, "enabled")
 
 		var icsURL string
 		s.Require().NoError(json.Unmarshal(body["ics_url"], &icsURL))
 		s.Equal("https://calendar.example.com/feed.ics", icsURL)
 
+		var pollInterval int
+		s.Require().NoError(json.Unmarshal(body["poll_interval_seconds"], &pollInterval))
+		s.Equal(1800, pollInterval)
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"id":         testCalendarAccountID.String(),
-			"name":       "Work calendar",
-			"ics_url":    "https://calendar.example.com/feed.ics",
-			"enabled":    true,
-			"created_at": "2026-04-24T12:00:00Z",
+			"id":                    testCalendarAccountID.String(),
+			"name":                  "Work calendar",
+			"ics_url":               "https://calendar.example.com/feed.ics",
+			"poll_interval_seconds": 1800,
+			"enabled":               true,
+			"created_at":            "2026-04-24T12:00:00Z",
 		})
 	}))
 	defer ts.Close()
 
 	sc := client.NewServiceConfigClient(client.New(ts.URL))
 	acct, err := sc.CreateCalendarAccount(context.Background(), client.CreateCalendarAccountRequest{
-		Name:    "Work calendar",
-		ICSURL:  "https://calendar.example.com/feed.ics",
-		Enabled: true,
+		Name:                "Work calendar",
+		ICSURL:              "https://calendar.example.com/feed.ics",
+		PollIntervalSeconds: 1800,
+		Enabled:             true,
 	})
 	s.Require().NoError(err)
 	s.Require().NotNil(acct)
 	s.Equal(testCalendarAccountID, acct.ID)
 	s.Equal("Work calendar", acct.Name)
 	s.Equal("https://calendar.example.com/feed.ics", acct.ICSURL)
+	s.Equal(1800, acct.PollIntervalSeconds)
 	s.True(acct.Enabled)
 	s.Equal("2026-04-24T12:00:00Z", acct.CreatedAt)
 }

@@ -918,3 +918,5 @@ Tracks agent usage across TDD phases for each implementation feature.
 | Phase-9-Feature-114 (B3 heartbeat filter) | GREEN | main | inline | inline | eef627c |
 | Phase-9-Feature-114 (B4 adapter alert source) | TEST+GREEN | main | inline | inline | 8295d96 |
 | Phase-9-Feature-114 (B5+B6 main wiring) | GREEN | main | inline | inline | 2a1e056 |
+| Phase-9-Feature-115 (UI tests for Edit buttons) | RED | main | inline | inline | cac281d |
+| Phase-9-Feature-115 (Slack/Email/Calendar edit wiring) | GREEN | main | inline | inline | 0cda1e1 |

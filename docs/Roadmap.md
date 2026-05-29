@@ -194,3 +194,4 @@ Server binary exposing REST + WebSocket APIs, then re-wire the Fyne GUI as a thi
 | 112  | UI single-instance lock                  | Process Mgmt   | Planning | 107                | [Feature-112](features/phase-9/Feature-112-UI-Single-Instance-Lock.md)      |
 | 113  | Client layer simplification              | Refactor       | Planning | 107                | [Feature-113](features/phase-9/Feature-113-Client-Layer-Simplification.md)  |
 | 114  | Character animation wiring               | Refactor       | Done     | 099, 107           | [Feature-114](features/phase-9/Feature-114-Character-Animation-Wiring.md)   |
+| 115  | Settings: Edit buttons for accounts      | UX             | Done     | 107                | [Feature-115](features/phase-9/Feature-115-Account-Edit-Buttons.md)         |

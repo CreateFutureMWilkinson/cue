@@ -243,3 +243,22 @@ After Loop 9, before security checks:
 | 7    | Refactor | refactorer      | TBD    |
 | 8    | Refactor | refactorer      | TBD    |
 | —    | Wiring   | direct          | TBD    |
+
+---
+
+## Scope inherited from Feature 107 (2026-04-29)
+
+Feature 107 closed without performing the dead-code purge that was originally planned as its WP15, and without wiring `internal/ui.ShowAdapterError` across every UI callback. Both items roll into 113:
+
+1. **Dead-code purge under `cmd/cue/`.** Run `staticcheck ./...` and remove anything the rewrite orphaned (helpers, types, fields). Audit the new adapter packages for redundant types.
+
+2. **Centralized adapter-error rendering.** 107 wired `ShowAdapterError` into `notification_pane.go` (dismiss + resolve sites) as the demonstration pattern. Remaining call sites that ignore or inline-render adapter errors:
+   - `internal/ui/settings_view.go` — Save/Edit/Delete account flows for Slack, Email, Calendar; rule CRUD; account list refresh.
+   - `internal/ui/feedback_review.go` — load + SaveRating.
+   - `internal/ui/planner_view.go` — load + autosave paths.
+   - `internal/ui/wizard_view.go` — StartPlanning, SelectSchedule.
+   - `internal/ui/app_binder.go` — AutoLoad fallback path.
+
+   Replace `_ = ssp.SaveX(...)` and inline `errorLabel.SetText` calls with `if err := ssp.SaveX(...); err != nil { ui.ShowAdapterError(window, err); return }` so a mid-session 401 surfaces the documented "Restart and re-pair" dialog instead of an opaque toast or silent drop.
+
+3. **(Optional) `Reasoning` field gap on the SDK list shape.** Notification detail currently shows empty `Reasoning` because `client.Message` (the list DTO) doesn't carry it. Either add it to the wire or fetch detail on-demand via `MessageDetail`.

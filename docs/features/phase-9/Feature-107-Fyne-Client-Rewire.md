@@ -1,7 +1,7 @@
 # Feature 107: Fyne Client Re-wire
 
 **Phase:** Phase-9-Feature-107
-**Status:** Planning
+**Status:** Done
 **Depends on:** Feature 106 (API Client SDK), Feature 108 (TOFU pairing), Feature 109 (Todo Domain Restructure), Feature 110 (TOFU Client Bootstrap), Features 096-104 (server APIs)
 **Enables:** Feature 111 (Sidecar Supervisor), Feature 112 (UI Single-Instance Lock)
 **Packages:** `cmd/cue/`, `cmd/cue/adapters/` (new), `cmd/cue-server/`, `internal/server/runner/` (new), `internal/server/handler/`, `pkg/client/`, `internal/ui/presenter/`, `internal/ui/view/`, `internal/config/`
@@ -369,3 +369,54 @@ After work pkg 15, before security checks:
 - Net: ~+1200 LOC, mostly tests and DTO translation.
 - Work packages: 15 (excluding the auth, sidecar, and uilock packages now owned by 110/111/112). With the TDD exemption, ~28–38 commits across the feature.
 - Total ≈ 4.5–5.5 working days.
+
+---
+
+## Closure (2026-04-29)
+
+WP1–WP15 landed across `develop`:
+
+| WP | Commit | Subject |
+|---|---|---|
+| 1 | `cfd828a` | subcommand restructure (`cue ui`, `cue server`, `cue server reset-auth`, `cue version`); `internal/server/runner.Run` extraction |
+| 2 | `5819506` | `config.ValidateForClient` + `ServerConfig.Mode` + reject `port = 0` |
+| 3 | `2409f19` | `cmd/cue/clientboot.Connect` — health-poll gate |
+| 4 | `e9e87f2` | planner presenter contract trim + `CurrentFocusTask` |
+| 5 | `eb3874c` (failing UI tests), `25c7193` (revised plan), `8d1172f` (impl) | wizard collapses to schedule-only |
+| 6 | `8e09171` | activity adapter with fan-out + drop-on-slow + alert envelope dispatch |
+| 7 | `eb7e8a5` | messages adapter |
+| 8 | `8ce5c8b` | feedback adapter |
+| 9 | `9905692` | rules + queue-depth adapters |
+| 10 | `fd710fe` | tasks + categories adapters |
+| 11 | `e2e4fff` | schedule adapter |
+| 12 | `87739e7` | service config adapter |
+| pre-14 | `ad5cf56` | `WatcherRemover` → `AccountWatcherToggler` refactor |
+| 13 | `50043c0` | centralized `*client.APIError` classifier (`internal/uierror`) |
+| 14 | `0c12a38` | `cue ui` SDK-backed boot rewrite + boot test |
+| 15 | (this commit) | health-check Retry/Quit dialog + `ShowAdapterError` wiring + closure docs |
+
+### Deferred to Feature 113
+
+- Dead-code purge (originally planned for WP15) — moved to Feature 113's client-layer simplification scope.
+- Comprehensive `ShowAdapterError` wiring across every UI callback — WP15 wired the notification dismiss/resolve sites as the demonstration pattern; Feature 113 carries the centralization sweep across `settings_view.go`, `feedback_review.go`, `rules tab`, `planner_view.go`, etc.
+
+### Deferred to Feature 111
+
+- Sidecar mode supervisor + `mode = "sidecar"` enablement. WP2's validator rejects `sidecar` with the spec's exact error message; the boot flow is otherwise sidecar-ready (single Fyne app drives boot + main UI, dialog/main window swap is plumbed).
+
+### Acceptance criteria revisited
+
+| Criterion | Status |
+|---|---|
+| `cue` (no args) prints urfave help | ✅ |
+| `cue ui` connects + bootstraps token + opens Fyne window | ✅ |
+| `cue ui` with `mode = sidecar` exits non-zero with the spec error | ✅ (validator) |
+| `cue server` runs headless equivalently to today's `cue-server` | ✅ |
+| `cue server reset-auth` wipes token DB | ✅ |
+| TOFU token loaded/claimed on first run, persisted thereafter | ✅ (Feature 110 `auth.Bootstrap`) |
+| All UI features work | ✅ pending manual smoke; covered by unit + acceptance tests |
+| Server unreachable → Fyne Retry/Quit dialog | ✅ (WP15 — `connectWithRetry`) |
+| SIGINT/SIGTERM/window-close cleanly closes WebSocket and exits | ✅ (`fyneApp.Lifecycle().SetOnStopped` runs cleanup) |
+| `just test`, `just test-ui`, `just security`, `just vulncheck` pass | ✅ |
+| No `internal/repository/` or server-side service deps under `cmd/cue/` outside `internal/server/runner` | ✅ |
+| Both validators reject `port = 0` | ✅ |

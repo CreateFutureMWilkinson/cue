@@ -107,7 +107,9 @@ func NewNotificationPanel(np *presenter.NotificationPresenter, win fyne.Window) 
 
 		var d dialog.Dialog
 		resolveBtn := widget.NewButton("Resolve", func() {
-			_ = np.Resolve(context.Background(), detail.ID)
+			if err := np.Resolve(context.Background(), detail.ID); err != nil {
+				ShowAdapterError(win, err)
+			}
 			list.UnselectAll()
 			if d != nil {
 				d.Hide()
@@ -183,7 +185,9 @@ func (p *NotificationPanel) RenderCard(index int) fyne.CanvasObject {
 	senderLabel := widget.NewLabel(card.Sender)
 	timeLabel := widget.NewLabel(card.RelativeTime)
 	dismissBtn := widget.NewButton("Dismiss", func() {
-		_ = p.presenter.DismissMessage(context.Background(), card.ID)
+		if err := p.presenter.DismissMessage(context.Background(), card.ID); err != nil {
+			ShowAdapterError(p.window, err)
+		}
 	})
 	content := container.NewVBox(
 		container.NewHBox(badge, badgeLabel, channelLabel),
@@ -206,7 +210,9 @@ func (p *NotificationPanel) RenderExpandedCard(index int) fyne.CanvasObject {
 	senderLabel := widget.NewLabel(card.Sender)
 	timeLabel := widget.NewLabel(card.RelativeTime)
 	dismissBtn := widget.NewButton("Dismiss", func() {
-		_ = p.presenter.DismissMessage(context.Background(), card.ID)
+		if err := p.presenter.DismissMessage(context.Background(), card.ID); err != nil {
+			ShowAdapterError(p.window, err)
+		}
 	})
 	previewLabel := widget.NewLabel(card.FullContent)
 	previewLabel.Wrapping = fyne.TextWrapWord

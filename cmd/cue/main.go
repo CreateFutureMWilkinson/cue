@@ -13,6 +13,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/urfave/cli/v3"
@@ -20,7 +21,6 @@ import (
 	"github.com/CreateFutureMWilkinson/cue/cmd/cue/adapters"
 	"github.com/CreateFutureMWilkinson/cue/cmd/cue/auth"
 	"github.com/CreateFutureMWilkinson/cue/cmd/cue/clientboot"
-	"github.com/CreateFutureMWilkinson/cue/cmd/cue/uierror"
 	"github.com/CreateFutureMWilkinson/cue/internal/alert"
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
 	srvruntime "github.com/CreateFutureMWilkinson/cue/internal/server"
@@ -156,14 +156,15 @@ func configCommand() *cli.Command {
 	}
 }
 
-// runUI is the production entry point for the Fyne client. It
-// performs the full SDK-backed boot sequence: load + validate config,
-// claim/load the bearer token, poll the server's health endpoint, then
-// hand off to runUIWithSDK with a connected APIClient.
+// runUI is the production entry point for the Fyne client. It runs
+// the full boot sequence (load + validate config, health-poll the
+// server, claim the auth token, then build the Fyne UI) inside a
+// single Fyne app lifecycle so the health-check Retry/Quit dialog
+// (Decision 5) can render before the main window exists.
 //
 // runUIWithSDK is split out so the boot test can supply an
-// httptest-backed APIClient and exercise the same wiring without
-// going through DNS/disk/auth.
+// httptest-backed APIClient and exercise the wiring without going
+// through DNS/disk/auth/Fyne.
 func runUI(ctx context.Context) error {
 	cfg, err := loadConfig()
 	if err != nil {
@@ -178,23 +179,106 @@ func runUI(ctx context.Context) error {
 		return fmt.Errorf("finding home directory: %w", err)
 	}
 
-	api, err := clientboot.Connect(ctx, cfg.Server, clientboot.Options{})
-	if err != nil {
-		return fmt.Errorf("connecting to server: %w", err)
-	}
+	fyneApp := app.New()
 
-	tokenStore := auth.NewFileStore(filepath.Join(home, clientTokenPath))
-	if err := auth.Bootstrap(ctx, tokenStore, api, auth.DefaultProbe); err != nil {
-		return fmt.Errorf("bootstrapping auth token: %w", err)
-	}
+	bootWin := fyneApp.NewWindow("Cue")
+	bootWin.Resize(fyne.NewSize(420, 200))
+	bootWin.SetContent(container.NewCenter(widget.NewLabel(
+		fmt.Sprintf("Connecting to Cue server at %s:%d…", cfg.Server.Host, cfg.Server.Port),
+	)))
+	bootWin.SetCloseIntercept(fyneApp.Quit)
 
-	return runUIWithSDK(ctx, cfg, api)
+	var (
+		bootErr error
+		mainErr error
+	)
+
+	go func() {
+		api, err := connectWithRetry(ctx, cfg, fyneApp, bootWin)
+		if err != nil {
+			bootErr = err
+			fyne.Do(fyneApp.Quit)
+			return
+		}
+
+		tokenStore := auth.NewFileStore(filepath.Join(home, clientTokenPath))
+		if err := auth.Bootstrap(ctx, tokenStore, api, auth.DefaultProbe); err != nil {
+			bootErr = fmt.Errorf("bootstrapping auth token: %w", err)
+			fyne.Do(func() {
+				dialog.NewInformation(
+					"Authentication failed",
+					err.Error(),
+					bootWin,
+				).Show()
+				// Quit when the user dismisses the dialog by closing
+				// the boot window via SetCloseIntercept; until then,
+				// the failure stays visible.
+			})
+			return
+		}
+
+		// Build and show the real UI on the Fyne thread, then close
+		// the boot window. The shared event loop continues to drive
+		// the main window.
+		buildErr := make(chan error, 1)
+		fyne.Do(func() {
+			buildErr <- runUIWithSDK(ctx, cfg, api, fyneApp, bootWin)
+		})
+		if err := <-buildErr; err != nil {
+			mainErr = err
+			fyne.Do(fyneApp.Quit)
+		}
+	}()
+
+	bootWin.ShowAndRun()
+
+	if bootErr != nil {
+		return bootErr
+	}
+	return mainErr
+}
+
+// connectWithRetry runs clientboot.Connect against the configured
+// server and, on failure, surfaces a Fyne Retry/Quit dialog on
+// bootWin. The user's choice drives the loop. Returns either a
+// connected APIClient or an "aborted by user" error.
+func connectWithRetry(ctx context.Context, cfg *config.Config, fyneApp fyne.App, bootWin fyne.Window) (*client.APIClient, error) {
+	for {
+		api, err := clientboot.Connect(ctx, cfg.Server, clientboot.Options{})
+		if err == nil {
+			return api, nil
+		}
+
+		choice := make(chan bool, 1)
+		fyne.Do(func() {
+			dialog.NewCustomConfirm(
+				"Cue server unreachable",
+				"Retry", "Quit",
+				container.NewVBox(
+					widget.NewLabel("Could not reach the Cue server."),
+					widget.NewLabel(err.Error()),
+					widget.NewLabel("Run `cue server` in another terminal, then click Retry."),
+				),
+				func(retry bool) { choice <- retry },
+				bootWin,
+			).Show()
+		})
+		if !<-choice {
+			return nil, fmt.Errorf("aborted by user: %w", err)
+		}
+	}
 }
 
 // runUIWithSDK builds the adapters, presenters, and Fyne UI on top of
-// the supplied SDK client. The SDK is assumed to be connected and
-// authenticated. This function blocks until the main window closes.
-func runUIWithSDK(ctx context.Context, cfg *config.Config, api *client.APIClient) error {
+// the supplied SDK client (assumed connected and authenticated).
+//
+// The caller owns the fyne.App and is driving the event loop via
+// bootWin.ShowAndRun(); this function shows the real main window,
+// hides the boot window, and registers cleanup via Lifecycle.OnStopped
+// so graceful shutdown fires after the user closes the main window.
+// It does NOT call mainWindow.Run() / app.Run() — those are owned by
+// runUI.
+func runUIWithSDK(ctx context.Context, cfg *config.Config, api *client.APIClient, fyneApp fyne.App, bootWin fyne.Window) error {
 	// SDK clients.
 	messagesSDK := client.NewMessageClient(api)
 	feedbackSDK := client.NewFeedbackClient(api)
@@ -335,9 +419,9 @@ func runUIWithSDK(ctx context.Context, cfg *config.Config, api *client.APIClient
 	}
 	charPresenter.Start(ctx)
 
-	// Fyne wiring.
+	// Fyne wiring. fyneApp + event loop are owned by the caller
+	// (runUI), which is currently driving bootWin.ShowAndRun().
 	viewRouter := ui.NewCenterViewRouter()
-	fyneApp := app.New()
 	fyneApp.Lifecycle().SetOnStarted(func() {
 		char.TransitionTo(character.StateStarting)
 	})
@@ -359,13 +443,12 @@ func runUIWithSDK(ctx context.Context, cfg *config.Config, api *client.APIClient
 		}
 	}
 
-	timerLoop, err := ui.NewTimerLoop(timerPresenter, mainWindow.FocusRail().Timer(), mainWindow.FocusRail())
-	if err != nil {
-		log.Printf("warning: failed to create timer loop: %v", err)
+	timerLoop, timerLoopErr := ui.NewTimerLoop(timerPresenter, mainWindow.FocusRail().Timer(), mainWindow.FocusRail())
+	if timerLoopErr != nil {
+		log.Printf("warning: failed to create timer loop: %v", timerLoopErr)
 	} else {
 		timerLoop.SetUIScheduler(fyne.Do)
 		timerLoop.Start(ctx)
-		defer timerLoop.Stop()
 	}
 
 	// Connect WebSocket and start the activity adapter AFTER the
@@ -383,28 +466,40 @@ func runUIWithSDK(ctx context.Context, cfg *config.Config, api *client.APIClient
 	sigHandler := shutdown.NewSignalHandler(fyneApp.Quit)
 	sigHandler.Start(ctx)
 
-	mainWindow.Run()
+	// Show the real window and hide the boot screen. The shared
+	// event loop (driven by bootWin.ShowAndRun in runUI) continues
+	// to dispatch events for the main window.
+	mainWindow.Show()
+	bootWin.Hide()
 
-	// Graceful shutdown.
-	const shutdownTimeout = 5 * time.Second
-	if err := shutdown.RunCleanup(shutdownTimeout, func() error {
-		type shutdownable interface{ Shutdown() <-chan struct{} }
-		if s, ok := char.(shutdownable); ok {
-			<-s.Shutdown()
-		} else {
-			char.Close()
+	// Register graceful shutdown to fire when the user closes the
+	// main window (which triggers fyneApp.Quit). Lifecycle.OnStopped
+	// runs once the app is exiting; the cleanup releases the
+	// orchestrator-replacing services in dependency order.
+	fyneApp.Lifecycle().SetOnStopped(func() {
+		if timerLoop != nil {
+			timerLoop.Stop()
 		}
-		return nil
-	}, func() error {
-		charPresenter.Stop()
-		return nil
-	}, func() error {
-		return appPresenter.Shutdown(ctx)
-	}, func() error {
-		return activityAdapter.Close()
-	}); err != nil {
-		log.Printf("warning: shutdown cleanup: %v", err)
-	}
+		const shutdownTimeout = 5 * time.Second
+		if err := shutdown.RunCleanup(shutdownTimeout, func() error {
+			type shutdownable interface{ Shutdown() <-chan struct{} }
+			if s, ok := char.(shutdownable); ok {
+				<-s.Shutdown()
+			} else {
+				char.Close()
+			}
+			return nil
+		}, func() error {
+			charPresenter.Stop()
+			return nil
+		}, func() error {
+			return appPresenter.Shutdown(ctx)
+		}, func() error {
+			return activityAdapter.Close()
+		}); err != nil {
+			log.Printf("warning: shutdown cleanup: %v", err)
+		}
+	})
 
 	return nil
 }
@@ -423,49 +518,10 @@ func consumeAlerts(ctx context.Context, alerts <-chan adapters.AlertEvent, svc *
 	}
 }
 
-// showError renders a presenter-facing error in a Fyne dialog. It is
-// the single boundary at which adapter errors are classified — every
-// UI callback that surfaces an adapter/presenter error to the user
-// flows through here. ErrCodeUnauthorized routes to a dedicated
-// "restart and re-pair" dialog (per Decision 13).
-func showError(parent fyne.Window, err error) {
-	if err == nil {
-		return
-	}
-	d := uierror.Classify(err)
-	if d.ActionRetryRePair {
-		// Distinguished dialog so the user knows the recovery is
-		// "restart and re-pair", not just "OK".
-		dlg := dialog.NewCustomConfirm(d.Title, "Restart now", "Cancel", widget.NewLabel(d.Body), func(ok bool) {
-			if ok {
-				// fyneApp.Quit isn't reachable from this helper; the
-				// window's parent app will receive Quit when the user
-				// triggers it. The dialog closes on either button.
-			}
-		}, parent)
-		dlg.Show()
-		return
-	}
-	dialog.NewInformation(d.Title, d.Body, parent).Show()
-}
-
-// healthCheckErrorDialog blocks until the user picks Retry or Quit
-// from a Fyne dialog after a failed health check. The function is
-// only reachable when running through the production runUI path —
-// the boot test injects a connected APIClient and never sees this
-// path.
-//
-// Currently unused: clientboot.Connect already retries internally
-// for the configured budget. If the budget elapses, runUI returns
-// the error to the CLI which exits non-zero — there's no Fyne event
-// loop yet to render a dialog. The helper is reserved for Feature 111
-// (sidecar mode), which will spawn the server and need a UI prompt
-// while waiting for it to come up.
-var _ = healthCheckErrorDialog
-
-func healthCheckErrorDialog(parent fyne.Window, err error) {
-	dialog.NewInformation("Server unreachable", err.Error(), parent).Show()
-}
+// (Adapter-error dialog wiring lives in internal/ui.ShowAdapterError;
+// see Feature 113 for the planned centralization across remaining UI
+// callbacks. The boot-time Retry/Quit flow is implemented inline in
+// runUI via connectWithRetry.)
 
 // osFileSystem implements alert.FileSystem using the real OS.
 type osFileSystem struct{}

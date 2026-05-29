@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/CreateFutureMWilkinson/cue/cmd/cue/uierror"
+	"github.com/CreateFutureMWilkinson/cue/internal/uierror"
 	"github.com/CreateFutureMWilkinson/cue/pkg/client"
 )
 

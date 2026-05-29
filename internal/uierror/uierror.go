@@ -5,7 +5,7 @@
 //
 // Classification is pure: it inspects the error chain via errors.As
 // looking for *client.APIError and returns a Display value describing
-// what to show the user. The Fyne dialog wiring lives in cmd/cue and
+// what to show the user. The Fyne dialog wiring lives in internal/uierror_dialog and
 // reads only the returned Display.
 package uierror
 

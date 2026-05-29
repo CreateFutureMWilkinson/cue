@@ -257,3 +257,11 @@ func (m *MainWindow) WizardViewRef() RefreshableView {
 func (m *MainWindow) Run() {
 	m.window.ShowAndRun()
 }
+
+// Show displays the window without starting the Fyne event loop. The
+// caller is responsible for driving the loop via app.Run() — used when
+// the cue ui boot flow needs the loop running BEFORE the main window
+// (e.g. to show a Retry/Quit dialog on a transient boot window).
+func (m *MainWindow) Show() {
+	m.window.Show()
+}

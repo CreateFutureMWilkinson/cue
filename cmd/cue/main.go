@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -194,7 +194,7 @@ func runUI(ctx context.Context) error {
 	)
 
 	go func() {
-		api, err := connectWithRetry(ctx, cfg, fyneApp, bootWin)
+		api, err := connectWithRetry(ctx, cfg, bootWin)
 		if err != nil {
 			bootErr = err
 			fyne.Do(fyneApp.Quit)
@@ -242,7 +242,7 @@ func runUI(ctx context.Context) error {
 // server and, on failure, surfaces a Fyne Retry/Quit dialog on
 // bootWin. The user's choice drives the loop. Returns either a
 // connected APIClient or an "aborted by user" error.
-func connectWithRetry(ctx context.Context, cfg *config.Config, fyneApp fyne.App, bootWin fyne.Window) (*client.APIClient, error) {
+func connectWithRetry(ctx context.Context, cfg *config.Config, bootWin fyne.Window) (*client.APIClient, error) {
 	for {
 		api, err := clientboot.Connect(ctx, cfg.Server, clientboot.Options{})
 		if err == nil {
@@ -465,38 +465,48 @@ func runUIWithSDK(ctx context.Context, cfg *config.Config, api *client.APIClient
 	// Wire alert envelopes to the local audio service.
 	go consumeAlerts(ctx, activityAdapter.SubscribeAlerts(), alertSvc)
 
+	// beginShutdown plays the character shutdown animation while the
+	// Fyne run loop is still alive, then asks the app to quit. Running
+	// the animation before Quit avoids cross-thread Resize/Move calls
+	// from the animator goroutine reaching layout after the run loop
+	// has exited (which would otherwise spam Fyne's thread checker).
+	const charShutdownCeiling = 2 * time.Second
+	var shutdownOnce sync.Once
+	beginShutdown := func() {
+		shutdownOnce.Do(func() {
+			if timerLoop != nil {
+				timerLoop.Stop()
+			}
+			charPresenter.Stop()
+			go func() {
+				select {
+				case <-char.Shutdown():
+				case <-time.After(charShutdownCeiling):
+					log.Printf("warning: character shutdown exceeded %s — proceeding", charShutdownCeiling)
+				}
+				fyne.Do(fyneApp.Quit)
+			}()
+		})
+	}
+
 	// Signal handler for graceful shutdown.
-	sigHandler := shutdown.NewSignalHandler(func() { fyne.Do(fyneApp.Quit) })
+	sigHandler := shutdown.NewSignalHandler(beginShutdown)
 	sigHandler.Start(ctx)
 
 	// Show the real window and hide the boot screen. The shared
 	// event loop (driven by bootWin.ShowAndRun in runUI) continues
 	// to dispatch events for the main window.
 	mainWindow.Show()
-	mainWindow.SetCloseIntercept(fyneApp.Quit)
+	mainWindow.SetCloseIntercept(beginShutdown)
 	bootWin.Hide()
 
-	// Register graceful shutdown to fire when the user closes the
-	// main window (which triggers fyneApp.Quit). Lifecycle.OnStopped
-	// runs once the app is exiting; the cleanup releases the
-	// orchestrator-replacing services in dependency order.
+	// Lifecycle.OnStopped runs after the Fyne run loop has exited.
+	// The character animation has already finished by this point
+	// (beginShutdown awaits it before calling Quit), so this hook
+	// only releases non-UI services in dependency order.
 	fyneApp.Lifecycle().SetOnStopped(func() {
-		if timerLoop != nil {
-			timerLoop.Stop()
-		}
 		const shutdownTimeout = 5 * time.Second
-		const charShutdownCeiling = 2 * time.Second
 		if err := shutdown.RunCleanup(shutdownTimeout, func() error {
-			select {
-			case <-char.Shutdown():
-			case <-time.After(charShutdownCeiling):
-				log.Printf("warning: character shutdown exceeded %s — proceeding", charShutdownCeiling)
-			}
-			return nil
-		}, func() error {
-			charPresenter.Stop()
-			return nil
-		}, func() error {
 			return appPresenter.Shutdown(ctx)
 		}, func() error {
 			return activityAdapter.Close()
@@ -538,10 +548,6 @@ func (o *osFileSystem) ReadDir(path string) ([]fs.DirEntry, error) {
 type wallClock struct{}
 
 func (wallClock) Now() time.Time { return time.Now() }
-
-// errClient is a sentinel returned when boot fails before any UI is
-// shown. The CLI surfaces it; tests assert against errors.Is.
-var errClient = errors.New("client startup failed")
 
 // Compile-time guards: confirm the adapters satisfy the presenter
 // interfaces consumed by runUIWithSDK. Catches signature drift early.

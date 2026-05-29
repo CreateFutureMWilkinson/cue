@@ -42,21 +42,20 @@ type ScheduleGenerator interface {
 
 // WizardStep represents the current step in the day planner wizard.
 //
-// Feature 107 adds StepTodoEdit, which replaces the legacy
-// StepTaskSelect + StepEstimates + StepPriority chain. The legacy
-// constants are retained for the duration of WP5 so call sites can be
-// migrated incrementally; once WP5's view rewrite lands they are
-// scheduled for removal.
+// Feature 107 collapses the wizard to a schedule-generation flow:
+// StepIdle → StepSchedule → StepActive. The legacy
+// StepTaskSelect/StepEstimates/StepPriority constants are retained
+// for the duration of WP5 so call sites can be migrated incrementally;
+// once WP5's view rewrite lands they are scheduled for removal.
 type WizardStep int
 
 const (
 	StepIdle       WizardStep = iota
-	StepTaskSelect            // legacy: superseded by StepTodoEdit (Feature 107 WP5)
+	StepTaskSelect            // legacy: deleted by Feature 107 WP5
 	StepEstimates             // legacy: deleted by Feature 107 WP5
-	StepPriority              // legacy: superseded by StepTodoEdit (Feature 107 WP5)
-	StepSchedule              // Preview generated schedules
+	StepPriority              // legacy: deleted by Feature 107 WP5
+	StepSchedule              // Preview generated schedules (first interactive step)
 	StepActive                // Active schedule in progress
-	StepTodoEdit              // Edit todo list with reorder + priority controls (Feature 107)
 )
 
 // TodoRow is the view model for a todo item in the task selection step.

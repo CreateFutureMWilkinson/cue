@@ -187,6 +187,8 @@ type stubWizardVM struct {
 	estimates     []presenter.TaskEstimateRow
 	summary       presenter.EstimateSummary
 	selectedCount int
+	focusPrev     *presenter.SchedulePreview
+	recoveryPrev  *presenter.SchedulePreview
 }
 
 func (s *stubWizardVM) CurrentStep() presenter.WizardStep      { return s.step }
@@ -195,8 +197,8 @@ func (s *stubWizardVM) Estimates() []presenter.TaskEstimateRow { return s.estima
 func (s *stubWizardVM) EstimateSummary() presenter.EstimateSummary {
 	return s.summary
 }
-func (s *stubWizardVM) FocusSchedule() *presenter.SchedulePreview        { return nil }
-func (s *stubWizardVM) RecoverySchedule() *presenter.SchedulePreview     { return nil }
+func (s *stubWizardVM) FocusSchedule() *presenter.SchedulePreview    { return s.focusPrev }
+func (s *stubWizardVM) RecoverySchedule() *presenter.SchedulePreview { return s.recoveryPrev }
 func (s *stubWizardVM) SelectTask(_ uuid.UUID, _ bool)                   {}
 func (s *stubWizardVM) AddTask(_ context.Context, _ string, _ int) error { return nil }
 func (s *stubWizardVM) NextStep(_ context.Context) error                 { return nil }

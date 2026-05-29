@@ -143,18 +143,37 @@ The presenter contract therefore changes:
 - `ScheduleGenerator.GenerateSchedules` simplifies from `(ctx, tasks, events, date) → (focus, recovery, error)` to `(ctx, date) → (focus, recovery, error)`.
 - A new `CurrentFocusTask(ctx) (*TodoRow, error)` method calls `TaskClient.ListTasks(filter={status:pending})` and returns the highest-priority incomplete todo. The active-schedule view consumes it as a single-task hint.
 
-### 11. Wizard step trim
+### 11. Wizard collapses to schedule-only (revised 2026-04-27)
 
-The wizard structure is preserved with two trims:
+**Revised mid-WP5 by project lead.** The original plan was to merge
+`StepTaskSelect` + `StepPriority` into a new `StepTodoEdit` and delete
+`StepEstimates`. After landing the failing UI tests for that shape, we
+decided to go further: **the wizard does not touch todos at all**. Todo
+editing already lives in the Plan view's todo list; bolting another
+todo editor onto the wizard would have duplicated that surface.
+
+The wizard becomes a thin schedule-generation flow:
 
 | Today | After 107 |
 |---|---|
-| StepIdle | StepIdle |
-| StepTaskSelect (select tasks for plan) | merged into **StepTodoEdit** — todo list with reorder + priority controls; no per-plan selection |
-| StepPriority (reorder selected tasks) | merged into **StepTodoEdit** |
+| StepIdle | StepIdle (prompt: "Use Plan My Day to start") |
+| StepTaskSelect (select tasks for plan) | **deleted** |
 | StepEstimates (per-task pomo override) | **deleted** |
-| StepSchedule (review options + pick) | StepSchedule — unchanged |
+| StepPriority (reorder selected tasks) | **deleted** |
+| StepSchedule (review options + pick) | StepSchedule — first interactive step |
 | StepActive (running schedule) | StepActive — adds current-focus-task panel |
+
+`StartPlanning(ctx)` calls `ScheduleGenerator.GenerateSchedules(ctx, date)`
+directly and transitions `StepIdle → StepSchedule` in a single move.
+There is no intermediate UI between "Plan My Day" and the two schedule
+preview cards.
+
+The `WizardViewModel` interface shrinks accordingly. Methods that
+manipulated the per-plan task list — `AvailableTasks`, `SelectTask`,
+`AddTask`, `Estimates`, `EstimateSummary`, `OverrideEstimate`,
+`ReorderTask`, `SelectedCount` — are removed from the wizard VM. They
+remain on the planner presenter to back the Plan view's todo list, but
+the wizard is no longer one of their consumers.
 
 The Generate Plan button placement is unchanged.
 

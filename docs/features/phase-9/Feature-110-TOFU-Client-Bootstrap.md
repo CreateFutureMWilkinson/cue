@@ -1,7 +1,7 @@
 # Feature 110: TOFU Client Bootstrap
 
 **Phase:** Phase-9-Feature-110
-**Status:** Planning
+**Status:** Done
 **Depends on:** Feature 106 (API Client SDK), Feature 108 (TOFU Pairing — server side)
 **Enables:** Feature 107 (Fyne Client Re-wire) — consumer
 **Packages:** `cmd/cue/auth/` (new)
@@ -248,3 +248,37 @@ The package has no consumer until Feature 107 lands. This is acceptable per proj
 - New code: ~100 LOC implementation + ~250 LOC tests.
 - Behaviors: 15, each one full TDD micro-loop (3 commits).
 - Total: ~45 commits + 1 docs commit. ≈ 1 working day.
+
+---
+
+## Implementation Notes (Done)
+
+- Behaviors batched per phase rather than per-behavior to match the
+  commit cadence already in use on this branch (see Feature 109's
+  history). Six commits drove the feature: Phase A RED + GREEN, Phase
+  B RED + GREEN, Phase C TEST (Bootstrap + DefaultProbe already
+  satisfied the contracts in B, so no separate GREEN was needed), and
+  a single REFACTOR pass for wiring/coverage polish.
+- Coverage on `cmd/cue/auth/` landed at 82.7% (above the 80% gate)
+  with all 15 behaviors covered plus three additional tests added in
+  the refactor pass: `Save` returns wrapped error when the parent
+  directory is missing, `Save` returns wrapped error and cleans up
+  the temp file when rename fails, `Delete` wraps non-`IsNotExist`
+  errors. `just security` and `just vulncheck` both clean.
+- `ErrNotImplemented` is *not* part of the public surface — it served
+  only the stub-first compilation phase and was removed before the
+  feature was marked Done.
+- `cmd/cue/main.go` does not yet import `cmd/cue/auth/`. The library
+  is fully tested and waits for Feature 107 (Fyne client re-wire) to
+  pick it up.
+
+### TDD Agent Stats
+
+| Impl Phase | TDD Phase | Agent | Duration | Tokens | Commit |
+|---|---|---|---|---|---|
+| Phase-9-Feature-110 (Phase A FileStore) | RED | main | inline | inline | 7ae379e |
+| Phase-9-Feature-110 (Phase A FileStore) | GREEN | main | inline | inline | f2de480 |
+| Phase-9-Feature-110 (Phase B Bootstrap) | RED | main | inline | inline | 7d0c442 |
+| Phase-9-Feature-110 (Phase B Bootstrap) | GREEN | main | inline | inline | 5ba925d |
+| Phase-9-Feature-110 (Phase C integration) | TEST | main | inline | inline | eb26286 |
+| Phase-9-Feature-110 (wiring + coverage) | REFACTOR | main | inline | inline | 8a65c38 |

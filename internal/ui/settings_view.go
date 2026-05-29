@@ -21,9 +21,11 @@ type SettingsView struct {
 	container fyne.CanvasObject
 }
 
-// createEmailAccountForm creates the form UI for adding a new email account.
+// createEmailAccountForm creates the form UI for adding or editing an email account.
+// When existing is nil, the form adds a new account; otherwise it prefills the
+// fields and routes Save through EditEmailAccount, preserving the account ID.
 // onSaved is called after a successful save to restore the account list view.
-func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved func()) *fyne.Container {
+func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, existing *repository.EmailAccount, onSaved func()) *fyne.Container {
 	friendlyNameEntry := widget.NewEntry()
 	friendlyNameEntry.SetPlaceHolder("Friendly Name")
 	webURLEntry := widget.NewEntry()
@@ -45,6 +47,24 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 	pollEntry := widget.NewEntry()
 	pollEntry.SetPlaceHolder("Poll Interval (seconds)")
 	pollEntry.SetText(strconv.Itoa(presenter.DefaultPollInterval("email")))
+
+	encDisplay := map[string]string{
+		"ssl_tls":  "SSL/TLS (Recommended)",
+		"starttls": "STARTTLS",
+		"none":     "None",
+	}
+	if existing != nil {
+		friendlyNameEntry.SetText(existing.FriendlyName)
+		webURLEntry.SetText(existing.WebURL)
+		hostEntry.SetText(existing.IMAPHost)
+		portEntry.SetText(strconv.Itoa(existing.IMAPPort))
+		userEntry.SetText(existing.Username)
+		passEntry.SetText(existing.Password)
+		if disp, ok := encDisplay[existing.Encryption]; ok {
+			encryptionSelect.SetSelected(disp)
+		}
+		pollEntry.SetText(strconv.Itoa(existing.PollIntervalSeconds))
+	}
 
 	errorLabel := widget.NewLabel("")
 	errorLabel.Hide()
@@ -94,8 +114,15 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 		}
 		errorLabel.SetText("Validating...")
 		errorLabel.Show()
-		if err := ssp.SaveEmailAccount(context.Background(), acct); err != nil {
-			errorLabel.SetText(fmt.Sprintf("Error: %s", err))
+		var saveErr error
+		if existing != nil {
+			acct.ID = existing.ID
+			saveErr = ssp.EditEmailAccount(context.Background(), acct, existing.Username)
+		} else {
+			saveErr = ssp.SaveEmailAccount(context.Background(), acct)
+		}
+		if saveErr != nil {
+			errorLabel.SetText(fmt.Sprintf("Error: %s", saveErr))
 			errorLabel.Show()
 			return
 		}
@@ -103,8 +130,12 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 		onSaved()
 	}
 
+	title := "Add Email Account"
+	if existing != nil {
+		title = "Edit Email Account"
+	}
 	return container.NewVBox(
-		widget.NewLabel("Add Email Account"),
+		widget.NewLabel(title),
 		friendlyNameEntry,
 		webURLEntry,
 		hostEntry,
@@ -118,9 +149,11 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 	)
 }
 
-// createSlackAccountForm creates the form UI for adding a new Slack account.
+// createSlackAccountForm creates the form UI for adding or editing a Slack account.
+// When existing is nil, the form adds a new account; otherwise it prefills the
+// fields and routes Save through EditSlackAccount, preserving the account ID.
 // onSaved is called after a successful save to restore the account list view.
-func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved func()) *fyne.Container {
+func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, existing *repository.SlackAccount, onSaved func()) *fyne.Container {
 	friendlyNameEntry := widget.NewEntry()
 	friendlyNameEntry.SetPlaceHolder("Friendly Name")
 	webURLEntry := widget.NewEntry()
@@ -135,6 +168,15 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 	pollEntry := widget.NewEntry()
 	pollEntry.SetPlaceHolder("Poll Interval (seconds)")
 	pollEntry.SetText(strconv.Itoa(presenter.DefaultPollInterval("slack")))
+
+	if existing != nil {
+		friendlyNameEntry.SetText(existing.FriendlyName)
+		webURLEntry.SetText(existing.WebURL)
+		tokenEntry.SetText(existing.Token)
+		workspaceEntry.SetText(existing.WorkspaceID)
+		usernameEntry.SetText(existing.Username)
+		pollEntry.SetText(strconv.Itoa(existing.PollIntervalSeconds))
+	}
 
 	errorLabel := widget.NewLabel("")
 	errorLabel.Hide()
@@ -167,13 +209,25 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 		}
 		errorLabel.SetText("Validating...")
 		errorLabel.Show()
-		if err := ssp.SaveSlackAccount(context.Background(), acct); err != nil {
-			errorLabel.SetText(fmt.Sprintf("Error: %s", err))
+		var saveErr error
+		if existing != nil {
+			acct.ID = existing.ID
+			saveErr = ssp.EditSlackAccount(context.Background(), acct, existing.WorkspaceID)
+		} else {
+			saveErr = ssp.SaveSlackAccount(context.Background(), acct)
+		}
+		if saveErr != nil {
+			errorLabel.SetText(fmt.Sprintf("Error: %s", saveErr))
 			errorLabel.Show()
 			return
 		}
 		errorLabel.Hide()
 		onSaved()
+	}
+
+	title := "Add Slack Account"
+	if existing != nil {
+		title = "Edit Slack Account"
 	}
 
 	tokenInstructions := widget.NewAccordion(
@@ -196,7 +250,7 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 	)
 
 	return container.NewVBox(
-		widget.NewLabel("Add Slack Account"),
+		widget.NewLabel(title),
 		tokenInstructions,
 		friendlyNameEntry,
 		webURLEntry,
@@ -209,9 +263,11 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved fun
 	)
 }
 
-// createCalendarAccountForm creates the form UI for adding a new calendar account.
+// createCalendarAccountForm creates the form UI for adding or editing a calendar account.
+// When existing is nil, the form adds a new account; otherwise it prefills the
+// fields and routes Save through EditCalendarAccount, preserving the account ID.
 // onSaved is called after a successful save to restore the account list view.
-func createCalendarAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved func()) *fyne.Container {
+func createCalendarAccountForm(ssp *presenter.ServiceSettingsPresenter, existing *repository.CalendarAccount, onSaved func()) *fyne.Container {
 	nameEntry := widget.NewEntry()
 	nameEntry.SetPlaceHolder("Account Name")
 	urlEntry := widget.NewEntry()
@@ -219,6 +275,12 @@ func createCalendarAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved 
 	pollEntry := widget.NewEntry()
 	pollEntry.SetPlaceHolder("Poll Interval (seconds)")
 	pollEntry.SetText(strconv.Itoa(presenter.DefaultPollInterval("calendar")))
+
+	if existing != nil {
+		nameEntry.SetText(existing.Name)
+		urlEntry.SetText(existing.ICSURL)
+		pollEntry.SetText(strconv.Itoa(existing.PollIntervalSeconds))
+	}
 
 	errorLabel := widget.NewLabel("")
 	errorLabel.Hide()
@@ -248,8 +310,15 @@ func createCalendarAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved 
 		}
 		errorLabel.SetText("Validating...")
 		errorLabel.Show()
-		if err := ssp.SaveCalendarAccount(context.Background(), acct); err != nil {
-			errorLabel.SetText(fmt.Sprintf("Error: %s", err))
+		var saveErr error
+		if existing != nil {
+			acct.ID = existing.ID
+			saveErr = ssp.EditCalendarAccount(context.Background(), acct, existing.Name)
+		} else {
+			saveErr = ssp.SaveCalendarAccount(context.Background(), acct)
+		}
+		if saveErr != nil {
+			errorLabel.SetText(fmt.Sprintf("Error: %s", saveErr))
 			errorLabel.Show()
 			return
 		}
@@ -257,8 +326,12 @@ func createCalendarAccountForm(ssp *presenter.ServiceSettingsPresenter, onSaved 
 		onSaved()
 	}
 
+	title := "Add Calendar Account"
+	if existing != nil {
+		title = "Edit Calendar Account"
+	}
 	return container.NewVBox(
-		widget.NewLabel("Add Calendar Account"),
+		widget.NewLabel(title),
 		nameEntry,
 		urlEntry,
 		pollEntry,
@@ -280,9 +353,11 @@ func refreshAccountList(list *fyne.Container, emptyMsg string, items []fyne.Canv
 	}
 }
 
-// listAccountWidgets queries the presenter and returns label widgets for each account.
+// listSlackAccountWidgets returns row widgets for each Slack account, with
+// Edit and Delete buttons. onEdit is invoked with the account when Edit is
+// tapped, allowing the caller to swap the tab content to a prefilled form.
 // Returns nil on error or if no accounts exist. Safe to call with nil presenter.
-func listAccountWidgets(ssp *presenter.ServiceSettingsPresenter, accountType string) (widgets []fyne.CanvasObject) {
+func listSlackAccountWidgets(ssp *presenter.ServiceSettingsPresenter, onEdit func(*repository.SlackAccount)) (widgets []fyne.CanvasObject) {
 	if ssp == nil {
 		return nil
 	}
@@ -291,46 +366,82 @@ func listAccountWidgets(ssp *presenter.ServiceSettingsPresenter, accountType str
 			widgets = nil
 		}
 	}()
-	switch accountType {
-	case "slack":
-		accts, err := ssp.ListSlackAccounts(context.Background())
-		if err != nil {
-			return nil
+	accts, err := ssp.ListSlackAccounts(context.Background())
+	if err != nil {
+		return nil
+	}
+	for _, a := range accts {
+		acct := a // capture for closure
+		label := widget.NewLabel(fmt.Sprintf("Slack: %s (@%s)", acct.WorkspaceID, acct.Username))
+		editBtn := widget.NewButton("Edit", func() {
+			if onEdit != nil {
+				onEdit(acct)
+			}
+		})
+		deleteBtn := widget.NewButton("Delete", func() {
+			_ = ssp.DeleteSlackAccount(context.Background(), acct.ID)
+		})
+		widgets = append(widgets, container.NewHBox(label, editBtn, deleteBtn))
+	}
+	return widgets
+}
+
+// listEmailAccountWidgets returns row widgets for each Email account.
+func listEmailAccountWidgets(ssp *presenter.ServiceSettingsPresenter, onEdit func(*repository.EmailAccount)) (widgets []fyne.CanvasObject) {
+	if ssp == nil {
+		return nil
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			widgets = nil
 		}
-		for _, a := range accts {
-			id := a.ID // capture for closure
-			label := widget.NewLabel(fmt.Sprintf("Slack: %s (@%s)", a.WorkspaceID, a.Username))
-			deleteBtn := widget.NewButton("Delete", func() {
-				_ = ssp.DeleteSlackAccount(context.Background(), id)
-			})
-			widgets = append(widgets, container.NewHBox(label, deleteBtn))
+	}()
+	accts, err := ssp.ListEmailAccounts(context.Background())
+	if err != nil {
+		return nil
+	}
+	for _, a := range accts {
+		acct := a
+		label := widget.NewLabel(fmt.Sprintf("Email: %s (%s:%d)", acct.Username, acct.IMAPHost, acct.IMAPPort))
+		editBtn := widget.NewButton("Edit", func() {
+			if onEdit != nil {
+				onEdit(acct)
+			}
+		})
+		deleteBtn := widget.NewButton("Delete", func() {
+			_ = ssp.DeleteEmailAccount(context.Background(), acct.ID)
+		})
+		widgets = append(widgets, container.NewHBox(label, editBtn, deleteBtn))
+	}
+	return widgets
+}
+
+// listCalendarAccountWidgets returns row widgets for each Calendar account.
+func listCalendarAccountWidgets(ssp *presenter.ServiceSettingsPresenter, onEdit func(*repository.CalendarAccount)) (widgets []fyne.CanvasObject) {
+	if ssp == nil {
+		return nil
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			widgets = nil
 		}
-	case "email":
-		accts, err := ssp.ListEmailAccounts(context.Background())
-		if err != nil {
-			return nil
-		}
-		for _, a := range accts {
-			id := a.ID // capture for closure
-			label := widget.NewLabel(fmt.Sprintf("Email: %s (%s:%d)", a.Username, a.IMAPHost, a.IMAPPort))
-			deleteBtn := widget.NewButton("Delete", func() {
-				_ = ssp.DeleteEmailAccount(context.Background(), id)
-			})
-			widgets = append(widgets, container.NewHBox(label, deleteBtn))
-		}
-	case "calendar":
-		accts, err := ssp.ListCalendarAccounts(context.Background())
-		if err != nil {
-			return nil
-		}
-		for _, a := range accts {
-			id := a.ID // capture for closure
-			label := widget.NewLabel(fmt.Sprintf("Calendar: %s", a.Name))
-			deleteBtn := widget.NewButton("Delete", func() {
-				_ = ssp.DeleteCalendarAccount(context.Background(), id)
-			})
-			widgets = append(widgets, container.NewHBox(label, deleteBtn))
-		}
+	}()
+	accts, err := ssp.ListCalendarAccounts(context.Background())
+	if err != nil {
+		return nil
+	}
+	for _, a := range accts {
+		acct := a
+		label := widget.NewLabel(fmt.Sprintf("Calendar: %s", acct.Name))
+		editBtn := widget.NewButton("Edit", func() {
+			if onEdit != nil {
+				onEdit(acct)
+			}
+		})
+		deleteBtn := widget.NewButton("Delete", func() {
+			_ = ssp.DeleteCalendarAccount(context.Background(), acct.ID)
+		})
+		widgets = append(widgets, container.NewHBox(label, editBtn, deleteBtn))
 	}
 	return widgets
 }
@@ -413,15 +524,24 @@ func NewSettingsView(
 	ollamaCfg config.OllamaConfig,
 	onClose func(),
 ) *SettingsView {
-	// Slack tab with dynamic content switching between account list and add form
+	// Slack tab with dynamic content switching between account list and add/edit form.
+	// slackTab and buildSlackListContent are declared up front so the onEdit
+	// closure (which is supplied to listSlackAccountWidgets via refreshSlack)
+	// can swap tab content into a prefilled form.
 	slackAccountList := container.NewVBox()
 	slackAddBtn := widget.NewButton("Add Account", nil)
+	var slackTab *container.TabItem
+	var buildSlackListContent func() fyne.CanvasObject
 
-	refreshSlack := func() {
-		refreshAccountList(slackAccountList, "No Slack accounts configured. Tap Add Account to get started.", listAccountWidgets(ssp, "slack"))
+	slackOnEdit := func(acct *repository.SlackAccount) {
+		slackTab.Content = createSlackAccountForm(ssp, acct, func() {
+			slackTab.Content = buildSlackListContent()
+		})
 	}
-
-	buildSlackListContent := func() fyne.CanvasObject {
+	refreshSlack := func() {
+		refreshAccountList(slackAccountList, "No Slack accounts configured. Tap Add Account to get started.", listSlackAccountWidgets(ssp, slackOnEdit))
+	}
+	buildSlackListContent = func() fyne.CanvasObject {
 		refreshSlack()
 		return container.NewBorder(
 			widget.NewLabel("Slack Accounts"),
@@ -431,23 +551,28 @@ func NewSettingsView(
 		)
 	}
 
-	slackTab := container.NewTabItem("Slack", buildSlackListContent())
-
+	slackTab = container.NewTabItem("Slack", buildSlackListContent())
 	slackAddBtn.OnTapped = func() {
-		slackTab.Content = createSlackAccountForm(ssp, func() {
+		slackTab.Content = createSlackAccountForm(ssp, nil, func() {
 			slackTab.Content = buildSlackListContent()
 		})
 	}
 
-	// Email tab with dynamic content switching between account list and add form
+	// Email tab — same pattern as Slack.
 	emailAccountList := container.NewVBox()
 	emailAddBtn := widget.NewButton("Add Account", nil)
+	var emailTab *container.TabItem
+	var buildEmailListContent func() fyne.CanvasObject
 
-	refreshEmail := func() {
-		refreshAccountList(emailAccountList, "No Email accounts configured. Tap Add Account to get started.", listAccountWidgets(ssp, "email"))
+	emailOnEdit := func(acct *repository.EmailAccount) {
+		emailTab.Content = createEmailAccountForm(ssp, acct, func() {
+			emailTab.Content = buildEmailListContent()
+		})
 	}
-
-	buildEmailListContent := func() fyne.CanvasObject {
+	refreshEmail := func() {
+		refreshAccountList(emailAccountList, "No Email accounts configured. Tap Add Account to get started.", listEmailAccountWidgets(ssp, emailOnEdit))
+	}
+	buildEmailListContent = func() fyne.CanvasObject {
 		refreshEmail()
 		return container.NewBorder(
 			widget.NewLabel("Email Accounts"),
@@ -457,22 +582,28 @@ func NewSettingsView(
 		)
 	}
 
-	emailTab := container.NewTabItem("Email", buildEmailListContent())
-
+	emailTab = container.NewTabItem("Email", buildEmailListContent())
 	emailAddBtn.OnTapped = func() {
-		emailTab.Content = createEmailAccountForm(ssp, func() {
+		emailTab.Content = createEmailAccountForm(ssp, nil, func() {
 			emailTab.Content = buildEmailListContent()
 		})
 	}
-	// Calendar tab with dynamic content switching between account list and add form
+
+	// Calendar tab — same pattern as Slack.
 	calendarAccountList := container.NewVBox()
 	calendarAddBtn := widget.NewButton("Add Account", nil)
+	var calendarTab *container.TabItem
+	var buildCalendarListContent func() fyne.CanvasObject
 
-	refreshCalendar := func() {
-		refreshAccountList(calendarAccountList, "No Calendar accounts configured. Tap Add Account to get started.", listAccountWidgets(ssp, "calendar"))
+	calendarOnEdit := func(acct *repository.CalendarAccount) {
+		calendarTab.Content = createCalendarAccountForm(ssp, acct, func() {
+			calendarTab.Content = buildCalendarListContent()
+		})
 	}
-
-	buildCalendarListContent := func() fyne.CanvasObject {
+	refreshCalendar := func() {
+		refreshAccountList(calendarAccountList, "No Calendar accounts configured. Tap Add Account to get started.", listCalendarAccountWidgets(ssp, calendarOnEdit))
+	}
+	buildCalendarListContent = func() fyne.CanvasObject {
 		refreshCalendar()
 		return container.NewBorder(
 			widget.NewLabel("Calendar Accounts"),
@@ -482,10 +613,9 @@ func NewSettingsView(
 		)
 	}
 
-	calendarTab := container.NewTabItem("Calendar", buildCalendarListContent())
-
+	calendarTab = container.NewTabItem("Calendar", buildCalendarListContent())
 	calendarAddBtn.OnTapped = func() {
-		calendarTab.Content = createCalendarAccountForm(ssp, func() {
+		calendarTab.Content = createCalendarAccountForm(ssp, nil, func() {
 			calendarTab.Content = buildCalendarListContent()
 		})
 	}

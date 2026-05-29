@@ -20,17 +20,27 @@ type MessageQuerier interface {
 }
 
 // notificationItem is the JSON representation of a notification in a list response.
+//
+// Content is trimmed source-specifically so the UI does not have to drag the full
+// message body across the wire: Slack messages are capped at slackContentLimit and
+// email messages omit the body entirely — the subject is the visible headline and
+// the full body remains available via the detail endpoint.
 type notificationItem struct {
 	ID              string  `json:"id"`
 	Source          string  `json:"source"`
 	SourceAccount   string  `json:"source_account"`
 	Sender          string  `json:"sender"`
 	Channel         string  `json:"channel"`
+	Subject         string  `json:"subject"`
 	Content         string  `json:"content"`
+	WebURL          string  `json:"web_url"`
 	ImportanceScore float64 `json:"importance_score"`
 	ConfidenceScore float64 `json:"confidence_score"`
 	CreatedAt       string  `json:"created_at"`
 }
+
+// slackContentLimit caps the Slack notification preview shipped to the UI.
+const slackContentLimit = 280
 
 // listResponse is the JSON envelope for paginated list endpoints.
 type listResponse struct {
@@ -75,7 +85,9 @@ func ListNotificationsHandler(repo MessageQuerier) http.HandlerFunc {
 				SourceAccount:   m.SourceAccount,
 				Sender:          m.Sender,
 				Channel:         m.Channel,
-				Content:         m.RawContent,
+				Subject:         m.Subject,
+				Content:         trimContentForList(m.Source, m.RawContent),
+				WebURL:          m.WebURL,
 				ImportanceScore: m.ImportanceScore,
 				ConfidenceScore: m.ConfidenceScore,
 				CreatedAt:       m.CreatedAt.Format(time.RFC3339),
@@ -86,6 +98,24 @@ func ListNotificationsHandler(repo MessageQuerier) http.HandlerFunc {
 			Notifications: items,
 			Total:         total,
 		})
+	}
+}
+
+// trimContentForList returns the wire-payload content for a list-response
+// notification item, sized per source. Email omits the body because the
+// subject is the visible headline; Slack caps to slackContentLimit so a
+// long message does not bloat the response.
+func trimContentForList(source, raw string) string {
+	switch source {
+	case "email":
+		return ""
+	case "slack":
+		if len(raw) <= slackContentLimit {
+			return raw
+		}
+		return raw[:slackContentLimit]
+	default:
+		return raw
 	}
 }
 

@@ -87,7 +87,10 @@ func (s *CharacterPresenterSuite) TestWorkingEvent() {
 	s.Equal(character.StateWorking, char.CurrentState())
 }
 
-func (s *CharacterPresenterSuite) TestNotifyingEvent() {
+// TestActivityWithNotifiedKeywordMapsToWorking pins that the activity
+// stream no longer sniffs the literal "NOTIFIED" substring — the
+// alert envelope is the sole driver of StateNotifying.
+func (s *CharacterPresenterSuite) TestActivityWithNotifiedKeywordMapsToWorking() {
 	char := newMockCharacter()
 	source := newMockActivitySource()
 
@@ -100,11 +103,12 @@ func (s *CharacterPresenterSuite) TestNotifyingEvent() {
 	cp.Start(ctx)
 	defer cp.Stop()
 
-	source.ch <- presenter.ActivityEvent{Source: "router", Message: "NOTIFIED: important message"}
+	source.ch <- presenter.ActivityEvent{Source: "router", Message: "rules: 1 NOTIFIED, 0 buffered"}
 
 	time.Sleep(50 * time.Millisecond)
 
-	s.Equal(character.StateNotifying, char.CurrentState())
+	s.Equal(character.StateWorking, char.CurrentState(),
+		"activity message containing NOTIFIED must NOT trigger StateNotifying")
 }
 
 func (s *CharacterPresenterSuite) TestErrorEvent() {

@@ -187,5 +187,8 @@ Server binary exposing REST + WebSocket APIs, then re-wire the Fyne GUI as a thi
 | 108  | TOFU pairing authentication              | Auth           | Done     | 097, 099   | [Feature-108](features/phase-9/Feature-108-TOFU-Pairing.md)                 |
 | 106  | API client SDK                           | Client         | Done     | 096-104, 108 | [Feature-106](features/phase-9/Feature-106-API-Client-SDK.md)             |
 | 106A | API documentation                        | Client Docs    | Planning | 097-104, 108 | [Feature-106A](features/phase-9/Feature-106A-API-Documentation.md)        |
-| 109  | Todo domain restructure                  | Refactor       | Planning | 101A, 102, 106 | [Feature-109](features/phase-9/Feature-109-Todo-Domain-Restructure.md)   |
-| 107  | Fyne client re-wire                      | Client         | Planning | 106, 108, 109 | [Feature-107](features/phase-9/Feature-107-Fyne-Client-Rewire.md)        |
+| 109  | Todo domain restructure                  | Refactor       | Done     | 101A, 102, 106 | [Feature-109](features/phase-9/Feature-109-Todo-Domain-Restructure.md)   |
+| 110  | TOFU client bootstrap                    | Auth Library   | Planning | 106, 108         | [Feature-110](features/phase-9/Feature-110-TOFU-Client-Bootstrap.md)     |
+| 107  | Fyne client re-wire                      | Client         | Planning | 106, 108, 109, 110 | [Feature-107](features/phase-9/Feature-107-Fyne-Client-Rewire.md)    |
+| 111  | Sidecar supervisor                       | Process Mgmt   | Planning | 107, 110         | [Feature-111](features/phase-9/Feature-111-Sidecar-Supervisor.md)        |
+| 112  | UI single-instance lock                  | Process Mgmt   | Planning | 107              | [Feature-112](features/phase-9/Feature-112-UI-Single-Instance-Lock.md)   |

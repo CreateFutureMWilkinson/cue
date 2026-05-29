@@ -2,6 +2,7 @@ package presenter
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,6 +55,9 @@ func (p *CharacterPresenter) Start(ctx context.Context) {
 				p.char.TransitionTo(character.StateNotifying)
 				p.resetDecayTimer()
 			case event := <-p.source.Events():
+				if isHeartbeat(event) {
+					continue
+				}
 				state := p.mapEventToState(event)
 				p.char.TransitionTo(state)
 				p.resetDecayTimer()
@@ -73,6 +77,20 @@ func (p *CharacterPresenter) Stop() {
 		p.decayTimer.Stop()
 	}
 	p.mu.Unlock()
+}
+
+// isHeartbeat returns true for high-frequency status pulses that
+// should not drive character state. The orchestrator emits these on
+// every tick regardless of whether real work is happening, so mapping
+// them to StateWorking would pin the character out of Idle forever.
+func isHeartbeat(event ActivityEvent) bool {
+	switch event.Source {
+	case "queue":
+		return strings.HasPrefix(strings.TrimPrefix(event.Message, "⚠ "), "Ollama queue depth")
+	case "system":
+		return event.Message == "No watchers configured"
+	}
+	return false
 }
 
 func (p *CharacterPresenter) mapEventToState(event ActivityEvent) character.CharacterState {

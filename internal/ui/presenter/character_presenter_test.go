@@ -208,6 +208,60 @@ func (s *CharacterPresenterSuite) TestAlertEventResetsDecayTimer() {
 		"decay timer must fire after alert event")
 }
 
+// TestHeartbeatEventsAreIgnored pins the contract that high-frequency
+// noise (queue-depth ticks, "no watchers" notices) does NOT transition
+// state or reset the decay timer.
+func (s *CharacterPresenterSuite) TestHeartbeatEventsAreIgnored() {
+	cases := []presenter.ActivityEvent{
+		{Source: "queue", Message: "Ollama queue depth: 4"},
+		{Source: "queue", Message: "⚠ Ollama queue depth: 12 — consider increasing throughput"},
+		{Source: "system", Message: "No watchers configured"},
+	}
+
+	for _, ev := range cases {
+		char := newMockCharacter()
+		source := newMockActivitySource()
+
+		cp, err := presenter.NewCharacterPresenter(char, source, nil, 50*time.Millisecond)
+		s.Require().NoError(err)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cp.Start(ctx)
+
+		source.ch <- ev
+		time.Sleep(30 * time.Millisecond)
+
+		s.Equal(character.StateIdle, char.CurrentState(),
+			"heartbeat %q must not change state", ev.Message)
+		s.Empty(char.recordedStates(),
+			"heartbeat %q must record no transitions", ev.Message)
+
+		cancel()
+		cp.Stop()
+	}
+}
+
+// TestImportProgressIsNotHeartbeat ensures import-progress events
+// (real work) DO drive StateWorking — they are not part of the
+// heartbeat filter.
+func (s *CharacterPresenterSuite) TestImportProgressIsNotHeartbeat() {
+	char := newMockCharacter()
+	source := newMockActivitySource()
+
+	cp, err := presenter.NewCharacterPresenter(char, source, nil, 500*time.Millisecond)
+	s.Require().NoError(err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cp.Start(ctx)
+	defer cp.Stop()
+
+	source.ch <- presenter.ActivityEvent{Source: "slack", Message: "importing slack: 25 messages..."}
+	time.Sleep(50 * time.Millisecond)
+
+	s.Equal(character.StateWorking, char.CurrentState())
+}
+
 func (s *CharacterPresenterSuite) TestStartStop() {
 	char := newMockCharacter()
 	source := newMockActivitySource()

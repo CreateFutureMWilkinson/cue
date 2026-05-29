@@ -232,6 +232,30 @@ func (s *NotificationCardSuite) TestHighImportanceCardHasDarkBackground() {
 	s.Equal(parseHexColor("#ef4444"), card.BadgeColor, "IS>=9 badge should remain red")
 }
 
+// --- Email Subject Preview ---
+
+func (s *NotificationCardSuite) TestEmailMessageUsesSubjectForPreview() {
+	now := time.Now()
+	msg := &repository.Message{
+		ID:              uuid.New(),
+		Source:          "email",
+		SourceAccount:   "user@example.com",
+		Channel:         "inbox",
+		Sender:          "boss@example.com",
+		Subject:         "Q4 deadline reminder",
+		RawContent:      "Hi team, the deadline is Friday. Please send your sections...",
+		ImportanceScore: 8.0,
+		ConfidenceScore: 0.9,
+		Status:          "Notified",
+		CreatedAt:       now.Add(-1 * time.Minute),
+	}
+	cards := presenter.BuildNotificationCards([]*repository.Message{msg}, now)
+
+	s.Require().Len(cards, 1)
+	s.Equal("Q4 deadline reminder", cards[0].MessagePreview,
+		"email preview should be the subject line, not the body")
+}
+
 // --- FormatDisplayLine Tests ---
 
 func (s *NotificationCardSuite) TestFormatDisplayLineBySource() {

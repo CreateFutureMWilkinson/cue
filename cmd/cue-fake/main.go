@@ -160,7 +160,7 @@ func injectSlackHandler(st *store, hub *server.Hub) http.Handler {
 		if req.IsChannelJoin {
 			msgType = "channel_join"
 		}
-		msg := makeMessage("slack", req.AccountID, req.Channel, req.Sender, req.Content, importance, confidence, msgType)
+		msg := makeMessage("slack", req.AccountID, req.Channel, req.Sender, req.Content, importance, confidence, msgType, "", st.webURLFor("slack", req.AccountID))
 		st.mu.Lock()
 		st.messages = append(st.messages, msg)
 		st.mu.Unlock()
@@ -191,7 +191,7 @@ func injectEmailHandler(st *store, hub *server.Hub) http.Handler {
 			return
 		}
 		content := req.Subject + "\n\n" + req.Body
-		msg := makeMessage("email", req.AccountID, "INBOX", req.Sender, content, 7, 0.85, "message")
+		msg := makeMessage("email", req.AccountID, "INBOX", req.Sender, content, 7, 0.85, "message", req.Subject, st.webURLFor("email", req.AccountID))
 		st.mu.Lock()
 		st.messages = append(st.messages, msg)
 		st.mu.Unlock()
@@ -210,10 +210,12 @@ type bufferedInjectReq struct {
 	AccountID string  `json:"accountId"`
 	Channel   string  `json:"channel"`
 	Sender    string  `json:"sender"`
+	Subject   string  `json:"subject"`
 	Content   string  `json:"content"`
 	Reason    string  `json:"reason"`
 	IS        float64 `json:"importance"`
 	CS        float64 `json:"confidence"`
+	WebURL    string  `json:"webUrl"`
 }
 
 func injectBufferedHandler(st *store, hub *server.Hub) http.Handler {
@@ -232,7 +234,11 @@ func injectBufferedHandler(st *store, hub *server.Hub) http.Handler {
 		if req.CS == 0 {
 			req.CS = 0.5
 		}
-		msg := makeMessage(req.Source, req.AccountID, req.Channel, req.Sender, req.Content, req.IS, req.CS, "message")
+		webURL := req.WebURL
+		if webURL == "" {
+			webURL = st.webURLFor(req.Source, req.AccountID)
+		}
+		msg := makeMessage(req.Source, req.AccountID, req.Channel, req.Sender, req.Content, req.IS, req.CS, "message", req.Subject, webURL)
 		msg.Status = "Buffered"
 		msg.Reasoning = req.Reason
 		st.mu.Lock()
@@ -272,9 +278,11 @@ type notificationInjectReq struct {
 	AccountID  string  `json:"accountId"`
 	Sender     string  `json:"sender"`
 	Channel    string  `json:"channel"`
+	Subject    string  `json:"subject"`
 	Content    string  `json:"content"`
 	Importance float64 `json:"importance"`
 	Confidence float64 `json:"confidence"`
+	WebURL     string  `json:"webUrl"`
 }
 
 func injectNotificationHandler(st *store, hub *server.Hub) http.Handler {
@@ -293,7 +301,11 @@ func injectNotificationHandler(st *store, hub *server.Hub) http.Handler {
 		if req.Confidence == 0 {
 			req.Confidence = 0.9
 		}
-		msg := makeMessage(req.Source, req.AccountID, req.Channel, req.Sender, req.Content, req.Importance, req.Confidence, "message")
+		webURL := req.WebURL
+		if webURL == "" {
+			webURL = st.webURLFor(req.Source, req.AccountID)
+		}
+		msg := makeMessage(req.Source, req.AccountID, req.Channel, req.Sender, req.Content, req.Importance, req.Confidence, "message", req.Subject, webURL)
 		msg.Status = "Notified" // force NOTIFIED regardless of thresholds
 		st.mu.Lock()
 		st.messages = append(st.messages, msg)
@@ -331,7 +343,7 @@ func httpJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func makeMessage(source, account, channel, sender, content string, is, cs float64, msgType string) *repository.Message {
+func makeMessage(source, account, channel, sender, content string, is, cs float64, msgType, subject, webURL string) *repository.Message {
 	now := time.Now().UTC()
 	status := classify(is, cs)
 	return &repository.Message{
@@ -342,7 +354,9 @@ func makeMessage(source, account, channel, sender, content string, is, cs float6
 		Sender:          sender,
 		MessageID:       uuid.NewString(),
 		MessageType:     msgType,
+		Subject:         subject,
 		RawContent:      content,
+		WebURL:          webURL,
 		ImportanceScore: is,
 		ConfidenceScore: cs,
 		Status:          status,

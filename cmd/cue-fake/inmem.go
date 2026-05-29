@@ -57,6 +57,30 @@ func (s *store) reset() {
 	s.tokens = nil
 }
 
+// webURLFor returns the configured account WebURL for an injected message.
+// Matches Slack accounts by WorkspaceID or FriendlyName, Email accounts by
+// Username or FriendlyName, and returns "" when no account is found — the
+// caller may also pass an explicit override that takes precedence.
+func (s *store) webURLFor(source, account string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	switch source {
+	case "slack":
+		for _, acct := range s.slack {
+			if acct.WorkspaceID == account || acct.FriendlyName == account {
+				return acct.WebURL
+			}
+		}
+	case "email":
+		for _, acct := range s.emails {
+			if acct.Username == account || acct.FriendlyName == account {
+				return acct.WebURL
+			}
+		}
+	}
+	return ""
+}
+
 // snapshot returns a shallow JSON-friendly representation of current state.
 func (s *store) snapshot() map[string]any {
 	s.mu.Lock()

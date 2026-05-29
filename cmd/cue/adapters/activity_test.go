@@ -209,6 +209,39 @@ func (s *ActivityAdapterSuite) TestAlertEnvelopeRoutesToAlertSink() {
 	}
 }
 
+// AC: alert envelopes also route to a presenter.AlertSource subscriber
+// in parallel with the legacy adapters.AlertEvent sink, so the
+// character presenter and the audio service can both consume them.
+func (s *ActivityAdapterSuite) TestAlertEnvelopeRoutesToPresenterAlertSource() {
+	fc := newFakeActivityClient(4)
+	a := adapters.NewActivityAdapter(fc)
+	alerts := a.SubscribeAlerts()
+	pAlerts := a.SubscribeAlertSource()
+
+	a.Start(context.Background())
+	defer a.Close() //nolint:errcheck
+
+	fc.events <- client.EventEnvelope{
+		Seq:  1,
+		Type: "alert",
+		Data: json.RawMessage(`{"kind":"notification"}`),
+	}
+
+	select {
+	case ev := <-alerts:
+		s.Equal("notification", ev.Kind)
+	case <-time.After(time.Second):
+		s.FailNow("timed out waiting for legacy alert event")
+	}
+	select {
+	case ev := <-pAlerts.Events():
+		s.Equal("notification", ev.Kind,
+			"presenter alert source must receive the same Kind")
+	case <-time.After(time.Second):
+		s.FailNow("timed out waiting for presenter alert event")
+	}
+}
+
 // AC: non-activity envelope types are ignored (no panic, no synthetic
 // event, no fan-out).
 func (s *ActivityAdapterSuite) TestNonActivityTypesAreIgnored() {

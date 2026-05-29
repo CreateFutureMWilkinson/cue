@@ -179,11 +179,14 @@ func (s *ServiceHandlerSuite) TestListSlackAccounts_Success() {
 	mock := &mockServiceManager{
 		slackAccounts: []*repository.SlackAccount{
 			{
-				ID:           id1,
-				FriendlyName: "Work Slack",
-				WorkspaceID:  "T12345",
-				Enabled:      true,
-				CreatedAt:    now,
+				ID:                  id1,
+				FriendlyName:        "Work Slack",
+				WorkspaceID:         "T12345",
+				Username:            "alice",
+				WebURL:              "https://slack.example.com",
+				PollIntervalSeconds: 600,
+				Enabled:             true,
+				CreatedAt:           now,
 			},
 		},
 	}
@@ -210,6 +213,9 @@ func (s *ServiceHandlerSuite) TestListSlackAccounts_Success() {
 	s.Equal("Work Slack", acct["name"])
 	s.Equal("T12345", acct["workspace_id"])
 	s.Equal(true, acct["enabled"])
+	s.Equal("alice", acct["username"])
+	s.Equal("https://slack.example.com", acct["web_url"])
+	s.Equal(float64(600), acct["poll_interval_seconds"])
 }
 
 func (s *ServiceHandlerSuite) TestGetSlackAccount_Success() {
@@ -290,7 +296,7 @@ func (s *ServiceHandlerSuite) TestCreateSlackAccount_Success() {
 		},
 	}
 
-	body := `{"name":"New Slack","bot_token":"xoxb-secret","workspace_id":"T99999","enabled":true}`
+	body := `{"name":"New Slack","bot_token":"xoxb-secret","workspace_id":"T99999","username":"alice","web_url":"https://slack.example.com","poll_interval_seconds":600,"enabled":true}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/services/slack", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -307,8 +313,11 @@ func (s *ServiceHandlerSuite) TestCreateSlackAccount_Success() {
 	s.Equal("New Slack", respBody["name"])
 	s.Equal("T99999", respBody["workspace_id"])
 
-	// Verify the handler passed through token to the service layer.
+	// Verify the handler passed through token + new fields to the service layer.
 	s.Equal("xoxb-secret", mock.createSlackInput.Token)
+	s.Equal("alice", mock.createSlackInput.Username)
+	s.Equal("https://slack.example.com", mock.createSlackInput.WebURL)
+	s.Equal(600, mock.createSlackInput.PollIntervalSeconds)
 }
 
 func (s *ServiceHandlerSuite) TestCreateSlackAccount_BadJSON() {
@@ -338,7 +347,7 @@ func (s *ServiceHandlerSuite) TestUpdateSlackAccount_Success() {
 		},
 	}
 
-	body := `{"name":"Updated Slack","bot_token":"","workspace_id":"T12345","enabled":true}`
+	body := `{"name":"Updated Slack","bot_token":"","workspace_id":"T12345","username":"bob","web_url":"https://updated.example.com","poll_interval_seconds":300,"enabled":true}`
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/services/slack/"+id1.String(), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.SetPathValue("id", id1.String())
@@ -354,6 +363,11 @@ func (s *ServiceHandlerSuite) TestUpdateSlackAccount_Success() {
 
 	s.Equal(id1.String(), respBody["id"])
 	s.Equal("Updated Slack", respBody["name"])
+
+	// Verify update forwarded new fields.
+	s.Equal("bob", mock.createSlackInput.Username)
+	s.Equal("https://updated.example.com", mock.createSlackInput.WebURL)
+	s.Equal(300, mock.createSlackInput.PollIntervalSeconds)
 }
 
 func (s *ServiceHandlerSuite) TestDeleteSlackAccount_Success() {
@@ -396,14 +410,16 @@ func (s *ServiceHandlerSuite) TestListEmailAccounts_Success() {
 	mock := &mockServiceManager{
 		emailAccounts: []*repository.EmailAccount{
 			{
-				ID:           id1,
-				FriendlyName: "Work Email",
-				IMAPHost:     "imap.example.com",
-				IMAPPort:     993,
-				Username:     "user@example.com",
-				Encryption:   "tls",
-				Enabled:      true,
-				CreatedAt:    now,
+				ID:                  id1,
+				FriendlyName:        "Work Email",
+				IMAPHost:            "imap.example.com",
+				IMAPPort:            993,
+				Username:            "user@example.com",
+				Encryption:          "tls",
+				WebURL:              "https://mail.example.com",
+				PollIntervalSeconds: 600,
+				Enabled:             true,
+				CreatedAt:           now,
 			},
 		},
 	}
@@ -428,6 +444,8 @@ func (s *ServiceHandlerSuite) TestListEmailAccounts_Success() {
 	s.Equal("Work Email", acct["name"])
 	s.Equal("imap.example.com", acct["imap_host"])
 	s.Equal(float64(993), acct["imap_port"])
+	s.Equal("https://mail.example.com", acct["web_url"])
+	s.Equal(float64(600), acct["poll_interval_seconds"])
 	// Password must not appear in the list response.
 	_, hasPassword := acct["password"]
 	s.False(hasPassword, "password must not appear in response")
@@ -451,7 +469,7 @@ func (s *ServiceHandlerSuite) TestCreateEmailAccount_Success() {
 		},
 	}
 
-	body := `{"name":"New Email","imap_host":"imap.example.com","imap_port":993,"username":"user@example.com","password":"secret","encryption":"tls","enabled":true}`
+	body := `{"name":"New Email","imap_host":"imap.example.com","imap_port":993,"username":"user@example.com","password":"secret","encryption":"tls","web_url":"https://mail.example.com","poll_interval_seconds":600,"enabled":true}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/services/email", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -467,8 +485,10 @@ func (s *ServiceHandlerSuite) TestCreateEmailAccount_Success() {
 	s.Equal(createdID.String(), respBody["id"])
 	s.Equal("New Email", respBody["name"])
 
-	// Verify the handler passed password to the service layer.
+	// Verify the handler passed password + new fields to the service layer.
 	s.Equal("secret", mock.createEmailInput.Password)
+	s.Equal("https://mail.example.com", mock.createEmailInput.WebURL)
+	s.Equal(600, mock.createEmailInput.PollIntervalSeconds)
 }
 
 // --- Calendar tests ---
@@ -480,11 +500,12 @@ func (s *ServiceHandlerSuite) TestListCalendarAccounts_Success() {
 	mock := &mockServiceManager{
 		calendarAccounts: []*repository.CalendarAccount{
 			{
-				ID:        id1,
-				Name:      "Work Calendar",
-				ICSURL:    "https://example.com/cal.ics",
-				Enabled:   true,
-				CreatedAt: now,
+				ID:                  id1,
+				Name:                "Work Calendar",
+				ICSURL:              "https://example.com/cal.ics",
+				PollIntervalSeconds: 1800,
+				Enabled:             true,
+				CreatedAt:           now,
 			},
 		},
 	}
@@ -508,6 +529,7 @@ func (s *ServiceHandlerSuite) TestListCalendarAccounts_Success() {
 	s.Equal(id1.String(), acct["id"])
 	s.Equal("Work Calendar", acct["name"])
 	s.Equal("https://example.com/cal.ics", acct["ics_url"])
+	s.Equal(float64(1800), acct["poll_interval_seconds"])
 }
 
 func (s *ServiceHandlerSuite) TestCreateCalendarAccount_Success() {
@@ -524,7 +546,7 @@ func (s *ServiceHandlerSuite) TestCreateCalendarAccount_Success() {
 		},
 	}
 
-	body := `{"name":"New Calendar","ics_url":"https://example.com/new.ics","enabled":true}`
+	body := `{"name":"New Calendar","ics_url":"https://example.com/new.ics","poll_interval_seconds":1800,"enabled":true}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/services/calendar", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -540,6 +562,9 @@ func (s *ServiceHandlerSuite) TestCreateCalendarAccount_Success() {
 	s.Equal(createdID.String(), respBody["id"])
 	s.Equal("New Calendar", respBody["name"])
 	s.Equal("https://example.com/new.ics", respBody["ics_url"])
+
+	// Verify create forwarded the poll interval to the service layer.
+	s.Equal(1800, mock.createCalendarInput.PollIntervalSeconds)
 }
 
 // --- Status test ---

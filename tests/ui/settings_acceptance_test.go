@@ -771,12 +771,13 @@ func (s *SettingsAcceptanceSuite) TestSlackEditPrefillsFormAndUpdatesInPlace() {
 	// Prefill check: existing values must populate the form.
 	s.Equal("Acme", entries[0].Text, "FriendlyName entry should be prefilled")
 	s.Equal("https://acme.slack.com", entries[1].Text, "WebURL entry should be prefilled")
-	s.Equal("xoxp-old", entries[2].Text, "Token entry should be prefilled")
+	s.Empty(entries[2].Text, "Token entry should NOT be prefilled — leave blank to keep existing token")
 	s.Equal("T-OLD", entries[3].Text, "WorkspaceID entry should be prefilled")
 	s.Equal("olduser", entries[4].Text, "Username entry should be prefilled")
 	s.Equal("600", entries[5].Text, "Poll interval entry should be prefilled")
 
-	// Edit username and save.
+	// Edit username and save without touching the token; the existing
+	// token must be preserved by the form.
 	entries[4].SetText("newuser")
 	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool { return b.Text == "Save" })
 	saveBtn.OnTapped()
@@ -790,6 +791,7 @@ func (s *SettingsAcceptanceSuite) TestSlackEditPrefillsFormAndUpdatesInPlace() {
 	s.Require().Len(repo.slackAccounts, 1, "edit should update in place, not append a duplicate")
 	s.Equal(originalID, repo.slackAccounts[0].ID, "account ID should be preserved on edit")
 	s.Equal("newuser", repo.slackAccounts[0].Username, "username should reflect the edit")
+	s.Equal("xoxp-old", repo.slackAccounts[0].Token, "token should be preserved when the field is left blank on edit")
 }
 
 // AC: Each Email account row renders an Edit button.
@@ -834,7 +836,7 @@ func (s *SettingsAcceptanceSuite) TestEmailEditPrefillsFormAndUpdatesInPlace() {
 	s.Equal("imap.example.com", entries[2].Text, "IMAPHost entry should be prefilled")
 	s.Equal("993", entries[3].Text, "IMAPPort entry should be prefilled")
 	s.Equal("old@example.com", entries[4].Text, "Username entry should be prefilled")
-	s.Equal("oldsecret", entries[5].Text, "Password entry should be prefilled")
+	s.Empty(entries[5].Text, "Password entry should NOT be prefilled — leave blank to keep existing password")
 	s.Equal("600", entries[6].Text, "Poll interval entry should be prefilled")
 
 	sel := uitest.RequireWidget[*widget.Select](s.T(), emailContent, func(_ *widget.Select) bool { return true })
@@ -853,6 +855,7 @@ func (s *SettingsAcceptanceSuite) TestEmailEditPrefillsFormAndUpdatesInPlace() {
 	s.Require().Len(repo.emailAccounts, 1, "edit should update in place, not append a duplicate")
 	s.Equal(originalID, repo.emailAccounts[0].ID, "account ID should be preserved on edit")
 	s.Equal("new@example.com", repo.emailAccounts[0].Username, "username should reflect the edit")
+	s.Equal("oldsecret", repo.emailAccounts[0].Password, "password should be preserved when the field is left blank on edit")
 }
 
 // AC: Each Calendar account row renders an Edit button.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -109,6 +110,68 @@ func (s *NotificationHandlerSuite) TestListNotificationsReturnsNotifiedMessages(
 	s.Equal("Notified", mock.capturedFilter.Status)
 	s.Equal(50, mock.capturedFilter.Limit)
 	s.Equal(0, mock.capturedFilter.Offset)
+}
+
+func (s *NotificationHandlerSuite) TestListNotificationsTrimsContentAndAddsSubjectAndWebURL() {
+	now := time.Now().UTC().Truncate(time.Second)
+
+	longSlack := strings.Repeat("a", 500)
+	slackMsg := &repository.Message{
+		ID:              uuid.New(),
+		Source:          "slack",
+		SourceAccount:   "T1",
+		Sender:          "alice",
+		Channel:         "general",
+		RawContent:      longSlack,
+		WebURL:          "https://acme.slack.com",
+		ImportanceScore: 9,
+		ConfidenceScore: 0.95,
+		Status:          "Notified",
+		CreatedAt:       now.Add(-1 * time.Minute),
+	}
+	emailMsg := &repository.Message{
+		ID:              uuid.New(),
+		Source:          "email",
+		SourceAccount:   "user@example.com",
+		Sender:          "boss@example.com",
+		Channel:         "INBOX",
+		Subject:         "Q4 deadline",
+		RawContent:      "Subject line then a long body that the UI should not have to receive in the notification pane at all.",
+		WebURL:          "https://mail.example.com/u/0/inbox",
+		ImportanceScore: 8,
+		ConfidenceScore: 0.9,
+		Status:          "Notified",
+		CreatedAt:       now.Add(-2 * time.Minute),
+	}
+
+	mock := &mockMessageQuerier{messages: []*repository.Message{slackMsg, emailMsg}, total: 2}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/notifications", nil)
+	rec := httptest.NewRecorder()
+	handler.ListNotificationsHandler(mock)(rec, req)
+
+	s.Require().Equal(http.StatusOK, rec.Code)
+
+	var body struct {
+		Notifications []map[string]any `json:"notifications"`
+		Total         int              `json:"total"`
+	}
+	s.Require().NoError(json.NewDecoder(rec.Body).Decode(&body))
+	s.Require().Len(body.Notifications, 2)
+
+	slackItem := body.Notifications[0]
+	emailItem := body.Notifications[1]
+
+	// Slack: content trimmed to 280 chars, web_url present.
+	slackContent, _ := slackItem["content"].(string)
+	s.LessOrEqual(len(slackContent), 280, "slack content must be trimmed to <=280 chars on the wire")
+	s.Equal("https://acme.slack.com", slackItem["web_url"], "slack item should carry account web_url")
+	s.Equal("", slackItem["subject"], "slack item subject should be empty string")
+
+	// Email: subject populated, content empty (no body sent), web_url present.
+	s.Equal("Q4 deadline", emailItem["subject"], "email item should carry the subject")
+	s.Equal("", emailItem["content"], "email item content must be empty — subject is the visible field")
+	s.Equal("https://mail.example.com/u/0/inbox", emailItem["web_url"])
 }
 
 func (s *NotificationHandlerSuite) TestGetNotificationReturnsFullDetail() {

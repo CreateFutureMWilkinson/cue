@@ -154,7 +154,7 @@ func (p *ServiceSettingsPresenter) SaveEmailAccount(ctx context.Context, acct *r
 // server toggle is keyed by acct.ID.
 func (p *ServiceSettingsPresenter) EditSlackAccount(ctx context.Context, acct *repository.SlackAccount, oldWorkspaceID string) error {
 	_ = oldWorkspaceID
-	if p.slackValidator != nil {
+	if p.slackValidator != nil && acct.Token != "" {
 		if err := p.slackValidator.ValidateSlack(ctx, acct.Token); err != nil {
 			return fmt.Errorf("slack credential validation failed: %w", err)
 		}
@@ -170,7 +170,7 @@ func (p *ServiceSettingsPresenter) EditSlackAccount(ctx context.Context, acct *r
 
 // EditEmailAccount persists changes, removes the old watcher, and starts a new one.
 func (p *ServiceSettingsPresenter) EditEmailAccount(ctx context.Context, acct *repository.EmailAccount, oldUsername string) error {
-	if p.emailValidator != nil {
+	if p.emailValidator != nil && acct.Password != "" {
 		if err := p.emailValidator.ValidateEmail(ctx, acct.IMAPHost, acct.IMAPPort, acct.Username, acct.Password, acct.Encryption); err != nil {
 			return fmt.Errorf("email credential validation failed: %w", err)
 		}

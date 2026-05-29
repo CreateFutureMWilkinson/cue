@@ -1869,3 +1869,140 @@ timeout_seconds = 10
 	s.Require().Error(err)
 	s.Contains(err.Error(), "server", "error should mention the server section")
 }
+
+// ---------------------------------------------------------------------------
+// ValidateForClient — Feature 107 (server.mode + port=0 + section required)
+// ---------------------------------------------------------------------------
+
+// clientBaseTOML is the minimal valid client-facing config used as the
+// starting point for ValidateForClient table-driven cases. It deliberately
+// omits the [server] section so each case can append its own.
+const clientBaseTOML = `
+[database]
+path = "/tmp/test.db"
+
+[ollama]
+host = "localhost"
+port = 11434
+inference_model = "neural-chat"
+embedding_model = "nomic-embed-text"
+timeout_seconds = 10
+`
+
+func (s *ConfigSuite) loadClientCfg(extra string) (*config.Config, error) {
+	dir := s.T().TempDir()
+	cfgPath := filepath.Join(dir, "config.toml")
+	s.Require().NoError(os.WriteFile(cfgPath, []byte(clientBaseTOML+extra), 0644))
+	return config.Load(cfgPath)
+}
+
+func (s *ConfigSuite) TestValidateForClient() {
+	cases := []struct {
+		name       string
+		serverTOML string
+		wantErr    bool
+		errSub     string
+	}{
+		{
+			name:       "missing server section",
+			serverTOML: ``,
+			wantErr:    true,
+			errSub:     "server",
+		},
+		{
+			name: "valid external mode",
+			serverTOML: `
+[server]
+host = "127.0.0.1"
+port = 7130
+mode = "external"
+read_timeout_seconds = 30
+write_timeout_seconds = 30
+`,
+			wantErr: false,
+		},
+		{
+			name: "default mode (omitted) is treated as external",
+			serverTOML: `
+[server]
+host = "127.0.0.1"
+port = 7130
+read_timeout_seconds = 30
+write_timeout_seconds = 30
+`,
+			wantErr: false,
+		},
+		{
+			name: "sidecar mode rejected until Feature 111",
+			serverTOML: `
+[server]
+host = "127.0.0.1"
+port = 7130
+mode = "sidecar"
+read_timeout_seconds = 30
+write_timeout_seconds = 30
+`,
+			wantErr: true,
+			errSub:  "sidecar mode is not yet available",
+		},
+		{
+			name: "unknown mode rejected",
+			serverTOML: `
+[server]
+host = "127.0.0.1"
+port = 7130
+mode = "carrier-pigeon"
+read_timeout_seconds = 30
+write_timeout_seconds = 30
+`,
+			wantErr: true,
+			errSub:  "server.mode",
+		},
+		{
+			name: "port = 0 rejected",
+			serverTOML: `
+[server]
+host = "127.0.0.1"
+port = 0
+mode = "external"
+read_timeout_seconds = 30
+write_timeout_seconds = 30
+`,
+			wantErr: true,
+			errSub:  "server.port",
+		},
+	}
+
+	for _, tc := range cases {
+		s.Run(tc.name, func() {
+			cfg, err := s.loadClientCfg(tc.serverTOML)
+			s.Require().NoError(err)
+			err = cfg.ValidateForClient()
+			if tc.wantErr {
+				s.Require().Error(err)
+				if tc.errSub != "" {
+					s.Contains(err.Error(), tc.errSub)
+				}
+				return
+			}
+			s.Require().NoError(err)
+		})
+	}
+}
+
+// TestValidateForServerRejectsPortZero ensures the server validator
+// also catches port = 0 (Feature 107 locks down the auto-pick behavior).
+func (s *ConfigSuite) TestValidateForServerRejectsPortZero() {
+	cfg, err := s.loadClientCfg(`
+[server]
+host = "127.0.0.1"
+port = 0
+mode = "external"
+read_timeout_seconds = 30
+write_timeout_seconds = 30
+`)
+	s.Require().NoError(err)
+	err = cfg.ValidateForServer()
+	s.Require().Error(err)
+	s.Contains(err.Error(), "server.port")
+}

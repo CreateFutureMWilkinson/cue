@@ -23,13 +23,28 @@ type Config struct {
 }
 
 // ServerConfig holds the HTTP/WebSocket server configuration.
+//
+// Mode controls how the Fyne client connects to the server:
+//   - "external" (default): the user runs `cue server` separately and the
+//     client connects to it. Required for the duration of Feature 107;
+//     the only mode that ValidateForClient currently accepts.
+//   - "sidecar": the client supervises a server child process. Reserved
+//     for Feature 111; rejected at config validation until then.
 type ServerConfig struct {
 	Host                string `toml:"host"`
 	Port                int    `toml:"port"`
+	Mode                string `toml:"mode"`
 	ReadTimeoutSeconds  int    `toml:"read_timeout_seconds"`
 	WriteTimeoutSeconds int    `toml:"write_timeout_seconds"`
 	AuthEnabled         bool   `toml:"auth_enabled"`
 }
+
+// Server mode values. Only ServerModeExternal is accepted today; sidecar
+// mode is reserved for Feature 111.
+const (
+	ServerModeExternal = "external"
+	ServerModeSidecar  = "sidecar"
+)
 
 // isConfigured returns true if any server field has been explicitly set.
 func (s ServerConfig) isConfigured() bool {
@@ -177,6 +192,7 @@ func defaultConfig() *Config {
 		Server: ServerConfig{
 			Host:                "0.0.0.0",
 			Port:                7130,
+			Mode:                ServerModeExternal,
 			ReadTimeoutSeconds:  30,
 			WriteTimeoutSeconds: 30,
 		},
@@ -261,6 +277,19 @@ func applyDefaults(cfg *Config, md toml.MetaData) {
 	}
 	if !md.IsDefined("orchestrator", "router", "calibration_max_examples") {
 		cfg.Orchestrator.Router.CalibrationMaxExamples = defaults.Orchestrator.Router.CalibrationMaxExamples
+	}
+	// server.mode defaults to "external" so existing configs that pre-date
+	// Feature 107 keep working without edits. Only apply when the [server]
+	// section is otherwise present — otherwise a stamped Mode would flip
+	// isConfigured() to true and trip the section's other required-field
+	// rules on configs that legitimately omit [server].
+	serverPresent := md.IsDefined("server", "host") ||
+		md.IsDefined("server", "port") ||
+		md.IsDefined("server", "read_timeout_seconds") ||
+		md.IsDefined("server", "write_timeout_seconds") ||
+		md.IsDefined("server", "auth_enabled")
+	if serverPresent && !md.IsDefined("server", "mode") {
+		cfg.Server.Mode = defaults.Server.Mode
 	}
 }
 
@@ -412,6 +441,12 @@ func (c *Config) Validate() error {
 			func(cfg *Config) bool { return cfg.Server.isConfigured() },
 			func(cfg *Config) bool { return cfg.Server.WriteTimeoutSeconds > 0 },
 			"server.write_timeout_seconds must be greater than 0"),
+		conditionalRule(
+			func(cfg *Config) bool { return cfg.Server.isConfigured() && cfg.Server.Mode != "" },
+			func(cfg *Config) bool {
+				return cfg.Server.Mode == ServerModeExternal || cfg.Server.Mode == ServerModeSidecar
+			},
+			`server.mode must be "external" or "sidecar"`),
 	}
 
 	for _, rule := range rules {
@@ -442,6 +477,45 @@ func (c *Config) ValidateForServer() error {
 	}
 	if !c.Server.isConfigured() {
 		return fmt.Errorf("server configuration required: [server] section must specify host, port, read_timeout_seconds, and write_timeout_seconds")
+	}
+	if c.Server.Port == 0 {
+		return fmt.Errorf("server.port must be set (port = 0 is no longer treated as auto-pick)")
+	}
+	return nil
+}
+
+// ValidateForClient performs the standard validation, then enforces
+// the additional constraints the Fyne client (`cue ui`) requires:
+//
+//   - The [server] section must be present with a non-zero port.
+//   - server.mode must be "external" until Feature 111 lands.
+//     Selecting "sidecar" is rejected with a clear hint that the user
+//     should run `cue server` separately for now.
+//
+// Sections that are server-only ([database], [ollama], [orchestrator])
+// are not required by the client and are deliberately not validated
+// here even if absent from the file.
+func (c *Config) ValidateForClient() error {
+	if err := c.Validate(); err != nil {
+		return err
+	}
+	if !c.Server.isConfigured() {
+		return fmt.Errorf("server configuration required: [server] section must specify host and port for the client to connect to")
+	}
+	if c.Server.Port == 0 {
+		return fmt.Errorf("server.port must be set (port = 0 is no longer treated as auto-pick)")
+	}
+	mode := c.Server.Mode
+	if mode == "" {
+		mode = ServerModeExternal
+	}
+	switch mode {
+	case ServerModeExternal:
+		// OK.
+	case ServerModeSidecar:
+		return fmt.Errorf(`sidecar mode is not yet available — set [server].mode = "external" and run cue server in another terminal`)
+	default:
+		return fmt.Errorf(`server.mode must be "external" or "sidecar", got %q`, c.Server.Mode)
 	}
 	return nil
 }

@@ -92,7 +92,7 @@ func BuildNotificationCards(messages []*repository.Message, now time.Time) []Not
 			FullContent:     msg.RawContent,
 			ConfidenceScore: msg.ConfidenceScore,
 			CreatedAt:       msg.CreatedAt,
-			MessagePreview:  truncateWithEllipsis(msg.RawContent, messagePreviewLen),
+			MessagePreview:  buildMessagePreview(msg),
 			RelativeTime:    formatRelativeTime(msg.CreatedAt, now),
 		}
 
@@ -103,6 +103,15 @@ func BuildNotificationCards(messages []*repository.Message, now time.Time) []Not
 	}
 
 	return cards
+}
+
+// buildMessagePreview returns the preview text shown on a notification card.
+// Email messages surface the subject line; other sources truncate raw content.
+func buildMessagePreview(msg *repository.Message) string {
+	if msg.Source == "email" && msg.Subject != "" {
+		return msg.Subject
+	}
+	return truncateWithEllipsis(msg.RawContent, messagePreviewLen)
 }
 
 // truncateWithEllipsis truncates the content to maxLen, adding "..." if truncation occurs.

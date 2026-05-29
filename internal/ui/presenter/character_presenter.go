@@ -2,15 +2,10 @@ package presenter
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/character"
-)
-
-const (
-	notifiedKeyword = "NOTIFIED"
 )
 
 // CharacterPresenter maps activity and alert events to character state
@@ -83,9 +78,6 @@ func (p *CharacterPresenter) Stop() {
 func (p *CharacterPresenter) mapEventToState(event ActivityEvent) character.CharacterState {
 	if event.IsError {
 		return character.StateError
-	}
-	if strings.Contains(event.Message, notifiedKeyword) {
-		return character.StateNotifying
 	}
 	return character.StateWorking
 }

@@ -341,78 +341,6 @@ func (s *Bug070Suite) newActivityPresenter() *presenter.ActivityPresenter {
 }
 
 // =============================================================================
-// Bug 072 — Wizard step 3 Up/Down reorder buttons are noops
-// =============================================================================
-
-type Bug072Suite struct {
-	suite.Suite
-}
-
-func TestBug072(t *testing.T) {
-	suite.Run(t, new(Bug072Suite))
-}
-
-// AC: Tapping "Up" calls ReorderTask on the view model.
-func (s *Bug072Suite) TestUpButtonCallsReorderTask() {
-	router := ui.NewCenterViewRouter()
-	vm := &trackingWizardVM{
-		stubWizardVM: stubWizardVM{
-			step: presenter.StepPriority,
-			tasks: []presenter.TodoRow{
-				{Title: "Task A", Priority: 1},
-				{Title: "Task B", Priority: 2},
-			},
-			estimates: []presenter.TaskEstimateRow{
-				{Title: "Task A", EstimatedPomos: 2, EffectivePomos: 2},
-				{Title: "Task B", EstimatedPomos: 3, EffectivePomos: 3},
-			},
-		},
-	}
-	wv := ui.NewWizardView(vm, router)
-	root := wv.Container()
-
-	btn, found := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
-		return b.Text == "Up" && !b.Disabled()
-	})
-	s.Require().True(found, "step 3 should have an enabled 'Up' button")
-
-	btn.OnTapped()
-
-	s.True(vm.reorderCalled,
-		"Bug 072: tapping 'Up' should call ReorderTask on the view model")
-}
-
-// AC: Tapping "Down" calls ReorderTask on the view model.
-func (s *Bug072Suite) TestDownButtonCallsReorderTask() {
-	router := ui.NewCenterViewRouter()
-	vm := &trackingWizardVM{
-		stubWizardVM: stubWizardVM{
-			step: presenter.StepPriority,
-			tasks: []presenter.TodoRow{
-				{Title: "Task A", Priority: 1},
-				{Title: "Task B", Priority: 2},
-			},
-			estimates: []presenter.TaskEstimateRow{
-				{Title: "Task A", EstimatedPomos: 2, EffectivePomos: 2},
-				{Title: "Task B", EstimatedPomos: 3, EffectivePomos: 3},
-			},
-		},
-	}
-	wv := ui.NewWizardView(vm, router)
-	root := wv.Container()
-
-	btn, found := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
-		return b.Text == "Down" && !b.Disabled()
-	})
-	s.Require().True(found, "step 3 should have an enabled 'Down' button")
-
-	btn.OnTapped()
-
-	s.True(vm.reorderCalled,
-		"Bug 072: tapping 'Down' should call ReorderTask on the view model")
-}
-
-// =============================================================================
 // Bug 073 — PlannerView navigation buttons not wired
 // =============================================================================
 
@@ -424,33 +352,17 @@ func TestBug073(t *testing.T) {
 	suite.Run(t, new(Bug073Suite))
 }
 
-// AC: "Next" button calls through to its wired callback.
-func (s *Bug073Suite) TestNextButtonCallsCallback() {
-	router := ui.NewCenterViewRouter()
-	vm := &stubPlannerTimerVM{step: presenter.StepTaskSelect}
-	pv := ui.NewPlannerView(vm, vm, router, vm)
-
-	called := false
-	pv.SetOnNext(func() { called = true })
-
-	btn := pv.NextButton()
-	s.Require().True(btn.Visible(), "Next button should be visible in StepTaskSelect")
-	btn.OnTapped()
-
-	s.True(called, "Bug 073: tapping 'Next' should invoke the wired callback")
-}
-
 // AC: "Back" button calls through to its wired callback.
 func (s *Bug073Suite) TestBackButtonCallsCallback() {
 	router := ui.NewCenterViewRouter()
-	vm := &stubPlannerTimerVM{step: presenter.StepEstimates}
+	vm := &stubPlannerTimerVM{step: presenter.StepSchedule}
 	pv := ui.NewPlannerView(vm, vm, router, vm)
 
 	called := false
 	pv.SetOnBack(func() { called = true })
 
 	btn := pv.BackButton()
-	s.Require().True(btn.Visible(), "Back button should be visible in StepEstimates")
+	s.Require().True(btn.Visible(), "Back button should be visible in StepSchedule")
 	btn.OnTapped()
 
 	s.True(called, "Bug 073: tapping 'Back' should invoke the wired callback")
@@ -519,24 +431,6 @@ func (s *Bug073Suite) TestButtonsDoNotPanicWithoutCallbacks() {
 		"Abandon button should not panic without a wired callback")
 	s.NotPanics(func() { pv.CompleteTaskButton().OnTapped() },
 		"Complete Task button should not panic without a wired callback")
-}
-
-// =============================================================================
-// Tracking mocks — extend stubs to record calls
-// =============================================================================
-
-// trackingWizardVM wraps stubWizardVM to track ReorderTask calls.
-type trackingWizardVM struct {
-	stubWizardVM
-	reorderCalled bool
-	reorderFrom   int
-	reorderTo     int
-}
-
-func (t *trackingWizardVM) ReorderTask(from, to int) {
-	t.reorderCalled = true
-	t.reorderFrom = from
-	t.reorderTo = to
 }
 
 // =============================================================================
@@ -659,19 +553,22 @@ func (s *Bug077Suite) TestPlanMyDayButtonTriggersCallback() {
 		"Bug 077: tapping 'Plan My Day' should invoke the onPlanMyDay callback")
 }
 
-// AC: After StartPlanning + navigate, wizard view refreshes to show step 1 content.
-func (s *Bug077Suite) TestWizardShowsStep1AfterPlanMyDay() {
+// AC: After StartPlanning + navigate, wizard view refreshes to show schedule content.
+func (s *Bug077Suite) TestWizardShowsScheduleAfterPlanMyDay() {
 	router := ui.NewCenterViewRouter()
-	wvm := &stubWizardVM{step: presenter.StepTaskSelect}
+	wvm := &stubWizardVM{
+		step:         presenter.StepSchedule,
+		focusPrev:    &presenter.SchedulePreview{Strategy: "focus-maximized"},
+		recoveryPrev: &presenter.SchedulePreview{Strategy: "recovery-balanced"},
+	}
 	wv := ui.NewWizardView(wvm, router)
 	root := wv.Container()
 
-	// Step 1 should have checkboxes or a Next button.
-	_, foundNext := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
-		return b.Text == "Next"
+	_, foundSelect := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
+		return b.Text == "Select focus-maximized"
 	})
-	s.True(foundNext,
-		"Bug 077: wizard at StepTaskSelect should display a 'Next' button")
+	s.True(foundSelect,
+		"Bug 077: wizard at StepSchedule should display a 'Select focus-maximized' button")
 }
 
 // AC: Wizard shows meaningful empty state when step is StepIdle (safety net).

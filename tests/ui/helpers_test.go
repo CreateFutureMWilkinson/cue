@@ -151,21 +151,16 @@ func (m *mockWatcherRemover) RemoveWatcher(_ string) {}
 type stubPlannerTimerVM struct {
 	hasActivePlan  bool
 	activeSchedule *presenter.ActiveScheduleState
-	tasks          []presenter.TodoRow
 	step           presenter.WizardStep
 }
 
-func (s *stubPlannerTimerVM) CurrentStep() presenter.WizardStep      { return s.step }
-func (s *stubPlannerTimerVM) HasActivePlan() bool                    { return s.hasActivePlan }
-func (s *stubPlannerTimerVM) AvailableTasks() []presenter.TodoRow    { return s.tasks }
-func (s *stubPlannerTimerVM) Estimates() []presenter.TaskEstimateRow { return nil }
-func (s *stubPlannerTimerVM) EstimateSummary() presenter.EstimateSummary {
-	return presenter.EstimateSummary{}
-}
-func (s *stubPlannerTimerVM) FocusSchedule() *presenter.SchedulePreview    { return nil }
-func (s *stubPlannerTimerVM) RecoverySchedule() *presenter.SchedulePreview { return nil }
+func (s *stubPlannerTimerVM) CurrentStep() presenter.WizardStep { return s.step }
+func (s *stubPlannerTimerVM) HasActivePlan() bool               { return s.hasActivePlan }
 func (s *stubPlannerTimerVM) ActiveSchedule() *presenter.ActiveScheduleState {
 	return s.activeSchedule
+}
+func (s *stubPlannerTimerVM) CurrentFocusTask(_ context.Context) (*presenter.TodoRow, error) {
+	return nil, nil
 }
 func (s *stubPlannerTimerVM) IsRunning() bool              { return false }
 func (s *stubPlannerTimerVM) ActiveSegment() int           { return 0 }
@@ -182,31 +177,17 @@ func (s *stubPlannerTimerVM) UpdateTask(_ ui.TodoListRow) {}
 
 // stubWizardVM satisfies WizardViewModel.
 type stubWizardVM struct {
-	step          presenter.WizardStep
-	tasks         []presenter.TodoRow
-	estimates     []presenter.TaskEstimateRow
-	summary       presenter.EstimateSummary
-	selectedCount int
-	focusPrev     *presenter.SchedulePreview
-	recoveryPrev  *presenter.SchedulePreview
+	step         presenter.WizardStep
+	focusPrev    *presenter.SchedulePreview
+	recoveryPrev *presenter.SchedulePreview
 }
 
-func (s *stubWizardVM) CurrentStep() presenter.WizardStep      { return s.step }
-func (s *stubWizardVM) AvailableTasks() []presenter.TodoRow    { return s.tasks }
-func (s *stubWizardVM) Estimates() []presenter.TaskEstimateRow { return s.estimates }
-func (s *stubWizardVM) EstimateSummary() presenter.EstimateSummary {
-	return s.summary
-}
-func (s *stubWizardVM) FocusSchedule() *presenter.SchedulePreview    { return s.focusPrev }
-func (s *stubWizardVM) RecoverySchedule() *presenter.SchedulePreview { return s.recoveryPrev }
-func (s *stubWizardVM) SelectTask(_ uuid.UUID, _ bool)                   {}
-func (s *stubWizardVM) AddTask(_ context.Context, _ string, _ int) error { return nil }
-func (s *stubWizardVM) NextStep(_ context.Context) error                 { return nil }
+func (s *stubWizardVM) CurrentStep() presenter.WizardStep                { return s.step }
+func (s *stubWizardVM) FocusSchedule() *presenter.SchedulePreview        { return s.focusPrev }
+func (s *stubWizardVM) RecoverySchedule() *presenter.SchedulePreview     { return s.recoveryPrev }
+func (s *stubWizardVM) StartPlanning(_ context.Context) error            { return nil }
 func (s *stubWizardVM) PreviousStep()                                    {}
-func (s *stubWizardVM) OverrideEstimate(_ uuid.UUID, _ int)              {}
-func (s *stubWizardVM) ReorderTask(_, _ int)                             {}
 func (s *stubWizardVM) SelectSchedule(_ context.Context, _ string) error { return nil }
-func (s *stubWizardVM) SelectedCount() int                               { return s.selectedCount }
 
 // mockRoutingRuleRepo satisfies repository.RoutingRuleRepository with in-memory storage.
 type mockRoutingRuleRepo struct {

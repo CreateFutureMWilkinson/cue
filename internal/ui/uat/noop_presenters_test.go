@@ -1,6 +1,7 @@
 package uat_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -30,10 +31,10 @@ func (s *NoOpPresentersSuite) TestNoOpPlannerVMSatisfiesInterface() {
 	vm := &uat.NoOpPlannerVM{}
 
 	s.False(vm.HasActivePlan())
-	s.Nil(vm.AvailableTasks())
-	s.Nil(vm.FocusSchedule())
-	s.Nil(vm.RecoverySchedule())
 	s.Nil(vm.ActiveSchedule())
+	row, err := vm.CurrentFocusTask(context.Background())
+	s.NoError(err)
+	s.Nil(row)
 	s.Equal(0, int(vm.CurrentStep()))
 }
 
@@ -50,9 +51,6 @@ func (s *NoOpPresentersSuite) TestNoOpTimerVMSatisfiesInterface() {
 func (s *NoOpPresentersSuite) TestNoOpWizardVMSatisfiesInterface() {
 	vm := &uat.NoOpWizardVM{}
 
-	s.Equal(0, vm.SelectedCount())
-	s.Nil(vm.AvailableTasks())
-	s.Nil(vm.Estimates())
 	s.Nil(vm.FocusSchedule())
 	s.Nil(vm.RecoverySchedule())
 	s.Equal(0, int(vm.CurrentStep()))

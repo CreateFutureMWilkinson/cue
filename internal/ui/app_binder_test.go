@@ -250,7 +250,7 @@ func (s *AppBinderSuite) TestBindWiresStepChangeToWizardRefresh() {
 	s.Require().NotNil(s.plannerP.stepChangeCallback, "Bind should have wired a StepChange callback")
 
 	s.wizardView.On("Refresh").Return()
-	s.plannerP.stepChangeCallback(presenter.StepEstimates)
+	s.plannerP.stepChangeCallback(presenter.StepSchedule)
 
 	s.wizardView.AssertCalled(s.T(), "Refresh")
 }

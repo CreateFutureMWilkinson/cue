@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"time"
@@ -14,15 +15,14 @@ import (
 )
 
 // PlannerViewModel abstracts the planner presenter for the view.
+//
+// Feature 107 WP5: trimmed to schedule-only state plus a single
+// CurrentFocusTask hint surfaced on the active-schedule view.
 type PlannerViewModel interface {
 	CurrentStep() presenter.WizardStep
 	HasActivePlan() bool
-	AvailableTasks() []presenter.TodoRow
-	Estimates() []presenter.TaskEstimateRow
-	EstimateSummary() presenter.EstimateSummary
-	FocusSchedule() *presenter.SchedulePreview
-	RecoverySchedule() *presenter.SchedulePreview
 	ActiveSchedule() *presenter.ActiveScheduleState
+	CurrentFocusTask(ctx context.Context) (*presenter.TodoRow, error)
 }
 
 // TimerViewModel abstracts the timer presenter for the view.
@@ -69,6 +69,7 @@ type PlannerView struct {
 	// Content state
 	placeholderText string
 	scheduleTree    *ScheduleTree
+	focusTaskText   string
 	centerContent   *fyne.Container
 
 	container *fyne.Container
@@ -163,6 +164,12 @@ func (v *PlannerView) ScheduleTree() *ScheduleTree {
 	return v.scheduleTree
 }
 
+// FocusTaskText returns the current-focus-task hint shown on the active
+// schedule view, or empty string when there is no focus task.
+func (v *PlannerView) FocusTaskText() string {
+	return v.focusTaskText
+}
+
 // SetOnPlanMyDay sets the callback invoked when the "Plan My Day" button is tapped.
 func (v *PlannerView) SetOnPlanMyDay(fn func()) {
 	v.onPlanMyDay = fn
@@ -216,6 +223,13 @@ func (v *PlannerView) buildContent() {
 		v.scheduleTree = v.buildScheduleTree(hasActivePlan)
 	}
 
+	v.focusTaskText = ""
+	if step == presenter.StepActive {
+		if row, err := v.plannerModel.CurrentFocusTask(context.Background()); err == nil && row != nil {
+			v.focusTaskText = "Now: " + row.Title
+		}
+	}
+
 	v.updateCenterContent()
 }
 
@@ -230,12 +244,20 @@ func (v *PlannerView) updateCenterContent() {
 		return
 	}
 
+	box := container.NewVBox()
+	if v.focusTaskText != "" {
+		box.Add(widget.NewLabel(v.focusTaskText))
+	}
+
 	if v.scheduleTree != nil {
 		cycles := v.scheduleTree.Cycles()
 		if len(cycles) > 0 {
-			label := widget.NewLabel(fmt.Sprintf("Schedule: %d cycles", len(cycles)))
-			v.centerContent.Add(container.NewCenter(label))
+			box.Add(container.NewCenter(widget.NewLabel(fmt.Sprintf("Schedule: %d cycles", len(cycles)))))
 		}
+	}
+
+	if len(box.Objects) > 0 {
+		v.centerContent.Add(box)
 	}
 }
 
@@ -263,16 +285,17 @@ func (v *PlannerView) buildScheduleTree(hasActivePlan bool) *ScheduleTree {
 func (v *PlannerView) applyVisibility() {
 	step := v.plannerModel.CurrentStep()
 
-	// Define visibility for each button type based on current step
+	// Feature 107 WP5: the wizard is schedule-only, so the Plan view's
+	// Next button has no remaining role. The Back button is shown only
+	// at StepSchedule for symmetry with the wizard view's Back.
 	buttonVisibility := map[*widget.Button]bool{
 		v.planBtn:         step == presenter.StepIdle,
-		v.nextBtn:         v.isWizardProgressStep(step),
-		v.backBtn:         v.isWizardNavigableStep(step),
+		v.nextBtn:         false,
+		v.backBtn:         step == presenter.StepSchedule,
 		v.completeTaskBtn: step == presenter.StepActive,
 		v.abandonBtn:      step == presenter.StepActive,
 	}
 
-	// Apply visibility to all buttons
 	for button, visible := range buttonVisibility {
 		v.setButtonVisibility(button, visible)
 	}
@@ -285,19 +308,4 @@ func (v *PlannerView) setButtonVisibility(button *widget.Button, visible bool) {
 	} else {
 		button.Hide()
 	}
-}
-
-// isWizardProgressStep returns true for wizard steps that allow progressing forward.
-func (v *PlannerView) isWizardProgressStep(step presenter.WizardStep) bool {
-	return step == presenter.StepTaskSelect ||
-		step == presenter.StepEstimates ||
-		step == presenter.StepPriority
-}
-
-// isWizardNavigableStep returns true for wizard steps that allow navigation (forward/back).
-func (v *PlannerView) isWizardNavigableStep(step presenter.WizardStep) bool {
-	return step == presenter.StepTaskSelect ||
-		step == presenter.StepEstimates ||
-		step == presenter.StepPriority ||
-		step == presenter.StepSchedule
 }

@@ -15,7 +15,8 @@ import (
 )
 
 // WizardViewAcceptanceSuite verifies that the WizardView container tree
-// contains the expected Fyne widgets for each wizard step.
+// contains the expected Fyne widgets for the schedule-only wizard flow
+// introduced by Feature 107 WP5.
 type WizardViewAcceptanceSuite struct {
 	suite.Suite
 	vm     *mockWizardViewModel
@@ -31,152 +32,14 @@ func (s *WizardViewAcceptanceSuite) SetupTest() {
 	s.router = ui.NewCenterViewRouter()
 }
 
-// --- Step 1 widget rendering ---
-
-func (s *WizardViewAcceptanceSuite) TestWizardStep1ContainsCheckboxes() {
-	s.setupStep1Defaults()
-
-	view := ui.NewWizardView(s.vm, s.router)
-	root := view.Container()
-
-	checks := uitest.FindAll[*widget.Check](root, func(_ *widget.Check) bool {
-		return true
-	})
-
-	s.GreaterOrEqual(len(checks), 3,
-		"Step 1 container should contain at least 3 Check widgets (one per task from sampleAvailableTasks)")
+func (s *WizardViewAcceptanceSuite) setupScheduleDefaults() {
+	s.vm.On("CurrentStep").Return(presenter.StepSchedule).Maybe()
+	s.vm.On("FocusSchedule").Return(sampleFocusSchedule()).Maybe()
+	s.vm.On("RecoverySchedule").Return(sampleRecoverySchedule()).Maybe()
 }
 
-func (s *WizardViewAcceptanceSuite) TestWizardStep1HasNavigationButtons() {
-	s.setupStep1Defaults()
-
-	view := ui.NewWizardView(s.vm, s.router)
-	root := view.Container()
-
-	_, foundNext := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
-		return b.Text == "Next"
-	})
-	s.True(foundNext, "Step 1 container should have a 'Next' button widget")
-
-	_, foundCancel := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
-		return b.Text == "Cancel"
-	})
-	s.True(foundCancel, "Step 1 container should have a 'Cancel' button widget")
-}
-
-func (s *WizardViewAcceptanceSuite) TestWizardStep1HasInlineCreation() {
-	s.setupStep1Defaults()
-
-	view := ui.NewWizardView(s.vm, s.router)
-	root := view.Container()
-
-	entries := uitest.FindAll[*widget.Entry](root, func(_ *widget.Entry) bool {
-		return true
-	})
-
-	s.GreaterOrEqual(len(entries), 1,
-		"Step 1 container should have at least 1 Entry widget for inline task creation")
-}
-
-// --- Step 2 widget rendering ---
-
-func (s *WizardViewAcceptanceSuite) TestWizardStep2ContainsEstimateEntries() {
-	s.setupStep2Defaults()
-
-	view := ui.NewWizardView(s.vm, s.router)
-	root := view.Container()
-
-	entries := uitest.FindAll[*widget.Entry](root, func(_ *widget.Entry) bool {
-		return true
-	})
-
-	s.GreaterOrEqual(len(entries), 2,
-		"Step 2 container should contain at least 2 Entry widgets (one per estimate row from sampleEstimates)")
-}
-
-func (s *WizardViewAcceptanceSuite) TestWizardStep2HasSummaryLabel() {
-	s.setupStep2Defaults()
-
-	view := ui.NewWizardView(s.vm, s.router)
-	root := view.Container()
-
-	_, found := uitest.FindWidget[*widget.Label](root, func(l *widget.Label) bool {
-		return strings.Contains(l.Text, "Pomodoros")
-	})
-	s.True(found, "Step 2 container should have a Label containing 'Pomodoros'")
-}
-
-func (s *WizardViewAcceptanceSuite) TestWizardStep2HasBackAndNextButtons() {
-	s.setupStep2Defaults()
-
-	view := ui.NewWizardView(s.vm, s.router)
-	root := view.Container()
-
-	_, foundBack := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
-		return b.Text == "Back"
-	})
-	s.True(foundBack, "Step 2 container should have a 'Back' button widget")
-
-	_, foundNext := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
-		return b.Text == "Next"
-	})
-	s.True(foundNext, "Step 2 container should have a 'Next' button widget")
-}
-
-// --- Step 3 widget rendering ---
-
-func (s *WizardViewAcceptanceSuite) TestWizardStep3HasReorderControls() {
-	s.setupStep3Defaults()
-
-	view := ui.NewWizardView(s.vm, s.router)
-	root := view.Container()
-
-	_, foundUp := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
-		return b.Text == "Up"
-	})
-	s.True(foundUp, "Step 3 container should have an 'Up' button widget")
-
-	_, foundDown := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
-		return b.Text == "Down"
-	})
-	s.True(foundDown, "Step 3 container should have a 'Down' button widget")
-}
-
-func (s *WizardViewAcceptanceSuite) TestWizardStep3HasBackAndNextButtons() {
-	s.setupStep3Defaults()
-
-	view := ui.NewWizardView(s.vm, s.router)
-	root := view.Container()
-
-	_, foundBack := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
-		return b.Text == "Back"
-	})
-	s.True(foundBack, "Step 3 container should have a 'Back' button widget")
-
-	_, foundNext := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
-		return b.Text == "Next"
-	})
-	s.True(foundNext, "Step 3 container should have a 'Next' button widget")
-}
-
-func (s *WizardViewAcceptanceSuite) TestWizardStep3HasTaskLabels() {
-	s.setupStep3Defaults()
-
-	view := ui.NewWizardView(s.vm, s.router)
-	root := view.Container()
-
-	labels := uitest.FindAll[*widget.Label](root, func(_ *widget.Label) bool {
-		return true
-	})
-
-	s.GreaterOrEqual(len(labels), 2,
-		"Step 3 container should contain at least 2 Label widgets (one per priority list item from sampleEstimates)")
-}
-
-// --- Step 4 widget rendering ---
-
-func (s *WizardViewAcceptanceSuite) TestWizardStep4HasScheduleSelectionButtons() {
-	s.setupStep4Defaults()
+func (s *WizardViewAcceptanceSuite) TestScheduleHasSelectionButtons() {
+	s.setupScheduleDefaults()
 
 	view := ui.NewWizardView(s.vm, s.router)
 	root := view.Container()
@@ -187,75 +50,29 @@ func (s *WizardViewAcceptanceSuite) TestWizardStep4HasScheduleSelectionButtons()
 	})
 
 	s.GreaterOrEqual(len(buttons), 2,
-		"Step 4 container should contain at least 2 Button widgets for schedule selection (one per strategy)")
+		"schedule step should contain at least 2 Select buttons (one per strategy)")
 }
 
-func (s *WizardViewAcceptanceSuite) TestWizardStep4HasBackButton() {
-	s.setupStep4Defaults()
+func (s *WizardViewAcceptanceSuite) TestScheduleHasBackButton() {
+	s.setupScheduleDefaults()
 
 	view := ui.NewWizardView(s.vm, s.router)
 	root := view.Container()
 
-	_, foundBack := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
+	_, found := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
 		return b.Text == "Back"
 	})
-	s.True(foundBack, "Step 4 container should have a 'Back' button widget")
+	s.True(found, "schedule step should have a 'Back' button")
 }
 
-func (s *WizardViewAcceptanceSuite) TestWizardStep4NoNextButton() {
-	s.setupStep4Defaults()
+func (s *WizardViewAcceptanceSuite) TestScheduleHasNoNextButton() {
+	s.setupScheduleDefaults()
 
 	view := ui.NewWizardView(s.vm, s.router)
 	root := view.Container()
 
-	_, foundNext := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
+	_, found := uitest.FindWidget[*widget.Button](root, func(b *widget.Button) bool {
 		return b.Text == "Next"
 	})
-	s.False(foundNext, "Step 4 container should NOT have a 'Next' button (schedule selection replaces it)")
-}
-
-// --- Helpers ---
-
-func (s *WizardViewAcceptanceSuite) setupStep2Defaults() {
-	s.vm.On("CurrentStep").Return(presenter.StepEstimates).Maybe()
-	s.vm.On("AvailableTasks").Return([]presenter.TodoRow{}).Maybe()
-	s.vm.On("SelectedCount").Return(0).Maybe()
-	s.vm.On("Estimates").Return(sampleEstimates()).Maybe()
-	s.vm.On("EstimateSummary").Return(presenter.EstimateSummary{
-		TotalPomos:      5,
-		AvailableBlocks: 19,
-		Overloaded:      false,
-	}).Maybe()
-	s.vm.On("FocusSchedule").Return((*presenter.SchedulePreview)(nil)).Maybe()
-	s.vm.On("RecoverySchedule").Return((*presenter.SchedulePreview)(nil)).Maybe()
-}
-
-func (s *WizardViewAcceptanceSuite) setupStep3Defaults() {
-	s.vm.On("CurrentStep").Return(presenter.StepPriority).Maybe()
-	s.vm.On("AvailableTasks").Return([]presenter.TodoRow{}).Maybe()
-	s.vm.On("SelectedCount").Return(0).Maybe()
-	s.vm.On("Estimates").Return(sampleEstimates()).Maybe()
-	s.vm.On("EstimateSummary").Return(presenter.EstimateSummary{}).Maybe()
-	s.vm.On("FocusSchedule").Return((*presenter.SchedulePreview)(nil)).Maybe()
-	s.vm.On("RecoverySchedule").Return((*presenter.SchedulePreview)(nil)).Maybe()
-}
-
-func (s *WizardViewAcceptanceSuite) setupStep1Defaults() {
-	s.vm.On("CurrentStep").Return(presenter.StepTaskSelect).Maybe()
-	s.vm.On("AvailableTasks").Return(sampleAvailableTasks()).Maybe()
-	s.vm.On("SelectedCount").Return(2).Maybe()
-	s.vm.On("Estimates").Return([]presenter.TaskEstimateRow{}).Maybe()
-	s.vm.On("EstimateSummary").Return(presenter.EstimateSummary{}).Maybe()
-	s.vm.On("FocusSchedule").Return((*presenter.SchedulePreview)(nil)).Maybe()
-	s.vm.On("RecoverySchedule").Return((*presenter.SchedulePreview)(nil)).Maybe()
-}
-
-func (s *WizardViewAcceptanceSuite) setupStep4Defaults() {
-	s.vm.On("CurrentStep").Return(presenter.StepSchedule).Maybe()
-	s.vm.On("AvailableTasks").Return([]presenter.TodoRow{}).Maybe()
-	s.vm.On("SelectedCount").Return(0).Maybe()
-	s.vm.On("Estimates").Return([]presenter.TaskEstimateRow{}).Maybe()
-	s.vm.On("EstimateSummary").Return(presenter.EstimateSummary{}).Maybe()
-	s.vm.On("FocusSchedule").Return(sampleFocusSchedule()).Maybe()
-	s.vm.On("RecoverySchedule").Return(sampleRecoverySchedule()).Maybe()
+	s.False(found, "schedule step should NOT have a 'Next' button")
 }

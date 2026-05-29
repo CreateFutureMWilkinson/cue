@@ -8,7 +8,6 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/config"
@@ -21,24 +20,18 @@ import (
 // with zero-value returns for all methods. Used in layout wiring tests.
 type stubPlannerTimerVM struct{}
 
-func (s *stubPlannerTimerVM) CurrentStep() presenter.WizardStep      { return presenter.StepIdle }
-func (s *stubPlannerTimerVM) HasActivePlan() bool                    { return false }
-func (s *stubPlannerTimerVM) AvailableTasks() []presenter.TodoRow    { return nil }
-func (s *stubPlannerTimerVM) Estimates() []presenter.TaskEstimateRow { return nil }
-func (s *stubPlannerTimerVM) EstimateSummary() presenter.EstimateSummary {
-	return presenter.EstimateSummary{}
-}
-func (s *stubPlannerTimerVM) FocusSchedule() *presenter.SchedulePreview { return nil }
-func (s *stubPlannerTimerVM) RecoverySchedule() *presenter.SchedulePreview {
-	return nil
-}
+func (s *stubPlannerTimerVM) CurrentStep() presenter.WizardStep              { return presenter.StepIdle }
+func (s *stubPlannerTimerVM) HasActivePlan() bool                            { return false }
 func (s *stubPlannerTimerVM) ActiveSchedule() *presenter.ActiveScheduleState { return nil }
-func (s *stubPlannerTimerVM) IsRunning() bool                                { return false }
-func (s *stubPlannerTimerVM) ActiveSegment() int                             { return 0 }
-func (s *stubPlannerTimerVM) ElapsedFraction() float64                       { return 0 }
-func (s *stubPlannerTimerVM) IsFlashVisible() bool                           { return false }
-func (s *stubPlannerTimerVM) CurrentTaskName() string                        { return "" }
-func (s *stubPlannerTimerVM) BlockType() planner.BlockType                   { return planner.BlockFocus }
+func (s *stubPlannerTimerVM) CurrentFocusTask(_ context.Context) (*presenter.TodoRow, error) {
+	return nil, nil
+}
+func (s *stubPlannerTimerVM) IsRunning() bool              { return false }
+func (s *stubPlannerTimerVM) ActiveSegment() int           { return 0 }
+func (s *stubPlannerTimerVM) ElapsedFraction() float64     { return 0 }
+func (s *stubPlannerTimerVM) IsFlashVisible() bool         { return false }
+func (s *stubPlannerTimerVM) CurrentTaskName() string      { return "" }
+func (s *stubPlannerTimerVM) BlockType() planner.BlockType { return planner.BlockFocus }
 
 // ThreeColumnLayoutSuite tests that the MainWindow API accepts the
 // CenterViewRouter parameter required by the three-column layout.
@@ -207,22 +200,12 @@ func (s *ThreeColumnLayoutSuite) TestViewPlanShowsPlannerViewWhenVMsProvided() {
 // Separate from stubPlannerTimerVM for clarity.
 type stubWizardVM struct{}
 
-func (s *stubWizardVM) CurrentStep() presenter.WizardStep      { return presenter.StepIdle }
-func (s *stubWizardVM) AvailableTasks() []presenter.TodoRow    { return nil }
-func (s *stubWizardVM) Estimates() []presenter.TaskEstimateRow { return nil }
-func (s *stubWizardVM) EstimateSummary() presenter.EstimateSummary {
-	return presenter.EstimateSummary{}
-}
+func (s *stubWizardVM) CurrentStep() presenter.WizardStep                { return presenter.StepIdle }
 func (s *stubWizardVM) FocusSchedule() *presenter.SchedulePreview        { return nil }
 func (s *stubWizardVM) RecoverySchedule() *presenter.SchedulePreview     { return nil }
-func (s *stubWizardVM) SelectTask(_ uuid.UUID, _ bool)                   {}
-func (s *stubWizardVM) AddTask(_ context.Context, _ string, _ int) error { return nil }
-func (s *stubWizardVM) NextStep(_ context.Context) error                 { return nil }
+func (s *stubWizardVM) StartPlanning(_ context.Context) error            { return nil }
 func (s *stubWizardVM) PreviousStep()                                    {}
-func (s *stubWizardVM) OverrideEstimate(_ uuid.UUID, _ int)              {}
-func (s *stubWizardVM) ReorderTask(_, _ int)                             {}
 func (s *stubWizardVM) SelectSchedule(_ context.Context, _ string) error { return nil }
-func (s *stubWizardVM) SelectedCount() int                               { return 0 }
 
 func (s *ThreeColumnLayoutSuite) TestViewWizardShowsWizardViewWhenVMProvided() {
 	fyneApp := test.NewApp()

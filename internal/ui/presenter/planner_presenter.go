@@ -42,23 +42,18 @@ type ScheduleGenerator interface {
 
 // WizardStep represents the current step in the day planner wizard.
 //
-// Feature 107 collapses the wizard to a schedule-generation flow:
-// StepIdle → StepSchedule → StepActive. The legacy
-// StepTaskSelect/StepEstimates/StepPriority constants are retained
-// for the duration of WP5 so call sites can be migrated incrementally;
-// once WP5's view rewrite lands they are scheduled for removal.
+// Feature 107 WP5 collapsed the wizard to a schedule-generation flow:
+// StepIdle → StepSchedule → StepActive. Todos are managed in the Plan
+// view's todo list (a separate surface); the wizard never edits them.
 type WizardStep int
 
 const (
-	StepIdle       WizardStep = iota
-	StepTaskSelect            // legacy: deleted by Feature 107 WP5
-	StepEstimates             // legacy: deleted by Feature 107 WP5
-	StepPriority              // legacy: deleted by Feature 107 WP5
-	StepSchedule              // Preview generated schedules (first interactive step)
-	StepActive                // Active schedule in progress
+	StepIdle WizardStep = iota
+	StepSchedule
+	StepActive
 )
 
-// TodoRow is the view model for a todo item in the task selection step.
+// TodoRow is the view model for a todo item.
 type TodoRow struct {
 	ID         uuid.UUID
 	Title      string
@@ -68,20 +63,16 @@ type TodoRow struct {
 	Selected   bool
 }
 
-// TaskEstimateRow is the view model for a task estimate in the estimates step.
+// TaskEstimateRow is the view model for a task estimate.
+//
+// Retained as a public type for downstream consumers; the wizard no
+// longer uses it after Feature 107 WP5.
 type TaskEstimateRow struct {
 	TodoID         uuid.UUID
 	Title          string
 	EstimatedPomos int
 	UserOverride   *int
 	EffectivePomos int
-}
-
-// EstimateSummary summarizes the pomodoro estimates for selected tasks.
-type EstimateSummary struct {
-	TotalPomos      int
-	AvailableBlocks int
-	Overloaded      bool
 }
 
 // SchedulePreview is the view model for a generated schedule.
@@ -98,6 +89,7 @@ type TimeBlockPreview struct {
 	End      time.Time
 	Type     string
 	TaskName string
+	TaskID   *uuid.UUID
 }
 
 // ActiveScheduleState is the view model for an active schedule.
@@ -117,10 +109,7 @@ type PlannerPresenter struct {
 	clock     planner.Clock
 
 	// Wizard state
-	step         WizardStep
-	tasks        []TodoRow
-	descriptions map[uuid.UUID]string // todo ID -> description
-	estimates    []TaskEstimateRow
+	step WizardStep
 
 	// Generated schedules
 	focusSchedule    *planner.DaySchedule
@@ -137,10 +126,6 @@ type PlannerPresenter struct {
 
 // NewPlannerPresenter creates a new PlannerPresenter, validating all
 // dependencies.
-//
-// Feature 107: the calendar provider and task estimator dependencies
-// were removed. The server fetches the calendar; per-task pomo
-// estimates are deferred to the server-side schedule generator.
 func NewPlannerPresenter(
 	todos TodoQuerier,
 	cats CategoryQuerier,
@@ -191,67 +176,29 @@ func (p *PlannerPresenter) CurrentStep() WizardStep {
 	return p.step
 }
 
-// StartPlanning loads incomplete todos and transitions to StepTaskSelect.
+// StartPlanning runs the schedule generator for today and transitions
+// to StepSchedule. The caller can then inspect FocusSchedule /
+// RecoverySchedule and pick one via SelectSchedule.
 func (p *PlannerPresenter) StartPlanning(ctx context.Context) error {
-	todos, _, err := p.todos.QueryFiltered(ctx, repository.TaskFilter{Status: "incomplete"})
+	focus, recovery, err := p.generator.GenerateSchedules(ctx, p.todayDate())
 	if err != nil {
-		return fmt.Errorf("loading incomplete todos: %w", err)
+		return fmt.Errorf("generating schedules: %w", err)
 	}
-	p.tasks = make([]TodoRow, len(todos))
-	p.descriptions = make(map[uuid.UUID]string)
-	for i, t := range todos {
-		p.tasks[i] = todoToRow(t)
-		p.descriptions[t.ID] = t.Description
-	}
-	p.step = StepTaskSelect
+	p.focusSchedule = focus
+	p.recoverySchedule = recovery
+	p.step = StepSchedule
 	p.fireStepChange()
 	return nil
 }
 
-// === Task Management ===
-
-// AvailableTasks returns the current list of todo rows for selection.
-func (p *PlannerPresenter) AvailableTasks() []TodoRow {
-	result := make([]TodoRow, len(p.tasks))
-	copy(result, p.tasks)
-	return result
-}
-
-// SelectTask sets the selection state of a task by ID.
-func (p *PlannerPresenter) SelectTask(id uuid.UUID, selected bool) {
-	if taskIndex := p.findTaskIndex(id); taskIndex >= 0 {
-		p.tasks[taskIndex].Selected = selected
-	}
-}
-
-// AddTask creates a new todo via the repository and adds it to the available list.
-func (p *PlannerPresenter) AddTask(ctx context.Context, title string, priority int) error {
-	todo := &repository.Task{
-		ID:        uuid.New(),
-		Title:     title,
-		Priority:  priority,
-		CreatedAt: p.clock.Now(),
-	}
-	if err := p.todos.Insert(ctx, todo); err != nil {
-		return fmt.Errorf("inserting task: %w", err)
-	}
-	p.tasks = append(p.tasks, todoToRow(todo))
-	return nil
-}
-
-// === Estimation Management ===
-
-// NextStep advances the wizard to the next step.
-func (p *PlannerPresenter) NextStep(ctx context.Context) error {
+// NextStep is a no-op that returns an error for StepSchedule (use
+// SelectSchedule instead) and for StepActive. It exists to satisfy the
+// PlannerCallbacks contract; the wizard's only forward transition is
+// SelectSchedule.
+func (p *PlannerPresenter) NextStep(_ context.Context) error {
 	switch p.step {
-	case StepTaskSelect:
-		return p.nextFromTaskSelect(ctx)
-	case StepEstimates:
-		p.step = StepPriority
-		p.fireStepChange()
+	case StepIdle:
 		return nil
-	case StepPriority:
-		return p.nextFromPriority(ctx)
 	case StepSchedule:
 		return fmt.Errorf("cannot advance from schedule step: use SelectSchedule")
 	default:
@@ -259,66 +206,13 @@ func (p *PlannerPresenter) NextStep(ctx context.Context) error {
 	}
 }
 
-// PreviousStep moves the wizard back one step.
+// PreviousStep moves the wizard back. From StepSchedule it returns to
+// StepIdle; from any other step it is a no-op.
 func (p *PlannerPresenter) PreviousStep() {
-	switch p.step {
-	case StepTaskSelect:
+	if p.step == StepSchedule {
 		p.step = StepIdle
 		p.fireStepChange()
-	case StepEstimates:
-		p.step = StepTaskSelect
-		p.fireStepChange()
-	case StepPriority:
-		p.step = StepEstimates
-		p.fireStepChange()
-	case StepSchedule:
-		p.step = StepPriority
-		p.fireStepChange()
 	}
-}
-
-// Estimates returns the current task estimate rows.
-func (p *PlannerPresenter) Estimates() []TaskEstimateRow {
-	result := make([]TaskEstimateRow, len(p.estimates))
-	copy(result, p.estimates)
-	return result
-}
-
-// OverrideEstimate sets a user override for a task's pomodoro estimate.
-func (p *PlannerPresenter) OverrideEstimate(todoID uuid.UUID, pomos int) {
-	if estimateIndex := p.findEstimateIndex(todoID); estimateIndex >= 0 {
-		override := pomos
-		p.estimates[estimateIndex].UserOverride = &override
-		p.estimates[estimateIndex].EffectivePomos = pomos
-	}
-}
-
-// EstimateSummary returns the summary of pomodoro estimates.
-func (p *PlannerPresenter) EstimateSummary() EstimateSummary {
-	total := 0
-	for _, e := range p.estimates {
-		total += e.EffectivePomos
-	}
-	// Default workday: 09:00-17:00 = 8 hours = 480 minutes
-	// Default pomodoro: 25 minutes
-	available := 480 / 25 // = 19
-	return EstimateSummary{
-		TotalPomos:      total,
-		AvailableBlocks: available,
-		Overloaded:      total > available,
-	}
-}
-
-// ReorderTask moves a task estimate from one index to another.
-func (p *PlannerPresenter) ReorderTask(from, to int) {
-	if !p.isValidEstimateIndex(from) || !p.isValidEstimateIndex(to) {
-		return
-	}
-	item := p.estimates[from]
-	// Remove from old position
-	p.estimates = append(p.estimates[:from], p.estimates[from+1:]...)
-	// Insert at new position
-	p.estimates = append(p.estimates[:to], append([]TaskEstimateRow{item}, p.estimates[to:]...)...)
 }
 
 // === Schedule Management ===
@@ -401,12 +295,10 @@ func (p *PlannerPresenter) CompleteCurrentTask(ctx context.Context) error {
 	}
 
 	block := p.activeBlocks[p.activeIndex]
-	todoID := p.findTodoIDByTaskName(block.TaskName)
-	if todoID == uuid.Nil {
-		return nil // Task not found, silently continue
+	if block.TaskID == nil {
+		return nil // No task associated with this block; silently skip.
 	}
-
-	if err := p.todos.Complete(ctx, todoID, p.clock.Now()); err != nil {
+	if err := p.todos.Complete(ctx, *block.TaskID, p.clock.Now()); err != nil {
 		return fmt.Errorf("completing task: %w", err)
 	}
 	return nil
@@ -450,41 +342,7 @@ func (p *PlannerPresenter) LoadExistingPlan(ctx context.Context) error {
 	return nil
 }
 
-// SelectedCount returns the number of tasks with Selected == true.
-func (p *PlannerPresenter) SelectedCount() int {
-	count := 0
-	for _, t := range p.tasks {
-		if t.Selected {
-			count++
-		}
-	}
-	return count
-}
-
 // === Internal Helpers ===
-
-// Task index helpers
-func (p *PlannerPresenter) findTaskIndex(id uuid.UUID) int {
-	for i := range p.tasks {
-		if p.tasks[i].ID == id {
-			return i
-		}
-	}
-	return -1
-}
-
-func (p *PlannerPresenter) findEstimateIndex(todoID uuid.UUID) int {
-	for i := range p.estimates {
-		if p.estimates[i].TodoID == todoID {
-			return i
-		}
-	}
-	return -1
-}
-
-func (p *PlannerPresenter) isValidEstimateIndex(index int) bool {
-	return index >= 0 && index < len(p.estimates)
-}
 
 // Date helpers
 func (p *PlannerPresenter) todayDate() time.Time {
@@ -492,73 +350,8 @@ func (p *PlannerPresenter) todayDate() time.Time {
 	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 }
 
-// Wizard step transition helpers
-
-func (p *PlannerPresenter) nextFromTaskSelect(ctx context.Context) error {
-	selected := p.selectedTasks()
-	if len(selected) == 0 {
-		return fmt.Errorf("no tasks selected")
-	}
-
-	// Feature 107: per-task LLM estimation is gone; the server is
-	// the single source of truth for schedule shape. We carry the
-	// rows forward at a constant 1-pomodoro estimate so the existing
-	// StepEstimates view remains harmless until WP5 deletes it.
-	estimates := make([]TaskEstimateRow, 0, len(selected))
-	for _, t := range selected {
-		const placeholderPomos = 1
-		estimates = append(estimates, TaskEstimateRow{
-			TodoID:         t.ID,
-			Title:          t.Title,
-			EstimatedPomos: placeholderPomos,
-			EffectivePomos: placeholderPomos,
-		})
-	}
-	_ = ctx // ctx no longer needed here; kept on the signature for WP5.
-
-	p.estimates = estimates
-	p.step = StepEstimates
-	p.fireStepChange()
-	return nil
-}
-
-func (p *PlannerPresenter) nextFromPriority(ctx context.Context) error {
-	date := p.todayDate()
-
-	focus, recovery, err := p.generator.GenerateSchedules(ctx, date)
-	if err != nil {
-		return fmt.Errorf("generating schedules: %w", err)
-	}
-
-	p.focusSchedule = focus
-	p.recoverySchedule = recovery
-	p.step = StepSchedule
-	p.fireStepChange()
-	return nil
-}
-
-func (p *PlannerPresenter) selectedTasks() []TodoRow {
-	var selected []TodoRow
-	for _, t := range p.tasks {
-		if t.Selected {
-			selected = append(selected, t)
-		}
-	}
-	return selected
-}
-
-// Additional helper methods
 func (p *PlannerPresenter) isValidActiveIndex() bool {
 	return p.activeIndex >= 0 && p.activeIndex < len(p.activeBlocks)
-}
-
-func (p *PlannerPresenter) findTodoIDByTaskName(taskName string) uuid.UUID {
-	for _, e := range p.estimates {
-		if e.Title == taskName {
-			return e.TodoID
-		}
-	}
-	return uuid.Nil
 }
 
 // CurrentFocusTask returns the highest-priority pending todo, or
@@ -596,9 +389,7 @@ func todoToRow(t *repository.Task) TodoRow {
 		Priority: t.Priority,
 		DueDate:  t.DueDate,
 		// TODO(feat-109 Loop 7): populate from t.CategoryKey via the
-		// CategoryRepository so the wizard can render the display
-		// name. For now the row is built without category info to
-		// keep the UI compiling; Loop 7 supplies the wire format.
+		// CategoryRepository so views can render the display name.
 		Categories: nil,
 		Selected:   false,
 	}
@@ -658,6 +449,7 @@ func timeBlocksToPreview(blocks []planner.TimeBlock) []TimeBlockPreview {
 			End:      b.End,
 			Type:     blockTypeString(b.Type),
 			TaskName: b.TaskName,
+			TaskID:   b.TaskID,
 		}
 	}
 	return result
@@ -671,6 +463,7 @@ func repoBlocksToPreview(blocks []repository.ScheduleBlock) []TimeBlockPreview {
 			End:      b.End,
 			Type:     repoBlockTypeString(b.Type),
 			TaskName: b.TaskName,
+			TaskID:   b.TaskID,
 		}
 	}
 	return result

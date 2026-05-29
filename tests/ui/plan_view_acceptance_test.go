@@ -199,9 +199,6 @@ func (s *PlanViewAcceptanceSuite) TestPlanViewContentNotNilWithTasks() {
 	router := ui.NewCenterViewRouter()
 	vm := &stubPlannerTimerVM{
 		hasActivePlan: false,
-		tasks: []presenter.TodoRow{
-			{Title: "Test task", Priority: 1},
-		},
 	}
 	pv := ui.NewPlannerView(vm, vm, router, vm)
 	root := pv.Container()

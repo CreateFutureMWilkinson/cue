@@ -1,6 +1,8 @@
 package ui_test
 
 import (
+	"context"
+	"strings"
 	"testing"
 
 	"fyne.io/fyne/v2/container"
@@ -30,43 +32,20 @@ func (m *mockPlannerViewModel) HasActivePlan() bool {
 	return args.Bool(0)
 }
 
-func (m *mockPlannerViewModel) AvailableTasks() []presenter.TodoRow {
-	args := m.Called()
-	return args.Get(0).([]presenter.TodoRow)
-}
-
-func (m *mockPlannerViewModel) Estimates() []presenter.TaskEstimateRow {
-	args := m.Called()
-	return args.Get(0).([]presenter.TaskEstimateRow)
-}
-
-func (m *mockPlannerViewModel) EstimateSummary() presenter.EstimateSummary {
-	args := m.Called()
-	return args.Get(0).(presenter.EstimateSummary)
-}
-
-func (m *mockPlannerViewModel) FocusSchedule() *presenter.SchedulePreview {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil
-	}
-	return args.Get(0).(*presenter.SchedulePreview)
-}
-
-func (m *mockPlannerViewModel) RecoverySchedule() *presenter.SchedulePreview {
-	args := m.Called()
-	if args.Get(0) == nil {
-		return nil
-	}
-	return args.Get(0).(*presenter.SchedulePreview)
-}
-
 func (m *mockPlannerViewModel) ActiveSchedule() *presenter.ActiveScheduleState {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil
 	}
 	return args.Get(0).(*presenter.ActiveScheduleState)
+}
+
+func (m *mockPlannerViewModel) CurrentFocusTask(ctx context.Context) (*presenter.TodoRow, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*presenter.TodoRow), args.Error(1)
 }
 
 // --- Mock TimerViewModel ---
@@ -131,12 +110,8 @@ func (s *PlannerViewSuite) SetupTest() {
 func (s *PlannerViewSuite) setupIdleDefaults() {
 	s.plannerVM.On("CurrentStep").Return(presenter.StepIdle).Maybe()
 	s.plannerVM.On("HasActivePlan").Return(false).Maybe()
-	s.plannerVM.On("AvailableTasks").Return([]presenter.TodoRow{}).Maybe()
-	s.plannerVM.On("Estimates").Return([]presenter.TaskEstimateRow{}).Maybe()
-	s.plannerVM.On("EstimateSummary").Return(presenter.EstimateSummary{}).Maybe()
-	s.plannerVM.On("FocusSchedule").Return((*presenter.SchedulePreview)(nil)).Maybe()
-	s.plannerVM.On("RecoverySchedule").Return((*presenter.SchedulePreview)(nil)).Maybe()
 	s.plannerVM.On("ActiveSchedule").Return((*presenter.ActiveScheduleState)(nil)).Maybe()
+	s.plannerVM.On("CurrentFocusTask", mock.Anything).Return((*presenter.TodoRow)(nil), nil).Maybe()
 	s.timerVM.On("IsRunning").Return(false).Maybe()
 	s.timerVM.On("ActiveSegment").Return(0).Maybe()
 	s.timerVM.On("ElapsedFraction").Return(0.0).Maybe()
@@ -149,12 +124,8 @@ func (s *PlannerViewSuite) setupIdleDefaults() {
 func (s *PlannerViewSuite) setupStepDefaults(step presenter.WizardStep) {
 	s.plannerVM.On("CurrentStep").Return(step).Maybe()
 	s.plannerVM.On("HasActivePlan").Return(step == presenter.StepActive).Maybe()
-	s.plannerVM.On("AvailableTasks").Return([]presenter.TodoRow{}).Maybe()
-	s.plannerVM.On("Estimates").Return([]presenter.TaskEstimateRow{}).Maybe()
-	s.plannerVM.On("EstimateSummary").Return(presenter.EstimateSummary{}).Maybe()
-	s.plannerVM.On("FocusSchedule").Return((*presenter.SchedulePreview)(nil)).Maybe()
-	s.plannerVM.On("RecoverySchedule").Return((*presenter.SchedulePreview)(nil)).Maybe()
 	s.plannerVM.On("ActiveSchedule").Return((*presenter.ActiveScheduleState)(nil)).Maybe()
+	s.plannerVM.On("CurrentFocusTask", mock.Anything).Return((*presenter.TodoRow)(nil), nil).Maybe()
 	s.timerVM.On("IsRunning").Return(false).Maybe()
 	s.timerVM.On("ActiveSegment").Return(0).Maybe()
 	s.timerVM.On("ElapsedFraction").Return(0.0).Maybe()
@@ -166,7 +137,6 @@ func (s *PlannerViewSuite) setupStepDefaults(step presenter.WizardStep) {
 // setupActiveWithSchedule configures mock for active state with a schedule.
 func (s *PlannerViewSuite) setupActiveWithSchedule() {
 	s.setupStepDefaults(presenter.StepActive)
-	// Override ActiveSchedule to return real data.
 	s.plannerVM.ExpectedCalls = filterCalls(s.plannerVM.ExpectedCalls, "ActiveSchedule")
 	s.plannerVM.On("ActiveSchedule").Return(&presenter.ActiveScheduleState{
 		Blocks: []presenter.TimeBlockPreview{
@@ -187,247 +157,84 @@ func filterCalls(calls []*mock.Call, method string) []*mock.Call {
 	return filtered
 }
 
-// --- Existing Tests (Button Visibility) ---
+// --- Constructor ---
 
 func (s *PlannerViewSuite) TestNewPlannerViewReturnsNonNil() {
 	s.setupIdleDefaults()
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.NotNil(view, "NewPlannerView should return a non-nil component")
+	s.NotNil(view)
 }
 
 func (s *PlannerViewSuite) TestContainerIsNonNil() {
 	s.setupIdleDefaults()
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.NotNil(view.Container(), "Container should return a non-nil fyne.Container")
+	s.NotNil(view.Container())
 }
+
+// --- Button Visibility ---
 
 func (s *PlannerViewSuite) TestPlanButtonVisibleAtIdle() {
 	s.setupIdleDefaults()
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
 	s.True(view.PlanButton().Visible(),
 		"Plan My Day button should be visible when step is Idle")
 }
 
-func (s *PlannerViewSuite) TestPlanButtonHiddenAtTaskSelect() {
-	s.setupStepDefaults(presenter.StepTaskSelect)
-
+func (s *PlannerViewSuite) TestPlanButtonHiddenAtSchedule() {
+	s.setupStepDefaults(presenter.StepSchedule)
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
 	s.False(view.PlanButton().Visible(),
-		"Plan My Day button should be hidden when step is TaskSelect")
+		"Plan My Day button should be hidden when step is Schedule")
 }
 
 func (s *PlannerViewSuite) TestPlanButtonHiddenAtActive() {
 	s.setupStepDefaults(presenter.StepActive)
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
 	s.False(view.PlanButton().Visible(),
 		"Plan My Day button should be hidden when step is Active")
 }
 
-func (s *PlannerViewSuite) TestNextButtonVisibleAtTaskSelect() {
-	s.setupStepDefaults(presenter.StepTaskSelect)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.True(view.NextButton().Visible(),
-		"Next button should be visible during TaskSelect step")
-}
-
-func (s *PlannerViewSuite) TestNextButtonVisibleAtEstimates() {
-	s.setupStepDefaults(presenter.StepEstimates)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.True(view.NextButton().Visible(),
-		"Next button should be visible during Estimates step")
-}
-
-func (s *PlannerViewSuite) TestNextButtonVisibleAtPriority() {
-	s.setupStepDefaults(presenter.StepPriority)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.True(view.NextButton().Visible(),
-		"Next button should be visible during Priority step")
-}
-
-func (s *PlannerViewSuite) TestNextButtonHiddenAtIdle() {
-	s.setupIdleDefaults()
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.False(view.NextButton().Visible(),
-		"Next button should be hidden when step is Idle")
-}
-
-func (s *PlannerViewSuite) TestNextButtonHiddenAtActive() {
-	s.setupStepDefaults(presenter.StepActive)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.False(view.NextButton().Visible(),
-		"Next button should be hidden when step is Active")
-}
-
-func (s *PlannerViewSuite) TestNextButtonHiddenAtSchedule() {
-	s.setupStepDefaults(presenter.StepSchedule)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.False(view.NextButton().Visible(),
-		"Next button should be hidden when step is Schedule (use schedule selection instead)")
-}
-
-func (s *PlannerViewSuite) TestBackButtonVisibleAtTaskSelect() {
-	s.setupStepDefaults(presenter.StepTaskSelect)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.True(view.BackButton().Visible(),
-		"Back button should be visible during TaskSelect step")
-}
-
-func (s *PlannerViewSuite) TestBackButtonVisibleAtEstimates() {
-	s.setupStepDefaults(presenter.StepEstimates)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.True(view.BackButton().Visible(),
-		"Back button should be visible during Estimates step")
-}
-
-func (s *PlannerViewSuite) TestBackButtonVisibleAtPriority() {
-	s.setupStepDefaults(presenter.StepPriority)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.True(view.BackButton().Visible(),
-		"Back button should be visible during Priority step")
-}
-
 func (s *PlannerViewSuite) TestBackButtonVisibleAtSchedule() {
 	s.setupStepDefaults(presenter.StepSchedule)
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
 	s.True(view.BackButton().Visible(),
 		"Back button should be visible during Schedule step")
 }
 
 func (s *PlannerViewSuite) TestBackButtonHiddenAtIdle() {
 	s.setupIdleDefaults()
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.False(view.BackButton().Visible(),
-		"Back button should be hidden when step is Idle")
-}
-
-func (s *PlannerViewSuite) TestBackButtonHiddenAtActive() {
-	s.setupStepDefaults(presenter.StepActive)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.False(view.BackButton().Visible(),
-		"Back button should be hidden when step is Active")
+	s.False(view.BackButton().Visible(), "Back button should be hidden at idle")
 }
 
 func (s *PlannerViewSuite) TestCompleteTaskButtonVisibleAtActive() {
 	s.setupStepDefaults(presenter.StepActive)
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.True(view.CompleteTaskButton().Visible(),
-		"Complete Task button should be visible during Active step")
+	s.True(view.CompleteTaskButton().Visible())
 }
 
 func (s *PlannerViewSuite) TestCompleteTaskButtonHiddenAtIdle() {
 	s.setupIdleDefaults()
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.False(view.CompleteTaskButton().Visible(),
-		"Complete Task button should be hidden when step is Idle")
-}
-
-func (s *PlannerViewSuite) TestCompleteTaskButtonHiddenAtTaskSelect() {
-	s.setupStepDefaults(presenter.StepTaskSelect)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.False(view.CompleteTaskButton().Visible(),
-		"Complete Task button should be hidden during wizard steps")
+	s.False(view.CompleteTaskButton().Visible())
 }
 
 func (s *PlannerViewSuite) TestAbandonButtonVisibleAtActive() {
 	s.setupStepDefaults(presenter.StepActive)
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.True(view.AbandonButton().Visible(),
-		"Abandon Plan button should be visible during Active step")
+	s.True(view.AbandonButton().Visible())
 }
 
 func (s *PlannerViewSuite) TestAbandonButtonHiddenAtIdle() {
 	s.setupIdleDefaults()
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.False(view.AbandonButton().Visible(),
-		"Abandon Plan button should be hidden when step is Idle")
+	s.False(view.AbandonButton().Visible())
 }
 
-func (s *PlannerViewSuite) TestAbandonButtonHiddenAtEstimates() {
-	s.setupStepDefaults(presenter.StepEstimates)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.False(view.AbandonButton().Visible(),
-		"Abandon Plan button should be hidden during wizard steps")
-}
-
-func (s *PlannerViewSuite) TestRefreshUpdatesButtonVisibility() {
-	s.setupIdleDefaults()
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	// Verify idle state: Plan visible, Next/Back/Complete/Abandon hidden.
-	s.True(view.PlanButton().Visible(), "Plan button should be visible at idle")
-	s.False(view.NextButton().Visible(), "Next button should be hidden at idle")
-	s.False(view.BackButton().Visible(), "Back button should be hidden at idle")
-	s.False(view.CompleteTaskButton().Visible(), "Complete button should be hidden at idle")
-	s.False(view.AbandonButton().Visible(), "Abandon button should be hidden at idle")
-
-	// Reconfigure mock for TaskSelect step.
-	s.plannerVM = new(mockPlannerViewModel)
-	s.timerVM = new(mockTimerViewModel)
-	s.setupStepDefaults(presenter.StepTaskSelect)
-	view.SetPlannerModel(s.plannerVM)
-	view.SetTimerModel(s.timerVM)
-
-	view.Refresh()
-
-	// After refresh with TaskSelect: Plan hidden, Next/Back visible, Complete/Abandon hidden.
-	s.False(view.PlanButton().Visible(), "Plan button should be hidden after refresh to TaskSelect")
-	s.True(view.NextButton().Visible(), "Next button should be visible after refresh to TaskSelect")
-	s.True(view.BackButton().Visible(), "Back button should be visible after refresh to TaskSelect")
-	s.False(view.CompleteTaskButton().Visible(), "Complete button should be hidden after refresh to TaskSelect")
-	s.False(view.AbandonButton().Visible(), "Abandon button should be hidden after refresh to TaskSelect")
-}
-
-// --- New Tests: No-Plan State ---
+// --- No-Plan State ---
 
 func (s *PlannerViewSuite) TestNoPlanShowsPlaceholderMessage() {
 	s.setupIdleDefaults()
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
 
 	validMessages := []string{
@@ -445,113 +252,48 @@ func (s *PlannerViewSuite) TestNoPlanShowsPlaceholderMessage() {
 		"PlaceholderText should return one of the 7 valid placeholder messages, got: %q", text)
 }
 
-func (s *PlannerViewSuite) TestNoPlanShowsPlanButton() {
-	s.setupIdleDefaults()
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.True(view.PlanButton().Visible(),
-		"Plan My Day button should be visible in no-plan state")
-}
-
-func (s *PlannerViewSuite) TestNoPlanHidesAbandonButton() {
-	s.setupIdleDefaults()
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.False(view.AbandonButton().Visible(),
-		"Abandon button should be hidden in no-plan state")
-}
-
 func (s *PlannerViewSuite) TestNoPlanHidesScheduleTree() {
 	s.setupIdleDefaults()
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.Nil(view.ScheduleTree(),
-		"ScheduleTree should be nil when there is no active plan")
+	s.Nil(view.ScheduleTree())
 }
 
 func (s *PlannerViewSuite) TestPlanButtonNavigatesToWizard() {
 	s.setupIdleDefaults()
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	// Tap the Plan button
 	view.PlanButton().OnTapped()
-
-	s.Equal(ui.ViewWizard, s.router.CurrentView(),
-		"Tapping Plan My Day should navigate to ViewWizard via the router")
+	s.Equal(ui.ViewWizard, s.router.CurrentView())
 }
 
 func (s *PlannerViewSuite) TestPlanButtonInvokesOnPlanMyDayCallback() {
 	s.setupIdleDefaults()
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
 
 	called := false
 	view.SetOnPlanMyDay(func() { called = true })
 
 	view.PlanButton().OnTapped()
-
-	s.True(called,
-		"Tapping Plan My Day should invoke the onPlanMyDay callback")
+	s.True(called)
 }
 
-// --- New Tests: Active Plan State ---
+// --- Active Plan State ---
 
 func (s *PlannerViewSuite) TestActivePlanShowsScheduleTree() {
 	s.setupActiveWithSchedule()
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.NotNil(view.ScheduleTree(),
-		"ScheduleTree should be non-nil when there is an active plan")
-}
-
-func (s *PlannerViewSuite) TestActivePlanHidesPlanButton() {
-	s.setupStepDefaults(presenter.StepActive)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.False(view.PlanButton().Visible(),
-		"Plan My Day button should be hidden when there is an active plan")
-}
-
-func (s *PlannerViewSuite) TestActivePlanShowsAbandonButton() {
-	s.setupStepDefaults(presenter.StepActive)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.True(view.AbandonButton().Visible(),
-		"Abandon Plan button should be visible when there is an active plan")
+	s.NotNil(view.ScheduleTree())
 }
 
 func (s *PlannerViewSuite) TestActivePlanHidesPlaceholder() {
 	s.setupActiveWithSchedule()
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	s.Empty(view.PlaceholderText(),
-		"PlaceholderText should return empty string when there is an active plan")
+	s.Empty(view.PlaceholderText())
 }
 
-// --- Refresh: Idle to Active ---
+// --- Focus task hint (Feature 107 WP5) ---
 
-func (s *PlannerViewSuite) TestRefreshUpdatesContent() {
-	s.setupIdleDefaults()
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	// Initially idle: placeholder visible, schedule tree nil.
-	s.NotEmpty(view.PlaceholderText(), "Should have placeholder text in idle state")
-	s.Nil(view.ScheduleTree(), "Schedule tree should be nil in idle state")
-
-	// Transition to active state.
-	s.plannerVM = new(mockPlannerViewModel)
-	s.timerVM = new(mockTimerViewModel)
+func (s *PlannerViewSuite) TestActivePlanShowsFocusTaskHintWhenAvailable() {
 	s.setupStepDefaults(presenter.StepActive)
-	// Override ActiveSchedule to return real data.
 	s.plannerVM.ExpectedCalls = filterCalls(s.plannerVM.ExpectedCalls, "ActiveSchedule")
 	s.plannerVM.On("ActiveSchedule").Return(&presenter.ActiveScheduleState{
 		Blocks: []presenter.TimeBlockPreview{
@@ -559,98 +301,82 @@ func (s *PlannerViewSuite) TestRefreshUpdatesContent() {
 		},
 		CurrentIndex: 0,
 	}).Maybe()
-	view.SetPlannerModel(s.plannerVM)
-	view.SetTimerModel(s.timerVM)
-
-	view.Refresh()
-
-	// After refresh to active: placeholder gone, schedule tree present.
-	s.Empty(view.PlaceholderText(), "Placeholder should be empty after transitioning to active")
-	s.NotNil(view.ScheduleTree(), "Schedule tree should be non-nil after transitioning to active")
-}
-
-// --- Behavior 3: Horizontal Split Layout ---
-
-func (s *PlannerViewSuite) TestNoPlanPlaceholderLabelInWidgetTree() {
-	s.setupIdleDefaults()
+	s.plannerVM.ExpectedCalls = filterCalls(s.plannerVM.ExpectedCalls, "CurrentFocusTask")
+	s.plannerVM.On("CurrentFocusTask", mock.Anything).
+		Return(&presenter.TodoRow{Title: "Top priority task", Priority: 1}, nil).Maybe()
 
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
 
+	s.Equal("Now: Top priority task", view.FocusTaskText(),
+		"active plan with a focus task should render a 'Now: <title>' hint")
+
+	root := view.Container()
+	_, found := uitest.FindWidget[*widget.Label](root, func(l *widget.Label) bool {
+		return l.Text == "Now: Top priority task"
+	})
+	s.True(found, "focus task hint label should appear in the widget tree")
+}
+
+func (s *PlannerViewSuite) TestActivePlanHidesFocusTaskHintWhenAbsent() {
+	s.setupActiveWithSchedule()
+	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
+
+	s.Empty(view.FocusTaskText(),
+		"active plan without a focus task should leave the hint empty")
+
+	root := view.Container()
+	_, found := uitest.FindWidget[*widget.Label](root, func(l *widget.Label) bool {
+		return strings.HasPrefix(l.Text, "Now: ")
+	})
+	s.False(found, "focus task hint label should not appear when there's no focus task")
+}
+
+func (s *PlannerViewSuite) TestIdleStateNoFocusTaskHint() {
+	s.setupIdleDefaults()
+	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
+
+	s.Empty(view.FocusTaskText())
+}
+
+// --- Behavior: Horizontal Split Layout ---
+
+func (s *PlannerViewSuite) TestNoPlanPlaceholderLabelInWidgetTree() {
+	s.setupIdleDefaults()
+	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
+
 	expectedText := view.PlaceholderText()
-	s.Require().NotEmpty(expectedText, "PlaceholderText should be non-empty in idle state")
+	s.Require().NotEmpty(expectedText)
 
 	root := view.Container()
 	label, found := uitest.FindWidget[*widget.Label](root, func(l *widget.Label) bool {
 		return l.Text == expectedText
 	})
-
-	s.Require().True(found,
-		"Container widget tree should contain a *widget.Label with the placeholder text %q", expectedText)
-	s.Equal(expectedText, label.Text,
-		"Found label text should match PlaceholderText()")
-}
-
-// --- Bug 073: SetOnNext / SetOnBack callback wiring ---
-
-func (s *PlannerViewSuite) TestSetOnNextInvokesCallbackOnTap() {
-	s.setupStepDefaults(presenter.StepTaskSelect)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	called := false
-	view.SetOnNext(func() { called = true })
-
-	view.NextButton().OnTapped()
-
-	s.True(called,
-		"SetOnNext callback should be invoked when NextButton is tapped")
-}
-
-func (s *PlannerViewSuite) TestSetOnBackInvokesCallbackOnTap() {
-	s.setupStepDefaults(presenter.StepTaskSelect)
-
-	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
-
-	called := false
-	view.SetOnBack(func() { called = true })
-
-	view.BackButton().OnTapped()
-
-	s.True(called,
-		"SetOnBack callback should be invoked when BackButton is tapped")
+	s.Require().True(found)
+	s.Equal(expectedText, label.Text)
 }
 
 func (s *PlannerViewSuite) TestSetOnCompleteTaskInvokesCallbackOnTap() {
 	s.setupStepDefaults(presenter.StepActive)
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
 
 	called := false
 	view.SetOnCompleteTask(func() { called = true })
-
 	view.CompleteTaskButton().OnTapped()
-
-	s.True(called,
-		"SetOnCompleteTask callback should be invoked when CompleteTaskButton is tapped")
+	s.True(called)
 }
 
 func (s *PlannerViewSuite) TestSetOnAbandonPlanInvokesCallbackOnTap() {
 	s.setupStepDefaults(presenter.StepActive)
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, nil)
 
 	called := false
 	view.SetOnAbandonPlan(func() { called = true })
-
 	view.AbandonButton().OnTapped()
-
-	s.True(called,
-		"SetOnAbandonPlan callback should be invoked when AbandonButton is tapped")
+	s.True(called)
 }
 
 func (s *PlannerViewSuite) TestContainerHasHorizontalSplit() {
 	s.setupIdleDefaults()
-
 	view := ui.NewPlannerView(s.plannerVM, s.timerVM, s.router, s.todoVM)
 
 	root := view.Container()
@@ -658,10 +384,7 @@ func (s *PlannerViewSuite) TestContainerHasHorizontalSplit() {
 		return sp.Horizontal
 	})
 
-	s.Require().True(found,
-		"PlannerView container should contain a horizontal *container.Split")
-	s.NotNil(split.Leading,
-		"Split leading pane (buttons) should not be nil")
-	s.NotNil(split.Trailing,
-		"Split trailing pane (todo list) should not be nil")
+	s.Require().True(found)
+	s.NotNil(split.Leading)
+	s.NotNil(split.Trailing)
 }

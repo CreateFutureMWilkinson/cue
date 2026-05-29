@@ -232,6 +232,30 @@ func (s *NotificationCardSuite) TestHighImportanceCardHasDarkBackground() {
 	s.Equal(parseHexColor("#ef4444"), card.BadgeColor, "IS>=9 badge should remain red")
 }
 
+// --- WebURL Propagation ---
+
+func (s *NotificationCardSuite) TestCardWebURLPopulatedFromMessage() {
+	now := time.Now()
+	const url = "https://acme.slack.com/archives/C123"
+	msg := &repository.Message{
+		ID:              uuid.New(),
+		Source:          "slack",
+		SourceAccount:   "T1",
+		Channel:         "general",
+		Sender:          "alice",
+		RawContent:      "ping",
+		WebURL:          url,
+		ImportanceScore: 9.0,
+		ConfidenceScore: 0.95,
+		Status:          "Notified",
+		CreatedAt:       now.Add(-1 * time.Minute),
+	}
+	cards := presenter.BuildNotificationCards([]*repository.Message{msg}, now)
+
+	s.Require().Len(cards, 1)
+	s.Equal(url, cards[0].WebURL, "card WebURL should mirror message WebURL")
+}
+
 // --- Email Subject Preview ---
 
 func (s *NotificationCardSuite) TestEmailMessageUsesSubjectForPreview() {

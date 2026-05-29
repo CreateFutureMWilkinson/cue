@@ -59,7 +59,9 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, existing *r
 		hostEntry.SetText(existing.IMAPHost)
 		portEntry.SetText(strconv.Itoa(existing.IMAPPort))
 		userEntry.SetText(existing.Username)
-		passEntry.SetText(existing.Password)
+		// Password is intentionally not prefilled — leaving it blank on
+		// save preserves the stored credential.
+		passEntry.SetPlaceHolder("Password (leave blank to keep existing)")
 		if disp, ok := encDisplay[existing.Encryption]; ok {
 			encryptionSelect.SetSelected(disp)
 		}
@@ -75,7 +77,8 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, existing *r
 	})
 
 	saveBtn.OnTapped = func() {
-		if hostEntry.Text == "" || portEntry.Text == "" || userEntry.Text == "" || passEntry.Text == "" || pollEntry.Text == "" {
+		passwordRequired := existing == nil
+		if hostEntry.Text == "" || portEntry.Text == "" || userEntry.Text == "" || pollEntry.Text == "" || (passwordRequired && passEntry.Text == "") {
 			errorLabel.SetText("All fields are required")
 			errorLabel.Show()
 			return
@@ -101,6 +104,10 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, existing *r
 		if encryption == "" {
 			encryption = "ssl_tls"
 		}
+		password := passEntry.Text
+		if existing != nil && password == "" {
+			password = existing.Password
+		}
 		acct := &repository.EmailAccount{
 			Enabled:             true,
 			FriendlyName:        friendlyNameEntry.Text,
@@ -108,7 +115,7 @@ func createEmailAccountForm(ssp *presenter.ServiceSettingsPresenter, existing *r
 			IMAPHost:            hostEntry.Text,
 			IMAPPort:            port,
 			Username:            userEntry.Text,
-			Password:            passEntry.Text,
+			Password:            password,
 			Encryption:          encryption,
 			PollIntervalSeconds: poll,
 		}
@@ -172,7 +179,9 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, existing *r
 	if existing != nil {
 		friendlyNameEntry.SetText(existing.FriendlyName)
 		webURLEntry.SetText(existing.WebURL)
-		tokenEntry.SetText(existing.Token)
+		// Token is intentionally not prefilled — leaving it blank on
+		// save preserves the stored credential.
+		tokenEntry.SetPlaceHolder("User OAuth Token (leave blank to keep existing)")
 		workspaceEntry.SetText(existing.WorkspaceID)
 		usernameEntry.SetText(existing.Username)
 		pollEntry.SetText(strconv.Itoa(existing.PollIntervalSeconds))
@@ -187,7 +196,8 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, existing *r
 	})
 
 	saveBtn.OnTapped = func() {
-		if tokenEntry.Text == "" || workspaceEntry.Text == "" || usernameEntry.Text == "" || pollEntry.Text == "" {
+		tokenRequired := existing == nil
+		if workspaceEntry.Text == "" || usernameEntry.Text == "" || pollEntry.Text == "" || (tokenRequired && tokenEntry.Text == "") {
 			errorLabel.SetText("All fields are required")
 			errorLabel.Show()
 			return
@@ -198,11 +208,15 @@ func createSlackAccountForm(ssp *presenter.ServiceSettingsPresenter, existing *r
 			errorLabel.Show()
 			return
 		}
+		token := tokenEntry.Text
+		if existing != nil && token == "" {
+			token = existing.Token
+		}
 		acct := &repository.SlackAccount{
 			Enabled:             true,
 			FriendlyName:        friendlyNameEntry.Text,
 			WebURL:              webURLEntry.Text,
-			Token:               tokenEntry.Text,
+			Token:               token,
 			WorkspaceID:         workspaceEntry.Text,
 			Username:            usernameEntry.Text,
 			PollIntervalSeconds: poll,

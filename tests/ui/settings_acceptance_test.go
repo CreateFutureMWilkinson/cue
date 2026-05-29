@@ -729,6 +729,188 @@ func (s *SettingsAcceptanceSuite) TestCalendarAccountAppearsAfterSave() {
 	s.True(found, "after saving a new Calendar account, name 'Personal Calendar' should appear in the list")
 }
 
+// --- Edit account flow ---
+
+// AC: Each Slack account row renders an Edit button.
+func (s *SettingsAcceptanceSuite) TestSlackAccountRowHasEditButton() {
+	repo := &mockServiceConfigRepo{
+		slackAccounts: []*repository.SlackAccount{
+			{ID: uuid.New(), Enabled: true, FriendlyName: "Acme", Token: "xoxp-old", WorkspaceID: "T-OLD", Username: "olduser", PollIntervalSeconds: 600},
+		},
+	}
+	sv := newSettingsViewWithRepo(repo)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+
+	slackContent := tabs.Items[0].Content
+	_, found := uitest.FindWidget[*widget.Button](slackContent, func(b *widget.Button) bool { return b.Text == "Edit" })
+	s.True(found, "Slack account row should have an Edit button")
+}
+
+// AC: Tapping Edit on a Slack account opens the form prefilled with its values
+// and saving updates the existing account in place (no duplicate, same ID).
+func (s *SettingsAcceptanceSuite) TestSlackEditPrefillsFormAndUpdatesInPlace() {
+	originalID := uuid.New()
+	repo := &mockServiceConfigRepo{
+		slackAccounts: []*repository.SlackAccount{
+			{ID: originalID, Enabled: true, FriendlyName: "Acme", WebURL: "https://acme.slack.com", Token: "xoxp-old", WorkspaceID: "T-OLD", Username: "olduser", PollIntervalSeconds: 600},
+		},
+	}
+	sv := newSettingsViewWithRepo(repo, presenter.WithSlackValidator(&mockSlackValidator{err: nil}))
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+
+	slackContent := tabs.Items[0].Content
+	editBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool { return b.Text == "Edit" })
+	editBtn.OnTapped()
+
+	slackContent = tabs.Items[0].Content
+	entries := uitest.FindAll[*widget.Entry](slackContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 6, "edit form should have at least 6 entries")
+
+	// Prefill check: existing values must populate the form.
+	s.Equal("Acme", entries[0].Text, "FriendlyName entry should be prefilled")
+	s.Equal("https://acme.slack.com", entries[1].Text, "WebURL entry should be prefilled")
+	s.Equal("xoxp-old", entries[2].Text, "Token entry should be prefilled")
+	s.Equal("T-OLD", entries[3].Text, "WorkspaceID entry should be prefilled")
+	s.Equal("olduser", entries[4].Text, "Username entry should be prefilled")
+	s.Equal("600", entries[5].Text, "Poll interval entry should be prefilled")
+
+	// Edit username and save.
+	entries[4].SetText("newuser")
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), slackContent, func(b *widget.Button) bool { return b.Text == "Save" })
+	saveBtn.OnTapped()
+
+	slackContent = tabs.Items[0].Content
+	_, found := uitest.FindWidget[*widget.Label](slackContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "newuser")
+	})
+	s.True(found, "after editing, list should show the updated username 'newuser'")
+
+	s.Require().Len(repo.slackAccounts, 1, "edit should update in place, not append a duplicate")
+	s.Equal(originalID, repo.slackAccounts[0].ID, "account ID should be preserved on edit")
+	s.Equal("newuser", repo.slackAccounts[0].Username, "username should reflect the edit")
+}
+
+// AC: Each Email account row renders an Edit button.
+func (s *SettingsAcceptanceSuite) TestEmailAccountRowHasEditButton() {
+	repo := &mockServiceConfigRepo{
+		emailAccounts: []*repository.EmailAccount{
+			{ID: uuid.New(), Enabled: true, IMAPHost: "imap.example.com", IMAPPort: 993, Username: "user@example.com", Password: "secret", Encryption: "ssl_tls", PollIntervalSeconds: 600},
+		},
+	}
+	sv := newSettingsViewWithRepo(repo)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+
+	emailContent := tabs.Items[1].Content
+	_, found := uitest.FindWidget[*widget.Button](emailContent, func(b *widget.Button) bool { return b.Text == "Edit" })
+	s.True(found, "Email account row should have an Edit button")
+}
+
+// AC: Tapping Edit on an Email account opens the form prefilled and saving
+// updates the existing account in place (no duplicate, same ID).
+func (s *SettingsAcceptanceSuite) TestEmailEditPrefillsFormAndUpdatesInPlace() {
+	originalID := uuid.New()
+	repo := &mockServiceConfigRepo{
+		emailAccounts: []*repository.EmailAccount{
+			{ID: originalID, Enabled: true, FriendlyName: "Work", WebURL: "https://mail.example.com", IMAPHost: "imap.example.com", IMAPPort: 993, Username: "old@example.com", Password: "oldsecret", Encryption: "starttls", PollIntervalSeconds: 600},
+		},
+	}
+	sv := newSettingsViewWithRepo(repo, presenter.WithEmailValidator(&mockEmailValidator{err: nil}))
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+
+	emailContent := tabs.Items[1].Content
+	editBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool { return b.Text == "Edit" })
+	editBtn.OnTapped()
+
+	emailContent = tabs.Items[1].Content
+	entries := uitest.FindAll[*widget.Entry](emailContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 7, "edit form should have at least 7 entries")
+
+	s.Equal("Work", entries[0].Text, "FriendlyName entry should be prefilled")
+	s.Equal("https://mail.example.com", entries[1].Text, "WebURL entry should be prefilled")
+	s.Equal("imap.example.com", entries[2].Text, "IMAPHost entry should be prefilled")
+	s.Equal("993", entries[3].Text, "IMAPPort entry should be prefilled")
+	s.Equal("old@example.com", entries[4].Text, "Username entry should be prefilled")
+	s.Equal("oldsecret", entries[5].Text, "Password entry should be prefilled")
+	s.Equal("600", entries[6].Text, "Poll interval entry should be prefilled")
+
+	sel := uitest.RequireWidget[*widget.Select](s.T(), emailContent, func(_ *widget.Select) bool { return true })
+	s.Equal("STARTTLS", sel.Selected, "encryption select should reflect the existing value")
+
+	entries[4].SetText("new@example.com")
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), emailContent, func(b *widget.Button) bool { return b.Text == "Save" })
+	saveBtn.OnTapped()
+
+	emailContent = tabs.Items[1].Content
+	_, found := uitest.FindWidget[*widget.Label](emailContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "new@example.com")
+	})
+	s.True(found, "after editing, list should show the updated username 'new@example.com'")
+
+	s.Require().Len(repo.emailAccounts, 1, "edit should update in place, not append a duplicate")
+	s.Equal(originalID, repo.emailAccounts[0].ID, "account ID should be preserved on edit")
+	s.Equal("new@example.com", repo.emailAccounts[0].Username, "username should reflect the edit")
+}
+
+// AC: Each Calendar account row renders an Edit button.
+func (s *SettingsAcceptanceSuite) TestCalendarAccountRowHasEditButton() {
+	repo := &mockServiceConfigRepo{
+		calendarAccounts: []*repository.CalendarAccount{
+			{ID: uuid.New(), Enabled: true, Name: "Work", ICSURL: "https://example.com/cal.ics", PollIntervalSeconds: 600},
+		},
+	}
+	sv := newSettingsViewWithRepo(repo)
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+
+	calendarContent := tabs.Items[2].Content
+	_, found := uitest.FindWidget[*widget.Button](calendarContent, func(b *widget.Button) bool { return b.Text == "Edit" })
+	s.True(found, "Calendar account row should have an Edit button")
+}
+
+// AC: Tapping Edit on a Calendar account opens the form prefilled and saving
+// updates the existing account in place (no duplicate, same ID).
+func (s *SettingsAcceptanceSuite) TestCalendarEditPrefillsFormAndUpdatesInPlace() {
+	originalID := uuid.New()
+	repo := &mockServiceConfigRepo{
+		calendarAccounts: []*repository.CalendarAccount{
+			{ID: originalID, Enabled: true, Name: "Old Cal", ICSURL: "https://example.com/old.ics", PollIntervalSeconds: 600},
+		},
+	}
+	sv := newSettingsViewWithRepo(repo, presenter.WithCalendarValidator(&mockCalendarValidator{err: nil}))
+	root := sv.Container()
+	tabs := uitest.RequireWidget[*container.AppTabs](s.T(), root, func(_ *container.AppTabs) bool { return true })
+
+	calendarContent := tabs.Items[2].Content
+	editBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool { return b.Text == "Edit" })
+	editBtn.OnTapped()
+
+	calendarContent = tabs.Items[2].Content
+	entries := uitest.FindAll[*widget.Entry](calendarContent, func(_ *widget.Entry) bool { return true })
+	s.Require().GreaterOrEqual(len(entries), 3, "edit form should have at least 3 entries")
+
+	s.Equal("Old Cal", entries[0].Text, "Name entry should be prefilled")
+	s.Equal("https://example.com/old.ics", entries[1].Text, "ICSURL entry should be prefilled")
+	s.Equal("600", entries[2].Text, "Poll interval entry should be prefilled")
+
+	entries[0].SetText("New Cal")
+	saveBtn := uitest.RequireWidget[*widget.Button](s.T(), calendarContent, func(b *widget.Button) bool { return b.Text == "Save" })
+	saveBtn.OnTapped()
+
+	calendarContent = tabs.Items[2].Content
+	_, found := uitest.FindWidget[*widget.Label](calendarContent, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "New Cal")
+	})
+	s.True(found, "after editing, list should show the updated name 'New Cal'")
+
+	s.Require().Len(repo.calendarAccounts, 1, "edit should update in place, not append a duplicate")
+	s.Equal(originalID, repo.calendarAccounts[0].ID, "account ID should be preserved on edit")
+	s.Equal("New Cal", repo.calendarAccounts[0].Name, "name should reflect the edit")
+}
+
 // AC: Each tab has non-nil content.
 func (s *SettingsAcceptanceSuite) TestEachTabHasContent() {
 	sv := newSettingsView()

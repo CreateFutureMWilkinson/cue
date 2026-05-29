@@ -87,6 +87,12 @@ func (m *mockServiceConfigRepo) GetSlackAccount(_ context.Context, _ uuid.UUID) 
 }
 
 func (m *mockServiceConfigRepo) UpsertSlackAccount(_ context.Context, acct *repository.SlackAccount) error {
+	for i, a := range m.slackAccounts {
+		if a.ID == acct.ID && acct.ID != uuid.Nil {
+			m.slackAccounts[i] = acct
+			return nil
+		}
+	}
 	m.slackAccounts = append(m.slackAccounts, acct)
 	return nil
 }
@@ -104,6 +110,12 @@ func (m *mockServiceConfigRepo) GetEmailAccount(_ context.Context, _ uuid.UUID) 
 }
 
 func (m *mockServiceConfigRepo) UpsertEmailAccount(_ context.Context, acct *repository.EmailAccount) error {
+	for i, a := range m.emailAccounts {
+		if a.ID == acct.ID && acct.ID != uuid.Nil {
+			m.emailAccounts[i] = acct
+			return nil
+		}
+	}
 	m.emailAccounts = append(m.emailAccounts, acct)
 	return nil
 }
@@ -121,6 +133,12 @@ func (m *mockServiceConfigRepo) GetCalendarAccount(_ context.Context, _ uuid.UUI
 }
 
 func (m *mockServiceConfigRepo) UpsertCalendarAccount(_ context.Context, acct *repository.CalendarAccount) error {
+	for i, a := range m.calendarAccounts {
+		if a.ID == acct.ID && acct.ID != uuid.Nil {
+			m.calendarAccounts[i] = acct
+			return nil
+		}
+	}
 	m.calendarAccounts = append(m.calendarAccounts, acct)
 	return nil
 }

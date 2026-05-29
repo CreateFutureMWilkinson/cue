@@ -115,7 +115,7 @@ func (s *FeedbackSuite) TestListBufferedDecodesResponse() {
 	first := msgs[0]
 	s.Equal(testBufferID, first.ID)
 	s.Equal("slack", first.Source)
-	s.Equal(testBufferSourceAccountID, first.SourceAccount)
+	s.Equal(testBufferSourceAccountID.String(), first.SourceAccount)
 	s.Equal("alice", first.Sender)
 	s.Equal("general", first.Channel)
 	s.Equal("maybe important", first.Content)
@@ -155,7 +155,7 @@ func (s *FeedbackSuite) TestGetBufferedReturnsMessage() {
 	s.Require().NotNil(msg)
 	s.Equal(testBufferID, msg.ID)
 	s.Equal("slack", msg.Source)
-	s.Equal(testBufferSourceAccountID, msg.SourceAccount)
+	s.Equal(testBufferSourceAccountID.String(), msg.SourceAccount)
 	s.Equal("alice", msg.Sender)
 	s.Equal("general", msg.Channel)
 	s.Equal("maybe important", msg.Content)

@@ -24,7 +24,7 @@ const (
 type BufferedMessage struct {
 	ID              uuid.UUID `json:"id"`
 	Source          string    `json:"source"`
-	SourceAccount   uuid.UUID `json:"source_account"`
+	SourceAccount   string    `json:"source_account"`
 	Sender          string    `json:"sender"`
 	Channel         string    `json:"channel"`
 	Content         string    `json:"content"`

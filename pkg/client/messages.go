@@ -22,7 +22,7 @@ const (
 type Message struct {
 	ID              uuid.UUID `json:"id"`
 	Source          string    `json:"source"`
-	SourceAccount   uuid.UUID `json:"source_account"`
+	SourceAccount   string    `json:"source_account"`
 	Sender          string    `json:"sender"`
 	Channel         string    `json:"channel"`
 	Content         string    `json:"content"`
@@ -38,7 +38,7 @@ type Message struct {
 type NotificationSummary struct {
 	ID              uuid.UUID `json:"id"`
 	Source          string    `json:"source"`
-	SourceAccount   uuid.UUID `json:"source_account"`
+	SourceAccount   string    `json:"source_account"`
 	Sender          string    `json:"sender"`
 	Channel         string    `json:"channel"`
 	Content         string    `json:"content"`
@@ -53,7 +53,7 @@ type NotificationSummary struct {
 type MessageDetail struct {
 	ID              uuid.UUID `json:"id"`
 	Source          string    `json:"source"`
-	SourceAccount   uuid.UUID `json:"source_account"`
+	SourceAccount   string    `json:"source_account"`
 	Channel         string    `json:"channel"`
 	Sender          string    `json:"sender"`
 	MessageID       string    `json:"message_id"`

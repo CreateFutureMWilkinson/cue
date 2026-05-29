@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
 	"github.com/CreateFutureMWilkinson/cue/pkg/client"
 )
@@ -86,7 +84,7 @@ func messageDTOToRepo(m client.Message) *repository.Message {
 	return &repository.Message{
 		ID:              m.ID,
 		Source:          m.Source,
-		SourceAccount:   uuidString(m.SourceAccount),
+		SourceAccount:   m.SourceAccount,
 		Sender:          m.Sender,
 		Channel:         m.Channel,
 		RawContent:      m.Content,
@@ -95,13 +93,6 @@ func messageDTOToRepo(m client.Message) *repository.Message {
 		Status:          m.Status,
 		CreatedAt:       parseRFC3339OrZero(m.CreatedAt),
 	}
-}
-
-func uuidString(id uuid.UUID) string {
-	if id == uuid.Nil {
-		return ""
-	}
-	return id.String()
 }
 
 func parseRFC3339OrZero(s string) time.Time {

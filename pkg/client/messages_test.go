@@ -119,7 +119,7 @@ func (s *MessageSuite) TestListMessagesDecodesResponse() {
 	first := msgs[0]
 	s.Equal(testMessageID, first.ID)
 	s.Equal("slack", first.Source)
-	s.Equal(testSourceAccountID, first.SourceAccount)
+	s.Equal(testSourceAccountID.String(), first.SourceAccount)
 	s.Equal("alice", first.Sender)
 	s.Equal("general", first.Channel)
 	s.Equal("hello world", first.Content)
@@ -168,7 +168,7 @@ func (s *MessageSuite) TestGetMessageReturnsDetail() {
 	s.Require().NotNil(detail)
 	s.Equal(testMessageID, detail.ID)
 	s.Equal("slack", detail.Source)
-	s.Equal(testSourceAccountID, detail.SourceAccount)
+	s.Equal(testSourceAccountID.String(), detail.SourceAccount)
 	s.Equal("general", detail.Channel)
 	s.Equal("alice", detail.Sender)
 	s.Equal("slack-123", detail.MessageID)
@@ -272,7 +272,7 @@ func (s *MessageSuite) TestListNotificationsDecodesResponse() {
 	n := notifs[0]
 	s.Equal(testMessageID, n.ID)
 	s.Equal("slack", n.Source)
-	s.Equal(testSourceAccountID, n.SourceAccount)
+	s.Equal(testSourceAccountID.String(), n.SourceAccount)
 	s.Equal("alice", n.Sender)
 	s.Equal("general", n.Channel)
 	s.Equal("ping", n.Content)

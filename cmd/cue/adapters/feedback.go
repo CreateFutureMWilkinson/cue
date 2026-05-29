@@ -73,7 +73,7 @@ func bufferedDTOToRepo(m client.BufferedMessage) *repository.Message {
 	return &repository.Message{
 		ID:              m.ID,
 		Source:          m.Source,
-		SourceAccount:   uuidString(m.SourceAccount),
+		SourceAccount:   m.SourceAccount,
 		Sender:          m.Sender,
 		Channel:         m.Channel,
 		RawContent:      m.Content,

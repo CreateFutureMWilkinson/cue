@@ -472,9 +472,13 @@ func run() error {
 		return fmt.Errorf("creating planner engine: %w", err)
 	}
 
-	// Create planner presenter.
+	// Create planner presenter. Feature 107 dropped the calendar +
+	// estimator presenter deps; wrap the in-process *planner.Planner
+	// so the legacy run() path still satisfies the new interface
+	// until WP14 deletes this whole boot block.
+	gen := &legacyScheduleGenerator{p: plannerEngine, cal: calProvider}
 	plannerPresenter, err := presenter.NewPlannerPresenter(
-		taskRepo, categoryRepo, calProvider, plannerEngine, taskEstimator, scheduleRepo, plannerClock,
+		taskRepo, categoryRepo, gen, scheduleRepo, plannerClock,
 	)
 	if err != nil {
 		return fmt.Errorf("creating planner presenter: %w", err)
@@ -719,4 +723,23 @@ type httpClient struct{}
 
 func (httpClient) Do(req *http.Request) (*http.Response, error) {
 	return http.DefaultClient.Do(req) // #nosec G704 -- URL from user's own calendar config
+}
+
+// legacyScheduleGenerator adapts the in-process *planner.Planner (which
+// still expects pre-computed tasks + calendar events) to the slim
+// presenter.ScheduleGenerator contract introduced by Feature 107. It
+// fetches calendar events itself and passes an empty task list so the
+// presenter contract is honored. Removed in WP14 alongside the rest of
+// the legacy boot path.
+type legacyScheduleGenerator struct {
+	p   *planner.Planner
+	cal calendar.CalendarProvider
+}
+
+func (g *legacyScheduleGenerator) GenerateSchedules(ctx context.Context, date time.Time) (*planner.DaySchedule, *planner.DaySchedule, error) {
+	events, err := g.cal.FetchEvents(ctx, date)
+	if err != nil {
+		events = nil
+	}
+	return g.p.GenerateSchedules(ctx, nil, events, date)
 }

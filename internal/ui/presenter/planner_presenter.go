@@ -3,12 +3,12 @@ package presenter
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
-	"github.com/CreateFutureMWilkinson/cue/internal/service/calendar"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/planner"
 )
 
@@ -30,9 +30,14 @@ type CategoryQuerier interface {
 	QueryAll(ctx context.Context, withCounts bool) ([]*repository.CategoryWithCount, error)
 }
 
-// ScheduleGenerator abstracts schedule generation for the planner presenter.
+// ScheduleGenerator abstracts schedule generation for the planner
+// presenter. Feature 107: the signature collapsed from
+// (ctx, tasks, events, date) to (ctx, date). Tasks are managed in the
+// todo list view, not selected per plan; calendar events are fetched
+// server-side. The generator returns a focus-maximized schedule and a
+// recovery-balanced schedule for the same date.
 type ScheduleGenerator interface {
-	GenerateSchedules(ctx context.Context, tasks []planner.TaskEstimate, events []calendar.CalendarEvent, targetDate time.Time) (*planner.DaySchedule, *planner.DaySchedule, error)
+	GenerateSchedules(ctx context.Context, targetDate time.Time) (*planner.DaySchedule, *planner.DaySchedule, error)
 }
 
 // WizardStep represents the current step in the day planner wizard.
@@ -101,9 +106,7 @@ type PlannerPresenter struct {
 	// Dependencies
 	todos     TodoQuerier
 	cats      CategoryQuerier
-	cal       calendar.CalendarProvider
 	generator ScheduleGenerator
-	estimator planner.TaskEstimator
 	schedRepo repository.ScheduleRepository
 	clock     planner.Clock
 
@@ -126,13 +129,16 @@ type PlannerPresenter struct {
 	onStepChange func(WizardStep)
 }
 
-// NewPlannerPresenter creates a new PlannerPresenter, validating all dependencies.
+// NewPlannerPresenter creates a new PlannerPresenter, validating all
+// dependencies.
+//
+// Feature 107: the calendar provider and task estimator dependencies
+// were removed. The server fetches the calendar; per-task pomo
+// estimates are deferred to the server-side schedule generator.
 func NewPlannerPresenter(
 	todos TodoQuerier,
 	cats CategoryQuerier,
-	cal calendar.CalendarProvider,
 	generator ScheduleGenerator,
-	estimator planner.TaskEstimator,
 	schedRepo repository.ScheduleRepository,
 	clock planner.Clock,
 ) (*PlannerPresenter, error) {
@@ -142,14 +148,8 @@ func NewPlannerPresenter(
 	if cats == nil {
 		return nil, fmt.Errorf("categories must not be nil")
 	}
-	if cal == nil {
-		return nil, fmt.Errorf("calendar must not be nil")
-	}
 	if generator == nil {
 		return nil, fmt.Errorf("generator must not be nil")
-	}
-	if estimator == nil {
-		return nil, fmt.Errorf("estimator must not be nil")
 	}
 	if schedRepo == nil {
 		return nil, fmt.Errorf("schedRepo must not be nil")
@@ -160,9 +160,7 @@ func NewPlannerPresenter(
 	return &PlannerPresenter{
 		todos:     todos,
 		cats:      cats,
-		cal:       cal,
 		generator: generator,
-		estimator: estimator,
 		schedRepo: schedRepo,
 		clock:     clock,
 		step:      StepIdle,
@@ -496,20 +494,21 @@ func (p *PlannerPresenter) nextFromTaskSelect(ctx context.Context) error {
 		return fmt.Errorf("no tasks selected")
 	}
 
+	// Feature 107: per-task LLM estimation is gone; the server is
+	// the single source of truth for schedule shape. We carry the
+	// rows forward at a constant 1-pomodoro estimate so the existing
+	// StepEstimates view remains harmless until WP5 deletes it.
 	estimates := make([]TaskEstimateRow, 0, len(selected))
 	for _, t := range selected {
-		desc := p.descriptions[t.ID]
-		pomos, err := p.estimator.EstimateMinutes(ctx, t.Title, desc)
-		if err != nil {
-			pomos = 1 // fallback
-		}
+		const placeholderPomos = 1
 		estimates = append(estimates, TaskEstimateRow{
 			TodoID:         t.ID,
 			Title:          t.Title,
-			EstimatedPomos: pomos,
-			EffectivePomos: pomos,
+			EstimatedPomos: placeholderPomos,
+			EffectivePomos: placeholderPomos,
 		})
 	}
+	_ = ctx // ctx no longer needed here; kept on the signature for WP5.
 
 	p.estimates = estimates
 	p.step = StepEstimates
@@ -520,13 +519,7 @@ func (p *PlannerPresenter) nextFromTaskSelect(ctx context.Context) error {
 func (p *PlannerPresenter) nextFromPriority(ctx context.Context) error {
 	date := p.todayDate()
 
-	// Fetch calendar events, gracefully handling failures
-	events := p.fetchCalendarEventsOrEmpty(ctx, date)
-
-	// Build task estimates for the generator
-	tasks := p.buildTaskEstimates()
-
-	focus, recovery, err := p.generator.GenerateSchedules(ctx, tasks, events, date)
+	focus, recovery, err := p.generator.GenerateSchedules(ctx, date)
 	if err != nil {
 		return fmt.Errorf("generating schedules: %w", err)
 	}
@@ -562,25 +555,30 @@ func (p *PlannerPresenter) findTodoIDByTaskName(taskName string) uuid.UUID {
 	return uuid.Nil
 }
 
-func (p *PlannerPresenter) fetchCalendarEventsOrEmpty(ctx context.Context, date time.Time) []calendar.CalendarEvent {
-	events, err := p.cal.FetchEvents(ctx, date)
+// CurrentFocusTask returns the highest-priority pending todo, or
+// (nil, nil) when the user has no incomplete todos. Feature 107: the
+// active-schedule view consumes this as a single-task hint rendered
+// alongside each focus block.
+//
+// Highest priority = lowest Priority integer (the ordering convention
+// used throughout the todo views). Ties break by earliest CreatedAt
+// to keep the choice stable across calls.
+func (p *PlannerPresenter) CurrentFocusTask(ctx context.Context) (*TodoRow, error) {
+	tasks, _, err := p.todos.QueryFiltered(ctx, repository.TaskFilter{Status: "incomplete"})
 	if err != nil {
-		return []calendar.CalendarEvent{}
+		return nil, fmt.Errorf("loading incomplete todos: %w", err)
 	}
-	return events
-}
-
-func (p *PlannerPresenter) buildTaskEstimates() []planner.TaskEstimate {
-	tasks := make([]planner.TaskEstimate, len(p.estimates))
-	for i, e := range p.estimates {
-		tasks[i] = planner.TaskEstimate{
-			TodoID:         e.TodoID,
-			Title:          e.Title,
-			EstimatedPomos: e.EstimatedPomos,
-			UserOverride:   e.UserOverride,
+	if len(tasks) == 0 {
+		return nil, nil
+	}
+	sort.SliceStable(tasks, func(i, j int) bool {
+		if tasks[i].Priority != tasks[j].Priority {
+			return tasks[i].Priority < tasks[j].Priority
 		}
-	}
-	return tasks
+		return tasks[i].CreatedAt.Before(tasks[j].CreatedAt)
+	})
+	row := todoToRow(tasks[0])
+	return &row, nil
 }
 
 // Model conversion helpers

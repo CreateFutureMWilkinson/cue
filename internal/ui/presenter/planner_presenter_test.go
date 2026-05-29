@@ -2,7 +2,6 @@ package presenter_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/CreateFutureMWilkinson/cue/internal/repository"
-	"github.com/CreateFutureMWilkinson/cue/internal/service/calendar"
 	"github.com/CreateFutureMWilkinson/cue/internal/service/planner"
 	"github.com/CreateFutureMWilkinson/cue/internal/ui/presenter"
 )
@@ -62,29 +60,15 @@ func (m *mockCategoryQuerier) QueryAll(ctx context.Context, withCounts bool) ([]
 	return args.Get(0).([]*repository.CategoryWithCount), args.Error(1)
 }
 
-type mockCalendarProvider struct {
-	mock.Mock
-}
-
-func (m *mockCalendarProvider) FetchEvents(ctx context.Context, date time.Time) ([]calendar.CalendarEvent, error) {
-	args := m.Called(ctx, date)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]calendar.CalendarEvent), args.Error(1)
-}
-
 type mockScheduleGenerator struct {
 	mock.Mock
 }
 
 func (m *mockScheduleGenerator) GenerateSchedules(
 	ctx context.Context,
-	tasks []planner.TaskEstimate,
-	events []calendar.CalendarEvent,
 	targetDate time.Time,
 ) (*planner.DaySchedule, *planner.DaySchedule, error) {
-	args := m.Called(ctx, tasks, events, targetDate)
+	args := m.Called(ctx, targetDate)
 	var focus, recovery *planner.DaySchedule
 	if args.Get(0) != nil {
 		focus = args.Get(0).(*planner.DaySchedule)
@@ -93,15 +77,6 @@ func (m *mockScheduleGenerator) GenerateSchedules(
 		recovery = args.Get(1).(*planner.DaySchedule)
 	}
 	return focus, recovery, args.Error(2)
-}
-
-type mockTaskEstimator struct {
-	mock.Mock
-}
-
-func (m *mockTaskEstimator) EstimateMinutes(ctx context.Context, title string, description string) (int, error) {
-	args := m.Called(ctx, title, description)
-	return args.Int(0), args.Error(1)
 }
 
 type mockScheduleRepo struct {
@@ -140,9 +115,7 @@ type PlannerPresenterSuite struct {
 	suite.Suite
 	todos      *mockTodoQuerier
 	categories *mockCategoryQuerier
-	cal        *mockCalendarProvider
 	generator  *mockScheduleGenerator
-	estimator  *mockTaskEstimator
 	schedRepo  *mockScheduleRepo
 	clock      *mockClock
 	presenter  *presenter.PlannerPresenter
@@ -156,9 +129,7 @@ func TestPlannerPresenter(t *testing.T) {
 func (s *PlannerPresenterSuite) SetupTest() {
 	s.todos = new(mockTodoQuerier)
 	s.categories = new(mockCategoryQuerier)
-	s.cal = new(mockCalendarProvider)
 	s.generator = new(mockScheduleGenerator)
-	s.estimator = new(mockTaskEstimator)
 	s.schedRepo = new(mockScheduleRepo)
 	s.clock = &mockClock{now: time.Date(2026, 3, 30, 9, 0, 0, 0, time.UTC)} // Monday 9am
 	s.ctx = context.Background()
@@ -166,9 +137,7 @@ func (s *PlannerPresenterSuite) SetupTest() {
 	p, err := presenter.NewPlannerPresenter(
 		s.todos,
 		s.categories,
-		s.cal,
 		s.generator,
-		s.estimator,
 		s.schedRepo,
 		s.clock,
 	)
@@ -179,37 +148,27 @@ func (s *PlannerPresenterSuite) SetupTest() {
 // --- 1. Constructor validation ---
 
 func (s *PlannerPresenterSuite) TestNewPlannerPresenterNilTodosReturnsError() {
-	_, err := presenter.NewPlannerPresenter(nil, s.categories, s.cal, s.generator, s.estimator, s.schedRepo, s.clock)
+	_, err := presenter.NewPlannerPresenter(nil, s.categories, s.generator, s.schedRepo, s.clock)
 	s.Error(err)
 }
 
 func (s *PlannerPresenterSuite) TestNewPlannerPresenterNilCategoriesReturnsError() {
-	_, err := presenter.NewPlannerPresenter(s.todos, nil, s.cal, s.generator, s.estimator, s.schedRepo, s.clock)
-	s.Error(err)
-}
-
-func (s *PlannerPresenterSuite) TestNewPlannerPresenterNilCalendarReturnsError() {
-	_, err := presenter.NewPlannerPresenter(s.todos, s.categories, nil, s.generator, s.estimator, s.schedRepo, s.clock)
+	_, err := presenter.NewPlannerPresenter(s.todos, nil, s.generator, s.schedRepo, s.clock)
 	s.Error(err)
 }
 
 func (s *PlannerPresenterSuite) TestNewPlannerPresenterNilGeneratorReturnsError() {
-	_, err := presenter.NewPlannerPresenter(s.todos, s.categories, s.cal, nil, s.estimator, s.schedRepo, s.clock)
-	s.Error(err)
-}
-
-func (s *PlannerPresenterSuite) TestNewPlannerPresenterNilEstimatorReturnsError() {
-	_, err := presenter.NewPlannerPresenter(s.todos, s.categories, s.cal, s.generator, nil, s.schedRepo, s.clock)
+	_, err := presenter.NewPlannerPresenter(s.todos, s.categories, nil, s.schedRepo, s.clock)
 	s.Error(err)
 }
 
 func (s *PlannerPresenterSuite) TestNewPlannerPresenterNilScheduleRepoReturnsError() {
-	_, err := presenter.NewPlannerPresenter(s.todos, s.categories, s.cal, s.generator, s.estimator, nil, s.clock)
+	_, err := presenter.NewPlannerPresenter(s.todos, s.categories, s.generator, nil, s.clock)
 	s.Error(err)
 }
 
 func (s *PlannerPresenterSuite) TestNewPlannerPresenterNilClockReturnsError() {
-	_, err := presenter.NewPlannerPresenter(s.todos, s.categories, s.cal, s.generator, s.estimator, s.schedRepo, nil)
+	_, err := presenter.NewPlannerPresenter(s.todos, s.categories, s.generator, s.schedRepo, nil)
 	s.Error(err)
 }
 
@@ -249,11 +208,14 @@ func (s *PlannerPresenterSuite) TestCurrentStepReturnsIdleInitially() {
 }
 
 // --- 4. NextStep from TaskSelect ---
+//
+// Feature 107 dropped the LLM task estimator; rows now carry a fixed
+// placeholder pomo count until WP5 deletes the StepEstimates view
+// entirely.
 
 func (s *PlannerPresenterSuite) TestNextStepFromTaskSelectGeneratesEstimates() {
 	todo := &repository.Task{ID: uuid.New(), Title: "Design API", Priority: 1, Description: "REST endpoints"}
 	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Task{todo}, 1, nil)
-	s.estimator.On("EstimateMinutes", mock.Anything, "Design API", "REST endpoints").Return(3, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -266,7 +228,7 @@ func (s *PlannerPresenterSuite) TestNextStepFromTaskSelectGeneratesEstimates() {
 
 	estimates := s.presenter.Estimates()
 	s.Require().Len(estimates, 1)
-	s.Equal(3, estimates[0].EstimatedPomos)
+	s.Equal(1, estimates[0].EstimatedPomos)
 }
 
 // --- 5. NextStep from Estimates ---
@@ -299,8 +261,7 @@ func (s *PlannerPresenterSuite) TestNextStepFromPriorityGeneratesSchedules() {
 			{Start: s.clock.now.Add(25 * time.Minute), End: s.clock.now.Add(30 * time.Minute), Type: planner.BlockShortBreak},
 		},
 	}
-	s.cal.On("FetchEvents", mock.Anything, mock.Anything).Return([]calendar.CalendarEvent{}, nil)
-	s.generator.On("GenerateSchedules", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+	s.generator.On("GenerateSchedules", mock.Anything, mock.Anything).
 		Return(focusSchedule, recoverySchedule, nil)
 
 	err := s.presenter.NextStep(s.ctx)
@@ -453,9 +414,9 @@ func (s *PlannerPresenterSuite) TestEstimatesReturnsSelectedTasksWithPomodoros()
 	estimates := s.presenter.Estimates()
 	s.Require().Len(estimates, 1)
 	s.Equal("Task A", estimates[0].Title)
-	s.Equal(2, estimates[0].EstimatedPomos)
+	s.Equal(1, estimates[0].EstimatedPomos)
 	s.Nil(estimates[0].UserOverride)
-	s.Equal(2, estimates[0].EffectivePomos)
+	s.Equal(1, estimates[0].EffectivePomos)
 }
 
 // --- 15. OverrideEstimate ---
@@ -479,27 +440,15 @@ func (s *PlannerPresenterSuite) TestEstimateSummaryCalculatesTotals() {
 	s.advanceToEstimates()
 
 	summary := s.presenter.EstimateSummary()
-	s.Equal(2, summary.TotalPomos) // Task A estimated at 2 pomos
+	s.Equal(1, summary.TotalPomos) // placeholder estimate per task (Feature 107)
 	s.Greater(summary.AvailableBlocks, 0)
 }
 
-func (s *PlannerPresenterSuite) TestEstimateSummaryDetectsOverloaded() {
-	todoID := uuid.New()
-	todo := &repository.Task{ID: todoID, Title: "Huge Task", Priority: 1}
-	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Task{todo}, 1, nil)
-	// Estimate a very high number of pomodoros
-	s.estimator.On("EstimateMinutes", mock.Anything, "Huge Task", "").Return(100, nil)
-
-	err := s.presenter.StartPlanning(s.ctx)
-	s.Require().NoError(err)
-	s.presenter.SelectTask(todoID, true)
-
-	err = s.presenter.NextStep(s.ctx)
-	s.Require().NoError(err)
-
-	summary := s.presenter.EstimateSummary()
-	s.True(summary.Overloaded)
-}
+// TestEstimateSummaryDetectsOverloaded was removed in Feature 107: with
+// the LLM task estimator gone, every selected task contributes a fixed
+// placeholder pomo count, so overload can no longer be triggered from a
+// realistic test fixture. The capability lives on the repository.Task
+// shape and will be reasserted in WP5 when StepEstimates is replaced.
 
 // --- 17. ReorderTask ---
 
@@ -507,7 +456,6 @@ func (s *PlannerPresenterSuite) TestReorderTaskMovesTaskPosition() {
 	todoA := &repository.Task{ID: uuid.New(), Title: "Task A", Priority: 1}
 	todoB := &repository.Task{ID: uuid.New(), Title: "Task B", Priority: 2}
 	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Task{todoA, todoB}, 2, nil)
-	s.estimator.On("EstimateMinutes", mock.Anything, mock.Anything, mock.Anything).Return(1, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -651,7 +599,6 @@ func (s *PlannerPresenterSuite) TestEstimationFailureFallsBackToOnePomo() {
 	todoID := uuid.New()
 	todo := &repository.Task{ID: todoID, Title: "Failing Task", Priority: 1}
 	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Task{todo}, 1, nil)
-	s.estimator.On("EstimateMinutes", mock.Anything, "Failing Task", "").Return(0, errors.New("ollama down"))
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -672,7 +619,6 @@ func (s *PlannerPresenterSuite) advanceToEstimates() {
 	todoID := uuid.New()
 	todo := &repository.Task{ID: todoID, Title: "Task A", Priority: 1}
 	s.todos.On("QueryFiltered", mock.Anything, mock.Anything).Return([]*repository.Task{todo}, 1, nil)
-	s.estimator.On("EstimateMinutes", mock.Anything, "Task A", "").Return(2, nil)
 
 	err := s.presenter.StartPlanning(s.ctx)
 	s.Require().NoError(err)
@@ -710,8 +656,7 @@ func (s *PlannerPresenterSuite) advanceToSchedule() {
 			{Start: s.clock.now.Add(25 * time.Minute), End: s.clock.now.Add(30 * time.Minute), Type: planner.BlockShortBreak},
 		},
 	}
-	s.cal.On("FetchEvents", mock.Anything, mock.Anything).Return([]calendar.CalendarEvent{}, nil)
-	s.generator.On("GenerateSchedules", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+	s.generator.On("GenerateSchedules", mock.Anything, mock.Anything).
 		Return(focusSchedule, recoverySchedule, nil)
 
 	err := s.presenter.NextStep(s.ctx)
@@ -758,7 +703,6 @@ func (s *PlannerPresenterSuite) TestSetOnStepChangeFiresOnNextStep() {
 
 	todoID := s.presenter.AvailableTasks()[0].ID
 	s.presenter.SelectTask(todoID, true)
-	s.estimator.On("EstimateMinutes", mock.Anything, mock.Anything, mock.Anything).Return(2, nil)
 
 	err := s.presenter.NextStep(s.ctx)
 	s.Require().NoError(err)
@@ -865,8 +809,7 @@ func (s *PlannerPresenterSuite) advanceToPriorityWithCalendarFailure() {
 		},
 	}
 	// Calendar fails but schedule generation proceeds with empty events
-	s.cal.On("FetchEvents", mock.Anything, mock.Anything).Return(nil, errors.New("calendar unavailable"))
-	s.generator.On("GenerateSchedules", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+	s.generator.On("GenerateSchedules", mock.Anything, mock.Anything).
 		Return(focusSchedule, recoverySchedule, nil)
 
 	err := s.presenter.NextStep(s.ctx)
@@ -896,4 +839,49 @@ func (s *PlannerPresenterSuite) TestSelectedCountReturnsCountOfSelectedTasks() {
 	s.presenter.SelectTask(id3, true)
 
 	s.Equal(2, s.presenter.SelectedCount())
+}
+
+// --- CurrentFocusTask (Feature 107) ---
+
+func (s *PlannerPresenterSuite) TestCurrentFocusTaskReturnsHighestPriorityIncomplete() {
+	older := time.Date(2026, 4, 1, 9, 0, 0, 0, time.UTC)
+	newer := time.Date(2026, 4, 5, 9, 0, 0, 0, time.UTC)
+	tasks := []*repository.Task{
+		{ID: uuid.New(), Title: "Mid prio", Priority: 2, CreatedAt: older},
+		{ID: uuid.New(), Title: "Top prio", Priority: 1, CreatedAt: newer},
+		{ID: uuid.New(), Title: "Low prio", Priority: 3, CreatedAt: older},
+	}
+	s.todos.On("QueryFiltered", mock.Anything, repository.TaskFilter{Status: "incomplete"}).
+		Return(tasks, len(tasks), nil)
+
+	row, err := s.presenter.CurrentFocusTask(s.ctx)
+	s.Require().NoError(err)
+	s.Require().NotNil(row)
+	s.Equal("Top prio", row.Title)
+	s.Equal(1, row.Priority)
+}
+
+func (s *PlannerPresenterSuite) TestCurrentFocusTaskReturnsNilWhenNoTasks() {
+	s.todos.On("QueryFiltered", mock.Anything, repository.TaskFilter{Status: "incomplete"}).
+		Return([]*repository.Task{}, 0, nil)
+
+	row, err := s.presenter.CurrentFocusTask(s.ctx)
+	s.Require().NoError(err)
+	s.Nil(row)
+}
+
+func (s *PlannerPresenterSuite) TestCurrentFocusTaskBreaksPriorityTiesByCreatedAt() {
+	first := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	second := first.Add(24 * time.Hour)
+	tasks := []*repository.Task{
+		{ID: uuid.New(), Title: "Newer", Priority: 1, CreatedAt: second},
+		{ID: uuid.New(), Title: "Older", Priority: 1, CreatedAt: first},
+	}
+	s.todos.On("QueryFiltered", mock.Anything, repository.TaskFilter{Status: "incomplete"}).
+		Return(tasks, len(tasks), nil)
+
+	row, err := s.presenter.CurrentFocusTask(s.ctx)
+	s.Require().NoError(err)
+	s.Require().NotNil(row)
+	s.Equal("Older", row.Title, "earliest CreatedAt wins on a priority tie")
 }

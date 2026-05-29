@@ -14,12 +14,12 @@ import (
 // ServiceConfigAdapter satisfies repository.ServiceConfigRepository AND
 // presenter.WatcherRemover on top of client.ServiceConfigClient.
 //
-// The wire DTOs do not carry secrets (slack token / email password)
-// nor cross-account fields like FriendlyName/WebURL/PollInterval.
-// Reads return zero values for those fields; writes pass them through
-// to the create/update endpoints. The presenter that consumes this
-// adapter only needs the wire-exposed fields plus credentials it
-// supplies on Upsert.
+// Wire DTOs carry the full set of non-secret account fields, including
+// FriendlyName/Name, WebURL, PollIntervalSeconds, and the Slack Username
+// handle. Secrets (Slack bot token / Email password) remain write-only:
+// they are accepted on Upsert request bodies and never echoed back on
+// reads. The presenter consuming this adapter sees zero values for
+// those secret fields and supplies fresh values on Upsert when needed.
 type ServiceConfigAdapter struct {
 	client client.ServiceConfigClient
 }
@@ -59,10 +59,13 @@ func (a *ServiceConfigAdapter) UpsertSlackAccount(ctx context.Context, acct *rep
 		return fmt.Errorf("service config adapter: cannot upsert nil slack account")
 	}
 	req := client.CreateSlackAccountRequest{
-		Name:        acct.FriendlyName,
-		BotToken:    acct.Token,
-		WorkspaceID: acct.WorkspaceID,
-		Enabled:     acct.Enabled,
+		Name:                acct.FriendlyName,
+		BotToken:            acct.Token,
+		WorkspaceID:         acct.WorkspaceID,
+		Username:            acct.Username,
+		WebURL:              acct.WebURL,
+		PollIntervalSeconds: acct.PollIntervalSeconds,
+		Enabled:             acct.Enabled,
 	}
 	if acct.ID == uuid.Nil {
 		dto, err := a.client.CreateSlackAccount(ctx, req)
@@ -115,13 +118,15 @@ func (a *ServiceConfigAdapter) UpsertEmailAccount(ctx context.Context, acct *rep
 		return fmt.Errorf("service config adapter: cannot upsert nil email account")
 	}
 	req := client.CreateEmailAccountRequest{
-		Name:       acct.FriendlyName,
-		IMAPHost:   acct.IMAPHost,
-		IMAPPort:   acct.IMAPPort,
-		Username:   acct.Username,
-		Password:   acct.Password,
-		Encryption: acct.Encryption,
-		Enabled:    acct.Enabled,
+		Name:                acct.FriendlyName,
+		IMAPHost:            acct.IMAPHost,
+		IMAPPort:            acct.IMAPPort,
+		Username:            acct.Username,
+		Password:            acct.Password,
+		Encryption:          acct.Encryption,
+		WebURL:              acct.WebURL,
+		PollIntervalSeconds: acct.PollIntervalSeconds,
+		Enabled:             acct.Enabled,
 	}
 	if acct.ID == uuid.Nil {
 		dto, err := a.client.CreateEmailAccount(ctx, req)
@@ -174,9 +179,10 @@ func (a *ServiceConfigAdapter) UpsertCalendarAccount(ctx context.Context, acct *
 		return fmt.Errorf("service config adapter: cannot upsert nil calendar account")
 	}
 	req := client.CreateCalendarAccountRequest{
-		Name:    acct.Name,
-		ICSURL:  acct.ICSURL,
-		Enabled: acct.Enabled,
+		Name:                acct.Name,
+		ICSURL:              acct.ICSURL,
+		PollIntervalSeconds: acct.PollIntervalSeconds,
+		Enabled:             acct.Enabled,
 	}
 	if acct.ID == uuid.Nil {
 		dto, err := a.client.CreateCalendarAccount(ctx, req)
@@ -231,34 +237,40 @@ func (a *ServiceConfigAdapter) SetCalendarEnabled(ctx context.Context, id uuid.U
 
 func slackDTOToRepo(d client.SlackAccount) *repository.SlackAccount {
 	return &repository.SlackAccount{
-		ID:           d.ID,
-		Enabled:      d.Enabled,
-		WorkspaceID:  d.WorkspaceID,
-		FriendlyName: d.Name,
-		CreatedAt:    parseRFC3339OrZero(d.CreatedAt),
+		ID:                  d.ID,
+		Enabled:             d.Enabled,
+		WorkspaceID:         d.WorkspaceID,
+		Username:            d.Username,
+		FriendlyName:        d.Name,
+		WebURL:              d.WebURL,
+		PollIntervalSeconds: d.PollIntervalSeconds,
+		CreatedAt:           parseRFC3339OrZero(d.CreatedAt),
 	}
 }
 
 func emailDTOToRepo(d client.EmailAccount) *repository.EmailAccount {
 	return &repository.EmailAccount{
-		ID:           d.ID,
-		Enabled:      d.Enabled,
-		IMAPHost:     d.IMAPHost,
-		IMAPPort:     d.IMAPPort,
-		Username:     d.Username,
-		Encryption:   d.Encryption,
-		FriendlyName: d.Name,
-		CreatedAt:    parseRFC3339OrZero(d.CreatedAt),
+		ID:                  d.ID,
+		Enabled:             d.Enabled,
+		IMAPHost:            d.IMAPHost,
+		IMAPPort:            d.IMAPPort,
+		Username:            d.Username,
+		Encryption:          d.Encryption,
+		FriendlyName:        d.Name,
+		WebURL:              d.WebURL,
+		PollIntervalSeconds: d.PollIntervalSeconds,
+		CreatedAt:           parseRFC3339OrZero(d.CreatedAt),
 	}
 }
 
 func calendarDTOToRepo(d client.CalendarAccount) *repository.CalendarAccount {
 	return &repository.CalendarAccount{
-		ID:        d.ID,
-		Enabled:   d.Enabled,
-		Name:      d.Name,
-		ICSURL:    d.ICSURL,
-		CreatedAt: parseRFC3339OrZero(d.CreatedAt),
+		ID:                  d.ID,
+		Enabled:             d.Enabled,
+		Name:                d.Name,
+		ICSURL:              d.ICSURL,
+		PollIntervalSeconds: d.PollIntervalSeconds,
+		CreatedAt:           parseRFC3339OrZero(d.CreatedAt),
 	}
 }
 

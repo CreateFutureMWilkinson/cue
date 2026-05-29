@@ -199,6 +199,23 @@ func (s *EmailWatcherSuite) TestPoll_RawContentIncludesSubjectAndBody() {
 	s.Contains(msgs[0].RawContent, "The production server is unresponsive.")
 }
 
+// --- Poll: Subject field surfaced separately from RawContent ---
+
+func (s *EmailWatcherSuite) TestPoll_SubjectFieldPopulated() {
+	api := &mockEmailAPI{
+		messages: []watcher.EmailMessage{
+			{UID: 1, From: "alice@example.com", Subject: "Urgent: Server Down", Folder: "INBOX", Body: "The production server is unresponsive.", To: []string{"user@example.com"}},
+		},
+	}
+
+	w := s.mustNewWatcher(api, "user@example.com")
+	msgs, err := w.Poll(context.Background())
+	s.NoError(err)
+	s.Require().Len(msgs, 1)
+	s.Equal("Urgent: Server Down", msgs[0].Subject,
+		"watcher must populate msg.Subject from email.Subject for UI preview")
+}
+
 // --- Poll: tracks last UID to avoid reprocessing ---
 
 func (s *EmailWatcherSuite) TestPoll_TracksLastUIDToAvoidReprocessing() {

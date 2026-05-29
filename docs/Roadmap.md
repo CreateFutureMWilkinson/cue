@@ -170,25 +170,26 @@ Replaces the batch-score-everything approach with a two-stage pipeline: configur
 
 Server binary exposing REST + WebSocket APIs, then re-wire the Fyne GUI as a thin client connecting to the server. See [Phase-9 Overview](features/phase-9/Phase-9-Overview.md).
 
-| #    | Component                                | Type           | Status   | Depends on | Doc                                                                         |
-| ---- | ---------------------------------------- | -------------- | -------- | ---------- | --------------------------------------------------------------------------- |
-| 096  | Server protocol selection (ADR)          | ADR            | Done     | —          | [Feature-096](features/phase-9/Feature-096-Server-Protocol-Selection.md)    |
-| 097  | Server infrastructure + composition root | Infrastructure | Done     | 096        | [Feature-097](features/phase-9/Feature-097-Server-Infrastructure.md)        |
-| 098  | Message & notification API               | REST           | Done     | 097        | [Feature-098](features/phase-9/Feature-098-Message-Notification-API.md)     |
-| 099  | Activity event stream                    | WebSocket      | Done     | 097        | [Feature-099](features/phase-9/Feature-099-Activity-Event-Stream.md)        |
-| 099A | Server orchestrator wiring               | Refactor       | Done     | 097, 099   | [Feature-099A](features/phase-9/Feature-099A-Server-Orchestrator-Wiring.md) |
-| 100  | Feedback buffer API                      | REST           | Done     | 097        | [Feature-100](features/phase-9/Feature-100-Feedback-Buffer-API.md)          |
-| 101A | Todo CRUD API                            | REST           | Done     | 097        | [Feature-101A](features/phase-9/Feature-101A-Todo-CRUD-API.md)              |
-| 101  | Day planner API                          | REST + State   | Done     | 097, 101A  | [Feature-101](features/phase-9/Feature-101-Day-Planner-API.md)              |
-| 102  | Service configuration API                | REST           | Done     | 097        | [Feature-102](features/phase-9/Feature-102-Service-Configuration-API.md)    |
-| 103  | Routing rules API                        | REST           | Done     | 097        | [Feature-103](features/phase-9/Feature-103-Routing-Rules-API.md)            |
-| 104  | Timer API                                | REST + WS      | Done     | 097, 099   | [Feature-104](features/phase-9/Feature-104-Timer-API.md)                    |
-| 105  | ~~Settings API~~                         | REST           | Removed  | 097        | Redundant — per-account poll intervals covered by Feature 102               |
-| 108  | TOFU pairing authentication              | Auth           | Done     | 097, 099   | [Feature-108](features/phase-9/Feature-108-TOFU-Pairing.md)                 |
-| 106  | API client SDK                           | Client         | Done     | 096-104, 108 | [Feature-106](features/phase-9/Feature-106-API-Client-SDK.md)             |
-| 106A | API documentation                        | Client Docs    | Planning | 097-104, 108 | [Feature-106A](features/phase-9/Feature-106A-API-Documentation.md)        |
-| 109  | Todo domain restructure                  | Refactor       | Done     | 101A, 102, 106 | [Feature-109](features/phase-9/Feature-109-Todo-Domain-Restructure.md)   |
-| 110  | TOFU client bootstrap                    | Auth Library   | Done     | 106, 108         | [Feature-110](features/phase-9/Feature-110-TOFU-Client-Bootstrap.md)     |
-| 107  | Fyne client re-wire                      | Client         | Planning | 106, 108, 109, 110 | [Feature-107](features/phase-9/Feature-107-Fyne-Client-Rewire.md)    |
-| 111  | Sidecar supervisor                       | Process Mgmt   | Planning | 107, 110         | [Feature-111](features/phase-9/Feature-111-Sidecar-Supervisor.md)        |
-| 112  | UI single-instance lock                  | Process Mgmt   | Planning | 107              | [Feature-112](features/phase-9/Feature-112-UI-Single-Instance-Lock.md)   |
+| #    | Component                                | Type           | Status   | Depends on         | Doc                                                                         |
+| ---- | ---------------------------------------- | -------------- | -------- | ------------------ | --------------------------------------------------------------------------- |
+| 096  | Server protocol selection (ADR)          | ADR            | Done     | —                  | [Feature-096](features/phase-9/Feature-096-Server-Protocol-Selection.md)    |
+| 097  | Server infrastructure + composition root | Infrastructure | Done     | 096                | [Feature-097](features/phase-9/Feature-097-Server-Infrastructure.md)        |
+| 098  | Message & notification API               | REST           | Done     | 097                | [Feature-098](features/phase-9/Feature-098-Message-Notification-API.md)     |
+| 099  | Activity event stream                    | WebSocket      | Done     | 097                | [Feature-099](features/phase-9/Feature-099-Activity-Event-Stream.md)        |
+| 099A | Server orchestrator wiring               | Refactor       | Done     | 097, 099           | [Feature-099A](features/phase-9/Feature-099A-Server-Orchestrator-Wiring.md) |
+| 100  | Feedback buffer API                      | REST           | Done     | 097                | [Feature-100](features/phase-9/Feature-100-Feedback-Buffer-API.md)          |
+| 101A | Todo CRUD API                            | REST           | Done     | 097                | [Feature-101A](features/phase-9/Feature-101A-Todo-CRUD-API.md)              |
+| 101  | Day planner API                          | REST + State   | Done     | 097, 101A          | [Feature-101](features/phase-9/Feature-101-Day-Planner-API.md)              |
+| 102  | Service configuration API                | REST           | Done     | 097                | [Feature-102](features/phase-9/Feature-102-Service-Configuration-API.md)    |
+| 103  | Routing rules API                        | REST           | Done     | 097                | [Feature-103](features/phase-9/Feature-103-Routing-Rules-API.md)            |
+| 104  | Timer API                                | REST + WS      | Done     | 097, 099           | [Feature-104](features/phase-9/Feature-104-Timer-API.md)                    |
+| 105  | ~~Settings API~~                         | REST           | Removed  | 097                | Redundant — per-account poll intervals covered by Feature 102               |
+| 108  | TOFU pairing authentication              | Auth           | Done     | 097, 099           | [Feature-108](features/phase-9/Feature-108-TOFU-Pairing.md)                 |
+| 106  | API client SDK                           | Client         | Done     | 096-104, 108       | [Feature-106](features/phase-9/Feature-106-API-Client-SDK.md)               |
+| 106A | API documentation                        | Client Docs    | Planning | 097-104, 108       | [Feature-106A](features/phase-9/Feature-106A-API-Documentation.md)          |
+| 109  | Todo domain restructure                  | Refactor       | Done     | 101A, 102, 106     | [Feature-109](features/phase-9/Feature-109-Todo-Domain-Restructure.md)      |
+| 110  | TOFU client bootstrap                    | Auth Library   | Done     | 106, 108           | [Feature-110](features/phase-9/Feature-110-TOFU-Client-Bootstrap.md)        |
+| 107  | Fyne client re-wire                      | Client         | Planning | 106, 108, 109, 110 | [Feature-107](features/phase-9/Feature-107-Fyne-Client-Rewire.md)           |
+| 111  | Sidecar supervisor                       | Process Mgmt   | Planning | 107, 110           | [Feature-111](features/phase-9/Feature-111-Sidecar-Supervisor.md)           |
+| 112  | UI single-instance lock                  | Process Mgmt   | Planning | 107                | [Feature-112](features/phase-9/Feature-112-UI-Single-Instance-Lock.md)      |
+| 113  | Client layer simplification              | Refactor       | Planning | 107                | [Feature-113](features/phase-9/Feature-113-Client-Layer-Simplification.md)  |

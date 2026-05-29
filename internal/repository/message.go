@@ -17,7 +17,9 @@ type Message struct {
 	MessageID       string // Source-native message ID
 	MessageType     string // "message", "channel_join", etc.
 	SourceCursor    string // Source-native cursor (Slack ts, IMAP UID)
+	Subject         string // Email subject; empty for non-email sources
 	RawContent      string
+	WebURL          string  // Account-level deep link (workspace/inbox URL)
 	ImportanceScore float64 // 0–10
 	ConfidenceScore float64 // 0.0–1.0
 	Status          string  // "Pending", "Notified", "Buffered", "Ignored", "Resolved"

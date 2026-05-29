@@ -4,6 +4,7 @@ package ui_acceptance_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -191,6 +192,81 @@ func (s *NotificationAcceptanceSuite) TestCollapseRestoresReviewButtonHidden() {
 
 	s.False(mw.FocusRail().ReviewButton().Visible(),
 		"Review button should be hidden after collapsing notifications")
+}
+
+// AC: Email notification card preview shows the subject only, not the body.
+// The notifications pane should surface "subject line, sender and receiving account" for email.
+func (s *NotificationAcceptanceSuite) TestEmailCardPreviewShowsSubjectOnly() {
+	msgs := []*repository.Message{
+		{
+			ID:              uuid.New(),
+			Source:          "email",
+			SourceAccount:   "user@example.com",
+			Sender:          "boss@example.com",
+			Channel:         "inbox",
+			Subject:         "Q4 review deadline",
+			RawContent:      "Hi team, just a reminder about the deadline on Friday. Please send your sections by end of day Thursday. Thanks!",
+			ImportanceScore: 8.0,
+			ConfidenceScore: 0.9,
+			Status:          "Notified",
+			CreatedAt:       time.Now().Add(-3 * time.Minute),
+		},
+	}
+	panel, _ := s.newPanel(msgs)
+
+	rendered := panel.RenderCard(0)
+	s.Require().NotNil(rendered)
+
+	// The preview label should contain the subject and NOT the body content.
+	previewLabel, found := uitest.FindWidget[*widget.Label](rendered, func(l *widget.Label) bool {
+		return l.Text == "Q4 review deadline"
+	})
+	s.True(found, "email card preview should show the subject")
+	if found {
+		s.Equal("Q4 review deadline", previewLabel.Text)
+	}
+
+	// The body content must not appear in the collapsed card preview.
+	_, bodyFound := uitest.FindWidget[*widget.Label](rendered, func(l *widget.Label) bool {
+		return strings.Contains(l.Text, "reminder about the deadline")
+	})
+	s.False(bodyFound, "email card preview must not include the body content")
+}
+
+// AC: Clicking a notification card invokes the click callback with the card's WebURL.
+// The presenter must propagate msg.WebURL → card.WebURL → SetOnNotificationClick(url).
+func (s *NotificationAcceptanceSuite) TestClickOnNotificationPassesWebURL() {
+	const wantURL = "https://acme.slack.com/archives/C123"
+	msgs := []*repository.Message{
+		{
+			ID:              uuid.New(),
+			Source:          "slack",
+			SourceAccount:   "T123",
+			Sender:          "alice",
+			Channel:         "general",
+			RawContent:      "ping",
+			WebURL:          wantURL,
+			ImportanceScore: 9.0,
+			ConfidenceScore: 0.95,
+			Status:          "Notified",
+			CreatedAt:       time.Now().Add(-1 * time.Minute),
+		},
+	}
+	panel, _ := s.newPanel(msgs)
+
+	var gotURL string
+	var fired bool
+	panel.SetOnNotificationClick(func(url string) {
+		fired = true
+		gotURL = url
+	})
+
+	root := panel.Container()
+	list := uitest.RequireWidget[*widget.List](s.T(), root, func(_ *widget.List) bool { return true })
+	list.Select(0)
+
+	s.True(fired, "click callback must fire on selection")
+	s.Equal(wantURL, gotURL, "callback must receive the card's WebURL")
 }
 
 // AC: Multiple notifications at different IS levels produce correct list count.
